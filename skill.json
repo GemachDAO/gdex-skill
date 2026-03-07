@@ -1,0 +1,438 @@
+{
+  "name": "@gdexsdk/gdex-skill",
+  "version": "1.0.0",
+  "description": "Cross-chain DeFi trading skill for AI agents — spot trading, perpetual futures, portfolio management, and token discovery on Solana, Sui, and 12+ EVM chains.",
+  "homepage": "https://github.com/GemachDAO/gdex-skill",
+  "icon": "https://gdex.pro/favicon.ico",
+  "categories": ["finance", "trading", "defi", "crypto"],
+  "tags": ["solana", "ethereum", "defi", "trading", "hyperliquid", "cross-chain", "portfolio"],
+  "auth": {
+    "type": "api_key",
+    "description": "Use one of the pre-configured shared API keys available via GDEX_API_KEYS.",
+    "in": "header",
+    "name": "Authorization",
+    "format": "Bearer {api_key}"
+  },
+  "base_url": "https://trade-api.gemach.io/v1",
+  "actions": [
+    {
+      "name": "buy_token",
+      "description": "Buy a token on any supported chain (Solana, Sui, Ethereum, Base, Arbitrum, BSC, and more) using the best available DEX route.",
+      "parameters": {
+        "type": "object",
+        "required": ["chain", "tokenAddress", "amount"],
+        "properties": {
+          "chain": {
+            "type": ["string", "number"],
+            "description": "Blockchain chain. Use 'solana', 'sui', or a ChainId number (e.g. 1=Ethereum, 8453=Base, 42161=Arbitrum, 56=BSC)."
+          },
+          "tokenAddress": {
+            "type": "string",
+            "description": "Contract address of the token to buy."
+          },
+          "amount": {
+            "type": "string",
+            "description": "Amount of the input (native) token to spend. E.g. '0.1' for 0.1 SOL."
+          },
+          "slippage": {
+            "type": "number",
+            "description": "Maximum slippage tolerance in percent. Default: 1.",
+            "default": 1
+          },
+          "dex": {
+            "type": "string",
+            "description": "Preferred DEX to use. If omitted, best route is selected automatically.",
+            "enum": ["raydium", "raydium-v2", "orca", "uniswap-v2", "uniswap-v3", "cetus", "bluefin", "odos", "arcadia", "pancakeswap"]
+          },
+          "walletAddress": {
+            "type": "string",
+            "description": "Wallet address to execute the trade from."
+          }
+        }
+      }
+    },
+    {
+      "name": "sell_token",
+      "description": "Sell a token on any supported chain. Amount can be absolute (e.g. '100') or a percentage of holdings (e.g. '50%').",
+      "parameters": {
+        "type": "object",
+        "required": ["chain", "tokenAddress", "amount"],
+        "properties": {
+          "chain": {
+            "type": ["string", "number"],
+            "description": "Blockchain chain identifier."
+          },
+          "tokenAddress": {
+            "type": "string",
+            "description": "Contract address of the token to sell."
+          },
+          "amount": {
+            "type": "string",
+            "description": "Amount to sell. Can be an absolute number (e.g. '100') or a percentage like '50%'."
+          },
+          "slippage": {
+            "type": "number",
+            "description": "Maximum slippage tolerance in percent. Default: 1.",
+            "default": 1
+          },
+          "walletAddress": {
+            "type": "string",
+            "description": "Wallet address to execute the trade from."
+          }
+        }
+      }
+    },
+    {
+      "name": "open_perp_position",
+      "description": "Open a perpetual futures position on HyperLiquid. Supports long and short with configurable leverage, take-profit, and stop-loss.",
+      "parameters": {
+        "type": "object",
+        "required": ["coin", "side", "sizeUsd"],
+        "properties": {
+          "coin": {
+            "type": "string",
+            "description": "Asset symbol to trade, e.g. 'BTC', 'ETH', 'SOL'."
+          },
+          "side": {
+            "type": "string",
+            "enum": ["long", "short"],
+            "description": "Position direction."
+          },
+          "sizeUsd": {
+            "type": "string",
+            "description": "Position collateral in USD notional, e.g. '1000'."
+          },
+          "leverage": {
+            "type": "number",
+            "description": "Leverage multiplier (1–50). Default: 5.",
+            "default": 5
+          },
+          "takeProfitPrice": {
+            "type": "string",
+            "description": "Take-profit price in USD (optional)."
+          },
+          "stopLossPrice": {
+            "type": "string",
+            "description": "Stop-loss price in USD (optional)."
+          },
+          "marginMode": {
+            "type": "string",
+            "enum": ["cross", "isolated"],
+            "description": "Margin mode. Default: 'cross'.",
+            "default": "cross"
+          }
+        }
+      }
+    },
+    {
+      "name": "close_perp_position",
+      "description": "Close an open perpetual position on HyperLiquid, fully or partially.",
+      "parameters": {
+        "type": "object",
+        "required": ["coin"],
+        "properties": {
+          "coin": {
+            "type": "string",
+            "description": "Asset symbol, e.g. 'BTC'."
+          },
+          "closePercent": {
+            "type": "number",
+            "description": "Percentage of position to close (1–100). Default: 100.",
+            "default": 100
+          }
+        }
+      }
+    },
+    {
+      "name": "get_perp_positions",
+      "description": "Retrieve all open perpetual positions for a wallet on HyperLiquid.",
+      "parameters": {
+        "type": "object",
+        "required": ["walletAddress"],
+        "properties": {
+          "walletAddress": {
+            "type": "string",
+            "description": "Wallet address to query."
+          },
+          "coin": {
+            "type": "string",
+            "description": "Optional filter to a specific asset, e.g. 'BTC'."
+          }
+        }
+      }
+    },
+    {
+      "name": "set_perp_leverage",
+      "description": "Set the leverage for a perpetual asset on HyperLiquid.",
+      "parameters": {
+        "type": "object",
+        "required": ["coin", "leverage"],
+        "properties": {
+          "coin": { "type": "string", "description": "Asset symbol." },
+          "leverage": { "type": "number", "description": "Leverage (1–100)." },
+          "marginMode": { "type": "string", "enum": ["cross", "isolated"], "default": "cross" }
+        }
+      }
+    },
+    {
+      "name": "perp_deposit",
+      "description": "Deposit USDC into the HyperLiquid perpetual account.",
+      "parameters": {
+        "type": "object",
+        "required": ["amount"],
+        "properties": {
+          "amount": { "type": "string", "description": "USDC amount to deposit, e.g. '100'." },
+          "walletAddress": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "perp_withdraw",
+      "description": "Withdraw USDC from the HyperLiquid perpetual account.",
+      "parameters": {
+        "type": "object",
+        "required": ["amount"],
+        "properties": {
+          "amount": { "type": "string", "description": "USDC amount to withdraw, e.g. '100'." },
+          "walletAddress": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "create_limit_order",
+      "description": "Create a limit order to buy or sell a token at a target price.",
+      "parameters": {
+        "type": "object",
+        "required": ["chain", "side", "inputToken", "outputToken", "inputAmount", "limitPrice"],
+        "properties": {
+          "chain": { "type": ["string", "number"] },
+          "side": { "type": "string", "enum": ["buy", "sell"] },
+          "inputToken": { "type": "string", "description": "Input token address." },
+          "outputToken": { "type": "string", "description": "Output token address." },
+          "inputAmount": { "type": "string", "description": "Amount of input token." },
+          "limitPrice": { "type": "string", "description": "Target price (output per input)." },
+          "slippage": { "type": "number", "default": 1 },
+          "expireIn": { "type": "number", "description": "Expiry in seconds from now." }
+        }
+      }
+    },
+    {
+      "name": "cancel_limit_order",
+      "description": "Cancel an existing limit order.",
+      "parameters": {
+        "type": "object",
+        "required": ["orderId", "chain"],
+        "properties": {
+          "orderId": { "type": "string" },
+          "chain": { "type": ["string", "number"] }
+        }
+      }
+    },
+    {
+      "name": "get_limit_orders",
+      "description": "Retrieve limit orders for a wallet.",
+      "parameters": {
+        "type": "object",
+        "required": ["walletAddress"],
+        "properties": {
+          "walletAddress": { "type": "string" },
+          "chain": { "type": ["string", "number"] },
+          "status": { "type": "string", "enum": ["open", "filled", "cancelled", "expired", "partially_filled"] },
+          "page": { "type": "number", "default": 1 },
+          "limit": { "type": "number", "default": 20 }
+        }
+      }
+    },
+    {
+      "name": "get_portfolio",
+      "description": "Fetch the full cross-chain portfolio for a wallet — all token balances with USD values.",
+      "parameters": {
+        "type": "object",
+        "required": ["walletAddress"],
+        "properties": {
+          "walletAddress": { "type": "string" },
+          "chain": { "type": ["string", "number"], "description": "Optional chain filter." }
+        }
+      }
+    },
+    {
+      "name": "get_balances",
+      "description": "Get token balances for a wallet on a specific chain.",
+      "parameters": {
+        "type": "object",
+        "required": ["walletAddress", "chain"],
+        "properties": {
+          "walletAddress": { "type": "string" },
+          "chain": { "type": ["string", "number"] },
+          "tokenAddress": { "type": "string", "description": "Optional token filter." }
+        }
+      }
+    },
+    {
+      "name": "get_trade_history",
+      "description": "Get historical trades for a wallet.",
+      "parameters": {
+        "type": "object",
+        "required": ["walletAddress"],
+        "properties": {
+          "walletAddress": { "type": "string" },
+          "chain": { "type": ["string", "number"] },
+          "page": { "type": "number", "default": 1 },
+          "limit": { "type": "number", "default": 20 },
+          "startTime": { "type": "number", "description": "Unix timestamp." },
+          "endTime": { "type": "number", "description": "Unix timestamp." }
+        }
+      }
+    },
+    {
+      "name": "get_token_details",
+      "description": "Get detailed information about a token: price, market cap, liquidity, DEX pools, social links. No authentication required.",
+      "parameters": {
+        "type": "object",
+        "required": ["tokenAddress", "chain"],
+        "properties": {
+          "tokenAddress": { "type": "string" },
+          "chain": { "type": ["string", "number"] }
+        }
+      }
+    },
+    {
+      "name": "get_trending_tokens",
+      "description": "Get trending tokens sorted by volume and price change. No authentication required.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chain": { "type": ["string", "number"] },
+          "period": { "type": "string", "enum": ["1h", "6h", "24h", "7d"], "default": "24h" },
+          "limit": { "type": "number", "default": 20 },
+          "minLiquidity": { "type": "number" },
+          "minVolume": { "type": "number" }
+        }
+      }
+    },
+    {
+      "name": "get_ohlcv",
+      "description": "Get OHLCV candlestick data for a token. No authentication required.",
+      "parameters": {
+        "type": "object",
+        "required": ["tokenAddress", "chain", "resolution"],
+        "properties": {
+          "tokenAddress": { "type": "string" },
+          "chain": { "type": ["string", "number"] },
+          "resolution": { "type": "string", "enum": ["1", "5", "15", "30", "60", "240", "D", "W"] },
+          "from": { "type": "number", "description": "Start Unix timestamp." },
+          "to": { "type": "number", "description": "End Unix timestamp." },
+          "limit": { "type": "number" }
+        }
+      }
+    },
+    {
+      "name": "get_top_traders",
+      "description": "Get the top performing trader wallets ranked by P&L.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chain": { "type": ["string", "number"] },
+          "period": { "type": "string", "enum": ["1d", "7d", "30d", "all"], "default": "7d" },
+          "limit": { "type": "number", "default": 10 },
+          "sortBy": { "type": "string", "enum": ["pnl", "winRate", "volume", "tradeCount"], "default": "pnl" }
+        }
+      }
+    },
+    {
+      "name": "bridge",
+      "description": "Bridge tokens from one blockchain to another.",
+      "parameters": {
+        "type": "object",
+        "required": ["fromChain", "toChain", "tokenAddress", "amount"],
+        "properties": {
+          "fromChain": { "type": ["string", "number"] },
+          "toChain": { "type": ["string", "number"] },
+          "tokenAddress": { "type": "string" },
+          "amount": { "type": "string" },
+          "destinationAddress": { "type": "string" },
+          "slippage": { "type": "number", "default": 0.5 }
+        }
+      }
+    },
+    {
+      "name": "get_bridge_quote",
+      "description": "Get a cross-chain bridge quote without executing a transaction.",
+      "parameters": {
+        "type": "object",
+        "required": ["fromChain", "toChain", "tokenAddress", "amount"],
+        "properties": {
+          "fromChain": { "type": ["string", "number"] },
+          "toChain": { "type": ["string", "number"] },
+          "tokenAddress": { "type": "string" },
+          "amount": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "get_wallet_info",
+      "description": "Get wallet information including native token balance.",
+      "parameters": {
+        "type": "object",
+        "required": ["walletAddress", "chain"],
+        "properties": {
+          "walletAddress": { "type": "string" },
+          "chain": { "type": ["string", "number"] }
+        }
+      }
+    },
+    {
+      "name": "add_copy_trade_wallet",
+      "description": "Add a wallet to copy trade tracking.",
+      "parameters": {
+        "type": "object",
+        "required": ["walletAddress", "chain"],
+        "properties": {
+          "walletAddress": { "type": "string", "description": "Wallet address to track." },
+          "chain": { "type": ["string", "number"] },
+          "label": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "remove_copy_trade_wallet",
+      "description": "Remove a wallet from copy trade tracking.",
+      "parameters": {
+        "type": "object",
+        "required": ["walletAddress", "chain"],
+        "properties": {
+          "walletAddress": { "type": "string" },
+          "chain": { "type": ["string", "number"] }
+        }
+      }
+    },
+    {
+      "name": "get_copy_trade_wallets",
+      "description": "Get all wallets being tracked for copy trading.",
+      "parameters": {
+        "type": "object",
+        "required": ["userId"],
+        "properties": {
+          "userId": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "set_copy_trade_settings",
+      "description": "Configure copy trading settings (max trade size, slippage, chains, etc.).",
+      "parameters": {
+        "type": "object",
+        "required": ["enabled"],
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "maxTradeSize": { "type": "string" },
+          "slippage": { "type": "number" },
+          "chains": { "type": "array", "items": { "type": ["string", "number"] } },
+          "copyBuysOnly": { "type": "boolean" },
+          "copySellsOnly": { "type": "boolean" },
+          "autoStopLossPercent": { "type": "number" }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+/**
+ * All API endpoint constants for the Gbot backend.
+ */
+
+/** Auth endpoints */
+export const AUTH_NONCE = '/v1/auth/nonce';
+export const AUTH_LOGIN = '/v1/auth/login';
+export const AUTH_REFRESH = '/v1/auth/refresh';
+export const AUTH_LOGOUT = '/v1/auth/logout';
+
+/** User endpoints */
+export const USER_PROFILE = '/v1/user/profile';
+export const USER_UPDATE = '/v1/user/update';
+
+/** Trading endpoints */
+export const PURCHASE_V2 = '/v1/purchase_v2';
+export const SELL_V2 = '/v1/sell_v2';
+export const TRADE_STATUS = '/v1/trade/status';
+
+/** Portfolio endpoints */
+export const PORTFOLIO = '/v1/portfolio';
+export const BALANCES = '/v1/portfolio/balances';
+export const TRADE_HISTORY = '/v1/portfolio/history';
+
+/** Order endpoints */
+export const ORDERS = '/v1/orders';
+export const ORDERS_CREATE = '/v1/orders/create';
+export const ORDERS_CANCEL = '/v1/orders/cancel';
+
+/** HyperLiquid perp endpoints */
+export const HL_TRADE = '/v1/hl/trade';
+export const HL_POSITIONS = '/v1/hl/positions';
+export const HL_DEPOSIT = '/v1/hl/deposit';
+export const HL_WITHDRAW = '/v1/hl/withdraw';
+export const HL_LEVERAGE = '/v1/hl/leverage';
+export const HL_VAULT = '/v1/hl/vault';
+export const HL_VAULT_DEPOSIT = '/v1/hl/vault/deposit';
+export const HL_VAULT_WITHDRAW = '/v1/hl/vault/withdraw';
+export const HL_REFERRAL = '/v1/hl/referral';
+export const HL_REFERRAL_CREATE = '/v1/hl/referral/create';
+
+/** Copy trade endpoints */
+export const COPY_TRADE_SETTINGS = '/v1/copy_trade/settings';
+export const COPY_TRADE_WALLETS = '/v1/copy_trade/wallets';
+export const COPY_TRADE_WALLET_ADD = '/v1/copy_trade/wallets/add';
+export const COPY_TRADE_WALLET_REMOVE = '/v1/copy_trade/wallets/remove';
+
+/** Token endpoints */
+export const TOKEN_DETAILS = '/v1/token_details';
+export const TOKEN_SEARCH = '/v1/token/search';
+export const TOKEN_TOP_TRADERS = '/v1/token/top_traders';
+
+/** Trending endpoints */
+export const TRENDING = '/v1/trending';
+export const TRENDING_CHAIN = '/v1/trending/:chain';
+
+/** OHLCV / TradingView endpoints */
+export const OHLCV = '/v1/ohlcv';
+export const TRADING_VIEW_CONFIG = '/v1/trading_view/config';
+export const TRADING_VIEW_SYMBOLS = '/v1/trading_view/symbols';
+export const TRADING_VIEW_HISTORY = '/v1/trading_view/history';
+
+/** Bridge endpoints */
+export const BRIDGE = '/v1/bridge';
+export const BRIDGE_QUOTE = '/v1/bridge/quote';
+export const BRIDGE_STATUS = '/v1/bridge/status';
+
+/** Top traders endpoints */
+export const TOP_TRADERS = '/v1/top_traders';
+
+/** Wallet endpoints */
+export const WALLET_INFO = '/v1/wallet/info';
+
+/** Health check */
+export const HEALTH = '/health';
+export const CHECK_SOLANA_RPC = '/v1/checkSolanaConnectionRpc';
