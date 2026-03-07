@@ -112,6 +112,9 @@ export class GdexApiClient {
                 // Retry the original request
                 if (error.config) {
                   if (this.session?.token) {
+                    if (!error.config.headers) {
+                      error.config.headers = {};
+                    }
                     error.config.headers['Authorization'] = `Bearer ${this.session.token}`;
                   }
                   return this.http.request(error.config);
