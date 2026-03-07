@@ -3,12 +3,10 @@
   "version": "1.0.0",
   "description": "AI Agent Skill SDK for Gbot Trading Dashboard — cross-chain spot/perp trading, portfolio management, and token discovery",
   "main": "dist/index.js",
-  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "require": "./dist/index.js",
-      "import": "./dist/index.mjs",
       "types": "./dist/index.d.ts"
     }
   },
