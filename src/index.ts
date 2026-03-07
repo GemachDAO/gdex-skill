@@ -114,6 +114,7 @@ export * as Endpoints from './client/endpoints';
 // Config utilities
 export { getChainConfig, getSupportedChains, chainSupportsDex, CHAIN_CONFIGS, HYPERLIQUID_DEFAULT_ASSETS } from './config/chains';
 export type { ChainConfig } from './config/chains';
+export { GDEX_API_KEYS, GDEX_API_KEY_PRIMARY, GDEX_API_KEY_SECONDARY } from './config/apiKeys';
 
 // Formatting utilities
 export { getChainName, getNativeToken, formatTokenAmount, formatUsd, formatPercentChange, shortenAddress, formatTimestamp, truncateDecimals } from './utils/formatting';
@@ -186,9 +187,31 @@ export class GdexSkill {
   // ── Authentication ─────────────────────────────────────────────────────────
 
   /**
-   * Authenticate with the Gbot backend using wallet credentials.
+   * Authenticate using a pre-configured shared API key.
    *
-   * Stores the session token and automatically re-authenticates on expiry.
+   * This is the recommended authentication method for AI agents.
+   * Use one of the exported `GDEX_API_KEYS` constants.
+   *
+   * @param apiKey - Shared API key (see `GDEX_API_KEYS`)
+   *
+   * @example
+   * ```typescript
+   * import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+   *
+   * const skill = new GdexSkill();
+   * skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
+   * // Now ready to make authenticated requests
+   * ```
+   */
+  loginWithApiKey(apiKey: string): void {
+    this.client.loginWithApiKey(apiKey);
+  }
+
+  /**
+   * Authenticate with the Gbot backend using wallet credentials (EVM/Solana/Sui).
+   *
+   * For most AI agent use cases, prefer `loginWithApiKey()` with a shared key.
+   * Use this method when you need user-specific wallet authentication.
    *
    * @param credentials - Wallet credentials for signing
    * @returns Session object with token and expiry

@@ -2,6 +2,9 @@
  * Tests for auth helpers.
  */
 import { signEvmMessage, deriveEvmAddress, WalletType } from '../../src/client/auth';
+import { GdexApiClient } from '../../src/client';
+import { GDEX_API_KEYS, GDEX_API_KEY_PRIMARY, GDEX_API_KEY_SECONDARY } from '../../src/config/apiKeys';
+import { GdexAuthError } from '../../src/utils/errors';
 
 describe('auth', () => {
   // ── signEvmMessage ────────────────────────────────────────────────────────
@@ -89,6 +92,66 @@ describe('auth', () => {
     it('should be a valid type for solana', () => {
       const type: WalletType = 'solana';
       expect(['evm', 'solana', 'sui'].includes(type)).toBe(true);
+    });
+  });
+
+  // ── loginWithApiKey ───────────────────────────────────────────────────────
+
+  describe('loginWithApiKey (GdexApiClient)', () => {
+    let client: GdexApiClient;
+
+    beforeEach(() => {
+      client = new GdexApiClient();
+    });
+
+    it('should set a session with GDEX_API_KEY_PRIMARY', () => {
+      client.loginWithApiKey(GDEX_API_KEY_PRIMARY);
+      expect(client.isAuthenticated()).toBe(true);
+      expect(client.getSession()?.token).toBe(GDEX_API_KEY_PRIMARY);
+    });
+
+    it('should set a session with GDEX_API_KEY_SECONDARY', () => {
+      client.loginWithApiKey(GDEX_API_KEY_SECONDARY);
+      expect(client.isAuthenticated()).toBe(true);
+      expect(client.getSession()?.token).toBe(GDEX_API_KEY_SECONDARY);
+    });
+
+    it('should accept any key from GDEX_API_KEYS array', () => {
+      GDEX_API_KEYS.forEach((key) => {
+        const c = new GdexApiClient();
+        c.loginWithApiKey(key);
+        expect(c.isAuthenticated()).toBe(true);
+      });
+    });
+
+    it('should throw GdexAuthError for empty API key', () => {
+      expect(() => client.loginWithApiKey('')).toThrow(GdexAuthError);
+    });
+
+    it('should throw GdexAuthError for non-UUID format key', () => {
+      expect(() => client.loginWithApiKey('not-a-uuid')).toThrow(GdexAuthError);
+      expect(() => client.loginWithApiKey('random-string')).toThrow(GdexAuthError);
+    });
+
+    it('session should not expire (MAX_SAFE_INTEGER expiresAt)', () => {
+      client.loginWithApiKey(GDEX_API_KEY_PRIMARY);
+      const session = client.getSession();
+      expect(session?.expiresAt).toBe(Number.MAX_SAFE_INTEGER);
+    });
+
+    it('should clear session on logout', () => {
+      client.loginWithApiKey(GDEX_API_KEY_PRIMARY);
+      expect(client.isAuthenticated()).toBe(true);
+      client.logout();
+      expect(client.isAuthenticated()).toBe(false);
+    });
+
+    it('GDEX_API_KEYS should be non-empty and contain valid UUID-format keys', () => {
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      expect(GDEX_API_KEYS.length).toBeGreaterThan(0);
+      GDEX_API_KEYS.forEach((key) => {
+        expect(uuidPattern.test(key)).toBe(true);
+      });
     });
   });
 });

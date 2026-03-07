@@ -64,7 +64,7 @@ export type OrderType = 'market' | 'limit';
 export interface GdexSkillConfig {
   /**
    * Base URL of the Gbot backend API.
-   * @default "https://api.gdex.pro"
+   * @default "https://trade-api.gemach.io"
    */
   apiUrl?: string;
 

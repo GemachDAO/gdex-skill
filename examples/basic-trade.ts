@@ -2,39 +2,25 @@
  * Basic Trading Example
  *
  * Demonstrates how to use GdexSkill to:
- * 1. Initialize the SDK
- * 2. Authenticate with a wallet
- * 3. Buy a token on Solana
- * 4. Sell a token on Base (EVM)
+ * 1. Initialize the SDK with a shared API key
+ * 2. Buy a token on Solana
+ * 3. Sell a token on Base (EVM)
  *
  * Run with: npx ts-node examples/basic-trade.ts
  */
 
-import { GdexSkill, ChainId } from '../src';
+import { GdexSkill, ChainId, GDEX_API_KEY_PRIMARY } from '../src';
 
 async function main() {
-  // ── Initialize SDK ────────────────────────────────────────────────────────
+  // ── Initialize SDK with shared API key ────────────────────────────────────
   const skill = new GdexSkill({
-    apiUrl: process.env.GDEX_API_URL ?? 'https://api.gdex.pro',
+    // Uses https://trade-api.gemach.io by default
     debug: true,
   });
 
-  console.log('✅ GdexSkill initialized');
-  console.log('   Base URL:', process.env.GDEX_API_URL ?? 'https://api.gdex.pro');
-
-  // ── Authenticate ──────────────────────────────────────────────────────────
-  // Use an EVM wallet for authentication
-  if (!process.env.EVM_PRIVATE_KEY) {
-    console.warn('⚠️  EVM_PRIVATE_KEY not set — skipping authenticated operations');
-    return;
-  }
-
-  const session = await skill.authenticate({
-    type: 'evm',
-    address: '0xYourWalletAddressHere', // Replace with your wallet address
-    privateKey: process.env.EVM_PRIVATE_KEY,
-  });
-  console.log(`✅ Authenticated as ${session.address}`);
+  // Authenticate with pre-configured shared API key (no wallet signing needed)
+  skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
+  console.log('✅ GdexSkill initialized and authenticated with shared API key');
 
   // ── Buy a token on Solana ─────────────────────────────────────────────────
   console.log('\n📈 Buying BONK token on Solana...');

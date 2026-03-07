@@ -10,13 +10,12 @@
  * Run with: npx ts-node examples/portfolio-check.ts
  */
 
-import { GdexSkill, ChainId, formatUsd, formatPercentChange, shortenAddress } from '../src';
+import { GdexSkill, ChainId, formatUsd, formatPercentChange, shortenAddress, GDEX_API_KEY_PRIMARY } from '../src';
 
 async function main() {
-  const skill = new GdexSkill({
-    apiUrl: process.env.GDEX_API_URL ?? 'https://api.gdex.pro',
-    debug: false,
-  });
+  // ── Initialize with shared API key ────────────────────────────────────────
+  const skill = new GdexSkill();
+  skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
 
   // Example wallet address (replace with your own)
   const walletAddress = process.env.WALLET_ADDRESS ?? '0xYourWalletAddressHere';

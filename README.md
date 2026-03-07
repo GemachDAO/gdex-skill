@@ -33,10 +33,10 @@ AI Agent
 GdexSkill SDK (this package)
    │  TypeScript methods with full type safety
    │  Input validation + error normalization
-   │  Auth session management (nonce → sign → JWT)
+   │  API key auth (shared keys) or wallet signing
    ▼
 Gbot Backend API (HTTP/REST)
-   │  @gdex.pro / self-hosted
+   │  https://trade-api.gemach.io/v1
    │  Trade queue (NATS JetStream)
    │  DEX aggregation engine
    ▼
@@ -49,12 +49,12 @@ Blockchains (Solana, Sui, EVM L1s/L2s)
 npm install @gdexsdk/gdex-skill
 ```
 
-For EVM wallet signing (required for authentication):
+For EVM wallet signing (optional — only needed for wallet-based auth):
 ```bash
 npm install ethers
 ```
 
-For Solana wallet signing:
+For Solana wallet signing (optional):
 ```bash
 npm install bs58 tweetnacl
 ```
@@ -62,22 +62,15 @@ npm install bs58 tweetnacl
 ## Quick Start
 
 ```typescript
-import { GdexSkill, ChainId } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
 
-const skill = new GdexSkill({
-  apiUrl: 'https://api.gdex.pro',
-});
+// Authenticate with a shared API key (recommended for AI agents)
+const skill = new GdexSkill();
+skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
 
 // No auth needed for read-only operations
 const trending = await skill.getTrendingTokens({ chain: 'solana', limit: 5 });
 console.log('Top token:', trending[0].symbol, trending[0].priceUsd);
-
-// Authenticate for trading
-await skill.authenticate({
-  type: 'evm',
-  address: '0xYourWalletAddress',
-  privateKey: process.env.EVM_PRIVATE_KEY,
-});
 
 // Buy a token on Solana
 const trade = await skill.buyToken({
@@ -93,12 +86,10 @@ console.log('Trade submitted:', trade.jobId);
 
 ```typescript
 const skill = new GdexSkill({
-  apiUrl: 'https://api.gdex.pro',  // Backend URL
-  apiKey: 'your-api-key',           // Optional API key
-  timeout: 30000,                   // Request timeout (ms)
-  maxRetries: 3,                    // Retry attempts on failure
-  debug: false,                     // Enable debug logging
-  userAgent: 'MyAgent/1.0',         // Custom User-Agent
+  apiUrl: 'https://trade-api.gemach.io',  // Backend URL (default)
+  timeout: 30000,                          // Request timeout (ms)
+  maxRetries: 3,                           // Retry attempts on failure
+  debug: false,                            // Enable debug logging
 });
 ```
 
@@ -106,17 +97,39 @@ const skill = new GdexSkill({
 
 | Variable | Description | Default |
 |---|---|---|
-| `GDEX_API_URL` | Backend API base URL | `https://api.gdex.pro` |
+| `GDEX_API_URL` | Backend API base URL | `https://trade-api.gemach.io` |
 | `GDEX_API_KEY` | API key for requests | — |
 | `GDEX_TIMEOUT` | Request timeout (ms) | `30000` |
 | `GDEX_MAX_RETRIES` | Max retry attempts | `3` |
 | `GDEX_DEBUG` | Enable debug logging | `false` |
-| `EVM_PRIVATE_KEY` | EVM wallet private key | — |
-| `SOLANA_PRIVATE_KEY` | Solana wallet private key (base58) | — |
+| `EVM_PRIVATE_KEY` | EVM wallet private key (wallet auth only) | — |
+| `SOLANA_PRIVATE_KEY` | Solana wallet private key, base58 (wallet auth only) | — |
 
 ## API Reference
 
 ### Authentication
+
+AI agents should use **API key authentication** with the pre-configured shared keys:
+
+```typescript
+import { GdexSkill, GDEX_API_KEYS, GDEX_API_KEY_PRIMARY, GDEX_API_KEY_SECONDARY } from '@gdexsdk/gdex-skill';
+
+const skill = new GdexSkill();
+
+// Option 1: Use the primary shared key (recommended)
+skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
+
+// Option 2: Use the secondary shared key
+skill.loginWithApiKey(GDEX_API_KEY_SECONDARY);
+
+// Option 3: Use from the array
+skill.loginWithApiKey(GDEX_API_KEYS[0]);
+
+skill.logout();           // Clear session
+skill.isAuthenticated();  // true/false
+```
+
+For user-specific wallet authentication (advanced):
 
 ```typescript
 // Authenticate with an EVM wallet (secp256k1)

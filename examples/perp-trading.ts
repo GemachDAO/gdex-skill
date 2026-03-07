@@ -10,27 +10,15 @@
  * Run with: npx ts-node examples/perp-trading.ts
  */
 
-import { GdexSkill } from '../src';
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '../src';
 
 async function main() {
-  const skill = new GdexSkill({
-    apiUrl: process.env.GDEX_API_URL ?? 'https://api.gdex.pro',
-    debug: false,
-  });
+  // ── Initialize with shared API key ────────────────────────────────────────
+  const skill = new GdexSkill();
+  skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
+  console.log('✅ Authenticated with shared API key');
 
-  if (!process.env.EVM_PRIVATE_KEY) {
-    console.warn('⚠️  EVM_PRIVATE_KEY not set — skipping authenticated operations');
-    return;
-  }
-
-  // ── Authenticate ──────────────────────────────────────────────────────────
-  const walletAddress = '0xYourWalletAddressHere'; // Replace with your address
-  await skill.authenticate({
-    type: 'evm',
-    address: walletAddress,
-    privateKey: process.env.EVM_PRIVATE_KEY,
-  });
-  console.log(`✅ Authenticated as ${walletAddress}`);
+  const walletAddress = process.env.WALLET_ADDRESS ?? '0xYourWalletAddressHere';
 
   // ── Deposit USDC to HyperLiquid ───────────────────────────────────────────
   console.log('\n💰 Depositing $100 USDC to HyperLiquid...');

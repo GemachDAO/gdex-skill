@@ -25,7 +25,7 @@ import * as Endpoints from './endpoints';
 const DEFAULT_USER_AGENT = 'GdexSkill/1.0.0 (AI Agent SDK)';
 
 /** Default API base URL */
-const DEFAULT_API_URL = 'https://api.gdex.pro';
+const DEFAULT_API_URL = 'https://trade-api.gemach.io';
 
 /** Default request timeout (30s) */
 const DEFAULT_TIMEOUT = 30_000;
@@ -152,7 +152,33 @@ export class GdexApiClient {
   // ── Auth ────────────────────────────────────────────────────────────────────
 
   /**
-   * Set credentials and authenticate with the backend.
+   * Authenticate using a pre-configured API key.
+   *
+   * This is the simplest way for AI agents to authenticate — pass one of the
+   * shared API keys and the SDK will use it as a Bearer token for all requests.
+   *
+   * @param apiKey - API key (use one of the GDEX_API_KEYS constants)
+   */
+  loginWithApiKey(apiKey: string): void {
+    if (!apiKey || typeof apiKey !== 'string') {
+      throw new GdexAuthError('apiKey must be a non-empty string');
+    }
+    // Validate UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidPattern.test(apiKey)) {
+      throw new GdexAuthError('apiKey must be a valid UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)');
+    }
+    // Store as a synthetic session that never expires
+    this.session = {
+      token: apiKey,
+      expiresAt: Number.MAX_SAFE_INTEGER,
+      address: 'api-key-auth',
+      type: 'evm',
+    };
+  }
+
+  /**
+   * Set credentials and authenticate with the backend via wallet signing.
    * The client will automatically re-authenticate on 401 responses.
    *
    * @param credentials - Wallet credentials for signing
