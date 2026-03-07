@@ -18,8 +18,8 @@
  * Use any one of these keys to authenticate via `loginWithApiKey()`.
  */
 export const GDEX_API_KEYS: readonly string[] = [
-  '3f6c9e12-7b41-4c2a-9d5e-1a8f3b7e6c90',
-  '8d2a5f47-2e13-4b9c-a6f1-0c9e7d3a5b21',
+  '9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54',
+  '2c8f0a91-5d34-4e7b-9a62-f1c3d8e4b705',
 ];
 
 /**

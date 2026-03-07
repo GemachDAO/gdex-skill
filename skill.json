@@ -7,11 +7,10 @@
   "categories": ["finance", "trading", "defi", "crypto"],
   "tags": ["solana", "ethereum", "defi", "trading", "hyperliquid", "cross-chain", "portfolio"],
   "auth": {
-    "type": "api_key",
-    "description": "Use one of the pre-configured shared API keys available via GDEX_API_KEYS.",
-    "in": "header",
-    "name": "Authorization",
-    "format": "Bearer {api_key}"
+    "type": "computed_data",
+    "description": "All trading uses AES-256-CBC encrypted computedData payloads. API keys derive the AES key via SHA256 hash chain. Session keypairs (secp256k1) sign trade payloads after initial control-wallet sign-in.",
+    "encryption": "AES-256-CBC",
+    "session_signing": "secp256k1"
   },
   "base_url": "https://trade-api.gemach.io/v1",
   "actions": [
@@ -432,6 +431,65 @@
           "copySellsOnly": { "type": "boolean" },
           "autoStopLossPercent": { "type": "number" }
         }
+      }
+    },
+    {
+      "name": "managed_sign_in",
+      "description": "Sign in to GDEX managed-custody system using encrypted computedData. Requires a control wallet signature.",
+      "parameters": {
+        "type": "object",
+        "required": ["computedData", "chainId"],
+        "properties": {
+          "computedData": { "type": "string", "description": "AES-256-CBC encrypted sign-in payload." },
+          "chainId": { "type": ["number", "string"], "description": "Chain ID (900=Solana, 101=Sui, or numeric EVM)." }
+        }
+      }
+    },
+    {
+      "name": "managed_purchase",
+      "description": "Submit an encrypted managed-custody buy trade via /v1/purchase_v2.",
+      "parameters": {
+        "type": "object",
+        "required": ["computedData", "chainId"],
+        "properties": {
+          "computedData": { "type": "string", "description": "AES-encrypted trade payload with signed data." },
+          "chainId": { "type": ["number", "string"], "description": "Chain ID for the trade." },
+          "slippage": { "type": "number", "description": "Max slippage %. Default: 1.", "default": 1 },
+          "tip": { "type": "string", "description": "Optional priority fee." }
+        }
+      }
+    },
+    {
+      "name": "managed_sell",
+      "description": "Submit an encrypted managed-custody sell trade via /v1/sell_v2.",
+      "parameters": {
+        "type": "object",
+        "required": ["computedData", "chainId"],
+        "properties": {
+          "computedData": { "type": "string", "description": "AES-encrypted trade payload with signed data." },
+          "chainId": { "type": ["number", "string"], "description": "Chain ID for the trade." },
+          "slippage": { "type": "number", "description": "Max slippage %. Default: 1.", "default": 1 },
+          "tip": { "type": "string", "description": "Optional priority fee." }
+        }
+      }
+    },
+    {
+      "name": "managed_trade_status",
+      "description": "Poll the status of a managed-custody trade by requestId.",
+      "parameters": {
+        "type": "object",
+        "required": ["requestId"],
+        "properties": {
+          "requestId": { "type": "string", "description": "The request ID returned from purchase/sell submission." }
+        }
+      }
+    },
+    {
+      "name": "generate_session_keypair",
+      "description": "Generate a secp256k1 session keypair for managed-custody trade signing. Returns sessionPrivateKey and sessionKey (compressed public key).",
+      "parameters": {
+        "type": "object",
+        "properties": {}
       }
     }
   ]

@@ -96,7 +96,7 @@ describe('tokenInfo', () => {
 
       const tokens = await getTrendingTokens(client, {});
 
-      expect(client.get).toHaveBeenCalledWith('/v1/trending', expect.any(Object));
+      expect(client.get).toHaveBeenCalledWith('/v1/trending/list', expect.any(Object));
       expect(tokens).toEqual(mockTrending);
     });
 
@@ -109,7 +109,7 @@ describe('tokenInfo', () => {
         limit: 10,
       });
 
-      expect(client.get).toHaveBeenCalledWith('/v1/trending', expect.objectContaining({
+      expect(client.get).toHaveBeenCalledWith('/v1/trending/list', expect.objectContaining({
         chain: 'solana',
         period: '24h',
         limit: 10,
@@ -152,7 +152,8 @@ describe('tokenInfo', () => {
         to: 1700086400,
       });
 
-      expect(client.get).toHaveBeenCalledWith('/v1/ohlcv', expect.objectContaining({
+      expect(client.get).toHaveBeenCalledWith('/v1/candles', expect.objectContaining({
+        token: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         chain: 'solana',
         resolution: '60',

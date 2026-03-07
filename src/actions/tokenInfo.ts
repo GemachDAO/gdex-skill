@@ -12,6 +12,7 @@ import {
   OHLCVParams,
 } from '../types/token';
 import { validateChain, validateRequired } from '../utils/validation';
+import { buildChainAliases, buildTokenAliases } from '../utils/apiAliases';
 
 /**
  * Get detailed information about a specific token.
@@ -29,8 +30,8 @@ export async function getTokenDetails(
   validateChain(params.chain);
 
   return client.get<TokenDetails>(Endpoints.TOKEN_DETAILS, {
-    tokenAddress: params.tokenAddress,
-    chain: params.chain,
+    ...buildTokenAliases(params.tokenAddress),
+    ...buildChainAliases(params.chain),
   });
 }
 
@@ -48,7 +49,7 @@ export async function getTrendingTokens(
 
   const queryParams: Record<string, unknown> = {};
 
-  if (params.chain !== undefined) queryParams.chain = params.chain;
+  Object.assign(queryParams, buildChainAliases(params.chain));
   if (params.period) queryParams.period = params.period;
   if (params.limit) queryParams.limit = params.limit;
   if (params.minLiquidity) queryParams.minLiquidity = params.minLiquidity;
@@ -71,8 +72,8 @@ export async function getOHLCV(client: GdexApiClient, params: OHLCVParams): Prom
   validateRequired(params.resolution, 'resolution');
 
   const queryParams: Record<string, unknown> = {
-    tokenAddress: params.tokenAddress,
-    chain: params.chain,
+    ...buildTokenAliases(params.tokenAddress),
+    ...buildChainAliases(params.chain),
     resolution: params.resolution,
   };
 

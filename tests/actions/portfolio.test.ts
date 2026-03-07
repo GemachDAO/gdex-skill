@@ -43,6 +43,7 @@ describe('portfolio', () => {
 
       expect(client.get).toHaveBeenCalledWith('/v1/portfolio', expect.objectContaining({
         walletAddress: 'So11111111111111111111111111111111111111112',
+        wallet: 'So11111111111111111111111111111111111111112',
       }));
       expect(portfolio).toEqual(mockPortfolio);
     });
@@ -57,6 +58,7 @@ describe('portfolio', () => {
 
       expect(client.get).toHaveBeenCalledWith('/v1/portfolio', expect.objectContaining({
         chain: ChainId.BASE,
+        chainId: ChainId.BASE,
       }));
     });
 
@@ -101,7 +103,9 @@ describe('portfolio', () => {
 
       expect(client.get).toHaveBeenCalledWith('/v1/portfolio/balances', expect.objectContaining({
         walletAddress: '0x1234567890123456789012345678901234567890',
+        wallet: '0x1234567890123456789012345678901234567890',
         chain: ChainId.ETHEREUM,
+        chainId: ChainId.ETHEREUM,
       }));
       expect(balances).toEqual(mockBalances);
     });
@@ -133,8 +137,9 @@ describe('portfolio', () => {
         limit: 10,
       });
 
-      expect(client.get).toHaveBeenCalledWith('/v1/portfolio/history', expect.objectContaining({
+      expect(client.get).toHaveBeenCalledWith('/v1/user_history', expect.objectContaining({
         walletAddress: 'So11111111111111111111111111111111111111112',
+        wallet: 'So11111111111111111111111111111111111111112',
         page: 1,
         limit: 10,
       }));
@@ -150,9 +155,11 @@ describe('portfolio', () => {
         endTime: 1700086400,
       });
 
-      expect(client.get).toHaveBeenCalledWith('/v1/portfolio/history', expect.objectContaining({
+      expect(client.get).toHaveBeenCalledWith('/v1/user_history', expect.objectContaining({
         startTime: 1700000000,
         endTime: 1700086400,
+        from: 1700000000,
+        to: 1700086400,
       }));
     });
   });

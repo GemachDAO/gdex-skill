@@ -14,7 +14,7 @@ import { GdexSkill, ChainId, GDEX_API_KEY_PRIMARY } from '../src';
 async function main() {
   // ── Initialize SDK with shared API key ────────────────────────────────────
   const skill = new GdexSkill({
-    // Uses https://trade-api.gemach.io by default
+    // Uses https://trade-api.gemach.io/v1 by default
     debug: true,
   });
 

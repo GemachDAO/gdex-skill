@@ -11,13 +11,13 @@
 ```
 
 **AI Agent Skill for the [Gbot Trading Dashboard](https://github.com/TheArcadiaGroup/gbotTradingDashboardBackend)**  
-Cross-chain spot trading · Perpetual futures · Portfolio management · Token discovery
+Cross-chain spot trading · Perpetual futures · Portfolio management · Token discovery · Managed-custody trading
 
 [![npm version](https://img.shields.io/npm/v/@gdexsdk/gdex-skill.svg?style=for-the-badge)](https://www.npmjs.com/package/@gdexsdk/gdex-skill)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F7DF1E.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![skills.sh](https://img.shields.io/badge/skills.sh-compatible-8B5CF6.svg?style=for-the-badge)](https://skills.sh)
-[![Tests](https://img.shields.io/badge/tests-72%20passing-22C55E.svg?style=for-the-badge)](#testing)
+[![Tests](https://img.shields.io/badge/tests-80%20passing-22C55E.svg?style=for-the-badge)](#testing)
 
 </div>
 
@@ -127,8 +127,8 @@ Sample output:
   ✓  SDK imported from ../dist/index.js
 
 2. API keys
-  ✓  GDEX_API_KEY_PRIMARY   = 3f6c9e12...
-  ✓  GDEX_API_KEY_SECONDARY = 8d2a5f47...
+  ✓  GDEX_API_KEY_PRIMARY   = 9b4e1c73...
+  ✓  GDEX_API_KEY_SECONDARY = 2c8f0a91...
   ✓  GDEX_API_KEYS array    = 2 keys
 
 3. GdexSkill instantiation
@@ -207,7 +207,7 @@ await skill.authenticate({
 
 ```typescript
 const skill = new GdexSkill({
-  apiUrl:     'https://trade-api.gemach.io', // Backend (default)
+  apiUrl:     'https://trade-api.gemach.io/v1', // Backend (default)
   timeout:    30000,                          // Request timeout ms
   maxRetries: 3,                              // Retry attempts on 429/503
   debug:      false,                          // Log every request
@@ -222,11 +222,106 @@ Recommended environment variables for your own app:
 
 | Env Variable | Description | Default |
 |---|---|---|
-| `GDEX_API_URL` | Backend base URL to pass as `apiUrl` | `https://trade-api.gemach.io` |
-| `GDEX_API_KEY` | API key value to pass via config if supported | — |
+| `GDEX_API_URL` | Backend base URL to pass as `apiUrl` | `https://trade-api.gemach.io/v1` |
+| `GDEX_API_KEY` | API key for AES encryption in managed-custody flow | — |
 | `GDEX_TIMEOUT` | Request timeout (ms) to pass as `timeout` | `30000` |
 | `GDEX_MAX_RETRIES` | Retry attempts to pass as `maxRetries` | `3` |
 | `GDEX_DEBUG` | Enable debug logging to pass as `debug` | `false` |
+| `GDEX_CONTROL_WALLET` | Control wallet address (userId) for managed custody | — |
+| `GDEX_SESSION_PRIVATE` | Session private key (hex, 0x-prefixed) for managed custody | — |
+| `GDEX_MANAGED_CHAIN_ID` | Chain ID for managed trades (900=Solana, 101=Sui) | `900` |
+| `CONFIRM_LIVE_TRADE` | Set to `YES` to submit real trades | — |
+
+---
+
+## 🔒 Managed-Custody Trading
+
+All trading on GDEX goes through **server-side managed wallets**. Your control wallet (EVM or Solana) is only used to authenticate (sign-in) — actual on-chain execution is handled by GDEX backend trade workers.
+
+### How It Works
+
+1. **Generate a session keypair** — secp256k1 key used to sign trades after auth
+2. **Sign-in** — control wallet signs a message, encrypted as `computedData` → POST `/v1/sign_in`
+3. **Resolve user** — GET `/v1/user` with encrypted session key to see managed wallets
+4. **Trade** — ABI-encode trade data, sign with session key, encrypt as `computedData` → POST `/v1/purchase_v2` or `/v1/sell_v2`
+5. **Poll status** — GET `/v1/trade-status/:requestId` until completed/failed
+
+### Encryption
+
+All authenticated payloads use **AES-256-CBC** derived from the API key:
+- Key = first 32 bytes of `SHA256(apiKey)` hex
+- IV = first 16 bytes of `SHA256(SHA256(apiKey))` hex
+- Inner payload: `JSON.stringify({ userId, data, signature })`
+
+### Quick Example
+
+```typescript
+import {
+  GdexSkill,
+  GDEX_API_KEY_PRIMARY,
+  generateGdexSessionKeyPair,
+  buildGdexSignInMessage,
+  buildGdexSignInComputedData,
+  buildGdexManagedTradeComputedData,
+  buildGdexUserSessionData,
+} from '@gdexsdk/gdex-skill';
+
+const skill = new GdexSkill();
+skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
+const apiKey = GDEX_API_KEY_PRIMARY;
+
+// 1. Session keypair
+const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
+
+// 2. Sign-in (control wallet signs this message)
+const userId = '0xYourControlWallet';
+const nonce = String(Date.now());
+const message = buildGdexSignInMessage(userId, nonce, sessionKey);
+const signature = /* wallet.signMessage(message) */;
+
+const signInPayload = buildGdexSignInComputedData({ apiKey, userId, sessionKey, nonce, signature });
+await skill.signInWithComputedData({ computedData: signInPayload.computedData, chainId: 900 });
+
+// 3. Trade
+const trade = buildGdexManagedTradeComputedData({
+  apiKey, action: 'purchase', userId,
+  tokenAddress: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+  amount: '100000', nonce: String(Date.now()), sessionPrivateKey,
+});
+const result = await skill.submitManagedPurchase({
+  computedData: trade.computedData, chainId: 900, slippage: 1,
+});
+
+// 4. Poll
+if (result.requestId) {
+  const status = await skill.getManagedTradeStatus(result.requestId);
+  console.log(status.status, status.hash);
+}
+```
+
+### Managed-Custody Helpers
+
+| Function | Purpose |
+|---|---|
+| `generateGdexSessionKeyPair()` | Generate secp256k1 session keypair |
+| `buildGdexSignInMessage(userId, nonce, sessionKey)` | Build the sign-in message for wallet signing |
+| `encodeGdexSignInData(sessionKey, nonce, refCode?)` | ABI-encode sign-in data |
+| `buildGdexSignInComputedData({...})` | Build encrypted sign-in payload |
+| `buildGdexUserSessionData(sessionKey, apiKey)` | Encrypt session key for `/v1/user` |
+| `encodeGdexTradeData(tokenAddr, amount, extra?)` | ABI-encode trade data |
+| `signGdexTradeMessageWithSessionKey(action, userId, data, privKey)` | Sign trade with session key |
+| `buildGdexManagedTradeComputedData({...})` | Build encrypted trade payload |
+| `encryptGdexComputedData(plaintext, apiKey)` | Generic AES encryption |
+| `decryptGdexComputedData(cipherHex, apiKey)` | Generic AES decryption |
+| `deriveGdexAesMaterial(apiKey)` | Get raw AES key/IV from API key |
+
+### Verify Managed Flow (offline)
+
+```bash
+npm run verify:managed
+```
+
+This generates all payloads (session keypair, sign-in, user lookup, trade), validates encrypt/decrypt roundtrips, and prints the full execution plan — without making any live API calls.
 
 ---
 
@@ -461,32 +556,36 @@ const info = await skill.getWalletInfo({ walletAddress: '...', chain: 'solana' }
 
 > 🔓 No authentication required. Keys are generated **locally** and never transmitted.
 
-When a user doesn't have a wallet yet, generate an EVM **control wallet** for them. Authenticate with it, and the Gbot backend automatically provisions a full trading wallet — including a Solana address and other chain-specific keys — server-side. No separate Solana wallet generation is needed.
+When a user doesn't have a wallet yet, generate an EVM **control wallet** for them. Then use the managed-custody sign-in flow to authenticate, and the Gbot backend automatically provisions a full trading wallet — including a Solana address and other chain-specific keys — server-side. No separate Solana wallet generation is needed.
 
 #### `generateEvmWallet()` — your control wallet
 
 Generates a new EVM-compatible wallet (Ethereum, Base, Arbitrum, BSC, etc.) using `ethers.Wallet.createRandom()`.
 
 ```typescript
-import { GdexSkill, generateEvmWallet, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+import {
+  GdexSkill,
+  generateEvmWallet,
+  generateGdexSessionKeyPair,
+  buildGdexSignInMessage,
+  GDEX_API_KEY_PRIMARY,
+} from '@gdexsdk/gdex-skill';
 
 // Step 1: generate your EVM control wallet (one-time setup)
 const wallet = generateEvmWallet();
-// or via the GdexSkill instance: skill.generateEvmWallet()
-
 console.log(wallet.address);  // '0xAbCd...' (checksummed) — safe to share
-// ⚠️  Store wallet.privateKey securely (e.g., secrets manager / env var). Do NOT log it.
-// ⚠️  Store wallet.mnemonic securely (e.g., offline / password manager). Do NOT log it.
+// ⚠️  Store wallet.privateKey and wallet.mnemonic securely
 
-// Step 2: authenticate with your control wallet
-const skill = new GdexSkill();
-await skill.authenticate({ type: 'evm', address: wallet.address, privateKey: wallet.privateKey });
+// Step 2: generate a session keypair for managed-custody trading
+const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
 
-// Step 3: trade on any supported chain — the backend provides your Solana + other wallets
-const trade = await skill.buyToken({ chain: 'solana', tokenAddress: '...', amount: '0.1' });
+// Step 3: build the sign-in message and sign with your control wallet
+const message = buildGdexSignInMessage(wallet.address, String(Date.now()), sessionKey);
+// Sign with: new ethers.Wallet(wallet.privateKey).signMessage(message)
+
+// Step 4: submit sign_in computedData (see Managed-Custody Trading section above)
+// The backend provisions Solana + all other trading wallets server-side
 ```
-
-> ⚠️ **Security reminder:** Always store private keys and mnemonics in a secrets manager or environment variable. Never log them or hard-code them in source code.
 
 ---
 
@@ -589,12 +688,13 @@ import {
 
 ## 🧪 Testing
 
-All 72 tests run with **mocked HTTP** — no real API key or network connection required:
+All 80 tests run with **mocked HTTP** — no real API key or network connection required:
 
 ```bash
-npm test              # run all 72 tests
+npm test              # run all 80 tests
 npm run test:coverage # with coverage report
 npm run verify        # offline SDK smoke-test (20 checks)
+npm run verify:managed # managed-custody payload validation (dry-run)
 ```
 
 Test suites:
@@ -604,6 +704,7 @@ Test suites:
 - `tests/actions/portfolio.test.ts` — balances, history, wallet info
 - `tests/actions/tokenInfo.test.ts` — trending, OHLCV, token details, top traders
 - `tests/utils/walletGeneration.test.ts` — EVM control wallet generation (offline)
+- `tests/utils/gdexManagedCrypto.test.ts` — managed-custody crypto helpers (AES, signing, ABI encoding)
 
 ---
 
@@ -619,12 +720,18 @@ AI Agent (Claude Code / Cursor / Codex / ...)
    ▼
 @gdexsdk/gdex-skill  (this package)
    │  TypeScript methods with full type safety
-   │  Input validation + normalized error types
-   │  Shared API key auth (no wallet required)
+   │  Managed-custody: AES-256-CBC encryption + secp256k1 session signing
+   │  computedData payloads for all trade operations
    │  Auto-retry with exponential backoff
+   │
+   │  Control Wallet (EVM / Solana)
+   │  └─ signs once for /v1/sign_in → session keypair
+   │
    ▼
 Gbot Backend API  (https://trade-api.gemach.io/v1)
+   │  Decrypt computedData → verify signature → resolve nonce (gRPC)
    │  NATS JetStream trade queue
+   │  Server-side managed wallets (custody)
    │  DEX aggregation engine
    ▼
 Blockchains  (Solana · Sui · Ethereum · Base · Arbitrum · …)

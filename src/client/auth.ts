@@ -98,7 +98,6 @@ export async function signSolanaMessage(privateKey: string, message: string): Pr
  * Dynamically import bs58 for base58 encoding/decoding.
  */
 async function importBs58(): Promise<{ encode: (buf: Uint8Array) => string; decode: (str: string) => Uint8Array }> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const mod = require('bs58');
   return mod.default ?? mod;
 }
@@ -109,7 +108,6 @@ async function importBs58(): Promise<{ encode: (buf: Uint8Array) => string; deco
 async function importNacl(): Promise<{
   sign: { detached: (msg: Uint8Array, sk: Uint8Array) => Uint8Array };
 }> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const mod = require('tweetnacl');
   return mod.default ?? mod;
 }

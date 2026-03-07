@@ -22,10 +22,11 @@ import { AuthCredentials, AuthSession, signEvmMessage, signSolanaMessage } from 
 import * as Endpoints from './endpoints';
 
 /** Default SDK User-Agent — whitelisted by the backend */
-const DEFAULT_USER_AGENT = 'GdexSkill/1.0.0 (AI Agent SDK)';
+const DEFAULT_USER_AGENT =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 GdexSkill/1.0.0';
 
 /** Default API base URL */
-const DEFAULT_API_URL = 'https://trade-api.gemach.io';
+const DEFAULT_API_URL = 'https://trade-api.gemach.io/v1';
 
 /** Default request timeout (30s) */
 const DEFAULT_TIMEOUT = 30_000;
@@ -41,6 +42,27 @@ export class GdexApiClient {
   private readonly config: Required<GdexSkillConfig>;
   private session: AuthSession | null = null;
   private credentials: AuthCredentials | null = null;
+
+  /**
+   * Normalize endpoint path so users can configure apiUrl with or without `/v1`.
+   */
+  private normalizeEndpoint(endpoint: string): string {
+    const basePath = (() => {
+      try {
+        return new URL(this.config.apiUrl).pathname.replace(/\/+$/, '');
+      } catch {
+        return '';
+      }
+    })();
+
+    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+    if (basePath.endsWith('/v1') && normalizedEndpoint.startsWith('/v1/')) {
+      return normalizedEndpoint.slice(3);
+    }
+
+    return normalizedEndpoint;
+  }
 
   constructor(config: GdexSkillConfig = {}) {
     this.config = {
@@ -265,7 +287,7 @@ export class GdexApiClient {
    * Perform a GET request.
    */
   async get<T = unknown>(endpoint: string, params?: Record<string, unknown>): Promise<T> {
-    const resp = await this.http.get<T>(endpoint, { params });
+    const resp = await this.http.get<T>(this.normalizeEndpoint(endpoint), { params });
     return resp.data;
   }
 
@@ -273,7 +295,7 @@ export class GdexApiClient {
    * Perform a POST request.
    */
   async post<T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-    const resp = await this.http.post<T>(endpoint, data, config);
+    const resp = await this.http.post<T>(this.normalizeEndpoint(endpoint), data, config);
     return resp.data;
   }
 
@@ -281,7 +303,7 @@ export class GdexApiClient {
    * Perform a PUT request.
    */
   async put<T = unknown>(endpoint: string, data?: unknown): Promise<T> {
-    const resp = await this.http.put<T>(endpoint, data);
+    const resp = await this.http.put<T>(this.normalizeEndpoint(endpoint), data);
     return resp.data;
   }
 
@@ -289,7 +311,7 @@ export class GdexApiClient {
    * Perform a DELETE request.
    */
   async delete<T = unknown>(endpoint: string, params?: Record<string, unknown>): Promise<T> {
-    const resp = await this.http.delete<T>(endpoint, { params });
+    const resp = await this.http.delete<T>(this.normalizeEndpoint(endpoint), { params });
     return resp.data;
   }
 
@@ -297,7 +319,7 @@ export class GdexApiClient {
    * Perform a PATCH request.
    */
   async patch<T = unknown>(endpoint: string, data?: unknown): Promise<T> {
-    const resp = await this.http.patch<T>(endpoint, data);
+    const resp = await this.http.patch<T>(this.normalizeEndpoint(endpoint), data);
     return resp.data;
   }
 

@@ -23,7 +23,14 @@ import { generateEvmWallet } from './utils/walletGeneration';
 import type { GeneratedEvmWallet } from './utils/walletGeneration';
 import { GdexApiClient } from './client';
 import { AuthCredentials, AuthSession } from './client/auth';
+import * as Endpoints from './client/endpoints';
 import { GdexSkillConfig } from './types/common';
+import {
+  buildGdexManagedTradeComputedData,
+  buildGdexSignInComputedData,
+  buildGdexUserSessionData,
+  generateGdexSessionKeyPair,
+} from './utils/gdexManagedCrypto';
 
 // Actions
 import { buyToken, sellToken } from './actions/spotTrade';
@@ -97,6 +104,15 @@ export type {
 } from './types/copyTrade';
 export type { BridgeParams, BridgeResult, BridgeQuote } from './types/bridge';
 export type { TopTrader, TopTradersParams, WalletInfo, WalletInfoParams } from './types/index';
+export type {
+  GdexManagedSignInParams,
+  GdexManagedUserQuery,
+  GdexManagedSessionKeyPair,
+  GdexManagedComputedPayload,
+  GdexManagedTradeParams,
+  GdexManagedTradeSubmitResult,
+  GdexManagedTradeStatus,
+} from './types/managed';
 
 // Error classes
 export {
@@ -127,6 +143,21 @@ export type { GeneratedEvmWallet } from './utils/walletGeneration';
 
 // Validation utilities
 export { validateAddress, validateAmount, validateChain, validateSlippage, validateLeverage, validateCoin } from './utils/validation';
+export {
+  deriveGdexAesMaterial,
+  encryptGdexComputedData,
+  decryptGdexComputedData,
+  generateGdexSessionKeyPair,
+  buildGdexSignInMessage,
+  encodeGdexSignInData,
+  encodeGdexTradeData,
+  buildGdexTradeSignatureMessage,
+  signGdexTradeMessageWithSessionKey,
+  buildGdexUserSessionData,
+  buildEncryptedGdexPayload,
+  buildGdexSignInComputedData,
+  buildGdexManagedTradeComputedData,
+} from './utils/gdexManagedCrypto';
 
 // Import parameter types for the GdexSkill class methods
 import type { BuyTokenParams, SellTokenParams, TradeResult } from './types/trading';
@@ -146,6 +177,15 @@ import type {
 import type { CopyTradeSettings, CopyTradeWallet, AddWalletParams, RemoveWalletParams, GetCopyTradeSettingsParams } from './types/copyTrade';
 import type { BridgeParams, BridgeResult, BridgeQuote } from './types/bridge';
 import type { TopTrader, TopTradersParams, WalletInfo, WalletInfoParams } from './types/index';
+import type {
+  GdexManagedSignInParams,
+  GdexManagedUserQuery,
+  GdexManagedSessionKeyPair,
+  GdexManagedComputedPayload,
+  GdexManagedTradeParams,
+  GdexManagedTradeSubmitResult,
+  GdexManagedTradeStatus,
+} from './types/managed';
 import type { TransactionResult } from './types/common';
 
 /**
@@ -238,6 +278,98 @@ export class GdexSkill {
    */
   isAuthenticated(): boolean {
     return this.client.isAuthenticated();
+  }
+
+  // ── Managed Custody Contract (/v1 computedData flow) ─────────────────────
+
+  /**
+   * Sign in using pre-built encrypted `computedData` payload.
+   *
+   * This matches the documented `/v1/sign_in` contract used by managed custody.
+   */
+  async signInWithComputedData(params: GdexManagedSignInParams): Promise<Record<string, unknown>> {
+    return this.client.post<Record<string, unknown>>(Endpoints.AUTH_SIGN_IN, params);
+  }
+
+  /**
+   * Generate a new secp256k1 session keypair for managed-custody auth flow.
+   */
+  generateManagedSessionKeyPair(): GdexManagedSessionKeyPair {
+    return generateGdexSessionKeyPair();
+  }
+
+  /**
+   * Build encrypted /v1/user `data` query param from session key.
+   */
+  buildManagedUserData(sessionKey: string, apiKey: string): string {
+    return buildGdexUserSessionData(sessionKey, apiKey);
+  }
+
+  /**
+   * Build /v1/sign_in computedData after obtaining control-wallet signature.
+   */
+  buildManagedSignInComputedData(params: {
+    apiKey: string;
+    userId: string;
+    sessionKey: string;
+    nonce: string;
+    refSourceCode?: string;
+    signature: string;
+  }): GdexManagedComputedPayload {
+    return buildGdexSignInComputedData(params);
+  }
+
+  /**
+   * Build trade computedData for purchase/sell using session private key signing.
+   */
+  buildManagedTradeComputedData(params: {
+    apiKey: string;
+    action: 'purchase' | 'sell';
+    userId: string;
+    tokenAddress: string;
+    amount: string | number | bigint;
+    nonce: string;
+    sessionPrivateKey: string;
+  }): GdexManagedComputedPayload {
+    return buildGdexManagedTradeComputedData(params);
+  }
+
+  /**
+   * Get current managed user profile and chain wallet resolution.
+   */
+  async getManagedUser(params: GdexManagedUserQuery): Promise<Record<string, unknown>> {
+    return this.client.get<Record<string, unknown>>(Endpoints.USER_PROFILE, { ...params });
+  }
+
+  /**
+   * Submit managed-custody buy trade using encrypted `computedData`.
+   */
+  async submitManagedPurchase(params: GdexManagedTradeParams): Promise<GdexManagedTradeSubmitResult> {
+    return this.client.post<GdexManagedTradeSubmitResult>(Endpoints.PURCHASE_V2, params);
+  }
+
+  /**
+   * Submit managed-custody sell trade using encrypted `computedData`.
+   */
+  async submitManagedSell(params: GdexManagedTradeParams): Promise<GdexManagedTradeSubmitResult> {
+    return this.client.post<GdexManagedTradeSubmitResult>(Endpoints.SELL_V2, params);
+  }
+
+  /**
+   * Poll managed trade status by `requestId`.
+   *
+   * Uses the canonical `/v1/trade-status/:requestId` path first,
+   * then falls back to legacy query endpoint for compatibility.
+   */
+  async getManagedTradeStatus(requestId: string): Promise<GdexManagedTradeStatus> {
+    try {
+      return await this.client.get<GdexManagedTradeStatus>(Endpoints.tradeStatusPath(requestId));
+    } catch {
+      return this.client.get<GdexManagedTradeStatus>(Endpoints.TRADE_STATUS, {
+        requestId,
+        jobId: requestId,
+      });
+    }
   }
 
   // ── Spot Trading ──────────────────────────────────────────────────────────

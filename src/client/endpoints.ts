@@ -5,22 +5,25 @@
 /** Auth endpoints */
 export const AUTH_NONCE = '/v1/auth/nonce';
 export const AUTH_LOGIN = '/v1/auth/login';
+export const AUTH_SIGN_IN = '/v1/sign_in';
 export const AUTH_REFRESH = '/v1/auth/refresh';
 export const AUTH_LOGOUT = '/v1/auth/logout';
 
 /** User endpoints */
-export const USER_PROFILE = '/v1/user/profile';
+export const USER_PROFILE = '/v1/user';
 export const USER_UPDATE = '/v1/user/update';
 
 /** Trading endpoints */
 export const PURCHASE_V2 = '/v1/purchase_v2';
 export const SELL_V2 = '/v1/sell_v2';
-export const TRADE_STATUS = '/v1/trade/status';
+export const TRADE_STATUS = '/v1/trade/status'; // legacy compatibility
+export const TRADE_STATUS_BASE = '/v1/trade-status';
+export const tradeStatusPath = (requestId: string): string => `${TRADE_STATUS_BASE}/${requestId}`;
 
 /** Portfolio endpoints */
 export const PORTFOLIO = '/v1/portfolio';
-export const BALANCES = '/v1/portfolio/balances';
-export const TRADE_HISTORY = '/v1/portfolio/history';
+export const BALANCES = '/v1/portfolio/balances'; // legacy compatibility
+export const TRADE_HISTORY = '/v1/user_history';
 
 /** Order endpoints */
 export const ORDERS = '/v1/orders';
@@ -51,11 +54,11 @@ export const TOKEN_SEARCH = '/v1/token/search';
 export const TOKEN_TOP_TRADERS = '/v1/token/top_traders';
 
 /** Trending endpoints */
-export const TRENDING = '/v1/trending';
+export const TRENDING = '/v1/trending/list';
 export const TRENDING_CHAIN = '/v1/trending/:chain';
 
 /** OHLCV / TradingView endpoints */
-export const OHLCV = '/v1/ohlcv';
+export const OHLCV = '/v1/candles';
 export const TRADING_VIEW_CONFIG = '/v1/trading_view/config';
 export const TRADING_VIEW_SYMBOLS = '/v1/trading_view/symbols';
 export const TRADING_VIEW_HISTORY = '/v1/trading_view/history';
@@ -66,11 +69,11 @@ export const BRIDGE_QUOTE = '/v1/bridge/quote';
 export const BRIDGE_STATUS = '/v1/bridge/status';
 
 /** Top traders endpoints */
-export const TOP_TRADERS = '/v1/top_traders';
+export const TOP_TRADERS = '/v1/copy_trade/top_traders';
 
 /** Wallet endpoints */
-export const WALLET_INFO = '/v1/wallet/info';
+export const WALLET_INFO = '/v1/wallet/info'; // not always enabled in all deployments
 
 /** Health check */
-export const HEALTH = '/health';
+export const HEALTH = '/v1/status';
 export const CHECK_SOLANA_RPC = '/v1/checkSolanaConnectionRpc';

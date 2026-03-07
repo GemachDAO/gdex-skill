@@ -9,6 +9,7 @@ export * from './orders';
 export * from './perp';
 export * from './copyTrade';
 export * from './bridge';
+export * from './managed';
 
 /**
  * Top trader information.

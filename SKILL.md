@@ -1,6 +1,6 @@
 ---
 name: gdex-trading
-description: Execute cross-chain DeFi trades, manage perpetual futures positions, query token prices and portfolio balances on Gbot Trading Dashboard. Generate a new EVM control wallet for users without wallets — the backend provides Solana + other trading wallets automatically. Use when asked to buy/sell tokens, open/close perp positions, check portfolio, find trending tokens, bridge assets, or set up a new wallet.
+description: Execute cross-chain DeFi trades via GDEX managed-custody wallets, manage perpetual futures positions, query token prices and portfolio balances on Gbot Trading Dashboard. All trading goes through encrypted computedData payloads (AES-256-CBC) — the control wallet signs in once, then a session keypair handles trades. Generate a new EVM control wallet for users without wallets — the backend provides Solana + other trading wallets automatically via managed custody. Use when asked to buy/sell tokens, open/close perp positions, check portfolio, find trending tokens, bridge assets, or set up a new wallet.
 metadata:
   author: GemachDAO
   version: "1.0.0"
@@ -13,7 +13,9 @@ Execute cross-chain DeFi operations via the Gbot Trading Dashboard backend API a
 
 ## Authentication
 
-All trading actions require authentication. Use the shared API keys — no wallet signing needed:
+All trading goes through GDEX **managed-custody** wallets. The flow uses encrypted `computedData` payloads (AES-256-CBC) rather than plain API keys or bearer tokens.
+
+### Quick Start (shared API key for read-only)
 
 ```typescript
 import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
@@ -23,10 +25,83 @@ skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
 ```
 
 **API Keys (pre-configured, shared for all agents):**
-- Primary: `3f6c9e12-7b41-4c2a-9d5e-1a8f3b7e6c90`
-- Secondary: `8d2a5f47-2e13-4b9c-a6f1-0c9e7d3a5b21`
+- Primary: `9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54`
+- Secondary: `2c8f0a91-5d34-4e7b-9a62-f1c3d8e4b705`
 
 Read-only actions (token details, trending, OHLCV, top traders) do not require authentication.
+
+### Managed-Custody Trade Flow (for all trading)
+
+All trades go through GDEX server-side managed wallets. The control wallet (EVM or Solana) is used
+only for initial sign-in — GDEX provisions and manages all on-chain trading wallets.
+
+```typescript
+import {
+  GdexSkill,
+  GDEX_API_KEY_PRIMARY,
+  generateGdexSessionKeyPair,
+  buildGdexSignInMessage,
+  buildGdexSignInComputedData,
+  buildGdexManagedTradeComputedData,
+  buildGdexUserSessionData,
+} from '@gdexsdk/gdex-skill';
+
+const skill = new GdexSkill();
+skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
+const apiKey = GDEX_API_KEY_PRIMARY;
+
+// 1. Generate a secp256k1 session keypair
+const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
+// sessionKey = compressed public key (0x + 66 hex chars)
+
+// 2. Build and sign the sign-in message with your control wallet
+const userId = '0xYourControlWalletAddress'; // EVM address or Solana pubkey
+const nonce = String(Date.now());
+const message = buildGdexSignInMessage(userId, nonce, sessionKey);
+// → "By signing, you agree to GDEX Trading Terms of Use and Privacy Policy. Your GDEX log in message: <userId> <nonce> <sessionKeyHex>"
+
+// Sign with your control wallet:
+//   EVM:    wallet.signMessage(message)                → EIP-191 personal_sign
+//   Solana: nacl.sign.detached(Buffer.from(message))   → base58 encoded
+
+const signature = '...'; // your wallet's signature
+
+// 3. Build encrypted computedData and POST to /v1/sign_in
+const signInPayload = buildGdexSignInComputedData({ apiKey, userId, sessionKey, nonce, signature });
+const signInResult = await skill.signInWithComputedData({
+  computedData: signInPayload.computedData,
+  chainId: 900, // 900=Solana, 101=Sui, or numeric EVM chain ID
+});
+
+// 4. Resolve user profile / check managed wallet
+const userData = buildGdexUserSessionData(sessionKey, apiKey);
+const user = await skill.getManagedUser({ userId, data: userData, chainId: 900 });
+
+// 5. Build encrypted trade payload and submit
+const trade = buildGdexManagedTradeComputedData({
+  apiKey,
+  action: 'purchase', // or 'sell'
+  userId,
+  tokenAddress: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+  amount: '100000',   // in smallest unit
+  nonce: String(Date.now()),
+  sessionPrivateKey,
+});
+
+const result = await skill.submitManagedPurchase({
+  computedData: trade.computedData,
+  chainId: 900,
+  slippage: 1,
+});
+
+// 6. Poll trade status
+if (result.requestId) {
+  const status = await skill.getManagedTradeStatus(result.requestId);
+  console.log('Status:', status.status, 'Hash:', status.hash);
+}
+```
+
+**Chain IDs:** 900 = Solana, 101 = Sui, 1 = Ethereum, 8453 = Base, 42161 = Arbitrum, 56 = BSC
 
 ## Setup
 
@@ -69,11 +144,10 @@ skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
 
 ### Wallet Generation (no auth required)
 
-When a user says they don't have a wallet, generate an EVM **control wallet** for them. The EVM wallet is all you need — once authenticated, the Gbot backend automatically provisions their full trading wallet including a Solana address and other chain-specific keys. No separate Solana wallet generation is needed.
+When a user says they don't have a wallet, generate an EVM **control wallet** for them. The EVM wallet is all you need — once authenticated via the managed-custody `sign_in` flow, the Gbot backend automatically provisions their full trading wallet including a Solana address and other chain-specific keys. No separate Solana wallet generation is needed.
 
 ```typescript
-import { generateEvmWallet } from '@gdexsdk/gdex-skill';
-// or: const wallet = skill.generateEvmWallet();
+import { generateEvmWallet, generateGdexSessionKeyPair, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
 
 // Step 1: generate the EVM control wallet (one-time setup)
 const wallet = generateEvmWallet();
@@ -83,12 +157,12 @@ const wallet = generateEvmWallet();
 
 console.log('Your new wallet address:', wallet.address);
 
-// Step 2: authenticate with the control wallet
-// The backend will provision Solana + all other trading wallets automatically
-await skill.authenticate({ type: 'evm', address: wallet.address, privateKey: wallet.privateKey });
+// Step 2: generate a session keypair for managed-custody trading
+const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
+// Save sessionPrivateKey to reuse across requests
 
-// Step 3: now trade on any chain — Solana, EVM, etc.
-const trade = await skill.buyToken({ chain: 'solana', tokenAddress: '...', amount: '0.1' });
+// Step 3: sign in via managed-custody flow (see Managed-Custody Trade Flow above)
+// The backend provisions Solana + all other trading wallets server-side
 ```
 
 > ⚠️ Always remind the user to save their private key and mnemonic securely. Keys are generated locally and never sent over the network.
@@ -326,8 +400,12 @@ Trade responses (`TradeResult`) include:
 
 ## Notes
 
+- All trading goes through GDEX managed-custody wallets — the control wallet is only used for sign-in
+- Trade payloads use AES-256-CBC encryption (`computedData`) derived from the API key's SHA256 hash chain
+- Trade signatures use raw keccak256 + secp256k1 (no EIP-191 prefix) with the session private key
 - All amounts are strings to preserve precision (e.g., `'0.1'`, `'1000'`)
 - Chain can be specified as a string (`'solana'`, `'sui'`) or a ChainId number (`1`, `8453`, etc.)
+- Chain IDs: 900 = Solana, 101 = Sui, or standard EVM chain IDs
 - Sell amounts can be absolute (`'100'`) or percentage (`'50%'`)
 - The SDK automatically retries on transient errors (429, 503) with exponential backoff
 - `generateEvmWallet()` works fully offline — no auth or network needed; backend provides trading wallets (incl. Solana) after auth

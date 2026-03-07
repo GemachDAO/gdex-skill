@@ -12,6 +12,7 @@ import {
   TradeHistoryParams,
 } from '../types/portfolio';
 import { validateChain, validateRequired } from '../utils/validation';
+import { buildChainAliases, buildWalletAliases, buildTokenAliases } from '../utils/apiAliases';
 
 /**
  * Get the full portfolio for a wallet address.
@@ -26,9 +27,9 @@ export async function getPortfolio(client: GdexApiClient, params: PortfolioParam
   if (params.chain !== undefined) validateChain(params.chain);
 
   const queryParams: Record<string, unknown> = {
-    walletAddress: params.walletAddress,
+    ...buildWalletAliases(params.walletAddress),
   };
-  if (params.chain !== undefined) queryParams.chain = params.chain;
+  Object.assign(queryParams, buildChainAliases(params.chain));
 
   return client.get<Portfolio>(Endpoints.PORTFOLIO, queryParams);
 }
@@ -44,12 +45,17 @@ export async function getBalances(client: GdexApiClient, params: BalanceParams):
   validateChain(params.chain);
 
   const queryParams: Record<string, unknown> = {
-    walletAddress: params.walletAddress,
-    chain: params.chain,
+    ...buildWalletAliases(params.walletAddress),
+    ...buildChainAliases(params.chain),
   };
-  if (params.tokenAddress) queryParams.tokenAddress = params.tokenAddress;
+  if (params.tokenAddress) Object.assign(queryParams, buildTokenAliases(params.tokenAddress));
 
-  return client.get<Balance[]>(Endpoints.BALANCES, queryParams);
+  try {
+    return await client.get<Balance[]>(Endpoints.BALANCES, queryParams);
+  } catch {
+    const portfolio = await client.get<Portfolio>(Endpoints.PORTFOLIO, queryParams);
+    return Array.isArray(portfolio?.balances) ? portfolio.balances : [];
+  }
 }
 
 /**
@@ -66,14 +72,18 @@ export async function getTradeHistory(
   if (params.chain !== undefined) validateChain(params.chain);
 
   const queryParams: Record<string, unknown> = {
-    walletAddress: params.walletAddress,
+    ...buildWalletAliases(params.walletAddress),
   };
 
-  if (params.chain !== undefined) queryParams.chain = params.chain;
+  Object.assign(queryParams, buildChainAliases(params.chain));
   if (params.page) queryParams.page = params.page;
   if (params.limit) queryParams.limit = params.limit;
   if (params.startTime) queryParams.startTime = params.startTime;
   if (params.endTime) queryParams.endTime = params.endTime;
+
+  // Common backend alias for history filters.
+  if (params.startTime) queryParams.from = params.startTime;
+  if (params.endTime) queryParams.to = params.endTime;
 
   return client.get<TradeRecord[]>(Endpoints.TRADE_HISTORY, queryParams);
 }

@@ -103,7 +103,7 @@ try {
 } catch (err) { fail('GdexSkill() constructor failed', err); }
 
 try {
-  const s2 = new GdexSkill({ apiUrl: 'https://trade-api.gemach.io', timeout: 5000, maxRetries: 1 });
+  const s2 = new GdexSkill({ apiUrl: 'https://trade-api.gemach.io/v1', timeout: 5000, maxRetries: 1 });
   ok('new GdexSkill({ apiUrl, timeout, maxRetries }) — custom config');
 } catch (err) { fail('GdexSkill() with custom config failed', err); }
 
