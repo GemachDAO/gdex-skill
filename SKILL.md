@@ -249,7 +249,7 @@ const traders = await skill.getTopTraders({
 await skill.addCopyTradeWallet({ walletAddress: '0xTraderAddress', chain: 1, label: 'Top Trader' });
 
 // Get tracked wallets
-const wallets = await skill.getCopyTradeWallets({ userId: 'your-user-id' });
+const wallets = await skill.getCopyTradeWallets('your-user-id');
 
 // Configure copy trade settings
 await skill.setCopyTradeSettings({
