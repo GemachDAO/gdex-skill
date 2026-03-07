@@ -57,7 +57,7 @@ try {
 let GdexSkill, GDEX_API_KEY_PRIMARY, GDEX_API_KEY_SECONDARY, GDEX_API_KEYS;
 let ChainId, getChainName, getNativeToken, formatUsd, formatTokenAmount;
 let GdexAuthError, GdexValidationError, GdexApiError, GdexNetworkError, GdexRateLimitError;
-let generateEvmWallet, generateSolanaWallet, generateWallet;
+let generateEvmWallet;
 
 section('1. SDK import');
 try {
@@ -77,8 +77,6 @@ try {
   GdexNetworkError       = sdk.GdexNetworkError;
   GdexRateLimitError     = sdk.GdexRateLimitError;
   generateEvmWallet      = sdk.generateEvmWallet;
-  generateSolanaWallet   = sdk.generateSolanaWallet;
-  generateWallet         = sdk.generateWallet;
   ok('SDK imported from ' + sdkPath);
 } catch (err) {
   fail('SDK import failed — run `npm run build` first', err);
@@ -191,7 +189,7 @@ try {
 } catch (err) { fail('GdexRateLimitError check', err); }
 
 // ─── Wallet generation ────────────────────────────────────────────────────────
-section('8. Wallet generation (offline)');
+section('8. EVM control wallet generation (offline)');
 
 try {
   if (typeof generateEvmWallet !== 'function') throw new Error('generateEvmWallet is not exported');
@@ -201,34 +199,14 @@ try {
   if (!/^0x[0-9a-fA-F]{64}$/.test(w.privateKey)) throw new Error('invalid EVM private key format');
   const words = w.mnemonic.trim().split(/\s+/);
   if (words.length !== 12) throw new Error(`expected 12-word mnemonic, got ${words.length} words`);
-  ok(`generateEvmWallet() → address=${w.address.substring(0, 10)}...`);
+  ok(`generateEvmWallet() → address=${w.address.substring(0, 10)}... (control wallet)`);
 } catch (err) { fail('generateEvmWallet() check', err); }
-
-try {
-  if (typeof generateSolanaWallet !== 'function') throw new Error('generateSolanaWallet is not exported');
-  const w = generateSolanaWallet();
-  if (w.type !== 'solana') throw new Error(`expected type 'solana', got '${w.type}'`);
-  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(w.address)) throw new Error(`invalid Solana address: ${w.address}`);
-  if (!/^[0-9a-f]{128}$/.test(w.secretKeyHex)) throw new Error('secretKeyHex should be 128 hex chars (64 bytes)');
-  ok(`generateSolanaWallet() → address=${w.address.substring(0, 10)}...`);
-} catch (err) { fail('generateSolanaWallet() check', err); }
-
-try {
-  const evmW = generateWallet('evm');
-  const solW = generateWallet('solana');
-  if (evmW.type !== 'evm') throw new Error('generateWallet("evm") returned wrong type');
-  if (solW.type !== 'solana') throw new Error('generateWallet("solana") returned wrong type');
-  ok(`generateWallet("evm") + generateWallet("solana") ✓`);
-} catch (err) { fail('generateWallet() unified helper', err); }
 
 try {
   const w1 = generateEvmWallet();
   const w2 = generateEvmWallet();
   if (w1.address === w2.address) throw new Error('Two EVM wallets should not have the same address');
-  const s1 = generateSolanaWallet();
-  const s2 = generateSolanaWallet();
-  if (s1.address === s2.address) throw new Error('Two Solana wallets should not have the same address');
-  ok('All generated wallets have unique addresses ✓');
+  ok('Generated wallets have unique addresses ✓');
 } catch (err) { fail('Uniqueness check', err); }
 
 // ─── Summary ──────────────────────────────────────────────────────────────────

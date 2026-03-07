@@ -19,8 +19,8 @@
  * ```
  */
 
-import { generateEvmWallet, generateSolanaWallet, generateWallet } from './utils/walletGeneration';
-import type { GeneratedEvmWallet, GeneratedSolanaWallet, GeneratedWallet } from './utils/walletGeneration';
+import { generateEvmWallet } from './utils/walletGeneration';
+import type { GeneratedEvmWallet } from './utils/walletGeneration';
 import { GdexApiClient } from './client';
 import { AuthCredentials, AuthSession } from './client/auth';
 import { GdexSkillConfig } from './types/common';
@@ -122,8 +122,8 @@ export { GDEX_API_KEYS, GDEX_API_KEY_PRIMARY, GDEX_API_KEY_SECONDARY } from './c
 export { getChainName, getNativeToken, formatTokenAmount, formatUsd, formatPercentChange, shortenAddress, formatTimestamp, truncateDecimals } from './utils/formatting';
 
 // Wallet generation utilities (no network required)
-export { generateEvmWallet, generateSolanaWallet, generateWallet } from './utils/walletGeneration';
-export type { GeneratedEvmWallet, GeneratedSolanaWallet, GeneratedWallet } from './utils/walletGeneration';
+export { generateEvmWallet } from './utils/walletGeneration';
+export type { GeneratedEvmWallet } from './utils/walletGeneration';
 
 // Validation utilities
 export { validateAddress, validateAmount, validateChain, validateSlippage, validateLeverage, validateCoin } from './utils/validation';
@@ -559,7 +559,12 @@ export class GdexSkill {
   // ── Wallet Generation ─────────────────────────────────────────────────────
 
   /**
-   * Generate a new EVM wallet (Ethereum, Base, Arbitrum, BSC, etc.).
+   * Generate a new EVM control wallet (Ethereum, Base, Arbitrum, BSC, etc.).
+   *
+   * This is your **control wallet** used to authenticate with the Gbot backend.
+   * Once authenticated, the backend automatically provides a full trading wallet
+   * (including a Solana address and other chain-specific keys) — no separate
+   * Solana wallet generation is needed.
    *
    * Uses `ethers.Wallet.createRandom()` with the platform CSPRNG.
    * The private key is returned to the caller and is never transmitted over
@@ -569,58 +574,19 @@ export class GdexSkill {
    *
    * @example
    * ```typescript
+   * // One-time setup: generate your EVM control wallet
    * const wallet = skill.generateEvmWallet();
    * console.log('Address:', wallet.address);
-   * // Store wallet.privateKey securely (env var, secrets manager, etc.)
+   * // ⚠️  Store wallet.privateKey and wallet.mnemonic securely!
+   *
+   * // Authenticate — the backend will provision your trading wallets
    * await skill.authenticate({ type: 'evm', address: wallet.address, privateKey: wallet.privateKey });
+   *
+   * // Now trade on any supported chain (Solana, EVM, etc.)
+   * const trade = await skill.buyToken({ chain: 'solana', tokenAddress: '...', amount: '0.1' });
    * ```
    */
   generateEvmWallet(): GeneratedEvmWallet {
-    return generateEvmWallet();
-  }
-
-  /**
-   * Generate a new Solana wallet.
-   *
-   * Uses Node.js built-in `crypto.randomBytes` for a random ed25519 keypair.
-   * No optional dependencies required.
-   * The private key is returned to the caller and is never transmitted over
-   * the network.
-   *
-   * @returns New Solana wallet with address (base58 public key) and private key.
-   *
-   * @example
-   * ```typescript
-   * const wallet = skill.generateSolanaWallet();
-   * console.log('Address:', wallet.address);
-   * // Store wallet.privateKey securely
-   * await skill.authenticate({ type: 'solana', address: wallet.address, privateKey: wallet.privateKey });
-   * ```
-   */
-  generateSolanaWallet(): GeneratedSolanaWallet {
-    return generateSolanaWallet();
-  }
-
-  /**
-   * Generate a new wallet for the specified chain type.
-   *
-   * Convenience wrapper that picks the right generator:
-   * - `'evm'` → EVM-compatible wallet (secp256k1, 12-word mnemonic)
-   * - `'solana'` → Solana wallet (ed25519, base58 keypair)
-   *
-   * @param type - Wallet type: `'evm'` or `'solana'`
-   * @returns A newly generated wallet object.
-   *
-   * @example
-   * ```typescript
-   * const evmWallet  = skill.generateWallet('evm');
-   * const solWallet  = skill.generateWallet('solana');
-   * ```
-   */
-  generateWallet(type: 'evm'): GeneratedEvmWallet;
-  generateWallet(type: 'solana'): GeneratedSolanaWallet;
-  generateWallet(type: 'evm' | 'solana'): GeneratedWallet {
-    if (type === 'solana') return generateSolanaWallet();
     return generateEvmWallet();
   }
 }
