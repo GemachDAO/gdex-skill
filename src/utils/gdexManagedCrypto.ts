@@ -2,6 +2,17 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypt
 import { AbiCoder, SigningKey, keccak256, toUtf8Bytes } from 'ethers';
 import type { GdexManagedComputedPayload, GdexManagedSessionKeyPair } from '../types/managed';
 
+// ── HyperLiquid action type constants ────────────────────────────────────────
+
+export type HlActionType =
+  | 'hl_deposit'
+  | 'hl_withdraw'
+  | 'hl_create_order'
+  | 'hl_place_order'
+  | 'hl_close_all'
+  | 'hl_cancel_order'
+  | 'hl_cancel_all_orders';
+
 /**
  * Derive AES-256-CBC key/iv from API key using the documented hash chain.
  */
@@ -205,4 +216,129 @@ export function buildGdexManagedTradeComputedData(params: {
     data,
     signature,
   };
+}
+
+// ── HyperLiquid managed-custody helpers ──────────────────────────────────────
+
+/**
+ * Generate a client-side nonce for managed-custody operations.
+ * Matches the official SDK's generateUniqueNumber():
+ *   Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000)
+ */
+export function generateGdexNonce(): number {
+  return Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000);
+}
+
+/**
+ * ABI-encode data for a HyperLiquid action.
+ *
+ * Each action type has a fixed schema matching the official SDK's encodeInputData().
+ */
+export function encodeHlActionData(
+  action: HlActionType,
+  params: Record<string, unknown>,
+): string {
+  const abi = AbiCoder.defaultAbiCoder();
+  let encoded: string;
+
+  switch (action) {
+    case 'hl_deposit':
+      // [uint64, address, uint256, string] = [chainId, tokenAddress, amount(smallest unit), nonce]
+      encoded = abi.encode(
+        ['uint64', 'address', 'uint256', 'string'],
+        [params.chainId, params.tokenAddress, params.amount, params.nonce],
+      );
+      break;
+    case 'hl_withdraw':
+      // [string, string] = [amount, nonce]
+      encoded = abi.encode(['string', 'string'], [params.amount, params.nonce]);
+      break;
+    case 'hl_create_order':
+      // [string, bool, string, string, bool, string, string, string, bool]
+      encoded = abi.encode(
+        ['string', 'bool', 'string', 'string', 'bool', 'string', 'string', 'string', 'bool'],
+        [
+          params.coin, params.isLong, params.price, params.size,
+          params.reduceOnly, params.nonce,
+          params.tpPrice, params.slPrice, params.isMarket,
+        ],
+      );
+      break;
+    case 'hl_place_order':
+      // [string, bool, string, string, bool, string]
+      encoded = abi.encode(
+        ['string', 'bool', 'string', 'string', 'bool', 'string'],
+        [params.coin, params.isLong, params.price, params.size, params.reduceOnly, params.nonce],
+      );
+      break;
+    case 'hl_close_all':
+      // [string] = [nonce]
+      encoded = abi.encode(['string'], [params.nonce]);
+      break;
+    case 'hl_cancel_order':
+      // [string, string, string] = [nonce, coin, orderId]
+      encoded = abi.encode(['string', 'string', 'string'], [params.nonce, params.coin, params.orderId]);
+      break;
+    case 'hl_cancel_all_orders':
+      // [string] = [nonce]
+      encoded = abi.encode(['string'], [params.nonce]);
+      break;
+    default:
+      throw new Error(`Unknown HL action: ${action}`);
+  }
+
+  // Return without 0x prefix to match official SDK convention
+  return encoded.startsWith('0x') ? encoded.slice(2) : encoded;
+}
+
+/**
+ * Sign a HyperLiquid action message with the session private key.
+ *
+ * Sign message format: `{action}-{address.toLowerCase()}-{dataHex}`
+ * Returns 130-char hex (r64+s64+v2) without 0x prefix.
+ */
+export function signHlActionMessage(
+  action: HlActionType,
+  userId: string,
+  dataHex: string,
+  sessionPrivateKey: string,
+): string {
+  const normalizedUserId = userId.startsWith('0x') ? userId.toLowerCase() : userId;
+  const msg = `${action}-${normalizedUserId}-${dataHex}`;
+  const digest = keccak256(toUtf8Bytes(msg));
+  const sig = new SigningKey(sessionPrivateKey).sign(digest);
+  const r = sig.r.replace(/^0x/, '');
+  const s = sig.s.replace(/^0x/, '');
+  const v = sig.yParity.toString(16).padStart(2, '0');
+  return `${r}${s}${v}`;
+}
+
+/**
+ * Build encrypted computedData for any HyperLiquid managed-custody operation.
+ *
+ * This is the generic builder that handles encode → sign → encrypt for all HL actions.
+ */
+export function buildHlComputedData(params: {
+  action: HlActionType;
+  apiKey: string;
+  walletAddress: string;
+  sessionPrivateKey: string;
+  actionParams: Record<string, unknown>;
+}): string {
+  const nonce = generateGdexNonce().toString();
+  const fullParams = { ...params.actionParams, nonce };
+
+  const data = encodeHlActionData(params.action, fullParams);
+  const signature = signHlActionMessage(
+    params.action,
+    params.walletAddress,
+    data,
+    params.sessionPrivateKey,
+  );
+  return buildEncryptedGdexPayload({
+    apiKey: params.apiKey,
+    userId: params.walletAddress,
+    data,
+    signature,
+  });
 }

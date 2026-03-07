@@ -21,9 +21,9 @@ import {
 import { AuthCredentials, AuthSession, signEvmMessage, signSolanaMessage } from './auth';
 import * as Endpoints from './endpoints';
 
-/** Default SDK User-Agent — whitelisted by the backend */
+/** Default SDK User-Agent — must match browser UA to pass Cloudflare / backend validation */
 const DEFAULT_USER_AGENT =
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 GdexSkill/1.0.0';
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
 
 /** Default API base URL */
 const DEFAULT_API_URL = 'https://trade-api.gemach.io/v1';
@@ -80,7 +80,11 @@ export class GdexApiClient {
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': this.config.userAgent,
-        ...(this.config.apiKey ? { 'X-API-Key': this.config.apiKey } : {}),
+        'Accept': 'application/json',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        ...(this.config.apiKey ? { 'Authorization': `Bearer ${this.config.apiKey}` } : {}),
       },
     });
 

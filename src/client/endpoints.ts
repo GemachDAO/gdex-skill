@@ -30,17 +30,15 @@ export const ORDERS = '/v1/orders';
 export const ORDERS_CREATE = '/v1/orders/create';
 export const ORDERS_CANCEL = '/v1/orders/cancel';
 
-/** HyperLiquid perp endpoints */
-export const HL_TRADE = '/v1/hl/trade';
-export const HL_POSITIONS = '/v1/hl/positions';
+/** HyperLiquid perp endpoints (managed custody computedData) */
 export const HL_DEPOSIT = '/v1/hl/deposit';
 export const HL_WITHDRAW = '/v1/hl/withdraw';
-export const HL_LEVERAGE = '/v1/hl/leverage';
-export const HL_VAULT = '/v1/hl/vault';
-export const HL_VAULT_DEPOSIT = '/v1/hl/vault/deposit';
-export const HL_VAULT_WITHDRAW = '/v1/hl/vault/withdraw';
-export const HL_REFERRAL = '/v1/hl/referral';
-export const HL_REFERRAL_CREATE = '/v1/hl/referral/create';
+export const HL_CREATE_ORDER = '/v1/hl/create_order';
+export const HL_PLACE_ORDER = '/v1/hl/place_order';
+export const HL_CLOSE_ALL = '/v1/hl/close_all_positions';
+export const HL_CANCEL_ORDER = '/v1/hl/cancel_order';
+export const HL_GBOT_USDC_BALANCE = '/v1/hl/gbot_usdc_balance';
+export const HL_USER_STATS = '/v1/hl/user_stats';
 
 /** Copy trade endpoints */
 export const COPY_TRADE_SETTINGS = '/v1/copy_trade/settings';

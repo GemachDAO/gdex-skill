@@ -17,7 +17,7 @@ Cross-chain spot trading · Perpetual futures · Portfolio management · Token d
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F7DF1E.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![skills.sh](https://img.shields.io/badge/skills.sh-compatible-8B5CF6.svg?style=for-the-badge)](https://skills.sh)
-[![Tests](https://img.shields.io/badge/tests-80%20passing-22C55E.svg?style=for-the-badge)](#testing)
+[![Tests](https://img.shields.io/badge/tests-88%20passing-22C55E.svg?style=for-the-badge)](#testing)
 
 </div>
 
@@ -248,19 +248,26 @@ All trading on GDEX goes through **server-side managed wallets**. Your control w
 
 ### Encryption
 
-All authenticated payloads use **AES-256-CBC** derived from the API key:
+All authenticated payloads use **AES-256-CBC** with a **deterministic** key/IV derived from the API key (no random IV):
 - Key = first 32 bytes of `SHA256(apiKey)` hex
 - IV = first 16 bytes of `SHA256(SHA256(apiKey))` hex
-- Trade/sign-in payloads: `JSON.stringify({ userId, data, signature })` → UTF-8 → encrypt
+- Trade/sign-in payloads: `JSON.stringify({ userId, data, signature, apiKey })` → UTF-8 → encrypt → hex
 - Session key (`/v1/user`): hex-decoded raw bytes → encrypt (not UTF-8 string)
+- The API key is included inside the encrypted JSON payload (not just used for encryption)
+
+> **WARNING:** Do NOT use random IVs or the `iv:ciphertext` format. The backend uses deterministic AES derived from the API key hash chain.
 
 ### Signatures
 
-Trade signatures use **raw keccak256 + secp256k1** (no EIP-191 prefix):
+**Spot trade signatures** (purchase/sell) use **raw keccak256 + secp256k1** (no EIP-191 prefix):
 - Message: `"<action>-<lowercaseUserId>-<dataHexWithout0x>"`
 - Digest: `keccak256(utf8Bytes(message))`
 - Output: `r(64 hex) + s(64 hex) + v(2 hex)` = 130 chars, no `0x` prefix
 - **v = raw recovery parameter** (`00` or `01`), NOT EIP-155 (`1b`/`1c`)
+
+**HL perp signatures** use the same algorithm but with HL-specific action prefixes (`hl_deposit`, `hl_withdraw`, `hl_create_order`, etc.) and different ABI schemas. See the [HL Managed-Custody Reference](#hl-managed-custody-reference) section.
+
+**Sign-in signatures** use EIP-191 `personal_sign` with the control wallet — this is the ONLY operation that uses EIP-191. All post-sign-in operations use raw keccak256.
 
 ### Nonce Generation
 
@@ -387,6 +394,8 @@ await skill.sellToken({ chain: 'solana', tokenAddress: '...', amount: '50%' });
 
 ### Perpetual Futures (HyperLiquid)
 
+> **Critical: HyperLiquid deposits/withdrawals/orders use a different crypto flow than spot trades.** See the [HL Managed-Custody Reference](#hl-managed-custody-reference) section below for exact specifications.
+
 #### `openPerpPosition(params)`
 
 | Parameter | Type | Default | Description |
@@ -417,12 +426,16 @@ await skill.closePerpPosition({ coin: 'ETH', closePercent: 50 }); // close 50%
 
 ```typescript
 await skill.setPerpLeverage({ coin: 'BTC', leverage: 20 });
-await skill.perpDeposit({ amount: '1000' });   // deposit $1000 USDC
-await skill.perpWithdraw({ amount: '500' });   // withdraw $500 USDC
+
+// Deposit USDC to HyperLiquid (human-readable amount, converted internally)
+await skill.perpDeposit({ amount: '10' });   // deposit 10 USDC (minimum)
+await skill.perpWithdraw({ amount: '5' });    // withdraw 5 USDC
 
 const positions = await skill.getPerpPositions({ walletAddress: '0x...' });
 // Each: { coin, side, size, entryPrice, markPrice, leverage, unrealizedPnl, liquidationPrice }
 ```
+
+> **HL Deposit notes:** Amount is in human-readable USDC (e.g., `'10'` for 10 USDC). The SDK automatically converts to smallest unit (6 decimals). Minimum deposit is 10 USDC. Your managed wallet must have the deposit amount + 1% fee buffer in USDC on Arbitrum. After the on-chain tx confirms, HyperLiquid takes ~10 minutes to credit the deposit.
 
 ---
 
@@ -704,10 +717,10 @@ import {
 
 ## 🧪 Testing
 
-All 80 tests run with **mocked HTTP** — no real API key or network connection required:
+All 88 tests run with **mocked HTTP** — no real API key or network connection required:
 
 ```bash
-npm test              # run all 80 tests
+npm test              # run all 88 tests
 npm run test:coverage # with coverage report
 npm run verify        # offline SDK smoke-test (20 checks)
 npm run verify:managed # managed-custody payload validation (dry-run)
@@ -751,6 +764,150 @@ Gbot Backend API  (https://trade-api.gemach.io/v1)
    │  DEX aggregation engine
    ▼
 Blockchains  (Solana · Sui · Ethereum · Base · Arbitrum · …)
+```
+
+---
+
+## HL Managed-Custody Reference
+
+HyperLiquid perp operations use a **distinct crypto pipeline** from spot trades. Getting any detail wrong produces a `400 Unauthorized (code 103)` error. This section documents the exact specification.
+
+### HL Deposit Flow
+
+The backend custodially executes the on-chain deposit: it loads the user's server-side private key, constructs an Arbitrum transaction, and sends USDC to the HyperLiquid bridge receiver. The agent only provides an authorization signature.
+
+```
+Agent SDK                              Backend
+────────                               ───────
+1. ABI-encode deposit params     ──►   2. AES-decrypt computedData
+   (uint64 chainId, address,           3. ABI-decode data
+    uint256 amount, string nonce)       4. Verify chainId == 42161
+2. Sign with session key          ──►  5. Verify signature vs stored sessionKey
+3. AES-encrypt as computedData    ──►  6. Validate token, balance, min deposit
+4. POST /v1/hl/deposit                 7. Execute ERC-20 transfer on Arbitrum
+```
+
+### HL ABI Schemas (CRITICAL)
+
+| Action | ABI Types | Fields |
+|---|---|---|
+| `hl_deposit` | `['uint64', 'address', 'uint256', 'string']` | `[chainId, tokenAddress, amount, nonce]` |
+| `hl_withdraw` | `['string', 'string']` | `[amount, nonce]` |
+| `hl_create_order` | `['string', 'bool', 'string', 'string', 'bool', 'string', 'string', 'string', 'bool']` | `[coin, isLong, price, size, reduceOnly, nonce, tpPrice, slPrice, isMarket]` |
+| `hl_place_order` | `['string', 'bool', 'string', 'string', 'bool', 'string']` | `[coin, isLong, price, size, reduceOnly, nonce]` |
+| `hl_close_all` | `['string']` | `[nonce]` |
+| `hl_cancel_order` | `['string', 'string', 'string']` | `[nonce, coin, orderId]` |
+| `hl_cancel_all_orders` | `['string']` | `[nonce]` |
+
+> **WARNING:** The `hl_deposit` chainId uses `uint64`, NOT `uint256`. This is the single most common cause of "Unauthorized" errors. The backend re-encodes with `uint64` for signature verification — if you encode with `uint256`, the hex differs, signature recovery fails, and you get code 103.
+
+### HL Signature Format
+
+All HL write operations sign with the **session private key** (from sign-in), NOT the control wallet key:
+
+```typescript
+// Message format (no EIP-191 prefix):
+const msg = `${action}-${userId.toLowerCase()}-${dataHex}`;
+// e.g.: "hl_deposit-0x53d029a6...-00000000000000000000000000000000000000000000000000000000..."
+
+const digest = keccak256(toUtf8Bytes(msg));
+const sig = new SigningKey(sessionPrivateKey).sign(digest);
+// Output: r(64hex) + s(64hex) + v(2hex) = 130 chars, no 0x prefix
+// v = raw recovery parameter (00 or 01), NOT EIP-155 (1b/1c)
+```
+
+### HL Deposit Constraints
+
+| Constraint | Value |
+|---|---|
+| Chain | Arbitrum only (chainId `42161`) |
+| Token | USDC only (`0xaf88d065e77c8cC2239327C5EDb3A432268e5831`) |
+| Amount | In smallest unit (6 decimals): 10 USDC = `10000000` |
+| Min deposit | 10 USDC |
+| Fee buffer | Balance must cover `amount × 1.01` |
+| Delivery time | ~10 minutes after Arbitrum tx confirms |
+| Bridge receiver | `0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7` |
+| userId | Control wallet address (from sign-in), NOT managed wallet |
+
+### HL Error Codes
+
+| Code | Error | Cause |
+|---|---|---|
+| 101 | Missing params | `computedData` not in request body |
+| 102 | Invalid chainId | chainId is not 42161 |
+| 102 | Invalid params | Nonce already used, or token not supported |
+| 103 | Unauthorized | Signature verification failed — check ABI types (`uint64`!), userId, and that you're signing with the session key registered during sign-in |
+| — | Insufficient balance | Managed wallet doesn't have enough USDC + fee on Arbitrum |
+| — | Too low amount | Amount < 10 USDC |
+
+### HTTP Headers (Required)
+
+The backend sits behind Cloudflare. Requests MUST include browser-like headers:
+
+```typescript
+{
+  'Content-Type': 'application/json',
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+  'Accept': 'application/json',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Connection': 'keep-alive',
+  'Authorization': 'Bearer <apiKey>',  // NOT X-API-Key
+}
+```
+
+> **WARNING:** Using a non-browser User-Agent (e.g., `axios/1.x` or any string containing bot identifiers) will result in Cloudflare 403 "Access denied". The SDK handles this automatically.
+
+### Complete HL Deposit Example
+
+```typescript
+import {
+  GdexSkill,
+  GDEX_API_KEY_PRIMARY,
+  generateGdexSessionKeyPair,
+  buildGdexSignInMessage,
+  buildGdexSignInComputedData,
+  buildHlComputedData,
+} from '@gdexsdk/gdex-skill';
+import { ethers } from 'ethers';
+
+const apiKey = GDEX_API_KEY_PRIMARY;
+const skill = new GdexSkill();
+skill.loginWithApiKey(apiKey);
+
+// 1. Generate session keypair
+const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
+
+// 2. Sign in (control wallet signs the Terms message)
+const controlWallet = new ethers.Wallet('0xYourPrivateKey');
+const nonce = String(Date.now());
+const message = buildGdexSignInMessage(controlWallet.address, nonce, sessionKey);
+const signature = await controlWallet.signMessage(message);
+
+const signInPayload = buildGdexSignInComputedData({
+  apiKey, userId: controlWallet.address, sessionKey, nonce,
+  signature: signature.replace(/^0x/, ''),
+});
+await skill.signInWithComputedData({
+  computedData: signInPayload.computedData, chainId: 42161,
+});
+
+// 3. Deposit USDC (amount in smallest unit, uint64 chainId is handled by SDK)
+const computedData = buildHlComputedData({
+  action: 'hl_deposit',
+  apiKey,
+  walletAddress: controlWallet.address,  // userId = control wallet
+  sessionPrivateKey,
+  actionParams: {
+    chainId: 42161,
+    tokenAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+    amount: '10000000',  // 10 USDC in smallest unit (6 decimals)
+  },
+});
+
+const result = await skill.client.post('/v1/hl/deposit', { computedData });
+// { hash: '0x...', isSuccess: true, amount: '10000000', message: 'Deposit successfully...' }
+// Wait ~10 minutes for HyperLiquid to credit the deposit
 ```
 
 ---

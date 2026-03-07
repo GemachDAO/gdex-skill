@@ -1,11 +1,13 @@
 /**
- * Perpetual Trading Example
+ * Perpetual Trading Example (HyperLiquid via GDEX Managed Custody)
  *
- * Demonstrates how to use GdexSkill for HyperLiquid perpetual futures:
- * 1. Open a 10x leveraged BTC long position
- * 2. Set take-profit at +5% and stop-loss at -3%
- * 3. Check open positions
- * 4. Close the position
+ * Demonstrates:
+ * 1. Deposit USDC to HyperLiquid
+ * 2. Check account state & balance
+ * 3. Place a market long BTC order with TP/SL
+ * 4. Check open positions
+ * 5. Close all positions
+ * 6. Withdraw USDC
  *
  * Run with: npx ts-node examples/perp-trading.ts
  */
@@ -18,101 +20,91 @@ async function main() {
   skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
   console.log('✅ Authenticated with shared API key');
 
-  const walletAddress = process.env.WALLET_ADDRESS ?? '0xYourWalletAddressHere';
+  // Managed-custody credentials (from sign-in flow)
+  const walletAddress = process.env.WALLET_ADDRESS ?? '0x9967179de55bd67e6b90fcc4f908556d93938c0f';
+  const sessionPrivateKey = process.env.SESSION_PRIVATE_KEY ?? '';
+  const apiKey = GDEX_API_KEY_PRIMARY;
 
-  // ── Deposit USDC to HyperLiquid ───────────────────────────────────────────
-  console.log('\n💰 Depositing $100 USDC to HyperLiquid...');
+  if (!sessionPrivateKey) {
+    console.error('❌ Set SESSION_PRIVATE_KEY env var (hex, from managed sign-in)');
+    return;
+  }
+
+  const creds = { apiKey, walletAddress, sessionPrivateKey };
+
+  // ── Check account state ───────────────────────────────────────────────────
+  console.log('\n📊 Checking HyperLiquid account state...');
+  const state = await skill.getHlAccountState(walletAddress);
+  console.log(`   Account Value: $${state.accountValue}`);
+  console.log(`   Withdrawable:  $${state.withdrawable}`);
+  console.log(`   Positions:     ${state.positions.length}`);
+
+  // ── Deposit USDC (Arbitrum) ───────────────────────────────────────────────
+  console.log('\n💰 Depositing $10 USDC from Arbitrum to HyperLiquid...');
   try {
     const depositResult = await skill.perpDeposit({
-      amount: '100', // $100 USDC
-      walletAddress,
+      ...creds,
+      tokenAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', // USDC on Arbitrum
+      amount: '10',
+      chainId: 42161,
     });
-    console.log('✅ Deposit submitted:', depositResult.txHash);
+    console.log('✅ Deposit:', depositResult.message);
   } catch (err) {
-    console.warn('⚠️  Deposit skipped:', (err as Error).message);
+    console.warn('⚠️  Deposit:', (err as Error).message);
   }
 
-  // ── Set Leverage ──────────────────────────────────────────────────────────
-  console.log('\n⚙️  Setting BTC leverage to 10x...');
+  // ── Get BTC mark price ────────────────────────────────────────────────────
+  const btcPrice = await skill.getHlMarkPrice('BTC');
+  console.log(`\n📈 BTC Mark Price: $${btcPrice.toLocaleString()}`);
+
+  // ── Open BTC long with TP/SL ──────────────────────────────────────────────
+  const tpPrice = (btcPrice * 1.05).toFixed(0);  // +5%
+  const slPrice = (btcPrice * 0.97).toFixed(0);  // -3%
+  console.log(`\n🚀 Opening BTC LONG (market, TP=$${tpPrice}, SL=$${slPrice})...`);
   try {
-    await skill.setPerpLeverage({
+    const order = await skill.hlCreateOrder({
+      ...creds,
       coin: 'BTC',
-      leverage: 10,
-      marginMode: 'cross',
-      walletAddress,
+      isLong: true,
+      price: btcPrice.toString(),
+      size: '0.001',
+      isMarket: true,
+      tpPrice,
+      slPrice,
     });
-    console.log('✅ Leverage set to 10x');
+    console.log('✅ Order:', order.message, order.orderId ? `(ID: ${order.orderId})` : '');
   } catch (err) {
-    console.error('❌ Leverage set failed:', (err as Error).message);
+    console.error('❌ Order failed:', (err as Error).message);
   }
 
-  // ── Calculate TP/SL prices ────────────────────────────────────────────────
-  // For this example, assume BTC is at $100,000
-  const currentBtcPrice = 100_000;
-  const takeProfitPrice = (currentBtcPrice * 1.05).toFixed(2); // +5%
-  const stopLossPrice = (currentBtcPrice * 0.97).toFixed(2); // -3%
-
-  console.log(`\n📊 BTC at $${currentBtcPrice.toLocaleString()}`);
-  console.log(`   Take Profit: $${parseFloat(takeProfitPrice).toLocaleString()} (+5%)`);
-  console.log(`   Stop Loss:   $${parseFloat(stopLossPrice).toLocaleString()} (-3%)`);
-
-  // ── Open Long Position ────────────────────────────────────────────────────
-  console.log('\n🚀 Opening BTC LONG position ($1000 at 10x = $10,000 notional)...');
-  try {
-    const openResult = await skill.openPerpPosition({
-      coin: 'BTC',
-      side: 'long',
-      sizeUsd: '1000', // $1000 collateral (10x = $10,000 position)
-      leverage: 10,
-      takeProfitPrice,
-      stopLossPrice,
-      marginMode: 'cross',
-      walletAddress,
-    });
-
-    console.log('✅ Position opened!');
-    console.log('   Order ID:', openResult.orderId);
-    console.log('   Execution Price:', openResult.executionPrice);
-    console.log('   Size:', openResult.size, 'BTC');
-  } catch (err) {
-    console.error('❌ Open position failed:', (err as Error).message);
-  }
-
-  // ── Check Positions ───────────────────────────────────────────────────────
-  console.log('\n📋 Fetching open positions...');
-  try {
-    const positions = await skill.getPerpPositions({ walletAddress });
-
-    if (positions.length === 0) {
-      console.log('   No open positions');
-    } else {
-      positions.forEach((pos) => {
-        console.log(`\n   ${pos.coin} ${pos.side.toUpperCase()}`);
-        console.log(`   Size: ${pos.size}`);
-        console.log(`   Entry: $${pos.entryPrice}`);
-        console.log(`   Mark:  $${pos.markPrice}`);
-        console.log(`   P&L:   ${pos.unrealizedPnl}`);
-        console.log(`   Liq:   $${pos.liquidationPrice ?? 'N/A'}`);
-      });
+  // ── Check positions ───────────────────────────────────────────────────────
+  console.log('\n📋 Positions:');
+  const positions = await skill.getPerpPositions({ walletAddress });
+  if (positions.length === 0) {
+    console.log('   No open positions');
+  } else {
+    for (const pos of positions) {
+      console.log(`   ${pos.coin} ${pos.side.toUpperCase()} x${pos.leverage}`);
+      console.log(`   Size: ${pos.size} | Entry: $${pos.entryPrice} | P&L: ${pos.unrealizedPnl}`);
     }
-  } catch (err) {
-    console.error('❌ Get positions failed:', (err as Error).message);
   }
 
-  // ── Close Position ────────────────────────────────────────────────────────
-  console.log('\n🔚 Closing BTC position (100%)...');
+  // ── Close all positions ───────────────────────────────────────────────────
+  console.log('\n🔚 Closing all positions...');
   try {
-    const closeResult = await skill.closePerpPosition({
-      coin: 'BTC',
-      closePercent: 100,
-      slippage: 1,
-      walletAddress,
-    });
-
-    console.log('✅ Position closed!');
-    console.log('   Realized P&L:', closeResult.realizedPnl ?? 'N/A');
+    const closeResult = await skill.hlCloseAll(creds);
+    console.log('✅ Close all:', closeResult.message);
   } catch (err) {
-    console.error('❌ Close position failed:', (err as Error).message);
+    console.error('❌ Close failed:', (err as Error).message);
+  }
+
+  // ── Withdraw ──────────────────────────────────────────────────────────────
+  console.log('\n💸 Withdrawing $5 USDC...');
+  try {
+    const withdrawResult = await skill.perpWithdraw({ ...creds, amount: '5' });
+    console.log('✅ Withdraw:', withdrawResult.message);
+  } catch (err) {
+    console.error('❌ Withdraw failed:', (err as Error).message);
   }
 }
 

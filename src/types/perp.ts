@@ -1,13 +1,17 @@
 /**
- * Types for perpetual futures trading on HyperLiquid.
+ * Types for perpetual futures trading on HyperLiquid via GDEX managed custody.
+ *
+ * Write operations use the computedData flow (ABI encode → sign → encrypt → POST).
+ * Read operations use the @nktkas/hyperliquid PublicClient directly.
  */
-import { TransactionResult } from './common';
 
 /** Perpetual position side */
 export type PerpSide = 'long' | 'short';
 
+// ── Read-only types ──────────────────────────────────────────────────────────
+
 /**
- * An open perpetual position.
+ * An open perpetual position (from HyperLiquid clearinghouse state).
  */
 export interface PerpPosition {
   /** Asset/coin symbol (e.g., "BTC", "ETH") */
@@ -34,132 +38,143 @@ export interface PerpPosition {
   marginMode?: 'isolated' | 'cross';
   /** Position value in USD */
   positionValue?: string;
-  /** Funding payment */
-  fundingPayment?: string;
-  /** Take-profit price */
-  takeProfitPrice?: string;
-  /** Stop-loss price */
-  stopLossPrice?: string;
 }
 
 /**
- * Parameters for opening a perpetual position.
- */
-export interface OpenPerpParams {
-  /**
-   * Asset coin symbol to trade (e.g., "BTC", "ETH", "SOL").
-   * Must be a valid HyperLiquid asset.
-   */
-  coin: string;
-  /** Trade direction */
-  side: PerpSide;
-  /**
-   * Position size in USD notional value.
-   * @example "1000" for a $1000 position
-   */
-  sizeUsd: string;
-  /**
-   * Leverage multiplier (1–50 depending on the asset).
-   * @default 5
-   */
-  leverage?: number;
-  /**
-   * Slippage tolerance as a percentage.
-   * @default 1
-   */
-  slippage?: number;
-  /**
-   * Take-profit price in USD.
-   */
-  takeProfitPrice?: string;
-  /**
-   * Stop-loss price in USD.
-   */
-  stopLossPrice?: string;
-  /**
-   * Margin mode.
-   * @default "cross"
-   */
-  marginMode?: 'isolated' | 'cross';
-  /** User wallet address */
-  walletAddress?: string;
-}
-
-/**
- * Parameters for closing a perpetual position.
- */
-export interface ClosePerpParams {
-  /** Asset coin symbol */
-  coin: string;
-  /**
-   * Percentage of position to close (1–100).
-   * @default 100 (close entire position)
-   */
-  closePercent?: number;
-  /** Slippage tolerance % */
-  slippage?: number;
-  /** User wallet address */
-  walletAddress?: string;
-}
-
-/**
- * Parameters for setting perpetual leverage.
- */
-export interface SetLeverageParams {
-  /** Asset coin symbol */
-  coin: string;
-  /** Leverage value */
-  leverage: number;
-  /** Margin mode */
-  marginMode?: 'isolated' | 'cross';
-  /** User wallet address */
-  walletAddress?: string;
-}
-
-/**
- * Parameters for fetching perp positions.
+ * Parameters for fetching perp positions / account state.
  */
 export interface GetPositionsParams {
-  /** User wallet address */
+  /** User wallet address (EVM) */
   walletAddress: string;
   /** Optional coin filter */
   coin?: string;
 }
 
 /**
- * Parameters for depositing to HyperLiquid perp.
+ * HyperLiquid account state summary.
  */
-export interface PerpDepositParams {
-  /** Amount in USDC to deposit */
-  amount: string;
-  /** User wallet address */
-  walletAddress?: string;
+export interface HlAccountState {
+  /** Total account value in USD */
+  accountValue: string;
+  /** Total notional position value */
+  totalNtlPos: string;
+  /** Total raw USD (including unrealized P&L) */
+  totalRawUsd: string;
+  /** Total margin used */
+  totalMarginUsed: string;
+  /** Withdrawable balance */
+  withdrawable: string;
+  /** Open positions */
+  positions: PerpPosition[];
+}
+
+// ── Managed-custody write params ─────────────────────────────────────────────
+
+/**
+ * Managed-custody credentials required for all HL write operations.
+ */
+export interface HlManagedCredentials {
+  /** API key for AES encryption */
+  apiKey: string;
+  /** User wallet address (EVM) */
+  walletAddress: string;
+  /** Session private key (hex, from managed sign-in) */
+  sessionPrivateKey: string;
 }
 
 /**
- * Parameters for withdrawing from HyperLiquid perp.
+ * Parameters for depositing USDC to HyperLiquid via managed custody.
  */
-export interface PerpWithdrawParams {
+export interface PerpDepositParams extends HlManagedCredentials {
+  /** USDC token contract address on the source chain */
+  tokenAddress: string;
+  /** Amount in USDC (human readable, e.g. "10" for 10 USDC). Converted to smallest unit internally. Min: 10 USDC. */
+  amount: string;
+  /** Source chain ID — must be 42161 (Arbitrum) */
+  chainId: number;
+}
+
+/**
+ * Parameters for withdrawing USDC from HyperLiquid via managed custody.
+ */
+export interface PerpWithdrawParams extends HlManagedCredentials {
   /** Amount in USDC to withdraw */
   amount: string;
-  /** User wallet address */
-  walletAddress?: string;
 }
 
 /**
- * Result of a perpetual trading operation.
+ * Parameters for placing a market/limit order on HyperLiquid via managed custody.
+ * This is the primary way to open positions.
  */
-export interface PerpResult extends TransactionResult {
+export interface HlCreateOrderParams extends HlManagedCredentials {
+  /** Asset coin symbol (e.g., "BTC", "ETH") */
+  coin: string;
+  /** True for long, false for short */
+  isLong: boolean;
+  /** Order price (use mark price for market orders when isMarket=true) */
+  price: string;
+  /** Position size in contracts (e.g., "0.001" for 0.001 BTC) */
+  size: string;
+  /** Whether this order only reduces an existing position */
+  reduceOnly?: boolean;
+  /** Take-profit price (empty string "" to skip) */
+  tpPrice?: string;
+  /** Stop-loss price (empty string "" to skip) */
+  slPrice?: string;
+  /** True for market order, false for limit order */
+  isMarket?: boolean;
+}
+
+/**
+ * Parameters for placing a simple order (no TP/SL).
+ */
+export interface HlPlaceOrderParams extends HlManagedCredentials {
   /** Asset coin symbol */
   coin: string;
-  /** Position side */
-  side?: PerpSide;
-  /** Execution price */
-  executionPrice?: string;
-  /** Position size */
-  size?: string;
-  /** Realized P&L (when closing) */
-  realizedPnl?: string;
-  /** Order ID on HyperLiquid */
+  /** True for long, false for short */
+  isLong: boolean;
+  /** Order price */
+  price: string;
+  /** Position size in contracts */
+  size: string;
+  /** Whether this order only reduces an existing position */
+  reduceOnly?: boolean;
+}
+
+/**
+ * Parameters for closing all open positions on HyperLiquid.
+ */
+export type HlCloseAllParams = HlManagedCredentials;
+
+/**
+ * Parameters for cancelling a specific order.
+ */
+export interface HlCancelOrderParams extends HlManagedCredentials {
+  /** Asset coin symbol */
+  coin: string;
+  /** Order ID to cancel */
+  orderId: string;
+}
+
+/**
+ * Parameters for cancelling all open orders.
+ */
+export type HlCancelAllOrdersParams = HlManagedCredentials;
+
+// ── Result types ─────────────────────────────────────────────────────────────
+
+/**
+ * Result from a managed-custody HL write operation.
+ */
+export interface HlResponse {
+  isSuccess: boolean;
+  message: string;
+}
+
+/**
+ * Result from HL order placement (extends base response).
+ */
+export interface HlOrderResult extends HlResponse {
+  /** Order ID from HyperLiquid (if returned) */
   orderId?: string;
 }

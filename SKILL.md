@@ -224,11 +224,14 @@ const positions = await skill.getPerpPositions({
 await skill.setPerpLeverage({ coin: 'ETH', leverage: 5, marginMode: 'isolated' });
 ```
 
-**Deposit / Withdraw USDC:**
+**Deposit / Withdraw USDC to/from HyperLiquid:**
 ```typescript
-await skill.perpDeposit({ amount: '500' });   // deposit $500 USDC
-await skill.perpWithdraw({ amount: '100' });  // withdraw $100 USDC
+// Amount is human-readable USDC. SDK converts to smallest unit (6 decimals) internally.
+await skill.perpDeposit({ amount: '10' });    // deposit 10 USDC (minimum deposit)
+await skill.perpWithdraw({ amount: '5' });    // withdraw 5 USDC
 ```
+
+> **HL Deposit constraints:** Arbitrum only. USDC only (`0xaf88d065e77c8cC2239327C5EDb3A432268e5831`). Min 10 USDC. Managed wallet needs amount × 1.01 balance (1% fee). ~10 min delivery to HL perp account after Arbitrum tx confirms.
 
 ### Limit Orders
 
@@ -398,8 +401,10 @@ Trade responses (`TradeResult`) include:
 ## Notes
 
 - All trading goes through GDEX managed-custody wallets — the control wallet is only used for sign-in
-- Trade payloads use AES-256-CBC encryption (`computedData`) derived from the API key's SHA256 hash chain
+- Trade payloads use AES-256-CBC encryption (`computedData`) — deterministic key/IV derived from API key's SHA256 hash chain (NOT random IV)
+- Encrypted JSON payload includes `{ userId, data, signature, apiKey }` — the apiKey is inside the encrypted blob
 - Trade signatures use raw keccak256 + secp256k1 (no EIP-191 prefix) with the session private key; **v = raw recoveryParam** (`00`/`01`), NOT EIP-155 (`1b`/`1c`)
+- Sign-in is the ONLY operation that uses EIP-191 `personal_sign` with the control wallet
 - Session key encryption for `/v1/user` uses hex-decoded raw bytes (`encryptGdexHexData`), not UTF-8 string encoding
 - Nonces are **client-generated**: `Math.floor(Date.now()/1000) + Math.floor(Math.random()*1000)` — not fetched from the server
 - ABI schemas: sign-in uses `['bytes','string','string']`, trades use `['string','uint256','string']`
@@ -409,3 +414,55 @@ Trade responses (`TradeResult`) include:
 - Sell amounts can be absolute (`'100'`) or percentage (`'50%'`)
 - The SDK automatically retries on transient errors (429, 503) with exponential backoff
 - `generateEvmWallet()` works fully offline — no auth or network needed; backend provides trading wallets (incl. Solana) after auth
+- HTTP headers MUST include a browser User-Agent (e.g., Chrome/91) — non-browser UAs get 403 from Cloudflare
+- Use `Authorization: Bearer <apiKey>` header, NOT `X-API-Key`
+
+## HyperLiquid Perp Critical Details
+
+HL perp operations (`hl_deposit`, `hl_withdraw`, `hl_create_order`, etc.) use a **different crypto pipeline** from spot trades. Getting any detail wrong produces `400 Unauthorized (code 103)`.
+
+### HL ABI Schemas
+
+| Action | ABI Types | Fields |
+|---|---|---|
+| `hl_deposit` | `['uint64', 'address', 'uint256', 'string']` | `[chainId, tokenAddress, amount, nonce]` |
+| `hl_withdraw` | `['string', 'string']` | `[amount, nonce]` |
+| `hl_create_order` | `['string', 'bool', 'string', 'string', 'bool', 'string', 'string', 'string', 'bool']` | `[coin, isLong, price, size, reduceOnly, nonce, tpPrice, slPrice, isMarket]` |
+| `hl_place_order` | `['string', 'bool', 'string', 'string', 'bool', 'string']` | `[coin, isLong, price, size, reduceOnly, nonce]` |
+| `hl_close_all` | `['string']` | `[nonce]` |
+| `hl_cancel_order` | `['string', 'string', 'string']` | `[nonce, coin, orderId]` |
+| `hl_cancel_all_orders` | `['string']` | `[nonce]` |
+
+**⚠️ CRITICAL: `hl_deposit` chainId is `uint64`, NOT `uint256`.** This is the #1 cause of Unauthorized errors. The backend re-encodes with `uint64` for signature verification — if you encode with `uint256`, the hex differs, the recovered pubkey doesn't match, and you get code 103.
+
+### HL Deposit Constraints
+
+| Constraint | Value |
+|---|---|
+| Chain | Arbitrum only (chainId `42161`) |
+| Token | USDC only (`0xaf88d065e77c8cC2239327C5EDb3A432268e5831`) |
+| Amount | In smallest unit (6 decimals): 10 USDC = `10000000` |
+| Min deposit | 10 USDC |
+| Fee buffer | Managed wallet balance must cover `amount × 1.01` |
+| Delivery time | ~10 minutes after Arbitrum tx confirms |
+| userId | Control wallet address (from sign-in), NOT managed wallet |
+| Bridge receiver | `0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7` |
+
+### HL Signature Format
+
+All HL write operations sign with the **session private key** (registered during sign-in):
+```
+message = "{action}-{userId.toLowerCase()}-{dataHex}" // e.g. "hl_deposit-0x53d0...-0000..."
+digest  = keccak256(utf8Bytes(message))
+output  = r(64hex) + s(64hex) + v(2hex)  // 130 chars, v=00/01, no 0x prefix
+```
+
+### HL Error Codes
+
+| Code | Error | Common Cause |
+|---|---|---|
+| 103 | Unauthorized | Wrong ABI type (uint256 instead of uint64), wrong userId, or signing with wrong key |
+| 102 | Invalid chainId | chainId is not 42161 |
+| 102 | Invalid params | Reused nonce or unsupported token |
+| — | Insufficient balance | Managed wallet needs more USDC + fee on Arbitrum |
+| — | Too low amount | Amount < 10 USDC (10000000 smallest unit) |

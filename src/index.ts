@@ -35,12 +35,19 @@ import {
 // Actions
 import { buyToken, sellToken } from './actions/spotTrade';
 import {
-  openPerpPosition,
-  closePerpPosition,
-  setPerpLeverage,
+  getHlAccountState,
   getPerpPositions,
+  getHlMarkPrice,
+  getHlUsdcBalance,
+  getHlOpenOrders,
+  getGbotUsdcBalance,
   perpDeposit,
   perpWithdraw,
+  hlCreateOrder,
+  hlPlaceOrder,
+  hlCloseAll,
+  hlCancelOrder,
+  hlCancelAllOrders,
 } from './actions/perpTrade';
 import { createLimitOrder, cancelLimitOrder, getLimitOrders } from './actions/limitOrders';
 import {
@@ -87,13 +94,18 @@ export type {
 export type {
   PerpPosition,
   PerpSide,
-  OpenPerpParams,
-  ClosePerpParams,
-  SetLeverageParams,
+  HlManagedCredentials,
   GetPositionsParams,
+  HlAccountState,
   PerpDepositParams,
   PerpWithdrawParams,
-  PerpResult,
+  HlCreateOrderParams,
+  HlPlaceOrderParams,
+  HlCloseAllParams,
+  HlCancelOrderParams,
+  HlCancelAllOrdersParams,
+  HlResponse,
+  HlOrderResult,
 } from './types/perp';
 export type {
   CopyTradeSettings,
@@ -158,7 +170,12 @@ export {
   buildEncryptedGdexPayload,
   buildGdexSignInComputedData,
   buildGdexManagedTradeComputedData,
+  generateGdexNonce,
+  encodeHlActionData,
+  signHlActionMessage,
+  buildHlComputedData,
 } from './utils/gdexManagedCrypto';
+export type { HlActionType } from './utils/gdexManagedCrypto';
 
 // Import parameter types for the GdexSkill class methods
 import type { BuyTokenParams, SellTokenParams, TradeResult } from './types/trading';
@@ -167,13 +184,17 @@ import type { TokenDetails, TokenDetailsParams, TrendingToken, TrendingParams, O
 import type { LimitOrder, CreateLimitOrderParams, CancelLimitOrderParams, GetLimitOrdersParams } from './types/orders';
 import type {
   PerpPosition,
-  OpenPerpParams,
-  ClosePerpParams,
-  SetLeverageParams,
   GetPositionsParams,
+  HlAccountState,
   PerpDepositParams,
   PerpWithdrawParams,
-  PerpResult,
+  HlCreateOrderParams,
+  HlPlaceOrderParams,
+  HlCloseAllParams,
+  HlCancelOrderParams,
+  HlCancelAllOrdersParams,
+  HlResponse,
+  HlOrderResult,
 } from './types/perp';
 import type { CopyTradeSettings, CopyTradeWallet, AddWalletParams, RemoveWalletParams, GetCopyTradeSettingsParams } from './types/copyTrade';
 import type { BridgeParams, BridgeResult, BridgeQuote } from './types/bridge';
@@ -187,7 +208,6 @@ import type {
   GdexManagedTradeSubmitResult,
   GdexManagedTradeStatus,
 } from './types/managed';
-import type { TransactionResult } from './types/common';
 
 /**
  * GdexSkill — the main entry point for the AI Agent Skill SDK.
@@ -422,74 +442,96 @@ export class GdexSkill {
   // ── Perpetual Trading (HyperLiquid) ────────────────────────────────────────
 
   /**
-   * Open a perpetual futures position on HyperLiquid.
-   *
-   * @param params - Position parameters including coin, side, size, and leverage
-   * @returns Perp result with order details
-   *
-   * @example
-   * ```typescript
-   * const result = await skill.openPerpPosition({
-   *   coin: 'BTC',
-   *   side: 'long',
-   *   sizeUsd: '1000',
-   *   leverage: 10,
-   *   takeProfitPrice: '110000',
-   *   stopLossPrice: '90000',
-   * });
-   * ```
+   * Get full HyperLiquid account state (positions, margin, balance).
+   * Reads directly from HyperLiquid L1 — no auth required.
    */
-  async openPerpPosition(params: OpenPerpParams): Promise<PerpResult> {
-    return openPerpPosition(this.client, params);
+  async getHlAccountState(walletAddress: string): Promise<HlAccountState> {
+    return getHlAccountState(walletAddress);
   }
 
   /**
-   * Close an open perpetual position on HyperLiquid.
-   *
-   * @param params - Close parameters (optionally close only a percentage)
-   * @returns Perp result with realized P&L
-   */
-  async closePerpPosition(params: ClosePerpParams): Promise<PerpResult> {
-    return closePerpPosition(this.client, params);
-  }
-
-  /**
-   * Set the leverage for a perpetual asset.
-   *
-   * @param params - Leverage parameters
-   */
-  async setPerpLeverage(params: SetLeverageParams): Promise<void> {
-    return setPerpLeverage(this.client, params);
-  }
-
-  /**
-   * Get all open perpetual positions for a wallet.
-   *
-   * @param params - Query parameters
-   * @returns List of open positions
+   * Get open perpetual positions for a wallet. Optionally filter by coin.
+   * Reads directly from HyperLiquid L1.
    */
   async getPerpPositions(params: GetPositionsParams): Promise<PerpPosition[]> {
-    return getPerpPositions(this.client, params);
+    return getPerpPositions(params);
   }
 
   /**
-   * Deposit USDC into the HyperLiquid perpetual account.
-   *
-   * @param params - Deposit parameters
-   * @returns Transaction result
+   * Get the mark price for an asset from the HyperLiquid L2 book.
    */
-  async perpDeposit(params: PerpDepositParams): Promise<TransactionResult> {
+  async getHlMarkPrice(coin: string): Promise<number> {
+    return getHlMarkPrice(coin);
+  }
+
+  /**
+   * Get available USDC balance on HyperLiquid for a wallet.
+   */
+  async getHlUsdcBalance(walletAddress: string): Promise<number> {
+    return getHlUsdcBalance(walletAddress);
+  }
+
+  /**
+   * Get open orders on HyperLiquid.
+   */
+  async getHlOpenOrders(walletAddress: string) {
+    return getHlOpenOrders(walletAddress);
+  }
+
+  /**
+   * Get USDC balance via the GDEX backend.
+   */
+  async getGbotUsdcBalance(walletAddress: string): Promise<number> {
+    return getGbotUsdcBalance(this.client, walletAddress);
+  }
+
+  /**
+   * Deposit USDC into HyperLiquid via managed custody.
+   */
+  async perpDeposit(params: PerpDepositParams): Promise<HlResponse> {
     return perpDeposit(this.client, params);
   }
 
   /**
-   * Withdraw USDC from the HyperLiquid perpetual account.
-   *
-   * @param params - Withdrawal parameters
-   * @returns Transaction result
+   * Withdraw USDC from HyperLiquid via managed custody.
    */
-  async perpWithdraw(params: PerpWithdrawParams): Promise<TransactionResult> {
+  async perpWithdraw(params: PerpWithdrawParams): Promise<HlResponse> {
     return perpWithdraw(this.client, params);
+  }
+
+  /**
+   * Place a market or limit order with optional TP/SL on HyperLiquid.
+   */
+  async hlCreateOrder(params: HlCreateOrderParams): Promise<HlOrderResult> {
+    return hlCreateOrder(this.client, params);
+  }
+
+  /**
+   * Place a simple order (no TP/SL) on HyperLiquid.
+   */
+  async hlPlaceOrder(params: HlPlaceOrderParams): Promise<HlOrderResult> {
+    return hlPlaceOrder(this.client, params);
+  }
+
+  /**
+   * Close all open positions on HyperLiquid.
+   */
+  async hlCloseAll(params: HlCloseAllParams): Promise<HlResponse> {
+    return hlCloseAll(this.client, params);
+  }
+
+  /**
+   * Cancel a specific order on HyperLiquid.
+   */
+  async hlCancelOrder(params: HlCancelOrderParams): Promise<HlResponse> {
+    return hlCancelOrder(this.client, params);
+  }
+
+  /**
+   * Cancel all open orders on HyperLiquid.
+   */
+  async hlCancelAllOrders(params: HlCancelAllOrdersParams): Promise<HlResponse> {
+    return hlCancelAllOrders(this.client, params);
   }
 
   // ── Limit Orders ───────────────────────────────────────────────────────────
