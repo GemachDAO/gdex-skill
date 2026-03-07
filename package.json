@@ -14,7 +14,10 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "SKILL.md",
+    "skill.json",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -30,6 +33,8 @@
   "keywords": [
     "ai-agent",
     "skill",
+    "agent-skill",
+    "skills-sh",
     "trading",
     "defi",
     "solana",
@@ -37,7 +42,11 @@
     "hyperliquid",
     "cross-chain",
     "gbot",
-    "gdex"
+    "gdex",
+    "claude-code",
+    "codex",
+    "cursor",
+    "windsurf"
   ],
   "author": "GemachDAO",
   "license": "MIT",

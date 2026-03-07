@@ -1,10 +1,21 @@
 # @gdexsdk/gdex-skill
 
-> **AI Agent Skill SDK** for the Gbot Trading Dashboard — enables AI agents to trade cross-chain tokens, manage perpetual positions, track portfolios, and discover tokens programmatically.
+> **AI Agent Skill** for the Gbot Trading Dashboard — enables AI agents to trade cross-chain tokens, manage perpetual positions, track portfolios, and discover tokens programmatically.
 
 [![npm version](https://img.shields.io/npm/v/@gdexsdk/gdex-skill.svg)](https://www.npmjs.com/package/@gdexsdk/gdex-skill)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![skills.sh](https://img.shields.io/badge/skills.sh-compatible-8B5CF6.svg)](https://skills.sh)
+
+## Install as an Agent Skill
+
+Use the [skills CLI](https://skills.sh) to install this skill into Claude Code, Cursor, Codex, Windsurf, and [40+ other agents](https://github.com/vercel-labs/skills#supported-agents):
+
+```bash
+npx skills add GemachDAO/gdex-skill
+```
+
+This copies `SKILL.md` into your agent's skills directory so it can call the Gbot trading API directly.
 
 ## Overview
 
