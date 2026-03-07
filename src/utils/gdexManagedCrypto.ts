@@ -26,6 +26,16 @@ export function encryptGdexComputedData(plaintext: string, apiKey: string): stri
 }
 
 /**
+ * Encrypt raw hex data (decoded to bytes) using AES-256-CBC derived from API key.
+ */
+export function encryptGdexHexData(hexData: string, apiKey: string): string {
+  const { key, iv } = deriveGdexAesMaterial(apiKey);
+  const cipher = createCipheriv('aes-256-cbc', key, iv);
+  const encrypted = Buffer.concat([cipher.update(Buffer.from(hexData, 'hex')), cipher.final()]);
+  return encrypted.toString('hex');
+}
+
+/**
  * Decrypt hex ciphertext (AES-256-CBC) into UTF-8 plaintext.
  */
 export function decryptGdexComputedData(cipherHex: string, apiKey: string): string {
@@ -54,7 +64,8 @@ export function generateGdexSessionKeyPair(): GdexManagedSessionKeyPair {
  * Build the exact sign_in message string expected by backend verification.
  */
 export function buildGdexSignInMessage(userId: string, nonce: string, sessionKey: string): string {
-  const normalizedUserId = userId.toLowerCase();
+  // Only lowercase EVM-style addresses (0x-prefixed); preserve Solana base58 casing
+  const normalizedUserId = userId.startsWith('0x') ? userId.toLowerCase() : userId;
   const sessionKeyHex = sessionKey.startsWith('0x') ? sessionKey.slice(2) : sessionKey;
   return (
     'By signing, you agree to GDEX Trading Terms of Use and Privacy Policy. ' +
@@ -80,13 +91,16 @@ export function encodeGdexTradeData(tokenAddress: string, amount: string | numbe
 
 /**
  * Build trade signature message string used before signing.
+ * Strips 0x from dataHex to match backend message reconstruction.
  */
 export function buildGdexTradeSignatureMessage(
   action: 'purchase' | 'sell',
   userId: string,
   dataHex: string
 ): string {
-  return `${action}-${userId.toLowerCase()}-${dataHex}`;
+  const d = dataHex.startsWith('0x') ? dataHex.slice(2) : dataHex;
+  const normalizedUserId = userId.startsWith('0x') ? userId.toLowerCase() : userId;
+  return `${action}-${normalizedUserId}-${d}`;
 }
 
 /**
@@ -104,12 +118,13 @@ export function signGdexTradeMessageWithSessionKey(
   const sig = new SigningKey(sessionPrivateKey).sign(digest);
   const r = sig.r.replace(/^0x/, '');
   const s = sig.s.replace(/^0x/, '');
-  const v = (sig.yParity + 27).toString(16).padStart(2, '0');
+  const v = sig.yParity.toString(16).padStart(2, '0');
   return `${r}${s}${v}`;
 }
 
 /**
  * Build plaintext JSON payload then encrypt it to computedData hex.
+ * Strips 0x prefix from data to match backend expectations.
  */
 export function buildEncryptedGdexPayload(params: {
   apiKey: string;
@@ -117,20 +132,22 @@ export function buildEncryptedGdexPayload(params: {
   data: string;
   signature: string;
 }): string {
+  const dataNoPrefix = params.data.startsWith('0x') ? params.data.slice(2) : params.data;
   const plaintext = JSON.stringify({
     userId: params.userId,
-    data: params.data,
+    data: dataNoPrefix,
     signature: params.signature,
   });
   return encryptGdexComputedData(plaintext, params.apiKey);
 }
 
 /**
- * Encrypt session key (without 0x prefix) for /v1/user `data` query parameter.
+ * Encrypt session key as raw bytes for /v1/user `data` query parameter.
+ * The session key hex is decoded to raw bytes before encryption (not UTF-8).
  */
 export function buildGdexUserSessionData(sessionKey: string, apiKey: string): string {
   const sessionKeyHex = sessionKey.startsWith('0x') ? sessionKey.slice(2) : sessionKey;
-  return encryptGdexComputedData(sessionKeyHex, apiKey);
+  return encryptGdexHexData(sessionKeyHex, apiKey);
 }
 
 /**

@@ -9,6 +9,7 @@ import {
   buildGdexTradeSignatureMessage,
   buildGdexUserSessionData,
   decryptGdexComputedData,
+  deriveGdexAesMaterial,
   encryptGdexComputedData,
   generateGdexSessionKeyPair,
   signGdexTradeMessageWithSessionKey,
@@ -52,8 +53,14 @@ describe('gdexManagedCrypto', () => {
   it('should build encrypted /v1/user data from session key', () => {
     const sessionKey = '0x02' + '11'.repeat(32);
     const data = buildGdexUserSessionData(sessionKey, apiKey);
-    const decrypted = decryptGdexComputedData(data, apiKey);
-    expect(decrypted).toBe(sessionKey.slice(2));
+    // Decrypt and verify the raw hex bytes match the session key without 0x prefix
+    const { key, iv } = deriveGdexAesMaterial(apiKey);
+    const decipher = require('crypto').createDecipheriv('aes-256-cbc', key, iv);
+    const decrypted = Buffer.concat([
+      decipher.update(Buffer.from(data, 'hex')),
+      decipher.final(),
+    ]);
+    expect(decrypted.toString('hex')).toBe(sessionKey.slice(2));
   });
 
   it('should build sign_in computedData payload', () => {
@@ -73,7 +80,8 @@ describe('gdexManagedCrypto', () => {
     const decrypted = decryptGdexComputedData(result.computedData, apiKey);
     const parsed = JSON.parse(decrypted) as { userId: string; data: string; signature: string };
     expect(parsed.userId).toBe('0xabc');
-    expect(parsed.data).toBe(result.data);
+    // data inside encrypted payload has 0x stripped to match backend expectations
+    expect(parsed.data).toBe(result.data.replace(/^0x/, ''));
     expect(parsed.signature).toBe(result.signature);
   });
 
@@ -94,7 +102,8 @@ describe('gdexManagedCrypto', () => {
     expect(built.computedData).toMatch(/^[0-9a-f]+$/);
 
     const msg = buildGdexTradeSignatureMessage('purchase', '0xabc', built.data);
-    expect(msg).toBe(`purchase-0xabc-${built.data}`);
+    // buildGdexTradeSignatureMessage strips 0x from data to match backend
+    expect(msg).toBe(`purchase-0xabc-${built.data.replace(/^0x/, '')}`);
   });
 
   it('should encrypt generic payload objects', () => {
@@ -111,7 +120,7 @@ describe('gdexManagedCrypto', () => {
     };
     expect(parsed).toEqual({
       userId: '0xabc',
-      data: '0x1234',
+      data: '1234',
       signature: 'abcd',
     });
   });

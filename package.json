@@ -61,7 +61,8 @@
   "dependencies": {
     "axios": "^1.7.9",
     "axios-retry": "^4.5.0",
-    "ethers": "^6.13.2"
+    "ethers": ">=6.0.0",
+    "gdex.pro-sdk": "^1.1.6"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

@@ -8,7 +8,7 @@
   "tags": ["solana", "ethereum", "defi", "trading", "hyperliquid", "cross-chain", "portfolio"],
   "auth": {
     "type": "computed_data",
-    "description": "All trading uses AES-256-CBC encrypted computedData payloads. API keys derive the AES key via SHA256 hash chain. Session keypairs (secp256k1) sign trade payloads after initial control-wallet sign-in.",
+    "description": "All trading uses AES-256-CBC encrypted computedData payloads. API keys derive the AES key via SHA256 hash chain. Session keypairs (secp256k1) sign trade payloads with raw recoveryParam (v=00/01) after initial control-wallet sign-in. Nonces are client-generated.",
     "encryption": "AES-256-CBC",
     "session_signing": "secp256k1"
   },

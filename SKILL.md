@@ -56,7 +56,7 @@ const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
 
 // 2. Build and sign the sign-in message with your control wallet
 const userId = '0xYourControlWalletAddress'; // EVM address or Solana pubkey
-const nonce = String(Date.now());
+const nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));
 const message = buildGdexSignInMessage(userId, nonce, sessionKey);
 // → "By signing, you agree to GDEX Trading Terms of Use and Privacy Policy. Your GDEX log in message: <userId> <nonce> <sessionKeyHex>"
 
@@ -84,7 +84,7 @@ const trade = buildGdexManagedTradeComputedData({
   userId,
   tokenAddress: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
   amount: '100000',   // in smallest unit
-  nonce: String(Date.now()),
+  nonce: String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000)),
   sessionPrivateKey,
 });
 
@@ -402,7 +402,10 @@ Trade responses (`TradeResult`) include:
 
 - All trading goes through GDEX managed-custody wallets — the control wallet is only used for sign-in
 - Trade payloads use AES-256-CBC encryption (`computedData`) derived from the API key's SHA256 hash chain
-- Trade signatures use raw keccak256 + secp256k1 (no EIP-191 prefix) with the session private key
+- Trade signatures use raw keccak256 + secp256k1 (no EIP-191 prefix) with the session private key; **v = raw recoveryParam** (`00`/`01`), NOT EIP-155 (`1b`/`1c`)
+- Session key encryption for `/v1/user` uses hex-decoded raw bytes (`encryptGdexHexData`), not UTF-8 string encoding
+- Nonces are **client-generated**: `Math.floor(Date.now()/1000) + Math.floor(Math.random()*1000)` — not fetched from the server
+- ABI schemas: sign-in uses `['bytes','string','string']`, trades use `['string','uint256','string']`
 - All amounts are strings to preserve precision (e.g., `'0.1'`, `'1000'`)
 - Chain can be specified as a string (`'solana'`, `'sui'`) or a ChainId number (`1`, `8453`, etc.)
 - Chain IDs: 900 = Solana, 101 = Sui, or standard EVM chain IDs

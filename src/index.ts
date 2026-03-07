@@ -146,6 +146,7 @@ export { validateAddress, validateAmount, validateChain, validateSlippage, valid
 export {
   deriveGdexAesMaterial,
   encryptGdexComputedData,
+  encryptGdexHexData,
   decryptGdexComputedData,
   generateGdexSessionKeyPair,
   buildGdexSignInMessage,

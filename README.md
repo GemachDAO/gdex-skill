@@ -251,7 +251,23 @@ All trading on GDEX goes through **server-side managed wallets**. Your control w
 All authenticated payloads use **AES-256-CBC** derived from the API key:
 - Key = first 32 bytes of `SHA256(apiKey)` hex
 - IV = first 16 bytes of `SHA256(SHA256(apiKey))` hex
-- Inner payload: `JSON.stringify({ userId, data, signature })`
+- Trade/sign-in payloads: `JSON.stringify({ userId, data, signature })` → UTF-8 → encrypt
+- Session key (`/v1/user`): hex-decoded raw bytes → encrypt (not UTF-8 string)
+
+### Signatures
+
+Trade signatures use **raw keccak256 + secp256k1** (no EIP-191 prefix):
+- Message: `"<action>-<lowercaseUserId>-<dataHexWithout0x>"`
+- Digest: `keccak256(utf8Bytes(message))`
+- Output: `r(64 hex) + s(64 hex) + v(2 hex)` = 130 chars, no `0x` prefix
+- **v = raw recovery parameter** (`00` or `01`), NOT EIP-155 (`1b`/`1c`)
+
+### Nonce Generation
+
+Nonces are **client-generated** (not fetched from the server):
+```typescript
+const nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));
+```
 
 ### Quick Example
 
@@ -275,7 +291,7 @@ const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
 
 // 2. Sign-in (control wallet signs this message)
 const userId = '0xYourControlWallet';
-const nonce = String(Date.now());
+const nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));
 const message = buildGdexSignInMessage(userId, nonce, sessionKey);
 const signature = /* wallet.signMessage(message) */;
 
@@ -286,7 +302,9 @@ await skill.signInWithComputedData({ computedData: signInPayload.computedData, c
 const trade = buildGdexManagedTradeComputedData({
   apiKey, action: 'purchase', userId,
   tokenAddress: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-  amount: '100000', nonce: String(Date.now()), sessionPrivateKey,
+  amount: '100000',
+  nonce: String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000)),
+  sessionPrivateKey,
 });
 const result = await skill.submitManagedPurchase({
   computedData: trade.computedData, chainId: 900, slippage: 1,
@@ -305,14 +323,16 @@ if (result.requestId) {
 |---|---|
 | `generateGdexSessionKeyPair()` | Generate secp256k1 session keypair |
 | `buildGdexSignInMessage(userId, nonce, sessionKey)` | Build the sign-in message for wallet signing |
-| `encodeGdexSignInData(sessionKey, nonce, refCode?)` | ABI-encode sign-in data |
+| `encodeGdexSignInData(sessionKey, nonce, refCode?)` | ABI-encode sign-in data (`['bytes','string','string']`) |
 | `buildGdexSignInComputedData({...})` | Build encrypted sign-in payload |
-| `buildGdexUserSessionData(sessionKey, apiKey)` | Encrypt session key for `/v1/user` |
-| `encodeGdexTradeData(tokenAddr, amount, extra?)` | ABI-encode trade data |
-| `signGdexTradeMessageWithSessionKey(action, userId, data, privKey)` | Sign trade with session key |
+| `buildGdexUserSessionData(sessionKey, apiKey)` | Encrypt session key (raw hex bytes) for `/v1/user` |
+| `encodeGdexTradeData(tokenAddr, amount, nonce?)` | ABI-encode trade data (`['string','uint256','string']`) |
+| `signGdexTradeMessageWithSessionKey(action, userId, data, privKey)` | Sign trade with session key (v = raw recoveryParam `00`/`01`) |
 | `buildGdexManagedTradeComputedData({...})` | Build encrypted trade payload |
-| `encryptGdexComputedData(plaintext, apiKey)` | Generic AES encryption |
-| `decryptGdexComputedData(cipherHex, apiKey)` | Generic AES decryption |
+| `buildEncryptedGdexPayload({...})` | Encrypt JSON `{userId, data, signature}` for `computedData` |
+| `encryptGdexComputedData(plaintext, apiKey)` | AES-256-CBC encrypt UTF-8 plaintext |
+| `encryptGdexHexData(hexData, apiKey)` | AES-256-CBC encrypt raw hex-decoded bytes |
+| `decryptGdexComputedData(cipherHex, apiKey)` | AES-256-CBC decrypt to UTF-8 plaintext |
 | `deriveGdexAesMaterial(apiKey)` | Get raw AES key/IV from API key |
 
 ### Verify Managed Flow (offline)
