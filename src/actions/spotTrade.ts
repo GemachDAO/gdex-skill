@@ -4,7 +4,7 @@
 import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';
 import { BuyTokenParams, SellTokenParams, TradeResult } from '../types/trading';
-import { validateAddress, validateAmount, validateChain, validateSlippage } from '../utils/validation';
+import { validateTokenAddress, validateAmount, validateChain, validateSlippage } from '../utils/validation';
 
 /**
  * Buy a token on a supported chain.
@@ -18,7 +18,7 @@ import { validateAddress, validateAmount, validateChain, validateSlippage } from
 export async function buyToken(client: GdexApiClient, params: BuyTokenParams): Promise<TradeResult> {
   // Validate inputs
   validateChain(params.chain);
-  validateTokenAddress(params.tokenAddress, params);
+  validateTokenAddress(params.tokenAddress, params.chain, 'tokenAddress');
   validateAmount(params.amount, 'amount');
   if (params.slippage !== undefined) validateSlippage(params.slippage);
 
@@ -48,7 +48,7 @@ export async function buyToken(client: GdexApiClient, params: BuyTokenParams): P
 export async function sellToken(client: GdexApiClient, params: SellTokenParams): Promise<TradeResult> {
   // Validate inputs
   validateChain(params.chain);
-  validateTokenAddress(params.tokenAddress, params);
+  validateTokenAddress(params.tokenAddress, params.chain, 'tokenAddress');
   validateAmount(params.amount, 'amount', true); // allow percentage strings
   if (params.slippage !== undefined) validateSlippage(params.slippage);
 
@@ -66,15 +66,4 @@ export async function sellToken(client: GdexApiClient, params: SellTokenParams):
 
   const response = await client.post<TradeResult>(Endpoints.SELL_V2, payload);
   return response;
-}
-
-/**
- * Helper to validate a token address using the chain type.
- * Internally calls the chain-aware validateAddress utility.
- */
-function validateTokenAddress(
-  tokenAddress: string,
-  params: BuyTokenParams | SellTokenParams
-): void {
-  validateAddress(tokenAddress, params.chain, 'tokenAddress');
 }

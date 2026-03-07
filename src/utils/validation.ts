@@ -10,8 +10,19 @@ const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 /** Solana address regex (base58, 32–44 chars) */
 const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
-/** Sui address regex (0x + 64 hex chars) */
+/** Sui wallet address regex (0x + 64 hex chars) */
 const SUI_ADDRESS_RE = /^0x[0-9a-fA-F]{64}$/;
+
+/**
+ * Sui Move type / coin identifier regex.
+ * Matches strings like: 0x2::sui::SUI, 0xabc...def::module::COIN
+ * Format: <hex-address>::<module>::<type>
+ *
+ * Note: Sui uses shortened hex addresses in Move type strings (e.g. "0x2" for the
+ * system package, not the zero-padded 64-char form). Both shortened and full-length
+ * hex prefixes are valid in coin type identifiers, so we accept one or more hex chars.
+ */
+const SUI_COIN_TYPE_RE = /^0x[0-9a-fA-F]+::[a-zA-Z_][a-zA-Z0-9_]*::[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 /** All supported EVM chain IDs */
 const SUPPORTED_EVM_CHAIN_IDS = new Set(Object.values(ChainId).filter((v): v is number => typeof v === 'number'));
@@ -56,15 +67,27 @@ export function validateAddress(address: string, chain: SupportedChain, fieldNam
 }
 
 /**
- * Validate a token address, accepting native token placeholders.
+ * Validate a token address, accepting native token placeholders and Sui Move coin types.
  * Native token placeholders:
  * - EVM: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" (ETH/BNB/MATIC etc.)
  * - Solana: "So11111111111111111111111111111111111111112" (wSOL)
- * - Sui: "0x2::sui::SUI"
+ * - Sui: "0x2::sui::SUI" and all other Move coin type strings (e.g. "0xabc::module::COIN")
  */
 export function validateTokenAddress(address: string, chain: SupportedChain, fieldName = 'tokenAddress'): void {
-  // Allow Sui native token identifier
-  if (chain === 'sui' && address === '0x2::sui::SUI') return;
+  if (!address || typeof address !== 'string') {
+    throw new GdexValidationError(`${fieldName} must be a non-empty string`, fieldName);
+  }
+
+  // Sui accepts both full wallet addresses (0x + 64 hex) AND Move coin type strings
+  // (e.g. "0x2::sui::SUI", "0xabc::module::COIN")
+  if (chain === 'sui') {
+    if (SUI_ADDRESS_RE.test(address) || SUI_COIN_TYPE_RE.test(address)) return;
+    throw new GdexValidationError(
+      `Invalid Sui token address for ${fieldName}: "${address}". ` +
+        'Expected a 0x-prefixed 64-char hex address or a Move coin type (e.g. "0x2::module::COIN").',
+      fieldName
+    );
+  }
 
   // Allow Solana native wSOL mint
   if (chain === 'solana' && address === 'So11111111111111111111111111111111111111112') return;

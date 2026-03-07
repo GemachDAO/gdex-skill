@@ -64,7 +64,7 @@ export function getNativeToken(chain: SupportedChain): string {
 export function formatTokenAmount(amount: string, decimals: number, symbol: string): string {
   try {
     const raw = BigInt(amount);
-    const divisor = BigInt(10 ** decimals);
+    const divisor = 10n ** BigInt(decimals);
     const whole = raw / divisor;
     const remainder = raw % divisor;
     const remainderStr = remainder.toString().padStart(decimals, '0');

@@ -474,10 +474,9 @@ import { GdexSkill, generateEvmWallet, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gde
 const wallet = generateEvmWallet();
 // or via the GdexSkill instance: skill.generateEvmWallet()
 
-console.log(wallet.address);        // '0xAbCd...' (checksummed) — safe to share
-// Store wallet.privateKey securely (e.g., secrets manager / env var). Do NOT log it.
-// Store wallet.mnemonic securely (e.g., offline/password manager). Do NOT log it.
-console.log(wallet.derivationPath); // "m/44'/60'/0'/0/0"
+console.log(wallet.address);  // '0xAbCd...' (checksummed) — safe to share
+// ⚠️  Store wallet.privateKey securely (e.g., secrets manager / env var). Do NOT log it.
+// ⚠️  Store wallet.mnemonic securely (e.g., offline / password manager). Do NOT log it.
 
 // Step 2: authenticate with your control wallet
 const skill = new GdexSkill();

@@ -49,8 +49,16 @@ export type SupportedDex =
   | 'arcadia'
   | 'pancakeswap';
 
-/** Transaction status */
-export type TransactionStatus = 'pending' | 'confirmed' | 'failed';
+/**
+ * Transaction status.
+ *
+ * - `'queued'`    — job accepted by backend, not yet submitted on-chain
+ * - `'pending'`   — submitted on-chain, awaiting confirmation
+ * - `'completed'` — successfully confirmed on-chain
+ * - `'confirmed'` — alias for completed (some API endpoints return this)
+ * - `'failed'`    — transaction reverted or rejected
+ */
+export type TransactionStatus = 'queued' | 'pending' | 'completed' | 'confirmed' | 'failed';
 
 /** Order side */
 export type OrderSide = 'buy' | 'sell';

@@ -8,7 +8,7 @@
  * - Request/response interceptors for logging and error normalization
  */
 
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosHeaders, AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import axiosRetry from 'axios-retry';
 import { GdexSkillConfig, GdexErrorCode } from '../types';
 import {
@@ -113,7 +113,7 @@ export class GdexApiClient {
                 if (error.config) {
                   if (this.session?.token) {
                     if (!error.config.headers) {
-                      error.config.headers = {};
+                      error.config.headers = new AxiosHeaders();
                     }
                     error.config.headers['Authorization'] = `Bearer ${this.session.token}`;
                   }
