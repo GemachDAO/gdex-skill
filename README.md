@@ -475,8 +475,8 @@ const wallet = generateEvmWallet();
 // or via the GdexSkill instance: skill.generateEvmWallet()
 
 console.log(wallet.address);        // '0xAbCd...' (checksummed) — safe to share
-console.log(wallet.privateKey);     // '0x...' (32 bytes hex) — store securely!
-console.log(wallet.mnemonic);       // '12 word phrase ...' — store securely!
+// Store wallet.privateKey securely (e.g., secrets manager / env var). Do NOT log it.
+// Store wallet.mnemonic securely (e.g., offline/password manager). Do NOT log it.
 console.log(wallet.derivationPath); // "m/44'/60'/0'/0/0"
 
 // Step 2: authenticate with your control wallet
