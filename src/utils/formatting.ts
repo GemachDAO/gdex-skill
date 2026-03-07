@@ -16,13 +16,18 @@ export function getChainName(chain: SupportedChain): string {
     [ChainId.OPTIMISM]: 'Optimism',
     [ChainId.ARBITRUM]: 'Arbitrum One',
     [ChainId.AVALANCHE]: 'Avalanche',
+    [ChainId.SONIC]: 'Sonic',
     [ChainId.BASE]: 'Base',
     [ChainId.POLYGON]: 'Polygon',
     [ChainId.FRAXTAL]: 'Fraxtal',
+    [ChainId.NIBIRU]: 'Nibiru',
     [ChainId.LINEA]: 'Linea',
+    [ChainId.BERACHAIN]: 'Berachain',
     [ChainId.SCROLL]: 'Scroll',
     [ChainId.BLAST]: 'Blast',
     [ChainId.ZKSYNC]: 'zkSync Era',
+    [ChainId.SOLANA]: 'Solana',
+    [ChainId.SUI]: 'Sui',
   };
 
   return names[chain as number] ?? `Chain ${chain}`;
@@ -41,13 +46,18 @@ export function getNativeToken(chain: SupportedChain): string {
     [ChainId.OPTIMISM]: 'ETH',
     [ChainId.ARBITRUM]: 'ETH',
     [ChainId.AVALANCHE]: 'AVAX',
+    [ChainId.SONIC]: 'S',
     [ChainId.BASE]: 'ETH',
     [ChainId.POLYGON]: 'MATIC',
     [ChainId.FRAXTAL]: 'frxETH',
+    [ChainId.NIBIRU]: 'NIBI',
     [ChainId.LINEA]: 'ETH',
+    [ChainId.BERACHAIN]: 'BERA',
     [ChainId.SCROLL]: 'ETH',
     [ChainId.BLAST]: 'ETH',
     [ChainId.ZKSYNC]: 'ETH',
+    [ChainId.SOLANA]: 'SOL',
+    [ChainId.SUI]: 'SUI',
   };
 
   return tokens[chain as number] ?? 'ETH';

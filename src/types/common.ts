@@ -18,19 +18,29 @@ export enum ChainId {
   BASE = 8453,
   /** Polygon */
   POLYGON = 137,
+  /** Sonic */
+  SONIC = 146,
   /** Fraxtal */
   FRAXTAL = 252,
-  /** Linea */
-  LINEA = 59144,
-  /** Scroll */
-  SCROLL = 534352,
-  /** Blast */
-  BLAST = 81457,
   /** zkSync Era */
   ZKSYNC = 324,
+  /** Nibiru */
+  NIBIRU = 6900,
+  /** Linea */
+  LINEA = 59144,
+  /** Berachain */
+  BERACHAIN = 80094,
+  /** Blast */
+  BLAST = 81457,
+  /** Scroll */
+  SCROLL = 534352,
+  /** Solana */
+  SOLANA = 622112261,
+  /** Sui */
+  SUI = 1313131213,
 }
 
-/** Supported non-EVM chains (use string identifiers) */
+/** Legacy string identifiers for non-EVM chains (kept for backward compatibility) */
 export type NonEvmChain = 'solana' | 'sui';
 
 /** All supported chain identifiers */

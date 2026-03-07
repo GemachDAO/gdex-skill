@@ -611,39 +611,35 @@ const message = buildGdexSignInMessage(wallet.address, String(Date.now()), sessi
 
 ## 🌐 Supported Chains
 
-| Chain | Identifier | Native Token | DEXes |
+| Chain | ChainId | Native Token | DEXes |
 |---|---|---|---|
-| **Solana** | `'solana'` | SOL | Raydium, Raydium V2, Orca |
-| **Sui** | `'sui'` | SUI | Cetus, Bluefin |
 | **Ethereum** | `1` | ETH | Uniswap V2/V3, Odos |
-| **BNB Smart Chain** | `56` | BNB | PancakeSwap, Odos |
 | **Optimism** | `10` | ETH | Uniswap V3, Odos |
-| **Arbitrum One** | `42161` | ETH | Uniswap V3, Odos |
-| **Avalanche** | `43114` | AVAX | Uniswap V2/V3, Odos |
-| **Base** | `8453` | ETH | Uniswap V3, Odos, Arcadia |
-| **Polygon** | `137` | MATIC | Uniswap V3, Odos |
+| **BNB Smart Chain** | `56` | BNB | PancakeSwap, Odos |
+| **Sonic** | `146` | S | — |
 | **Fraxtal** | `252` | frxETH | Uniswap V3 |
-| **Linea** | `59144` | ETH | Uniswap V3 |
-| **Scroll** | `534352` | ETH | Uniswap V3 |
-| **Blast** | `81457` | ETH | Uniswap V3 |
-| **zkSync Era** | `324` | ETH | Uniswap V3 |
+| **Nibiru** | `6900` | NIBI | — |
+| **Base** | `8453` | ETH | Uniswap V3, Odos, Arcadia |
+| **Arbitrum One** | `42161` | ETH | Uniswap V3, Odos |
+| **Berachain** | `80094` | BERA | — |
+| **Solana** | `622112261` | SOL | Raydium, Raydium V2, Orca |
+| **Sui** | `1313131213` | SUI | Cetus, Bluefin |
 | **HyperLiquid** | perps only | USDC | Native perp engine |
 
 ```typescript
 import { ChainId } from '@gdexsdk/gdex-skill';
 
 ChainId.ETHEREUM   // 1
-ChainId.BSC        // 56
 ChainId.OPTIMISM   // 10
-ChainId.ARBITRUM   // 42161
-ChainId.AVALANCHE  // 43114
-ChainId.BASE       // 8453
-ChainId.POLYGON    // 137
+ChainId.BSC        // 56
+ChainId.SONIC      // 146
 ChainId.FRAXTAL    // 252
-ChainId.LINEA      // 59144
-ChainId.SCROLL     // 534352
-ChainId.BLAST      // 81457
-ChainId.ZKSYNC     // 324
+ChainId.NIBIRU     // 6900
+ChainId.BASE       // 8453
+ChainId.ARBITRUM   // 42161
+ChainId.BERACHAIN  // 80094
+ChainId.SOLANA     // 622112261
+ChainId.SUI        // 1313131213
 ```
 
 ---

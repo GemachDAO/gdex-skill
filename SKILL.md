@@ -101,7 +101,7 @@ if (result.requestId) {
 }
 ```
 
-**Chain IDs:** 900 = Solana, 101 = Sui, 1 = Ethereum, 8453 = Base, 42161 = Arbitrum, 56 = BSC
+**Chain IDs:** 1 = Ethereum, 10 = Optimism, 56 = BSC, 146 = Sonic, 252 = Fraxtal, 6900 = Nibiru, 8453 = Base, 42161 = Arbitrum, 80094 = Berachain, 622112261 = Solana, 1313131213 = Sui
 
 ## Setup
 
@@ -122,22 +122,19 @@ skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
 
 ## Supported Chains
 
-| Chain | Identifier | DEXes |
-|-------|-----------|-------|
-| Solana | `solana` | Raydium, Raydium v2, Orca |
-| Sui | `sui` | Cetus, Bluefin |
-| Ethereum | `1` | Uniswap v2/v3 |
+| Chain | ChainId | DEXes |
+|-------|---------|-------|
+| Ethereum | `1` | Uniswap v2/v3, Odos |
+| Optimism | `10` | Uniswap v3, Odos |
+| BSC | `56` | PancakeSwap, Odos |
+| Sonic | `146` | — |
+| Fraxtal | `252` | Uniswap v3 |
+| Nibiru | `6900` | — |
 | Base | `8453` | Uniswap v3, Odos, Arcadia |
-| Arbitrum | `42161` | Uniswap v2/v3, Odos |
-| BSC | `56` | PancakeSwap |
-| Optimism | `10` | Uniswap v2/v3 |
-| Avalanche | `43114` | Odos |
-| Polygon | `137` | Uniswap v2/v3 |
-| Linea | `59144` | Odos |
-| Scroll | `534352` | Odos |
-| Blast | `81457` | Odos |
-| zkSync | `324` | Odos |
-| Fraxtal | `252` | Odos |
+| Arbitrum | `42161` | Uniswap v3, Odos |
+| Berachain | `80094` | — |
+| Solana | `622112261` | Raydium, Raydium v2, Orca |
+| Sui | `1313131213` | Cetus, Bluefin |
 | HyperLiquid | Perpetuals only | Native perp engine |
 
 ## Actions

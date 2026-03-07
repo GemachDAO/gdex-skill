@@ -47,9 +47,37 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     blockTime: 0.4,
   },
 
+  // Numeric chain ID alias for Solana (622112261)
+  [ChainId.SOLANA]: {
+    id: ChainId.SOLANA,
+    name: 'Solana',
+    nativeToken: 'SOL',
+    nativeDecimals: 9,
+    nativeTokenAddress: 'So11111111111111111111111111111111111111112',
+    supportedDexes: ['raydium', 'raydium-v2', 'orca'],
+    supportsPerpTrading: false,
+    supportsBridging: true,
+    explorerUrl: 'https://solscan.io',
+    blockTime: 0.4,
+  },
+
   // ── Sui ──────────────────────────────────────────────────────────────────
   sui: {
     id: 'sui',
+    name: 'Sui',
+    nativeToken: 'SUI',
+    nativeDecimals: 9,
+    nativeTokenAddress: '0x2::sui::SUI',
+    supportedDexes: ['cetus', 'bluefin'],
+    supportsPerpTrading: false,
+    supportsBridging: true,
+    explorerUrl: 'https://suiexplorer.com',
+    blockTime: 0.5,
+  },
+
+  // Numeric chain ID alias for Sui (1313131213)
+  [ChainId.SUI]: {
+    id: ChainId.SUI,
     name: 'Sui',
     nativeToken: 'SUI',
     nativeDecimals: 9,
@@ -87,6 +115,20 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     supportsBridging: true,
     explorerUrl: 'https://bscscan.com',
     blockTime: 3,
+  },
+
+  // ── Sonic ─────────────────────────────────────────────────────────────────
+  [ChainId.SONIC]: {
+    id: ChainId.SONIC,
+    name: 'Sonic',
+    nativeToken: 'S',
+    nativeDecimals: 18,
+    nativeTokenAddress: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
+    supportedDexes: [],
+    supportsPerpTrading: false,
+    supportsBridging: false,
+    explorerUrl: 'https://sonicscan.org',
+    blockTime: 1,
   },
 
   // ── Optimism ──────────────────────────────────────────────────────────────
@@ -173,6 +215,20 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     blockTime: 2,
   },
 
+  // ── Nibiru ────────────────────────────────────────────────────────────────
+  [ChainId.NIBIRU]: {
+    id: ChainId.NIBIRU,
+    name: 'Nibiru',
+    nativeToken: 'NIBI',
+    nativeDecimals: 18,
+    nativeTokenAddress: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
+    supportedDexes: [],
+    supportsPerpTrading: false,
+    supportsBridging: false,
+    explorerUrl: 'https://nibiru.fi',
+    blockTime: 2,
+  },
+
   // ── Linea ─────────────────────────────────────────────────────────────────
   [ChainId.LINEA]: {
     id: ChainId.LINEA,
@@ -212,6 +268,20 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     supportsPerpTrading: false,
     supportsBridging: true,
     explorerUrl: 'https://blastscan.io',
+    blockTime: 2,
+  },
+
+  // ── Berachain ─────────────────────────────────────────────────────────────
+  [ChainId.BERACHAIN]: {
+    id: ChainId.BERACHAIN,
+    name: 'Berachain',
+    nativeToken: 'BERA',
+    nativeDecimals: 18,
+    nativeTokenAddress: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
+    supportedDexes: [],
+    supportsPerpTrading: false,
+    supportsBridging: false,
+    explorerUrl: 'https://beratrail.io',
     blockTime: 2,
   },
 
