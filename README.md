@@ -1,179 +1,229 @@
-# @gdexsdk/gdex-skill
+<div align="center">
 
-> **AI Agent Skill** for the Gbot Trading Dashboard — enables AI agents to trade cross-chain tokens, manage perpetual positions, track portfolios, and discover tokens programmatically.
+```
+  ██████╗ ██████╗ ███████╗██╗  ██╗   ██████╗ ██████╗  ██████╗
+ ██╔════╝ ██╔══██╗██╔════╝╚██╗██╔╝   ██╔══██╗██╔══██╗██╔═══██╗
+ ██║  ███╗██║  ██║█████╗   ╚███╔╝    ██████╔╝██████╔╝██║   ██║
+ ██║   ██║██║  ██║██╔══╝   ██╔██╗    ██╔═══╝ ██╔══██╗██║   ██║
+ ╚██████╔╝██████╔╝███████╗██╔╝ ██╗   ██║     ██║  ██║╚██████╔╝
+  ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝   ╚═╝     ╚═╝  ╚═╝ ╚═════╝
+               · p r o ·    powered by GEMACH
+```
 
-[![npm version](https://img.shields.io/npm/v/@gdexsdk/gdex-skill.svg)](https://www.npmjs.com/package/@gdexsdk/gdex-skill)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![skills.sh](https://img.shields.io/badge/skills.sh-compatible-8B5CF6.svg)](https://skills.sh)
+**AI Agent Skill for the [Gbot Trading Dashboard](https://github.com/TheArcadiaGroup/gbotTradingDashboardBackend)**  
+Cross-chain spot trading · Perpetual futures · Portfolio management · Token discovery
 
-## Install as an Agent Skill
+[![npm version](https://img.shields.io/npm/v/@gdexsdk/gdex-skill.svg?style=for-the-badge)](https://www.npmjs.com/package/@gdexsdk/gdex-skill)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-F7DF1E.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![skills.sh](https://img.shields.io/badge/skills.sh-compatible-8B5CF6.svg?style=for-the-badge)](https://skills.sh)
+[![Tests](https://img.shields.io/badge/tests-62%20passing-22C55E.svg?style=for-the-badge)](#testing)
 
-Use the [skills CLI](https://skills.sh) to install this skill into Claude Code, Cursor, Codex, Windsurf, and [40+ other agents](https://github.com/vercel-labs/skills#supported-agents):
+</div>
+
+---
+
+## Table of Contents
+
+- [Install as an Agent Skill](#-install-as-an-agent-skill)
+- [SDK Installation](#-sdk-installation)
+- [Quick Start](#-quick-start)
+- [Verify (offline)](#-verify-offline)
+- [Authentication](#-authentication)
+- [API Reference](#-api-reference)
+  - [Spot Trading](#spot-trading)
+  - [Perpetual Futures](#perpetual-futures-hyperliquid)
+  - [Limit Orders](#limit-orders)
+  - [Copy Trading](#copy-trading)
+  - [Portfolio](#portfolio)
+  - [Token Information](#token-information)
+  - [Top Traders](#top-traders)
+  - [Bridge](#bridge)
+  - [Wallet Info](#wallet-info)
+- [Supported Chains](#-supported-chains)
+- [Error Handling](#-error-handling)
+- [Utility Functions](#-utility-functions)
+- [Testing](#-testing)
+- [Architecture](#-architecture)
+
+---
+
+## 🤖 Install as an Agent Skill
+
+Install directly into Claude Code, Cursor, Codex, Windsurf, and [40+ other agents](https://github.com/vercel-labs/skills#supported-agents) using the [skills CLI](https://skills.sh):
 
 ```bash
 npx skills add GemachDAO/gdex-skill
 ```
 
-This copies `SKILL.md` into your agent's skills directory so it can call the Gbot trading API directly.
+This copies `SKILL.md` into your agent's skill directory. The agent will then be able to call the Gbot Trading API for any trading, portfolio, or token discovery task — **no API key setup required** (shared keys are built in).
 
-## Overview
+---
 
-`@gdexsdk/gdex-skill` transforms the [Gbot Trading Dashboard Backend](https://github.com/TheArcadiaGroup/gbotTradingDashboardBackend) into a clean TypeScript SDK that AI agents can use without browser access or manual UI interaction.
-
-### What you can do
-
-| Feature | Chains |
-|---|---|
-| 🔄 **Spot Trading** (buy/sell tokens) | Solana, Sui, Ethereum, Base, Arbitrum, BSC, Optimism, Avalanche, Polygon, Linea, Scroll, Blast, zkSync, Fraxtal |
-| 📈 **Perpetual Futures** (long/short with TP/SL) | HyperLiquid |
-| 📋 **Limit Orders** | All chains |
-| 🤖 **Copy Trading** | Solana, HyperLiquid |
-| 💼 **Portfolio Management** (balances, P&L, history) | All chains |
-| 🔍 **Token Discovery** (trending, OHLCV, details) | All chains |
-| 🏆 **Top Traders** | All chains |
-| 🌉 **Cross-Chain Bridging** | All chains |
-| 👛 **Wallet Info** | All chains |
-
-## Architecture
-
-```
-AI Agent
-   │
-   ▼
-GdexSkill SDK (this package)
-   │  TypeScript methods with full type safety
-   │  Input validation + error normalization
-   │  API key auth (shared keys) or wallet signing
-   ▼
-Gbot Backend API (HTTP/REST)
-   │  https://trade-api.gemach.io/v1
-   │  Trade queue (NATS JetStream)
-   │  DEX aggregation engine
-   ▼
-Blockchains (Solana, Sui, EVM L1s/L2s)
-```
-
-## Installation
+## 📦 SDK Installation
 
 ```bash
 npm install @gdexsdk/gdex-skill
 ```
 
-For EVM wallet signing (optional — only needed for wallet-based auth):
-```bash
-npm install ethers
-```
+> The install script displays a quick-start banner in your terminal. Optional peer dependencies for wallet signing (only needed for user-specific wallet auth):
+> ```bash
+> npm install ethers        # EVM wallet auth
+> npm install bs58 tweetnacl  # Solana wallet auth
+> ```
 
-For Solana wallet signing (optional):
-```bash
-npm install bs58 tweetnacl
-```
+---
 
-## Quick Start
+## 🚀 Quick Start
 
 ```typescript
 import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
 
-// Authenticate with a shared API key (recommended for AI agents)
+// 1. Create skill instance
 const skill = new GdexSkill();
+
+// 2. Authenticate with pre-configured shared key — no wallet needed
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
 
-// No auth needed for read-only operations
-const trending = await skill.getTrendingTokens({ chain: 'solana', limit: 5 });
-console.log('Top token:', trending[0].symbol, trending[0].priceUsd);
-
-// Buy a token on Solana
+// 3. Spot buy on Solana
 const trade = await skill.buyToken({
   chain: 'solana',
-  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
   amount: '0.1',   // 0.1 SOL
   slippage: 1,     // 1% max slippage
 });
-console.log('Trade submitted:', trade.jobId);
-```
+console.log('Trade submitted:', trade.jobId, '— status:', trade.status);
 
-## Configuration
-
-```typescript
-const skill = new GdexSkill({
-  apiUrl: 'https://trade-api.gemach.io',  // Backend URL (default)
-  timeout: 30000,                          // Request timeout (ms)
-  maxRetries: 3,                           // Retry attempts on failure
-  debug: false,                            // Enable debug logging
+// 4. Open a BTC 10× long on HyperLiquid
+const pos = await skill.openPerpPosition({
+  coin: 'BTC',
+  side: 'long',
+  sizeUsd: '1000',
+  leverage: 10,
+  takeProfitPrice: '110000',
+  stopLossPrice: '95000',
 });
+
+// 5. Read-only endpoints need no auth
+const trending = await skill.getTrendingTokens({ chain: 'solana', period: '24h', limit: 5 });
+console.log('Trending:', trending.map(t => t.symbol).join(', '));
 ```
 
-### Environment Variables
+---
 
-| Variable | Description | Default |
-|---|---|---|
-| `GDEX_API_URL` | Backend API base URL | `https://trade-api.gemach.io` |
-| `GDEX_API_KEY` | API key for requests | — |
-| `GDEX_TIMEOUT` | Request timeout (ms) | `30000` |
-| `GDEX_MAX_RETRIES` | Max retry attempts | `3` |
-| `GDEX_DEBUG` | Enable debug logging | `false` |
-| `EVM_PRIVATE_KEY` | EVM wallet private key (wallet auth only) | — |
-| `SOLANA_PRIVATE_KEY` | Solana wallet private key, base58 (wallet auth only) | — |
+## ✅ Verify (offline)
 
-## API Reference
+Confirm the SDK is installed and configured correctly — **no network connection or API key required**:
 
-### Authentication
+```bash
+npm run verify
+```
 
-AI agents should use **API key authentication** with the pre-configured shared keys:
+Sample output:
+
+```
+1. SDK import
+  ✓  SDK imported from ../dist/index.js
+
+2. API keys
+  ✓  GDEX_API_KEY_PRIMARY   = 3f6c9e12...
+  ✓  GDEX_API_KEY_SECONDARY = 8d2a5f47...
+  ✓  GDEX_API_KEYS array    = 2 keys
+
+3. GdexSkill instantiation
+  ✓  new GdexSkill() — default config
+  ✓  new GdexSkill({ apiUrl, timeout, maxRetries }) — custom config
+
+4. Authentication state (offline)
+  ✓  isAuthenticated() = false before login
+  ✓  loginWithApiKey(GDEX_API_KEY_PRIMARY) → isAuthenticated() = true
+  ✓  logout() → isAuthenticated() = false
+
+...
+
+  All 18 checks passed ✓
+  SDK is ready — no network token required.
+```
+
+---
+
+## 🔑 Authentication
+
+### Shared API Keys (recommended for agents)
+
+Two shared keys are pre-configured in the package — agents do not need to sign wallet transactions:
 
 ```typescript
-import { GdexSkill, GDEX_API_KEYS, GDEX_API_KEY_PRIMARY, GDEX_API_KEY_SECONDARY } from '@gdexsdk/gdex-skill';
+import {
+  GdexSkill,
+  GDEX_API_KEY_PRIMARY,
+  GDEX_API_KEY_SECONDARY,
+  GDEX_API_KEYS,
+} from '@gdexsdk/gdex-skill';
 
 const skill = new GdexSkill();
-
-// Option 1: Use the primary shared key (recommended)
-skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
-
-// Option 2: Use the secondary shared key
-skill.loginWithApiKey(GDEX_API_KEY_SECONDARY);
-
-// Option 3: Use from the array
+skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);  // use primary
+// or:
+skill.loginWithApiKey(GDEX_API_KEY_SECONDARY); // use secondary
+// or cycle through them:
 skill.loginWithApiKey(GDEX_API_KEYS[0]);
 
-skill.logout();           // Clear session
-skill.isAuthenticated();  // true/false
+skill.isAuthenticated(); // → true
+skill.logout();          // clear session
 ```
 
-For user-specific wallet authentication (advanced):
+> **Note:** Read-only endpoints (`getTrendingTokens`, `getTokenDetails`, `getOHLCV`, `getTopTraders`) do not require authentication.
+
+### Wallet-based Auth (advanced)
+
+For user-owned wallets or custom signers (hardware wallets, browser extensions):
 
 ```typescript
-// Authenticate with an EVM wallet (secp256k1)
-const session = await skill.authenticate({
+// EVM wallet (secp256k1)
+await skill.authenticate({
   type: 'evm',
   address: '0xYourAddress',
   privateKey: '0xPrivateKey',
 });
 
-// Authenticate with a Solana wallet (ed25519)
-const session = await skill.authenticate({
+// Solana wallet (ed25519)
+await skill.authenticate({
   type: 'solana',
   address: 'YourSolanaAddress',
   privateKey: 'base58EncodedPrivateKey',
 });
 
-// Use a custom signer (e.g., hardware wallet or browser extension)
-const session = await skill.authenticate({
+// Custom signer (MetaMask / Phantom)
+await skill.authenticate({
   type: 'evm',
-  address: '0xYourAddress',
-  signer: async (message) => {
-    return await window.ethereum.request({
-      method: 'personal_sign',
-      params: [message, '0xYourAddress'],
-    });
-  },
+  address: accounts[0],
+  signer: async (message) =>
+    window.ethereum.request({ method: 'personal_sign', params: [message, accounts[0]] }),
 });
-
-skill.logout();           // Clear session
-skill.isAuthenticated();  // true/false
 ```
 
+### Configuration
+
+```typescript
+const skill = new GdexSkill({
+  apiUrl:     'https://trade-api.gemach.io', // Backend (default)
+  timeout:    30000,                          // Request timeout ms
+  maxRetries: 3,                              // Retry attempts on 429/503
+  debug:      false,                          // Log every request
+});
+```
+
+| Env Variable | Description | Default |
+|---|---|---|
+| `GDEX_API_URL` | Backend base URL | `https://trade-api.gemach.io` |
+| `GDEX_API_KEY` | Override API key | — |
+| `GDEX_TIMEOUT` | Request timeout (ms) | `30000` |
+| `GDEX_MAX_RETRIES` | Retry attempts | `3` |
+| `GDEX_DEBUG` | Enable debug logging | `false` |
+
 ---
+
+## 📚 API Reference
 
 ### Spot Trading
 
@@ -181,43 +231,34 @@ skill.isAuthenticated();  // true/false
 
 Buy a token on any supported chain.
 
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `chain` | `string \| ChainId` | ✅ | Chain name or numeric ID |
+| `tokenAddress` | `string` | ✅ | Token contract address |
+| `amount` | `string` | ✅ | Native token input amount |
+| `slippage` | `number` | | Max slippage % (default: 1) |
+| `dex` | `string` | | Force specific DEX |
+| `walletAddress` | `string` | | Override wallet address |
+| `priorityFee` | `number` | | Solana priority fee (lamports) |
+
 ```typescript
 const result = await skill.buyToken({
-  chain: 'solana',                                        // Chain identifier
-  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // Token to buy
-  amount: '0.1',                                         // Input amount (SOL)
-  slippage: 1,                                           // Slippage % (default: 1)
-  dex: 'raydium',                                        // Force specific DEX (optional)
-  walletAddress: '...',                                  // Wallet (optional if set in auth)
-  priorityFee: 50000,                                    // Priority fee in lamports (Solana)
+  chain: 'solana',
+  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  amount: '0.1',
+  slippage: 1,
 });
-
-// result: TradeResult
-// {
-//   txHash: string, jobId: string, status: 'confirmed' | 'pending' | 'failed',
-//   inputAmount, outputAmount, executionPrice, priceImpact, dex
-// }
+// result.jobId, result.status, result.txHash, result.outputAmount
 ```
 
 #### `sellToken(params)`
 
-Sell a token. Amount can be absolute or a percentage.
-
 ```typescript
-// Sell 100 USDC
-await skill.sellToken({
-  chain: ChainId.BASE,
-  tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-  amount: '100',
-  slippage: 0.5,
-});
+// Sell absolute amount
+await skill.sellToken({ chain: 8453, tokenAddress: '0x...', amount: '100', slippage: 0.5 });
 
 // Sell 50% of holdings
-await skill.sellToken({
-  chain: 'solana',
-  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-  amount: '50%',
-});
+await skill.sellToken({ chain: 'solana', tokenAddress: '...', amount: '50%' });
 ```
 
 ---
@@ -226,47 +267,39 @@ await skill.sellToken({
 
 #### `openPerpPosition(params)`
 
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `coin` | `string` | | Asset symbol (e.g., `'BTC'`, `'ETH'`) |
+| `side` | `'long' \| 'short'` | | Direction |
+| `sizeUsd` | `string` | | Collateral in USD |
+| `leverage` | `number` | `5` | 1–50× |
+| `takeProfitPrice` | `string` | | Optional TP price |
+| `stopLossPrice` | `string` | | Optional SL price |
+| `marginMode` | `'cross' \| 'isolated'` | `'cross'` | Margin mode |
+
 ```typescript
-const result = await skill.openPerpPosition({
-  coin: 'BTC',              // Asset symbol
-  side: 'long',             // 'long' | 'short'
-  sizeUsd: '1000',          // Position size in USD
-  leverage: 10,             // 1–50x (default: 5)
-  takeProfitPrice: '110000', // TP price (optional)
-  stopLossPrice: '95000',   // SL price (optional)
-  marginMode: 'cross',      // 'cross' | 'isolated' (default: 'cross')
+const pos = await skill.openPerpPosition({
+  coin: 'BTC', side: 'long', sizeUsd: '1000', leverage: 10,
+  takeProfitPrice: '110000', stopLossPrice: '95000',
 });
 ```
 
 #### `closePerpPosition(params)`
 
 ```typescript
-// Close 100% of BTC position
-await skill.closePerpPosition({ coin: 'BTC' });
-
-// Close 50% of ETH position
-await skill.closePerpPosition({ coin: 'ETH', closePercent: 50 });
+await skill.closePerpPosition({ coin: 'BTC' });                  // close 100%
+await skill.closePerpPosition({ coin: 'ETH', closePercent: 50 }); // close 50%
 ```
 
-#### `setPerpLeverage(params)`
+#### Other perp methods
 
 ```typescript
 await skill.setPerpLeverage({ coin: 'BTC', leverage: 20 });
-```
+await skill.perpDeposit({ amount: '1000' });   // deposit $1000 USDC
+await skill.perpWithdraw({ amount: '500' });   // withdraw $500 USDC
 
-#### `getPerpPositions(params)`
-
-```typescript
 const positions = await skill.getPerpPositions({ walletAddress: '0x...' });
-// Returns: PerpPosition[]
-// Each: { coin, side, size, entryPrice, markPrice, leverage, unrealizedPnl, liquidationPrice, ... }
-```
-
-#### `perpDeposit(params)` / `perpWithdraw(params)`
-
-```typescript
-await skill.perpDeposit({ amount: '1000' });  // Deposit $1000 USDC
-await skill.perpWithdraw({ amount: '500' });  // Withdraw $500 USDC
+// Each: { coin, side, size, entryPrice, markPrice, leverage, unrealizedPnl, liquidationPrice }
 ```
 
 ---
@@ -274,27 +307,23 @@ await skill.perpWithdraw({ amount: '500' });  // Withdraw $500 USDC
 ### Limit Orders
 
 ```typescript
-// Create a limit order
+// Create
 const order = await skill.createLimitOrder({
   chain: 'solana',
   side: 'buy',
-  inputToken: 'So11111111111111111111111111111111111111112',   // SOL
+  inputToken: 'So11111111111111111111111111111111111111112',    // SOL
   outputToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
   inputAmount: '1',
-  limitPrice: '160',  // Buy when 1 SOL = 160 USDC
+  limitPrice: '160',  // trigger when 1 SOL = 160 USDC
   slippage: 1,
-  expireIn: 86400,  // Expire in 24 hours
+  expireIn: 86400,    // 24 hours
 });
 
-// Cancel order
+// Cancel
 await skill.cancelLimitOrder({ orderId: order.id, chain: 'solana' });
 
-// List open orders
-const orders = await skill.getLimitOrders({
-  walletAddress: '...',
-  chain: 'solana',
-  status: 'open',
-});
+// List
+const orders = await skill.getLimitOrders({ walletAddress: '...', chain: 'solana', status: 'open' });
 ```
 
 ---
@@ -302,31 +331,20 @@ const orders = await skill.getLimitOrders({
 ### Copy Trading
 
 ```typescript
-// Configure copy trading
+// Add a wallet to copy
+await skill.addCopyTradeWallet({ walletAddress: 'TopTraderAddress', chain: 'solana', label: 'Alpha' });
+
+// Configure settings
 await skill.setCopyTradeSettings({
   enabled: true,
-  maxTradeSize: '100',     // Max $100 per copied trade
+  maxTradeSize: '100',       // max $100 per copied trade
   slippage: 1,
-  chains: ['solana'],
   copyBuysOnly: false,
-  autoStopLossPercent: 10, // Auto-SL at 10% loss
+  autoStopLossPercent: 10,   // SL at 10% loss
 });
 
-// Track a wallet
-await skill.addCopyTradeWallet({
-  walletAddress: 'TopTraderWalletAddress',
-  chain: 'solana',
-  label: 'Alpha trader',
-});
-
-// Get tracked wallets
 const wallets = await skill.getCopyTradeWallets('userId');
-
-// Remove a wallet
-await skill.removeCopyTradeWallet({
-  walletAddress: 'TopTraderWalletAddress',
-  chain: 'solana',
-});
+await skill.removeCopyTradeWallet({ walletAddress: 'TopTraderAddress', chain: 'solana' });
 ```
 
 ---
@@ -335,22 +353,16 @@ await skill.removeCopyTradeWallet({
 
 ```typescript
 // Full cross-chain portfolio
-const portfolio = await skill.getPortfolio({ walletAddress: '...' });
-// { totalValueUsd, balances: Balance[], perpPositions?, realizedPnl, unrealizedPnl }
+const portfolio = await skill.getPortfolio({ walletAddress: '0x...' });
+// { totalValueUsd, balances, perpPositions?, realizedPnl, unrealizedPnl }
 
-// Balances on a specific chain
-const balances = await skill.getBalances({
-  walletAddress: '...',
-  chain: ChainId.ETHEREUM,
-});
+// Chain-specific balances
+const balances = await skill.getBalances({ walletAddress: '0x...', chain: ChainId.ETHEREUM });
 
-// Trade history with pagination
+// Paginated trade history
 const history = await skill.getTradeHistory({
-  walletAddress: '...',
-  page: 1,
-  limit: 20,
-  startTime: 1700000000,
-  endTime: 1700086400,
+  walletAddress: '0x...', page: 1, limit: 20,
+  startTime: 1700000000, endTime: 1700086400,
 });
 ```
 
@@ -358,29 +370,31 @@ const history = await skill.getTradeHistory({
 
 ### Token Information
 
+> 🔓 No authentication required for these endpoints.
+
 ```typescript
-// Token details (no auth required)
+// Token details
 const token = await skill.getTokenDetails({
   tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
   chain: 'solana',
 });
-// { symbol, name, priceUsd, priceChange24h, marketCap, fdv, volume24h, liquidity, pools, socials }
+// { symbol, name, priceUsd, priceChange24h, marketCap, fdv, volume24h, liquidity }
 
 // Trending tokens
 const trending = await skill.getTrendingTokens({
   chain: 'solana',
-  period: '24h',
+  period: '24h',     // '1h' | '6h' | '24h' | '7d'
   limit: 20,
   minLiquidity: 50000,
 });
 
-// OHLCV candlestick data (no auth required)
+// OHLCV candles
 const ohlcv = await skill.getOHLCV({
   tokenAddress: 'So11111111111111111111111111111111111111112',
   chain: 'solana',
-  resolution: '60',     // 1m, 5m, 15m, 30m, 1h, 4h, 1D, 1W
-  from: 1700000000,
-  to: 1700086400,
+  resolution: '60',  // '1'|'5'|'15'|'30'|'60'|'240'|'D'|'W'
+  from: Math.floor(Date.now() / 1000) - 86400,
+  to: Math.floor(Date.now() / 1000),
 });
 ```
 
@@ -388,14 +402,16 @@ const ohlcv = await skill.getOHLCV({
 
 ### Top Traders
 
+> 🔓 No authentication required.
+
 ```typescript
 const traders = await skill.getTopTraders({
   chain: 'solana',
-  period: '7d',
+  period: '7d',    // '1d' | '7d' | '30d' | 'all'
   limit: 10,
-  sortBy: 'pnl',
+  sortBy: 'pnl',   // 'pnl' | 'winRate' | 'volume' | 'tradeCount'
 });
-// [{ address, totalPnlUsd, winRate, tradeCount, totalVolumeUsd, performance }]
+// [{ address, totalPnlUsd, winRate, tradeCount, totalVolumeUsd }]
 ```
 
 ---
@@ -403,14 +419,14 @@ const traders = await skill.getTopTraders({
 ### Bridge
 
 ```typescript
-// Get a quote first
+// Get quote first
 const quote = await skill.getBridgeQuote({
   fromChain: 'solana',
   toChain: ChainId.ETHEREUM,
   tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
   amount: '100',
 });
-console.log('Expected output:', quote.outputAmount);
+console.log('Output:', quote.outputAmount, '— fee:', quote.fee);
 
 // Execute bridge
 const result = await skill.bridge({
@@ -428,20 +444,17 @@ const result = await skill.bridge({
 ### Wallet Info
 
 ```typescript
-const info = await skill.getWalletInfo({
-  walletAddress: 'SolanaWalletAddress',
-  chain: 'solana',
-});
+const info = await skill.getWalletInfo({ walletAddress: '...', chain: 'solana' });
 // { address, nativeBalance, nativeSymbol, totalValueUsd, tokenCount }
 ```
 
 ---
 
-## Supported Chains
+## 🌐 Supported Chains
 
-| Chain | ID | Native Token | DEXes |
+| Chain | Identifier | Native Token | DEXes |
 |---|---|---|---|
-| **Solana** | `'solana'` | SOL | Raydium, Orca |
+| **Solana** | `'solana'` | SOL | Raydium, Raydium V2, Orca |
 | **Sui** | `'sui'` | SUI | Cetus, Bluefin |
 | **Ethereum** | `1` | ETH | Uniswap V2/V3, Odos |
 | **BNB Smart Chain** | `56` | BNB | PancakeSwap, Odos |
@@ -455,65 +468,7 @@ const info = await skill.getWalletInfo({
 | **Scroll** | `534352` | ETH | Uniswap V3 |
 | **Blast** | `81457` | ETH | Uniswap V3 |
 | **zkSync Era** | `324` | ETH | Uniswap V3 |
-
-## Error Handling
-
-```typescript
-import {
-  GdexError,
-  GdexAuthError,
-  GdexValidationError,
-  GdexApiError,
-  GdexNetworkError,
-  GdexRateLimitError,
-  GdexErrorCode,
-} from '@gdexsdk/gdex-skill';
-
-try {
-  await skill.buyToken({ ... });
-} catch (err) {
-  if (err instanceof GdexAuthError) {
-    console.error('Auth failed — re-authenticate');
-  } else if (err instanceof GdexValidationError) {
-    console.error(`Invalid input: ${err.field} — ${err.message}`);
-  } else if (err instanceof GdexRateLimitError) {
-    console.error(`Rate limited — retry after ${err.retryAfter}s`);
-  } else if (err instanceof GdexApiError) {
-    console.error(`API error ${err.statusCode}: ${err.message}`);
-  } else if (err instanceof GdexNetworkError) {
-    console.error(`Network error (${err.code}): ${err.message}`);
-  }
-}
-```
-
-### Error Classes
-
-| Class | Code | When thrown |
-|---|---|---|
-| `GdexAuthError` | `AUTH_FAILED` / `AUTH_REQUIRED` | 401/403 responses, invalid credentials |
-| `GdexValidationError` | `VALIDATION_ERROR` | Invalid input params (address, amount, chain) |
-| `GdexApiError` | `API_ERROR` / `NOT_FOUND` | Non-success HTTP responses (4xx/5xx) |
-| `GdexNetworkError` | `NETWORK_ERROR` / `TIMEOUT` | Connection failures, timeouts |
-| `GdexRateLimitError` | `RATE_LIMITED` | 429 responses |
-
-## Utility Functions
-
-```typescript
-import {
-  getChainName,          // getChainName(ChainId.BASE) → "Base"
-  getNativeToken,        // getNativeToken('solana') → "SOL"
-  formatTokenAmount,     // formatTokenAmount("1000000", 6, "USDC") → "1 USDC"
-  formatUsd,             // formatUsd("1234.5") → "$1,234.50"
-  formatPercentChange,   // formatPercentChange("5.23") → "+5.23%"
-  shortenAddress,        // shortenAddress("0x1234...5678") → "0x1234...5678"
-  formatTimestamp,       // formatTimestamp(1700000000) → "2023-11-14T22:13:20.000Z"
-  validateAddress,       // Throws GdexValidationError if invalid
-  validateAmount,        // Throws GdexValidationError if invalid
-  validateChain,         // Throws GdexValidationError if unsupported
-} from '@gdexsdk/gdex-skill';
-```
-
-## ChainId Enum
+| **HyperLiquid** | perps only | USDC | Native perp engine |
 
 ```typescript
 import { ChainId } from '@gdexsdk/gdex-skill';
@@ -532,59 +487,116 @@ ChainId.BLAST      // 81457
 ChainId.ZKSYNC     // 324
 ```
 
-## Advanced Usage
+---
 
-### Direct API Client
-
-For advanced use cases, you can use the underlying `GdexApiClient` directly:
+## ⚠️ Error Handling
 
 ```typescript
-import { GdexApiClient, Endpoints } from '@gdexsdk/gdex-skill';
+import {
+  GdexAuthError,       // 401/403 — re-authenticate
+  GdexValidationError, // invalid input params
+  GdexApiError,        // 4xx/5xx backend errors
+  GdexNetworkError,    // connection failures, timeouts
+  GdexRateLimitError,  // 429 — check err.retryAfter
+} from '@gdexsdk/gdex-skill';
 
-const client = new GdexApiClient({ apiUrl: 'https://api.gdex.pro' });
-
-// Make raw API calls
-const data = await client.get(Endpoints.TRENDING, { chain: 'solana' });
-const result = await client.post(Endpoints.PURCHASE_V2, { ... });
+try {
+  await skill.buyToken({ ... });
+} catch (err) {
+  if (err instanceof GdexRateLimitError) {
+    console.log(`Rate limited — retry after ${err.retryAfter}s`);
+    await new Promise(r => setTimeout(r, err.retryAfter * 1000));
+    // retry…
+  } else if (err instanceof GdexAuthError) {
+    skill.loginWithApiKey(GDEX_API_KEY_PRIMARY); // re-auth
+  } else if (err instanceof GdexValidationError) {
+    console.error(`Bad param "${err.field}": ${err.message}`);
+  } else if (err instanceof GdexApiError) {
+    console.error(`API ${err.statusCode}: ${err.message}`);
+  } else if (err instanceof GdexNetworkError) {
+    console.error(`Network (${err.code}): ${err.message}`);
+  }
+}
 ```
 
-### Custom Auth Signer
+| Class | When thrown |
+|---|---|
+| `GdexAuthError` | 401/403, invalid credentials |
+| `GdexValidationError` | Invalid address, amount, chain, slippage |
+| `GdexApiError` | Non-success HTTP (4xx/5xx) |
+| `GdexNetworkError` | Connection refused, ECONNABORTED, timeout |
+| `GdexRateLimitError` | HTTP 429 (has `.retryAfter` in seconds) |
 
-For use with hardware wallets or browser extensions:
+---
+
+## 🛠 Utility Functions
 
 ```typescript
-// With MetaMask (browser)
-await skill.authenticate({
-  type: 'evm',
-  address: accounts[0],
-  signer: async (message) => {
-    return await window.ethereum.request({
-      method: 'personal_sign',
-      params: [message, accounts[0]],
-    });
-  },
-});
-
-// With Phantom (Solana browser wallet)
-await skill.authenticate({
-  type: 'solana',
-  address: wallet.publicKey.toBase58(),
-  signer: async (message) => {
-    const encoded = new TextEncoder().encode(message);
-    const signature = await wallet.signMessage(encoded);
-    return Buffer.from(signature).toString('base64');
-  },
-});
+import {
+  getChainName,         // getChainName(8453)        → "Base"
+  getNativeToken,       // getNativeToken('solana')   → "SOL"
+  formatTokenAmount,    // formatTokenAmount('1000000', 6, 'USDC') → "1 USDC"
+  formatUsd,            // formatUsd('1234.5')         → "$1,234.50"
+  formatPercentChange,  // formatPercentChange('5.23') → "+5.23%"
+  shortenAddress,       // shortenAddress('0x1234...') → "0x1234...5678"
+  validateAddress,      // throws GdexValidationError if invalid
+  validateAmount,       // throws GdexValidationError if invalid
+  validateChain,        // throws GdexValidationError if unsupported
+} from '@gdexsdk/gdex-skill';
 ```
+
+---
+
+## 🧪 Testing
+
+All 62 tests run with **mocked HTTP** — no real API key or network connection required:
+
+```bash
+npm test              # run all 62 tests
+npm run test:coverage # with coverage report
+npm run verify        # offline SDK smoke-test (18 checks)
+```
+
+Test suites:
+- `tests/client/auth.test.ts` — API key auth, EVM/Solana wallet signing
+- `tests/actions/spotTrade.test.ts` — buy/sell, slippage, validation
+- `tests/actions/perpTrade.test.ts` — open/close positions, leverage, deposits
+- `tests/actions/portfolio.test.ts` — balances, history, wallet info
+- `tests/actions/tokenInfo.test.ts` — trending, OHLCV, token details, top traders
+
+---
+
+## 🏗 Architecture
+
+```
+AI Agent (Claude Code / Cursor / Codex / ...)
+   │
+   │  npx skills add GemachDAO/gdex-skill
+   │  ──────────────────────────────────
+   │  SKILL.md → agent skill directory
+   │
+   ▼
+@gdexsdk/gdex-skill  (this package)
+   │  TypeScript methods with full type safety
+   │  Input validation + normalized error types
+   │  Shared API key auth (no wallet required)
+   │  Auto-retry with exponential backoff
+   ▼
+Gbot Backend API  (https://trade-api.gemach.io/v1)
+   │  NATS JetStream trade queue
+   │  DEX aggregation engine
+   ▼
+Blockchains  (Solana · Sui · Ethereum · Base · Arbitrum · …)
+```
+
+---
 
 ## Contributing
-
-Contributions are welcome! Please:
 
 1. Fork the repository
 2. Create a feature branch
 3. Add tests for new functionality
-4. Run `npm test` and `npm run build`
+4. Run `npm test && npm run build && npm run verify`
 5. Submit a pull request
 
 ## License
