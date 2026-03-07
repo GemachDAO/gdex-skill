@@ -433,7 +433,7 @@ const quote = await skill.getBridgeQuote({
   tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
   amount: '100',
 });
-console.log('Output:', quote.outputAmount, '— fee:', quote.fee);
+console.log('Output:', quote.outputAmount, '— fee (USD):', quote.feeUsd);
 
 // Execute bridge
 const result = await skill.bridge({
