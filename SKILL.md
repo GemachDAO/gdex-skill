@@ -1,6 +1,6 @@
 ---
 name: gdex-trading
-description: Execute cross-chain DeFi trades, manage perpetual futures positions, query token prices and portfolio balances on Gbot Trading Dashboard. Use when asked to buy/sell tokens, open/close perp positions, check portfolio, find trending tokens, or bridge assets across chains.
+description: Execute cross-chain DeFi trades, manage perpetual futures positions, query token prices and portfolio balances on Gbot Trading Dashboard. Generate new EVM/Solana wallets for users without wallets. Use when asked to buy/sell tokens, open/close perp positions, check portfolio, find trending tokens, bridge assets, or generate a new wallet.
 metadata:
   author: GemachDAO
   version: "1.0.0"
@@ -66,6 +66,48 @@ skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
 | HyperLiquid | Perpetuals only | Native perp engine |
 
 ## Actions
+
+### Wallet Generation (no auth required)
+
+When a user says they don't have a wallet, generate one for them automatically.
+
+**Generate an EVM wallet (Ethereum/Base/Arbitrum/BSC/etc.):**
+```typescript
+import { generateEvmWallet } from '@gdexsdk/gdex-skill';
+// or: const wallet = skill.generateEvmWallet();
+
+const wallet = generateEvmWallet();
+// wallet.address    — public address (share with others, safe to display)
+// wallet.privateKey — MUST be stored securely (never log or share)
+// wallet.mnemonic   — 12-word backup phrase (store securely)
+
+console.log('Your new EVM wallet address:', wallet.address);
+// Then authenticate:
+await skill.authenticate({ type: 'evm', address: wallet.address, privateKey: wallet.privateKey });
+```
+
+**Generate a Solana wallet:**
+```typescript
+import { generateSolanaWallet } from '@gdexsdk/gdex-skill';
+// or: const wallet = skill.generateSolanaWallet();
+
+const wallet = generateSolanaWallet();
+// wallet.address    — public key in base58 (safe to share)
+// wallet.privateKey — 64-byte keypair in base58 (store securely)
+
+console.log('Your new Solana wallet address:', wallet.address);
+await skill.authenticate({ type: 'solana', address: wallet.address, privateKey: wallet.privateKey });
+```
+
+**Unified helper:**
+```typescript
+import { generateWallet } from '@gdexsdk/gdex-skill';
+
+const evmWallet = generateWallet('evm');
+const solWallet = generateWallet('solana');
+```
+
+> ⚠️ Always remind the user to save their private key / mnemonic securely. Keys are generated locally and never sent over the network.
 
 ### Spot Trading
 
@@ -304,3 +346,4 @@ Trade responses (`TradeResult`) include:
 - Chain can be specified as a string (`'solana'`, `'sui'`) or a ChainId number (`1`, `8453`, etc.)
 - Sell amounts can be absolute (`'100'`) or percentage (`'50%'`)
 - The SDK automatically retries on transient errors (429, 503) with exponential backoff
+- `generateEvmWallet()` and `generateSolanaWallet()` work fully offline — no auth or network needed

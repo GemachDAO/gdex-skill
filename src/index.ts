@@ -19,6 +19,8 @@
  * ```
  */
 
+import { generateEvmWallet, generateSolanaWallet, generateWallet } from './utils/walletGeneration';
+import type { GeneratedEvmWallet, GeneratedSolanaWallet, GeneratedWallet } from './utils/walletGeneration';
 import { GdexApiClient } from './client';
 import { AuthCredentials, AuthSession } from './client/auth';
 import { GdexSkillConfig } from './types/common';
@@ -118,6 +120,10 @@ export { GDEX_API_KEYS, GDEX_API_KEY_PRIMARY, GDEX_API_KEY_SECONDARY } from './c
 
 // Formatting utilities
 export { getChainName, getNativeToken, formatTokenAmount, formatUsd, formatPercentChange, shortenAddress, formatTimestamp, truncateDecimals } from './utils/formatting';
+
+// Wallet generation utilities (no network required)
+export { generateEvmWallet, generateSolanaWallet, generateWallet } from './utils/walletGeneration';
+export type { GeneratedEvmWallet, GeneratedSolanaWallet, GeneratedWallet } from './utils/walletGeneration';
 
 // Validation utilities
 export { validateAddress, validateAmount, validateChain, validateSlippage, validateLeverage, validateCoin } from './utils/validation';
@@ -548,6 +554,74 @@ export class GdexSkill {
    */
   async getWalletInfo(params: WalletInfoParams): Promise<WalletInfo> {
     return getWalletInfo(this.client, params);
+  }
+
+  // ── Wallet Generation ─────────────────────────────────────────────────────
+
+  /**
+   * Generate a new EVM wallet (Ethereum, Base, Arbitrum, BSC, etc.).
+   *
+   * Uses `ethers.Wallet.createRandom()` with the platform CSPRNG.
+   * The private key is returned to the caller and is never transmitted over
+   * the network.
+   *
+   * @returns New EVM wallet with address, private key, and mnemonic.
+   *
+   * @example
+   * ```typescript
+   * const wallet = skill.generateEvmWallet();
+   * console.log('Address:', wallet.address);
+   * // Store wallet.privateKey securely (env var, secrets manager, etc.)
+   * await skill.authenticate({ type: 'evm', address: wallet.address, privateKey: wallet.privateKey });
+   * ```
+   */
+  generateEvmWallet(): GeneratedEvmWallet {
+    return generateEvmWallet();
+  }
+
+  /**
+   * Generate a new Solana wallet.
+   *
+   * Uses Node.js built-in `crypto.randomBytes` for a random ed25519 keypair.
+   * No optional dependencies required.
+   * The private key is returned to the caller and is never transmitted over
+   * the network.
+   *
+   * @returns New Solana wallet with address (base58 public key) and private key.
+   *
+   * @example
+   * ```typescript
+   * const wallet = skill.generateSolanaWallet();
+   * console.log('Address:', wallet.address);
+   * // Store wallet.privateKey securely
+   * await skill.authenticate({ type: 'solana', address: wallet.address, privateKey: wallet.privateKey });
+   * ```
+   */
+  generateSolanaWallet(): GeneratedSolanaWallet {
+    return generateSolanaWallet();
+  }
+
+  /**
+   * Generate a new wallet for the specified chain type.
+   *
+   * Convenience wrapper that picks the right generator:
+   * - `'evm'` → EVM-compatible wallet (secp256k1, 12-word mnemonic)
+   * - `'solana'` → Solana wallet (ed25519, base58 keypair)
+   *
+   * @param type - Wallet type: `'evm'` or `'solana'`
+   * @returns A newly generated wallet object.
+   *
+   * @example
+   * ```typescript
+   * const evmWallet  = skill.generateWallet('evm');
+   * const solWallet  = skill.generateWallet('solana');
+   * ```
+   */
+  generateWallet(type: 'evm'): GeneratedEvmWallet;
+  generateWallet(type: 'solana'): GeneratedSolanaWallet;
+  generateWallet(type: 'evm' | 'solana'): GeneratedWallet {
+    if (type === 'solana') return generateSolanaWallet();
+    return generateEvmWallet();
   }
 }
 

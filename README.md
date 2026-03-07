@@ -17,7 +17,7 @@ Cross-chain spot trading · Perpetual futures · Portfolio management · Token d
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F7DF1E.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![skills.sh](https://img.shields.io/badge/skills.sh-compatible-8B5CF6.svg?style=for-the-badge)](https://skills.sh)
-[![Tests](https://img.shields.io/badge/tests-62%20passing-22C55E.svg?style=for-the-badge)](#testing)
+[![Tests](https://img.shields.io/badge/tests-84%20passing-22C55E.svg?style=for-the-badge)](#testing)
 
 </div>
 
@@ -40,6 +40,7 @@ Cross-chain spot trading · Perpetual futures · Portfolio management · Token d
   - [Top Traders](#top-traders)
   - [Bridge](#bridge)
   - [Wallet Info](#wallet-info)
+  - [Wallet Generation](#wallet-generation)
 - [Supported Chains](#-supported-chains)
 - [Error Handling](#-error-handling)
 - [Utility Functions](#-utility-functions)
@@ -141,7 +142,7 @@ Sample output:
 
 ...
 
-  All 18 checks passed ✓
+  All 22 checks passed ✓
   SDK is ready — no network token required.
 ```
 
@@ -450,6 +451,64 @@ const info = await skill.getWalletInfo({ walletAddress: '...', chain: 'solana' }
 
 ---
 
+### Wallet Generation
+
+> 🔓 No authentication required. Keys are generated **locally** and never transmitted.
+
+Generate new wallets on the fly — useful for agents provisioning new user accounts or when a user doesn't yet have a wallet.
+
+#### `generateEvmWallet()`
+
+Generates a new EVM-compatible wallet (Ethereum, Base, Arbitrum, BSC, etc.) using `ethers.Wallet.createRandom()`.
+
+```typescript
+import { generateEvmWallet } from '@gdexsdk/gdex-skill';
+// or via the GdexSkill instance:
+const wallet = skill.generateEvmWallet();
+
+console.log(wallet.address);       // '0xAbCd...' (checksummed)
+console.log(wallet.privateKey);    // '0x...' (32 bytes hex) — store securely!
+console.log(wallet.mnemonic);      // '12 word phrase ...' — store securely!
+console.log(wallet.derivationPath); // "m/44'/60'/0'/0/0"
+
+// Immediately authenticate with the new wallet
+await skill.authenticate({ type: 'evm', address: wallet.address, privateKey: wallet.privateKey });
+```
+
+#### `generateSolanaWallet()`
+
+Generates a new Solana wallet (ed25519 keypair) using Node.js built-in `crypto` — **no extra dependencies required**.
+
+```typescript
+import { generateSolanaWallet } from '@gdexsdk/gdex-skill';
+// or via the GdexSkill instance:
+const wallet = skill.generateSolanaWallet();
+
+console.log(wallet.address);       // 'Abc123...' (base58 public key, 43-44 chars)
+console.log(wallet.privateKey);    // base58-encoded 64-byte keypair — store securely!
+console.log(wallet.secretKeyHex);  // hex-encoded 64-byte keypair (alternative format)
+
+// Immediately authenticate with the new wallet
+await skill.authenticate({ type: 'solana', address: wallet.address, privateKey: wallet.privateKey });
+```
+
+#### `generateWallet(type)` — unified helper
+
+```typescript
+import { generateWallet } from '@gdexsdk/gdex-skill';
+
+const evmWallet = generateWallet('evm');     // → GeneratedEvmWallet
+const solWallet = generateWallet('solana');  // → GeneratedSolanaWallet
+
+// Also available as a GdexSkill method:
+const w1 = skill.generateWallet('evm');
+const w2 = skill.generateWallet('solana');
+```
+
+> ⚠️ **Security reminder:** Always store private keys and mnemonics in a secrets manager or environment variable. Never log them or hard-code them in source code.
+
+---
+
 ## 🌐 Supported Chains
 
 | Chain | Identifier | Native Token | DEXes |
@@ -549,12 +608,12 @@ import {
 
 ## 🧪 Testing
 
-All 62 tests run with **mocked HTTP** — no real API key or network connection required:
+All 84 tests run with **mocked HTTP** — no real API key or network connection required:
 
 ```bash
-npm test              # run all 62 tests
+npm test              # run all 84 tests
 npm run test:coverage # with coverage report
-npm run verify        # offline SDK smoke-test (18 checks)
+npm run verify        # offline SDK smoke-test (22 checks)
 ```
 
 Test suites:
@@ -563,6 +622,7 @@ Test suites:
 - `tests/actions/perpTrade.test.ts` — open/close positions, leverage, deposits
 - `tests/actions/portfolio.test.ts` — balances, history, wallet info
 - `tests/actions/tokenInfo.test.ts` — trending, OHLCV, token details, top traders
+- `tests/utils/walletGeneration.test.ts` — EVM + Solana wallet generation (offline)
 
 ---
 
