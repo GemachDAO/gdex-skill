@@ -214,13 +214,19 @@ const skill = new GdexSkill({
 });
 ```
 
+The SDK does **not** read environment variables directly. If you choose to use env vars,
+read them in your application (for example via `process.env`) and pass their values into
+the `GdexSkill` constructor as shown above.
+
+Recommended environment variables for your own app:
+
 | Env Variable | Description | Default |
 |---|---|---|
-| `GDEX_API_URL` | Backend base URL | `https://trade-api.gemach.io` |
-| `GDEX_API_KEY` | Override API key | — |
-| `GDEX_TIMEOUT` | Request timeout (ms) | `30000` |
-| `GDEX_MAX_RETRIES` | Retry attempts | `3` |
-| `GDEX_DEBUG` | Enable debug logging | `false` |
+| `GDEX_API_URL` | Backend base URL to pass as `apiUrl` | `https://trade-api.gemach.io` |
+| `GDEX_API_KEY` | API key value to pass via config if supported | — |
+| `GDEX_TIMEOUT` | Request timeout (ms) to pass as `timeout` | `30000` |
+| `GDEX_MAX_RETRIES` | Retry attempts to pass as `maxRetries` | `3` |
+| `GDEX_DEBUG` | Enable debug logging to pass as `debug` | `false` |
 
 ---
 
