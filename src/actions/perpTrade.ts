@@ -4,7 +4,6 @@
  * Write operations: ABI-encode → sign with session key → encrypt → POST computedData.
  * Read operations: Query the HyperLiquid L1 directly via @nktkas/hyperliquid PublicClient.
  */
-import { HttpTransport, InfoClient } from '@nktkas/hyperliquid';
 import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';
 import {
@@ -25,8 +24,26 @@ import {
 import { validateAmount, validateCoin, validateRequired } from '../utils/validation';
 import { buildHlComputedData } from '../utils/gdexManagedCrypto';
 
+// Lazy-load @nktkas/hyperliquid to avoid CJS/ESM incompatibility
+// with @noble/hashes v2 (ESM-only) on Node < 22.
+// In production: dynamic import() preserves ESM semantics in CJS output.
+// In Jest: require() so moduleNameMapper can intercept it.
+let _hlModule: { InfoClient: any; HttpTransport: any } | null = null;
+async function getHlModule(): Promise<{ InfoClient: any; HttpTransport: any }> {
+  if (!_hlModule) {
+    if (process.env.JEST_WORKER_ID) {
+      _hlModule = require('@nktkas/hyperliquid');
+    } else {
+      const dynamicImport = new Function('modulePath', 'return import(modulePath)');
+      _hlModule = await dynamicImport('@nktkas/hyperliquid');
+    }
+  }
+  return _hlModule!;
+}
+
 // Create HL InfoClient on demand
-function getHlClient(): InfoClient {
+async function getHlClient() {
+  const { InfoClient, HttpTransport } = await getHlModule();
   return new InfoClient({ transport: new HttpTransport() });
 }
 
@@ -38,7 +55,8 @@ function getHlClient(): InfoClient {
  */
 export async function getHlAccountState(walletAddress: string): Promise<HlAccountState> {
   validateRequired(walletAddress, 'walletAddress');
-  const state = await getHlClient().clearinghouseState({ user: walletAddress });
+  const client = await getHlClient();
+  const state = await client.clearinghouseState({ user: walletAddress });
 
   const positions: PerpPosition[] = state.assetPositions.map((ap: any) => {
     const p = ap.position;
@@ -84,7 +102,8 @@ export async function getPerpPositions(params: GetPositionsParams): Promise<Perp
  */
 export async function getHlMarkPrice(coin: string): Promise<number> {
   validateCoin(coin);
-  const book = await getHlClient().l2Book({ coin: coin.toUpperCase() });
+  const client = await getHlClient();
+  const book = await client.l2Book({ coin: coin.toUpperCase() });
   if (!book) return 0;
   const asks = book.levels[1];
   return asks.length > 0 ? Number(asks[asks.length - 1].px) : 0;
@@ -94,7 +113,8 @@ export async function getHlMarkPrice(coin: string): Promise<number> {
  * Get the USDC balance available on HyperLiquid for a wallet.
  */
 export async function getHlUsdcBalance(walletAddress: string): Promise<number> {
-  const state = await getHlClient().clearinghouseState({ user: walletAddress });
+  const client = await getHlClient();
+  const state = await client.clearinghouseState({ user: walletAddress });
   const accountValue = Number(state.crossMarginSummary?.accountValue ?? 0);
   const totalMarginUsed = Number(state.crossMarginSummary?.totalMarginUsed ?? 0);
   return accountValue - totalMarginUsed;
@@ -105,7 +125,8 @@ export async function getHlUsdcBalance(walletAddress: string): Promise<number> {
  */
 export async function getHlOpenOrders(walletAddress: string) {
   validateRequired(walletAddress, 'walletAddress');
-  return getHlClient().frontendOpenOrders({ user: walletAddress });
+  const client = await getHlClient();
+  return client.frontendOpenOrders({ user: walletAddress });
 }
 
 /**
