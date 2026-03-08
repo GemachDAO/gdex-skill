@@ -16,6 +16,7 @@ import {
   hlCloseAll,
   hlCancelOrder,
   hlCancelAllOrders,
+  hlUpdateLeverage,
 } from '../../src/actions/perpTrade';
 import { GdexValidationError } from '../../src/utils/errors';
 import * as crypto from '../../src/utils/gdexManagedCrypto';
@@ -424,6 +425,52 @@ describe('perpTrade', () => {
         isCancelAll: true,
       });
       expect(result.isSuccess).toBe(true);
+    });
+  });
+
+  describe('hlUpdateLeverage', () => {
+    it('should build computedData and POST to update_leverage endpoint', async () => {
+      client.post = jest.fn().mockResolvedValue({ isSuccess: true, message: 'leverage updated' });
+
+      const result = await hlUpdateLeverage(client, {
+        ...TEST_CREDS,
+        coin: 'btc',
+        leverage: 40,
+        isCross: true,
+      });
+
+      expect(crypto.buildHlComputedData).toHaveBeenCalledWith(expect.objectContaining({
+        action: 'hl_update_leverage',
+        actionParams: expect.objectContaining({
+          coin: 'BTC',
+          leverage: 40,
+          isCross: true,
+        }),
+      }));
+      expect(client.post).toHaveBeenCalledWith('/v1/hl/update_leverage', { computedData: 'mock-computed-data' });
+      expect(result.isSuccess).toBe(true);
+    });
+
+    it('should default isCross to true', async () => {
+      client.post = jest.fn().mockResolvedValue({ isSuccess: true, message: 'ok' });
+
+      await hlUpdateLeverage(client, {
+        ...TEST_CREDS,
+        coin: 'ETH',
+        leverage: 25,
+      });
+
+      expect(crypto.buildHlComputedData).toHaveBeenCalledWith(expect.objectContaining({
+        actionParams: expect.objectContaining({
+          isCross: true,
+        }),
+      }));
+    });
+
+    it('should throw for empty coin', async () => {
+      await expect(
+        hlUpdateLeverage(client, { ...TEST_CREDS, coin: '', leverage: 40 })
+      ).rejects.toThrow(GdexValidationError);
     });
   });
 });

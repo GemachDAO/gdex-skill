@@ -198,6 +198,19 @@
       }
     },
     {
+      "name": "hl_update_leverage",
+      "description": "Update leverage for a specific asset on HyperLiquid via managed-custody signed payload.",
+      "parameters": {
+        "type": "object",
+        "required": ["coin", "leverage"],
+        "properties": {
+          "coin": { "type": "string", "description": "Asset symbol, e.g. 'BTC'." },
+          "leverage": { "type": "number", "description": "Leverage multiplier (1–100)." },
+          "isCross": { "type": "boolean", "description": "True for cross margin, false for isolated. Default: true.", "default": true }
+        }
+      }
+    },
+    {
       "name": "create_limit_order",
       "description": "Create a limit order to buy or sell a token at a target price.",
       "parameters": {

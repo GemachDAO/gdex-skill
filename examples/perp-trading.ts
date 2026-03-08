@@ -4,10 +4,11 @@
  * Demonstrates:
  * 1. Deposit USDC to HyperLiquid
  * 2. Check account state & balance
- * 3. Place a market long BTC order with TP/SL
- * 4. Check open positions
- * 5. Close all positions
- * 6. Withdraw USDC
+ * 3. Set leverage for BTC
+ * 4. Place a market long BTC order with TP/SL
+ * 5. Check open positions
+ * 6. Close all positions
+ * 7. Withdraw USDC
  *
  * Run with: npx ts-node examples/perp-trading.ts
  */
@@ -56,6 +57,20 @@ async function main() {
   // ── Get BTC mark price ────────────────────────────────────────────────────
   const btcPrice = await skill.getHlMarkPrice('BTC');
   console.log(`\n📈 BTC Mark Price: $${btcPrice.toLocaleString()}`);
+
+  // ── Set leverage for BTC ──────────────────────────────────────────────────
+  console.log('\n⚙️  Setting BTC leverage to 40x cross...');
+  try {
+    const leverageResult = await skill.hlUpdateLeverage({
+      ...creds,
+      coin: 'BTC',
+      leverage: 40,
+      isCross: true,
+    });
+    console.log('✅ Leverage:', leverageResult.message);
+  } catch (err) {
+    console.warn('⚠️  Leverage:', (err as Error).message);
+  }
 
   // ── Open BTC long with TP/SL ──────────────────────────────────────────────
   const tpPrice = (btcPrice * 1.05).toFixed(0);  // +5%

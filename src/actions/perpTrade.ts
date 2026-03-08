@@ -17,6 +17,7 @@ import {
   HlPlaceOrderParams,
   HlResponse,
   HlOrderResult,
+  HlUpdateLeverageParams,
   PerpDepositParams,
   PerpPosition,
   PerpWithdrawParams,
@@ -279,4 +280,28 @@ export async function hlCancelAllOrders(client: GdexApiClient, params: HlCancelA
   });
 
   return client.post<HlResponse>(Endpoints.HL_CANCEL_ORDER, { computedData, isCancelAll: true });
+}
+
+/**
+ * Update leverage for a specific asset on HyperLiquid.
+ * The backend normally calls setMaxLeverage() before each trade,
+ * but this allows explicit leverage configuration.
+ */
+export async function hlUpdateLeverage(client: GdexApiClient, params: HlUpdateLeverageParams): Promise<HlResponse> {
+  validateCoin(params.coin);
+  validateRequired(params.walletAddress, 'walletAddress');
+
+  const computedData = buildHlComputedData({
+    action: 'hl_update_leverage',
+    apiKey: params.apiKey,
+    walletAddress: params.walletAddress,
+    sessionPrivateKey: params.sessionPrivateKey,
+    actionParams: {
+      coin: params.coin.toUpperCase(),
+      leverage: params.leverage,
+      isCross: params.isCross ?? true,
+    },
+  });
+
+  return client.post<HlResponse>(Endpoints.HL_UPDATE_LEVERAGE, { computedData });
 }

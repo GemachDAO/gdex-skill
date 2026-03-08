@@ -11,7 +11,8 @@ export type HlActionType =
   | 'hl_place_order'
   | 'hl_close_all'
   | 'hl_cancel_order'
-  | 'hl_cancel_all_orders';
+  | 'hl_cancel_all_orders'
+  | 'hl_update_leverage';
 
 /**
  * Derive AES-256-CBC key/iv from API key using the documented hash chain.
@@ -282,6 +283,13 @@ export function encodeHlActionData(
     case 'hl_cancel_all_orders':
       // [string] = [nonce]
       encoded = abi.encode(['string'], [params.nonce]);
+      break;
+    case 'hl_update_leverage':
+      // [string, uint32, bool, string] = [coin, leverage, isCross, nonce]
+      encoded = abi.encode(
+        ['string', 'uint32', 'bool', 'string'],
+        [params.coin, params.leverage, params.isCross, params.nonce],
+      );
       break;
     default:
       throw new Error(`Unknown HL action: ${action}`);

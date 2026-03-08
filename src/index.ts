@@ -48,6 +48,7 @@ import {
   hlCloseAll,
   hlCancelOrder,
   hlCancelAllOrders,
+  hlUpdateLeverage,
 } from './actions/perpTrade';
 import { createLimitOrder, cancelLimitOrder, getLimitOrders } from './actions/limitOrders';
 import {
@@ -104,6 +105,7 @@ export type {
   HlCloseAllParams,
   HlCancelOrderParams,
   HlCancelAllOrdersParams,
+  HlUpdateLeverageParams,
   HlResponse,
   HlOrderResult,
 } from './types/perp';
@@ -193,6 +195,7 @@ import type {
   HlCloseAllParams,
   HlCancelOrderParams,
   HlCancelAllOrdersParams,
+  HlUpdateLeverageParams,
   HlResponse,
   HlOrderResult,
 } from './types/perp';
@@ -532,6 +535,13 @@ export class GdexSkill {
    */
   async hlCancelAllOrders(params: HlCancelAllOrdersParams): Promise<HlResponse> {
     return hlCancelAllOrders(this.client, params);
+  }
+
+  /**
+   * Update leverage for a specific asset on HyperLiquid.
+   */
+  async hlUpdateLeverage(params: HlUpdateLeverageParams): Promise<HlResponse> {
+    return hlUpdateLeverage(this.client, params);
   }
 
   // ── Limit Orders ───────────────────────────────────────────────────────────

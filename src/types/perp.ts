@@ -161,6 +161,20 @@ export interface HlCancelOrderParams extends HlManagedCredentials {
  */
 export type HlCancelAllOrdersParams = HlManagedCredentials;
 
+/**
+ * Parameters for updating leverage on a HyperLiquid asset.
+ * The backend's executeTradeUsingNktkasSDK calls setMaxLeverage() automatically,
+ * but this provides explicit control.
+ */
+export interface HlUpdateLeverageParams extends HlManagedCredentials {
+  /** Asset coin symbol (e.g., "BTC", "ETH") */
+  coin: string;
+  /** Leverage multiplier (e.g., 40 for 40x). Use maxLeverage from HL meta for max. */
+  leverage: number;
+  /** True for cross margin, false for isolated margin */
+  isCross?: boolean;
+}
+
 // ── Result types ─────────────────────────────────────────────────────────────
 
 /**

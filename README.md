@@ -17,7 +17,7 @@ Cross-chain spot trading · Perpetual futures · Portfolio management · Token d
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F7DF1E.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![skills.sh](https://img.shields.io/badge/skills.sh-compatible-8B5CF6.svg?style=for-the-badge)](https://skills.sh)
-[![Tests](https://img.shields.io/badge/tests-88%20passing-22C55E.svg?style=for-the-badge)](#testing)
+[![Tests](https://img.shields.io/badge/tests-91%20passing-22C55E.svg?style=for-the-badge)](#testing)
 
 </div>
 
@@ -427,6 +427,16 @@ await skill.closePerpPosition({ coin: 'ETH', closePercent: 50 }); // close 50%
 ```typescript
 await skill.setPerpLeverage({ coin: 'BTC', leverage: 20 });
 
+// Update leverage via HL managed-custody (explicit session-key signing)
+await skill.hlUpdateLeverage({
+  coin: 'BTC',
+  leverage: 40,
+  isCross: true,    // true = cross margin, false = isolated (default: true)
+  apiKey,
+  walletAddress,
+  sessionPrivateKey,
+});
+
 // Deposit USDC to HyperLiquid (human-readable amount, converted internally)
 await skill.perpDeposit({ amount: '10' });   // deposit 10 USDC (minimum)
 await skill.perpWithdraw({ amount: '5' });    // withdraw 5 USDC
@@ -717,10 +727,10 @@ import {
 
 ## 🧪 Testing
 
-All 88 tests run with **mocked HTTP** — no real API key or network connection required:
+All 91 tests run with **mocked HTTP** — no real API key or network connection required:
 
 ```bash
-npm test              # run all 88 tests
+npm test              # run all 91 tests
 npm run test:coverage # with coverage report
 npm run verify        # offline SDK smoke-test (20 checks)
 npm run verify:managed # managed-custody payload validation (dry-run)
@@ -798,6 +808,7 @@ Agent SDK                              Backend
 | `hl_close_all` | `['string']` | `[nonce]` |
 | `hl_cancel_order` | `['string', 'string', 'string']` | `[nonce, coin, orderId]` |
 | `hl_cancel_all_orders` | `['string']` | `[nonce]` |
+| `hl_update_leverage` | `['string', 'uint32', 'bool', 'string']` | `[coin, leverage, isCross, nonce]` |
 
 > **WARNING:** The `hl_deposit` chainId uses `uint64`, NOT `uint256`. This is the single most common cause of "Unauthorized" errors. The backend re-encodes with `uint64` for signature verification — if you encode with `uint256`, the hex differs, signature recovery fails, and you get code 103.
 

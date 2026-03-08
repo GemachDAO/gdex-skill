@@ -224,6 +224,18 @@ const positions = await skill.getPerpPositions({
 await skill.setPerpLeverage({ coin: 'ETH', leverage: 5, marginMode: 'isolated' });
 ```
 
+**Update leverage (HL managed-custody):**
+```typescript
+await skill.hlUpdateLeverage({
+  coin: 'BTC',
+  leverage: 40,
+  isCross: true,    // true = cross margin, false = isolated (default: true)
+  apiKey,
+  walletAddress,
+  sessionPrivateKey,
+});
+```
+
 **Deposit / Withdraw USDC to/from HyperLiquid:**
 ```typescript
 // Amount is human-readable USDC. SDK converts to smallest unit (6 decimals) internally.
@@ -432,6 +444,7 @@ HL perp operations (`hl_deposit`, `hl_withdraw`, `hl_create_order`, etc.) use a 
 | `hl_close_all` | `['string']` | `[nonce]` |
 | `hl_cancel_order` | `['string', 'string', 'string']` | `[nonce, coin, orderId]` |
 | `hl_cancel_all_orders` | `['string']` | `[nonce]` |
+| `hl_update_leverage` | `['string', 'uint32', 'bool', 'string']` | `[coin, leverage, isCross, nonce]` |
 
 **⚠️ CRITICAL: `hl_deposit` chainId is `uint64`, NOT `uint256`.** This is the #1 cause of Unauthorized errors. The backend re-encodes with `uint64` for signature verification — if you encode with `uint256`, the hex differs, the recovered pubkey doesn't match, and you get code 103.
 

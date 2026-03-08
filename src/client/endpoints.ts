@@ -37,6 +37,7 @@ export const HL_CREATE_ORDER = '/v1/hl/create_order';
 export const HL_PLACE_ORDER = '/v1/hl/place_order';
 export const HL_CLOSE_ALL = '/v1/hl/close_all_positions';
 export const HL_CANCEL_ORDER = '/v1/hl/cancel_order';
+export const HL_UPDATE_LEVERAGE = '/v1/hl/update_leverage';
 export const HL_GBOT_USDC_BALANCE = '/v1/hl/gbot_usdc_balance';
 export const HL_USER_STATS = '/v1/hl/user_stats';
 
