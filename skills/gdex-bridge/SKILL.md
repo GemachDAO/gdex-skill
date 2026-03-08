@@ -196,6 +196,15 @@ Controlled by backend `config.bridgeSupportedChainIds`. Known supported:
 - **Nonce required** — each `requestBridge` call uses a unique nonce verified server-side. The SDK generates this automatically.
 - **ChangeNow provider** — all bridges currently go through ChangeNow (StarGate code exists but is disabled).
 
+## Autonomous Agent Notes (Live-Tested)
+
+1. **`estimateBridge` works with API key only (E2E verified).** No session key or full sign-in needed for quotes.
+2. **`requestBridge` requires full managed-custody auth** (session key + ABI encoding + AES encryption).
+3. **Bridge paths are non-obvious:** `GET /v1/bridge/estimate_bridge`, `POST /v1/bridge/request_bridge`, `GET /v1/bridge/bridge_orders`. Do NOT use `/v1/bridge/estimate` or `/v1/bridge/execute`.
+4. **Fraxtal (252) is explicitly blocked** and returns error 107.
+5. **Bridge times vary:** ETH→ARB is ~5-15 min, Solana→EVM can take longer.
+6. **For autonomous pre-trade funding:** Use `estimateBridge` to check feasibility before committing. If `estimateAmount` is too low (high fee), consider alternative routes.
+
 ## Related Skills
 
 - **gdex-authentication** — Auth setup required for bridging

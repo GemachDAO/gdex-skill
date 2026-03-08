@@ -419,10 +419,18 @@ export function TokenSearch({ chain, onSelect }: TokenSearchProps) {
 | `PnLDisplay` | (display only) | — |
 | `TokenSearch` | `getTokenDetails()` | gdex-token-discovery |
 
+## Backend Quirks Affecting UI (Live-Tested)
+
+1. **Spot trading amounts in managed custody are RAW UNITS** (lamports/wei), not human-readable. The `SpotTradeForm` above uses `skill.buyToken()` which handles conversion, but if using `submitManagedPurchase()` directly, convert first.
+2. **`hlCloseAll` is unreliable** — the `PositionTable` close button should use reduce-only orders, not `skill.hlCloseAll()`. See **gdex-perp-trading** for the workaround.
+3. **Solana Meteora tokens fail** — if building a token selector, filter out `dexId === 'meteora'` tokens to avoid failed trades.
+4. **Leverage slider is informational only** — `hlUpdateLeverage` returns 404. Effective leverage is determined by position size vs account equity.
+5. **`getTopTraders()` needs numeric chainId** — use `622112261`, not `'solana'`.
+
 ## Related Skills
 
 - **gdex-ui-install-setup** — Project setup and provider pattern
 - **gdex-ui-portfolio-dashboard** — Portfolio display components
 - **gdex-ui-page-layouts** — Full page compositions using these components
-- **gdex-spot-trading** — Spot trading SDK API details
-- **gdex-perp-trading** — Perpetual futures SDK API details
+- **gdex-spot-trading** — Spot trading SDK API details and managed-custody quirks
+- **gdex-perp-trading** — Perpetual futures SDK API details and close-position workaround

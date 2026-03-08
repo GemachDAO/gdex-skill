@@ -278,6 +278,15 @@ for (const ct of list.allCopyTrades) {
 }
 ```
 
+## Autonomous Agent Notes (Live-Tested)
+
+1. **All 4 discovery endpoints work with API key only (E2E verified):** `getCopyTradeWallets()`, `getCopyTradeCustomWallets()`, `getCopyTradeGems()`, `getCopyTradeDexes()`.
+2. **`getCopyTradeGems()` may return empty array** — this is normal (cached 20 seconds, depends on hot wallet activity).
+3. **Sign-in for Solana copy trading must use `chainId: 622112261`** (Solana), not `chainId: 1` (EVM). This is the opposite of HL perp copy trading.
+4. **Both `isDelete` and `isChangeStatus` permanently DELETE the copy trade.** There is NO way to pause/toggle — you must delete and recreate.
+5. **Boolean fields in ABI use `''` (empty string) for false and `'1'` for true.** The string `'0'` is truthy and WILL trigger deletion.
+6. **`copySell: true`** means the copy will also mirror sell transactions, not just buys.
+
 ## Related Skills
 
 - **gdex-authentication** — Auth setup and sign-in required for read/write

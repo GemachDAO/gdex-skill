@@ -401,8 +401,9 @@ export function encodeLimitOrderData(
 
   switch (action) {
     case 'limit_buy':
+      // Backend decodes profitPercent/lossPercent as uint256 (0-100 range)
       encoded = abi.encode(
-        ['string', 'string', 'string', 'string', 'string', 'string'],
+        ['string', 'string', 'string', 'uint256', 'uint256', 'string'],
         [params.tokenAddress, params.amount, params.triggerPrice,
          params.profitPercent, params.lossPercent, params.nonce],
       );
@@ -414,8 +415,9 @@ export function encodeLimitOrderData(
       );
       break;
     case 'update_order':
+      // Backend decodes profitPercent/lossPercent as uint256
       encoded = abi.encode(
-        ['string', 'string', 'string', 'string', 'string', 'string', 'string'],
+        ['string', 'string', 'string', 'uint256', 'uint256', 'string', 'string'],
         [params.orderId, params.amount, params.triggerPrice,
          params.profitPercent, params.lossPercent, params.nonce, params.isDelete],
       );

@@ -174,6 +174,47 @@ try {
 - The SDK retries on transient errors (429, 503) with exponential backoff
 - If no `dex` specified, the backend selects the best route automatically
 
+## Autonomous Agent Notes (Live-Tested)
+
+### Managed-Custody Trades Require Raw Units
+
+For `buildGdexManagedTradeComputedData()` + `submitManagedPurchase()` / `submitManagedSell()`, the `amount` must be in **raw units** (lamports for Solana, wei for EVM), NOT human-readable:
+
+```typescript
+// ❌ WRONG: amount: '0.01' (this is a float, not raw units)
+// ✅ CORRECT: amount: '10000000' (0.01 SOL = 10,000,000 lamports)
+// ✅ CORRECT: amount: '10000000000000000' (0.01 ETH = 10^16 wei)
+```
+
+### Raydium vs Meteora on Solana
+
+- **Raydium-routed tokens work correctly** (WIF, most liquid tokens)
+- **Meteora DLMM tokens fail** with `Program error: 1` (backend bug — doesn't wrap SOL into WSOL)
+- **Check before buying:** `token.dexId === 'raydium'` ✅ / `token.dexId === 'meteora'` ❌
+- If you get `Program error: 1`, the token is Meteora-routed — don't retry, pick a different token
+
+### Minimum SOL Balance
+
+Keep at least **0.01 SOL** in the managed Solana wallet. First trade on a new token costs ~0.007 SOL overhead (ATA creation + priority fee + base tx fee) on top of the trade amount.
+
+### Trade Status Polling
+
+After a managed trade returns a `requestId`, poll until `status === 'completed'`:
+```typescript
+if (result.requestId) {
+  let status;
+  do {
+    await new Promise(r => setTimeout(r, 3000)); // wait 3s between polls
+    status = await skill.getManagedTradeStatus(result.requestId);
+  } while (status.status === 'queued' || status.status === 'pending');
+  console.log('Final:', status.status, status.hash);
+}
+```
+
+### Sell by Percentage
+
+To sell a portion of holdings, use `amount: '50%'` (string with % sign). The backend calculates the exact token amount.
+
 ## Related Skills
 
 - **gdex-authentication** — Auth setup required before trading

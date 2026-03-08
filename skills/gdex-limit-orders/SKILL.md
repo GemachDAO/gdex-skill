@@ -69,8 +69,10 @@ const result = await skill.limitBuy({
 | `profitPercent` | `string` | No | Take-profit % above trigger ("0" to skip) |
 | `lossPercent` | `string` | No | Stop-loss % below trigger ("0" to skip) |
 
-**ABI schema:** `['string','string','string','string','string','string']` = `[tokenAddress, amount, triggerPrice, profitPercent, lossPercent, nonce]`
+**ABI schema:** `['string','string','string','uint256','uint256','string']` = `[tokenAddress, amount, triggerPrice, profitPercent, lossPercent, nonce]`
 **Signature:** `limit_buy-{userId}-{data}`
+
+> **CRITICAL (Live-Tested):** `profitPercent` and `lossPercent` MUST be ABI-encoded as `uint256`, NOT `string`. The backend decodes them as uint256 and validates `0-100` range. Using `string` type produces ABI byte-offsets (e.g. 192) that fail the range check with `"lossPercent must be between 0 and 100"`. The SDK handles this correctly — only matters if encoding manually.
 
 ## Limit Sell — Sell Token at Target Price
 
@@ -144,8 +146,10 @@ await skill.updateOrder({
 | `lossPercent` | `string` | No | New stop-loss % (buy orders) |
 | `isDelete` | `boolean` | No | Set true to cancel/delete the order |
 
-**ABI schema:** `['string','string','string','string','string','string','string']` = `[orderId, amount, triggerPrice, profitPercent, lossPercent, nonce, isDelete]`
+**ABI schema:** `['string','string','string','uint256','uint256','string','string']` = `[orderId, amount, triggerPrice, profitPercent, lossPercent, nonce, isDelete]`
 **Signature:** `update_order-{userId}-{data}`
+
+> **CRITICAL:** Same as `limit_buy` — `profitPercent` and `lossPercent` are `uint256`, not `string`.
 
 ## List Orders
 
@@ -214,6 +218,67 @@ Orders are filled by background processes that monitor prices via NATS:
 For backward compatibility, older method names still work:
 - `createLimitOrder()` → calls `limitBuy()`
 - `cancelLimitOrder()` → calls `updateOrder({ isDelete: true })`
+
+## Autonomous Agent Notes (Live-Tested)
+
+### Verified Working Flow (Solana/WIF Example)
+
+This exact sequence was tested end-to-end and succeeded:
+
+```typescript
+// 1. List existing orders
+const orders = await skill.getLimitOrders({ userId, data, chainId: 622112261 });
+
+// 2. Create a limit buy order
+const result = await skill.limitBuy({
+  apiKey: GDEX_API_KEY_PRIMARY,
+  userId: controlAddress,          // MUST be control address, lowercase
+  sessionPrivateKey,
+  chainId: 622112261,              // Solana
+  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', // WIF
+  amount: '1000000',               // ~0.001 SOL in lamports (raw units)
+  triggerPrice: '0.0001',          // trigger when price drops to $0.0001
+  profitPercent: '50',             // 50% take-profit
+  lossPercent: '30',               // 30% stop-loss
+});
+// → { isSuccess: true, message: "Order created successfully", order: {...} }
+
+// 3. Verify order appears in list
+const updated = await skill.getLimitOrders({ userId, data, chainId: 622112261 });
+
+// 4. Cancel the order
+await skill.updateOrder({
+  apiKey, userId, sessionPrivateKey,
+  chainId: 622112261,
+  orderId: result.order.orderId,
+  isDelete: true,
+});
+```
+
+### Key Requirements for Limit Buy
+
+- `amount` must be in **raw units** (lamports for Solana, wei for EVM) — NOT float
+- `profitPercent` and `lossPercent` are **mandatory** for `limit_buy` (both must be > 0)
+- `profitPercent` and `lossPercent` must be valid 0-100 range (ABI-encoded as `uint256`)
+- `userId` must be the **control** wallet address, **lowercase**
+- `triggerPrice` is in USD (string)
+
+### Minimum Order Size
+
+The backend enforces `config.chains[chainId].minLimitOrder` per chain. For Solana, this is approximately 0.001 SOL (1000000 lamports). Going below returns "Insufficient balance".
+
+### Order Cancellation
+
+To cancel, use `updateOrder({ isDelete: true })`. There is no separate cancel endpoint. The `cancelLimitOrder()` alias calls this internally.
+
+### Error Messages and What They Mean
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `lossPercent must be between 0 and 100` | ABI encoding used `string` type instead of `uint256` | SDK handles this correctly; only matters for manual encoding |
+| `Insufficient balance` | Amount too small or managed wallet underfunded | Increase amount or fund the managed Solana wallet |
+| `Order not found` (on update/delete) | Wrong `orderId` or order already filled/expired | Refresh order list with `getLimitOrders()` first |
+| `Invalid nonce` | Reused or stale nonce | Generate fresh: `String(Date.now())` |
 
 ## Related Skills
 

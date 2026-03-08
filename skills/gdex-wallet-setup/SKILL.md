@@ -134,6 +134,14 @@ await skill.signInWithComputedData({
 // The backend has provisioned Solana + other chain wallets automatically
 ```
 
+## Autonomous Agent Notes (Live-Tested)
+
+1. **`generateEvmWallet()` works fully offline (E2E verified).** No network calls needed. Returns `{ address, privateKey, mnemonic, type, derivationPath }`.
+2. **After sign-in, the backend auto-provisions managed wallets** on all chains. You only need one EVM control wallet.
+3. **Store the mnemonic and private key securely.** Loss = permanent loss of access.
+4. **The session keypair is separate from the wallet.** Generate it with `generateGdexSessionKeyPair()` — it's used for signing trades, not wallet derivation.
+5. **Multiple sign-ins are fine.** You can generate new session keys and re-sign-in at any time.
+
 ## Related Skills
 
 - **gdex-authentication** — Full managed-custody auth details

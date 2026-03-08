@@ -273,6 +273,63 @@ const creds = { apiKey, walletAddress: controlWallet.address, sessionPrivateKey 
 - Using `uint256` instead of `uint64` for chainId in `hl_deposit`
 - Wrong signature format (must be raw `v=00/01`, not EIP-155 `v=1b/1c`)
 
+## Autonomous Agent Notes (Live-Tested)
+
+### Complete Auth Flow — Verified Working
+
+```typescript
+import { ethers } from 'ethers';
+import {
+  GdexSkill, GDEX_API_KEY_PRIMARY,
+  generateGdexSessionKeyPair, buildGdexSignInMessage,
+  buildGdexSignInComputedData, buildGdexUserSessionData,
+} from '@gdexsdk/gdex-skill';
+
+const skill = new GdexSkill();
+skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
+
+// 1. Generate session keypair
+const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
+
+// 2. Sign in with control wallet
+const wallet = ethers.Wallet.fromPhrase('your mnemonic phrase...');
+const userId = wallet.address;
+const nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));
+const message = buildGdexSignInMessage(userId, nonce, sessionKey);
+const signature = await wallet.signMessage(message);
+
+const signInPayload = buildGdexSignInComputedData({
+  apiKey: GDEX_API_KEY_PRIMARY, userId, sessionKey, nonce, signature,
+});
+await skill.signInWithComputedData({
+  computedData: signInPayload.computedData,
+  chainId: 1,  // EVM for HL/perps, 622112261 for Solana spot
+});
+
+// 3. Resolve managed wallet
+const data = buildGdexUserSessionData(sessionKey, GDEX_API_KEY_PRIMARY);
+const user = await skill.getManagedUser({ userId, data, chainId: 622112261 });
+// user.address = managed Solana wallet (base58)
+```
+
+### ChainId for Sign-In Matters
+
+| Operation | Sign-In ChainId | Why |
+|-----------|----------------|-----|
+| Solana spot/limit/copy | `622112261` | Solana chain context |
+| HL perps, deposit, withdraw | `1` (EVM) | HL uses EVM wallets |
+| HL perp copy trading | `1` (EVM) | HL copy uses EVM |
+| Bridge | `1` (EVM) | Bridge uses EVM context |
+
+### Credentials to Keep Track Of
+
+An autonomous agent must persist these across operations:
+- `sessionPrivateKey` — signs all trade payloads (one per sign-in session)
+- `sessionKey` — used to build encrypted `data` for read endpoints
+- `controlAddress` (=`userId`) — the wallet that signed in (used in all API calls)
+- `managedEvmAddress` — from `/v1/user?chainId=1` (needed for `user_stats` only)
+- `managedSolanaAddress` — from `/v1/user?chainId=622112261` (for on-chain queries only)
+
 ## Related Skills
 
 - **gdex-onboarding** — Platform overview and getting started

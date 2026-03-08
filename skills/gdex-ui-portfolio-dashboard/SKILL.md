@@ -295,13 +295,40 @@ export function useTradeHistoryQuery(page: number, limit = 20) {
 }
 ```
 
+## Backend Quirk: SDK Methods Need Raw Client (Live-Tested)
+
+> **WARNING:** The high-level `skill.getPortfolio()` and `skill.getTradeHistory()` methods send incorrect params to the backend. For managed-custody users, the UI components above will return empty/incorrect data unless you use the raw client workaround. See **gdex-portfolio** skill for correct raw client calls.
+
+**For frontend React Query hooks, use raw client instead:**
+
+```typescript
+// hooks/usePortfolioQuery.ts — CORRECT for managed custody
+import { useQuery } from '@tanstack/react-query';
+import { useGdex } from '@/providers/GdexProvider';
+import { buildGdexUserSessionData } from '@gdexsdk/gdex-skill';
+
+export function usePortfolioQuery(userId: string, sessionKey: string, apiKey: string, chainId: number) {
+  const { skill, isReady } = useGdex();
+  const data = buildGdexUserSessionData(sessionKey, apiKey);
+
+  return useQuery({
+    queryKey: ['portfolio', userId, chainId],
+    queryFn: () => skill.client.get('/v1/portfolio', {
+      params: { userId, chainId, data }
+    }),
+    enabled: isReady,
+    refetchInterval: 30_000,
+  });
+}
+```
+
 ## Component → SDK Method Reference
 
 | Component | SDK Method | Skill |
 |-----------|------------|-------|
-| `PortfolioOverview` | `getPortfolio()` | gdex-portfolio |
-| `TokenBalanceGrid` | `getPortfolio({ chain })` | gdex-portfolio |
-| `TradeHistoryTable` | `getTradeHistory()` | gdex-portfolio |
+| `PortfolioOverview` | `skill.client.get('/v1/portfolio', ...)` | gdex-portfolio |
+| `TokenBalanceGrid` | `skill.client.get('/v1/balances', ...)` | gdex-portfolio |
+| `TradeHistoryTable` | `skill.client.get('/v1/user_trade_history', ...)` | gdex-portfolio |
 | `ChainSelector` | (UI only) | — |
 
 ## Related Skills
@@ -309,4 +336,4 @@ export function useTradeHistoryQuery(page: number, limit = 20) {
 - **gdex-ui-install-setup** — Project setup and SDK context provider
 - **gdex-ui-trading-components** — Trading forms and order entry components
 - **gdex-ui-page-layouts** — Full page layouts using these dashboard components
-- **gdex-portfolio** — Portfolio SDK API details
+- **gdex-portfolio** — Portfolio SDK API details and raw client workarounds

@@ -167,6 +167,60 @@ npx @gdexsdk/mcp-server init --client opencode  # OpenCode
 
 Tools: `search_gdex_docs`, `get_sdk_pattern`, `get_api_info`, `explain_workflow`, `get_chain_info`, `get_trading_guide`, `get_copy_trade_guide`, `get_component_guide`.
 
+## Autonomous Agent Quickstart
+
+If you're an AI agent operating autonomously (no human to ask), here's the minimum viable flow:
+
+### 1. Initialize
+```typescript
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+const skill = new GdexSkill();
+skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
+```
+
+### 2. Research Before Trading
+```typescript
+// Check what's trending
+const trending = await skill.getTrendingTokens({ chain: 622112261, period: '1h', limit: 10 });
+
+// Get details on a token — CHECK dexId BEFORE buying
+const token = await skill.getTokenDetails({ tokenAddress: trending[0].address, chain: 622112261 });
+if (token.dexId === 'meteora') {
+  // ❌ Meteora tokens FAIL on Solana — skip this token
+}
+if (token.dexId === 'raydium') {
+  // ✅ Safe to buy
+}
+```
+
+### 3. Full Managed-Custody Setup (for actual trading)
+```typescript
+import { ethers } from 'ethers';
+import {
+  generateGdexSessionKeyPair, buildGdexSignInMessage,
+  buildGdexSignInComputedData, buildGdexUserSessionData,
+} from '@gdexsdk/gdex-skill';
+
+const wallet = ethers.Wallet.fromPhrase('your mnemonic...');
+const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
+const nonce = String(Date.now());
+const msg = buildGdexSignInMessage(wallet.address, nonce, sessionKey);
+const sig = await wallet.signMessage(msg);
+const payload = buildGdexSignInComputedData({
+  apiKey: GDEX_API_KEY_PRIMARY, userId: wallet.address, sessionKey, nonce, signature: sig,
+});
+await skill.signInWithComputedData({ computedData: payload.computedData, chainId: 1 });
+```
+
+### 4. Key Rules for Autonomous Operation
+- **Always use control wallet address** (the one that signed in) for `userId`/`walletAddress` in API calls
+- **Never use managed wallet address** in API calls (except `getHlUserStats()`)
+- **Amounts in raw units** for managed trades (lamports for Solana, wei for EVM)
+- **Check `dexId`** before buying on Solana — skip Meteora tokens
+- **Generate fresh nonce** for every operation
+- **Portfolio/balances use raw client** — high-level methods send wrong params
+- **If `hlCloseAll` fails**, use reduce-only order instead
+
 ## Related Skills
 
 - **gdex-authentication** — Managed-custody auth flow and encryption details

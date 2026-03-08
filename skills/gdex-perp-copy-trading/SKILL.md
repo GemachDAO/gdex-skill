@@ -402,6 +402,14 @@ for (const tx of fills.txes) {
 }
 ```
 
+## Autonomous Agent Notes (Live-Tested)
+
+1. **`getHlUserStats()` requires the MANAGED wallet address.** Passing the control address or any external trader address returns 400 `"Wallet not found"`. Use the managed EVM address from `/v1/user?chainId=1`.
+2. **All 7 other discovery endpoints (topTraders, topTradersByPnl, allAssets, perpDexes, depositTokens, clearinghouseState, openOrders) work with the control address or any external address.** Only `user_stats` has the managed-address requirement.
+3. **Don't trust `copyMode` or `oppositeCopy` in API responses.** The backend returns ABI byte-offsets (416, 480, 736, etc.) instead of the real values. Store your own copy trade configs locally.
+4. **To pause a copy trade, you must delete and recreate it.** There is no toggle endpoint — `isChangeStatus` deletes permanently.
+5. **Sign-in for HL copy trading must use `chainId: 1`** (EVM), not `622112261` (Solana).
+
 ## Related Skills
 
 - **gdex-authentication** — Auth setup and sign-in required for read/write

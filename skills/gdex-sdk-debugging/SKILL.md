@@ -198,6 +198,44 @@ When a trade fails, check in order:
 5. **ABI types:** Do the ABI types exactly match what the backend expects?
 6. **Signature:** Is the session key signing (not control key)? Is the message format correct?
 7. **Balance:** Does the managed wallet have enough funds + gas?
+
+## Portfolio / Balances / Trade History Quirks (Live-Tested)
+
+These are **critical for autonomous agents** — the high-level SDK methods have parameter mismatches:
+
+| Endpoint | SDK Method Issue | Correct Raw Client Call |
+|----------|-----------------|------------------------|
+| Portfolio | `getPortfolio()` sends `walletAddress`+`chain` | `GET /v1/portfolio?userId=X&chainId=N&data=Y` |
+| Balances | `getBalances()` sends `walletAddress`+`chain` | `GET /v1/balances?userId=X&chainId=N&data=Y` |
+| Trade History | `getTradeHistory()` sends `userId` | `GET /v1/user_trade_history?user=X&chainId=900&data=Y` |
+
+**Key differences:**
+- Portfolio/balances: Backend expects `userId` + `chainId` + `data` (encrypted session key), NOT `walletAddress` + `chain`
+- Trade history: Backend expects `user` (NOT `userId`) and `chainId: 900` for Solana (NOT `622112261`)
+- All three require the encrypted session key from `buildGdexUserSessionData()`
+
+```typescript
+import { buildGdexUserSessionData } from '@gdexsdk/gdex-skill';
+const data = buildGdexUserSessionData(sessionKey, apiKey);
+
+// Correct portfolio call
+const portfolio = await skill.client.get('/v1/portfolio', {
+  params: { userId: controlAddress, chainId: 622112261, data }
+});
+
+// Correct trade history call
+const history = await skill.client.get('/v1/user_trade_history', {
+  params: { user: controlAddress, chainId: 900, data, page: 1, limit: 20 }
+});
+```
+
+## Limit Order ABI Bug (Fixed in SDK)
+
+The `limit_buy` and `update_order` ABI schemas encode `profitPercent` and `lossPercent` as `uint256`, NOT `string`. Using `string` type causes the backend to receive ABI byte-offsets (e.g. 192) instead of the actual percentage values, which always fails the 0-100 range validation.
+
+**Symptom:** `"lossPercent must be between 0 and 100"` even with valid values like `lossPercent: '25'`
+**Cause:** ABI `string` type → encoded offset (192) → fails range check
+**Fix:** SDK encodes as `uint256` (correct). Only matters if encoding manually.
 8. **Token support:** Is the token supported on this chain? Is the DEX working? (Meteora is broken)
 
 ## Related Skills

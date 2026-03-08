@@ -48,7 +48,7 @@ export async function getLimitOrders(
 /**
  * Create a limit buy order — "buy token X when its price drops to Y."
  *
- * ABI: ['string','string','string','string','string','string']
+ * ABI: ['string','string','string','uint256','uint256','string']
  *   = [tokenAddress, amount, triggerPrice, profitPercent, lossPercent, nonce]
  * Signature: "limit_buy-{userId}-{data}"
  *
@@ -127,7 +127,7 @@ export async function limitSell(
  * To delete: set isDelete=true.
  * To update: provide new amount/triggerPrice/profitPercent/lossPercent.
  *
- * ABI: ['string','string','string','string','string','string','string']
+ * ABI: ['string','string','string','uint256','uint256','string','string']
  *   = [orderId, amount, triggerPrice, profitPercent, lossPercent, nonce, isDelete]
  * Signature: "update_order-{userId}-{data}"
  *

@@ -116,6 +116,14 @@ Withdraw ABI schema:
 - **Most common cause:** Passing the managed address as `walletAddress` instead of the control wallet address — see **gdex-authentication**
 - Second cause: `uint256` vs `uint64` encoding mismatch for chainId — see **gdex-perp-trading** for full ABI details
 
+## Autonomous Agent Notes (Live-Tested)
+
+1. **Deposit of 10 USDC was E2E verified.** Takes ~10 minutes for USDC to appear on HyperLiquid after Arbitrum tx confirms.
+2. **After deposit, check balance with `getHlAccountState()`** — `getGbotUsdcBalance` returns 404.
+3. **Amount is human-readable for high-level methods** (`perpDeposit({ amount: '10' })`), but the ABI encoding internally converts to 6-decimal smallest unit (10 USDC = 10000000).
+4. **Sign-in must use `chainId: 1`** (EVM) for HL deposit/withdraw operations.
+5. **`walletAddress` MUST be control wallet** — passing managed address → 400 Unauthorized (code 103).
+
 ## Related Skills
 
 - **gdex-authentication** — Managed-custody auth required for deposits/withdrawals

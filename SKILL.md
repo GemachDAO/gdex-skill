@@ -80,6 +80,96 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 
 > **HL perp copy trading is completely separate from Solana copy trading.** Uses `chainId: 1` (EVM), ABI methods `hl_create`/`hl_update` (8 and 11 string fields), and goes through `buildHlComputedData()`. Both `isDelete` and `isChangeStatus` permanently **DELETE** the trade (same as Solana — there is no toggle). Both TP and SL are **mandatory** (> 0). Max 3 copy trades per user. Supports opposite-direction copying via `oppositeCopy`. Backend stores ABI byte-offsets for `copyMode` and `oppositeCopy` (e.g., `copyMode=416`), not the actual values. `user_stats` requires the managed wallet address, not the control wallet. See **gdex-perp-copy-trading** skill for full details.
 
+## Autonomous Agent Playbook
+
+> **This section contains everything an autonomous AI agent needs to trade without human help.**
+
+### Portfolio / Balances — Backend Param Mismatch (Live-Tested)
+
+The high-level `getPortfolio()` and `getBalances()` methods send `walletAddress` + `chain`, but the backend expects `userId` + `chainId` + `data` (encrypted session key). **Workaround — use the raw client directly:**
+
+```typescript
+import { buildGdexUserSessionData } from '@gdexsdk/gdex-skill';
+const data = buildGdexUserSessionData(sessionKey, apiKey);
+
+// Portfolio
+const portfolio = await skill.client.get('/v1/portfolio', {
+  params: { userId: controlAddress, chainId: 622112261, data }
+});
+
+// Balances
+const balances = await skill.client.get('/v1/balances', {
+  params: { userId: controlAddress, chainId: 622112261, data }
+});
+```
+
+### Trade History — Different Param Names (Live-Tested)
+
+Backend expects `user` (not `userId`), and the managed Solana chainId for trade history is `900` (not `622112261`):
+
+```typescript
+const history = await skill.client.get('/v1/user_trade_history', {
+  params: { user: controlAddress, chainId: 900, data, page: 1, limit: 20 }
+});
+```
+
+### OHLCV / TopTraders — Numeric chainId Required (Live-Tested)
+
+Backend needs numeric `chainId`, not string `chain`. These work:
+```typescript
+await skill.getOHLCV({ tokenAddress, chain: 622112261, resolution: '60', from, to });
+await skill.getTopTraders({ chain: 622112261, period: '7d', limit: 5 });
+```
+
+### Spot Trading (Managed Custody) — Raw Units Required (Live-Tested)
+
+For managed-custody trades, amounts must be in **raw units** (lamports for Solana, wei for EVM), NOT float:
+```typescript
+// ❌ WRONG: amount: '0.01'
+// ✅ CORRECT: amount: '10000000' (0.01 SOL = 10000000 lamports)
+```
+
+### Limit Orders — profitPercent/lossPercent MUST Be uint256 (Live-Tested)
+
+The `limit_buy` and `update_order` ABI schemas use `uint256` for `profitPercent` and `lossPercent` — NOT `string`. The backend decodes them as uint256 and validates 0-100 range. Using `string` type produces ABI byte-offsets (e.g. 192) that always fail. The SDK handles this correctly.
+
+### Endpoints That Don't Work (Live-Tested)
+
+| Endpoint | Status | Alternative |
+|----------|--------|-------------|
+| `hlCloseAll` / `/v1/hl/close_all_positions` | Returns TIMEOUT/400 | Use `hlCreateOrder` with `reduceOnly: true, isMarket: true` |
+| `hlUpdateLeverage` / `/v1/hl/update_leverage` | Returns 404 | Leverage is set automatically by the backend per order |
+| `getGbotUsdcBalance` | Returns 404 | Use `getHlAccountState()` to check USDC balance |
+| `getHlUserStats(controlAddress)` | Returns 400 | Must pass the **managed** wallet address, not control |
+
+### Error Recovery for Autonomous Agents
+
+| Error | What to Do |
+|-------|------------|
+| `400 Unauthorized (103)` | Check: (1) using control address not managed, (2) ABI types match exactly, (3) session key is from the same sign-in |
+| `Insufficient balance` | Check managed wallet balance on the correct chain. For HL, check USDC deposit amount. |
+| `TIMEOUT` on hlCloseAll | Use reduce-only order instead (see above) |
+| `Program error: 1` on Solana | Token routes through Meteora DLMM. Swap to a Raydium-routed token instead. |
+| `lossPercent must be between 0 and 100` | ABI encoding bug — profitPercent/lossPercent must be uint256, not string |
+| `404` on leverage | Expected — leverage is auto-set. Control via position sizing. |
+| `Reused nonce` | Always generate fresh: `String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000))` |
+| Rate limited (429) | SDK auto-retries with exponential backoff. If manual, wait `retryAfter` seconds. |
+
+### Live-Tested E2E Results (39/42 Pass)
+
+| Section | Tests | Pass | Notes |
+|---------|-------|------|-------|
+| Auth & Portfolio | 7 | 7/7 | Sign-in, resolve user, portfolio (raw client), balances, trade history |
+| Token Discovery | 3 | 3/3 | Token details, trending, OHLCV |
+| Top Traders | 1 | 1/1 | Top traders by PnL |
+| Spot Trading | 3 | 3/3 | Buy WIF (Solana), sell WIF, poll status |
+| HL Perp Trading | 10 | 8/10 | Deposit, create order, positions, close (reduce-only). `getGbotUsdcBalance` 404, `hlCloseAll` 400 |
+| Limit Orders | 4 | 4/4 | List, create (limit buy), verify, cancel |
+| Copy Trading Reads | 4 | 4/4 | Wallets, custom wallets, gems, DEXes |
+| HL Copy Trading Reads | 8 | 7/8 | Top traders, top by PnL, assets, DEXes, deposit tokens. `getHlUserStats` needs managed addr |
+| Bridge Estimate | 1 | 1/1 | ETH→ARB estimate |
+| Wallet Generation | 1 | 1/1 | Offline EVM wallet |
+
 ## Quick Start
 
 ```typescript

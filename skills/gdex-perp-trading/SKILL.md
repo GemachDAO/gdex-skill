@@ -231,3 +231,62 @@ const creds = { apiKey, walletAddress: controlAddress, sessionPrivateKey };
 - **gdex-authentication** — Auth setup required for all HL operations
 - **gdex-perp-funding** — Deposit/withdraw USDC to HyperLiquid
 - **gdex-portfolio** — View positions and P&L
+
+## Autonomous Agent Notes (Live-Tested)
+
+### Endpoints That Don't Work
+
+| Endpoint | Status | What to Do |
+|----------|--------|------------|
+| `hlCloseAll` / `/v1/hl/close_all_positions` | Returns TIMEOUT or 400 | Place a reduce-only `hlCreateOrder` for the exact position size |
+| `hlUpdateLeverage` / `/v1/hl/update_leverage` | Returns 404 | The backend sets leverage automatically per order. Control effective leverage via position sizing. |
+| `getGbotUsdcBalance` | Returns 404 | Use `getHlAccountState()` or clearinghouse state to check balance |
+
+### Close Position Reliably (Live-Tested)
+
+```typescript
+// Get current positions
+const state = await skill.getHlAccountState({ walletAddress: controlAddress });
+const positions = state?.assetPositions || [];
+
+for (const p of positions) {
+  const pos = p.position;
+  if (Number(pos.szi) !== 0) {
+    const markPrice = Number(pos.entryPx); // or fetch via getHlMarkPrice
+    await skill.hlCreateOrder({
+      coin: pos.coin,
+      isLong: Number(pos.szi) < 0,    // opposite direction
+      price: '0',                       // market
+      size: Math.abs(Number(pos.szi)).toString(),
+      reduceOnly: true,
+      isMarket: true,
+      tpPrice: '0',
+      slPrice: '0',
+      apiKey,
+      walletAddress: controlAddress,   // MUST be control address
+      sessionPrivateKey,
+    });
+  }
+}
+```
+
+### HL Deposit Minimum
+
+- **Minimum deposit: 10 USDC** (10000000 in smallest unit)
+- Managed wallet must hold `amount × 1.01` (1% fee buffer)
+- Delivery takes ~10 minutes after Arbitrum tx confirms
+
+### Position Sizing Notes
+
+Since leverage cannot be set via API:
+- **Effective leverage** = position notional value / account equity
+- To get 5x leverage on $100 account: open a $500 position
+- The backend may auto-set leverage to 50x cross — your risk is determined by position size relative to margin
+
+### Critical Checks Before Opening a Position
+
+1. Verify USDC is deposited on HL (use `getHlAccountState()`)
+2. Use **control** wallet address (not managed) for all write operations
+3. Generate a fresh nonce for every order
+4. For market orders: set `price: '0'` and `isMarket: true`
+5. `tpPrice` and `slPrice` can be `'0'` to skip TP/SL

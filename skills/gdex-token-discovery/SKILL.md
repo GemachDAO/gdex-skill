@@ -219,6 +219,39 @@ const traders = await skill.getTopTraders({ chain: 622112261, period: '7d', limi
 traders.forEach(t => console.log(`  ${t.name || t.wallet_address}: $${t.realized_profit_7d} PnL`));
 ```
 
+## Autonomous Agent Notes (Live-Tested)
+
+### Chain Parameter Must Be Numeric
+
+All token discovery endpoints (`getOHLCV`, `getTopTraders`, `getTrendingTokens`, `getTokenDetails`) require **numeric** `chainId`, not string `chain`. Use `622112261` for Solana, `8453` for Base, etc.
+
+```typescript
+// ✅ Correct
+await skill.getOHLCV({ tokenAddress, chain: 622112261, resolution: '60', from, to });
+await skill.getTopTraders({ chain: 622112261, period: '7d', limit: 5 });
+
+// ❌ Wrong — string chain names may not work for all endpoints
+await skill.getOHLCV({ tokenAddress, chain: 'solana', resolution: '60', from, to });
+```
+
+### OHLCV Data May Be Empty
+
+Not all tokens have OHLCV data populated. If `candles` is an empty array, the data isn't available yet — this is not an SDK error. Try a different token or wider time range.
+
+### Token Safety Checks Before Buying
+
+Before buying a token autonomously, check:
+1. **`dexId`**: Must be `'raydium'` on Solana (Meteora fails — see gdex-spot-trading)
+2. **`liquidityUsd`**: Should be > $1000 to avoid slippage problems
+3. **`securities.mintAbility`**: If `true`, the token can be infinitely minted (rug risk)
+4. **`securities.freezeAbility`**: If `true`, your tokens can be frozen
+5. **`securities.lpLockPercentage`**: Higher is safer (100% = fully locked LP)
+6. **`marketCap`**: Sanity check — very low mcap tokens are extremely volatile
+
+### Auth Required
+
+All token discovery endpoints return `403 "Access denied: Invalid client"` without a Bearer token. Always call `loginWithApiKey()` first — even for read-only data.
+
 ## Related Skills
 
 - **gdex-spot-trading** — Buy/sell tokens after researching them
