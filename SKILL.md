@@ -22,7 +22,7 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 | **Trading** | `gdex-spot-trading` | Buy/sell tokens on any chain with DEX routing | Yes |
 | | `gdex-perp-trading` | HyperLiquid perpetual futures — positions, orders, leverage, TP/SL | Yes |
 | | `gdex-perp-funding` | Deposit/withdraw USDC to/from HyperLiquid | Yes |
-| | `gdex-limit-orders` | Create, cancel, and list limit orders | Yes |
+| | `gdex-limit-orders` | Limit buy, limit sell, update/delete orders via encrypted payloads | Yes |
 | **Data** | `gdex-portfolio` | Cross-chain portfolio, balances, trade history | Yes |
 | | `gdex-token-discovery` | Token details, trending tokens, OHLCV charts | **No** |
 | **Platform** | `gdex-copy-trading` | Copy trade settings, tracked wallets, top traders | Yes |
@@ -39,6 +39,8 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 - **"Copy a trader"** → Load `gdex-authentication` + `gdex-copy-trading`
 - **"Bridge tokens"** → Load `gdex-authentication` + `gdex-bridge`
 - **"Create a limit order"** → Load `gdex-authentication` + `gdex-limit-orders`
+- **"Set a limit buy"** → Load `gdex-authentication` + `gdex-limit-orders` (use `limitBuy()`)
+- **"Set a take-profit/stop-loss sell"** → Load `gdex-authentication` + `gdex-limit-orders` (use `limitSell()`)
 
 ## Critical Notes (Live-Tested)
 
@@ -58,6 +60,8 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 > **Solana trades need ~0.01 SOL minimum.** ATA (Associated Token Account) creation costs ~0.002 SOL per new token, plus priority fees (default 0.0005 SOL) and base tx fees. First trade on a new token needs ~0.007 SOL overhead beyond the swap amount.
 
 > **Bridge endpoints use different paths than expected.** The actual backend routes are `GET /v1/bridge/estimate_bridge`, `POST /v1/bridge/request_bridge`, and `GET /v1/bridge/bridge_orders`. The `request_bridge` endpoint requires ABI-encoded + signed + AES-encrypted `computedData` (same pattern as managed trades). Bridge is **native tokens only** and uses ChangeNow as provider. Amounts must be in **raw token units** (wei/lamports). See **gdex-bridge** skill for full details.
+
+> **Limit order endpoints are `limit_buy` / `limit_sell` / `update_order` — NOT `orders/create` / `orders/cancel`.** Use `limitBuy()` for buy orders, `limitSell()` for sell orders (auto-classifies TP vs SL), and `updateOrder({ isDelete: true })` to cancel. Listing uses `GET /v1/orders` with `userId` + encrypted `data` + `chainId`. All write endpoints use ABI-encoded + signed + AES-encrypted `computedData` (same managed-custody pattern). Minimum order is ~0.01 native token. See **gdex-limit-orders** skill for full details.
 
 ## Quick Start
 

@@ -361,6 +361,9 @@ if (result.requestId) {
 | `encodeGdexTradeData(tokenAddr, amount, nonce?)` | ABI-encode trade data (`['string','uint256','string']`) |
 | `signGdexTradeMessageWithSessionKey(action, userId, data, privKey)` | Sign trade with session key (v = raw recoveryParam `00`/`01`) |
 | `buildGdexManagedTradeComputedData({...})` | Build encrypted trade payload |
+| `encodeLimitOrderData(action, params)` | ABI-encode limit order data (buy/sell/update schemas) |
+| `signLimitOrderMessage(action, userId, data, privKey)` | Sign limit order with session key |
+| `buildLimitOrderComputedData({...})` | Build encrypted limit order payload |
 | `buildEncryptedGdexPayload({...})` | Encrypt JSON `{userId, data, signature}` for `computedData` |
 | `encryptGdexComputedData(plaintext, apiKey)` | AES-256-CBC encrypt UTF-8 plaintext |
 | `encryptGdexHexData(hexData, apiKey)` | AES-256-CBC encrypt raw hex-decoded bytes |
@@ -476,24 +479,49 @@ const positions = await skill.getPerpPositions({ walletAddress: '0x...' });
 
 ### Limit Orders
 
+> **Endpoints: `limit_buy` / `limit_sell` / `update_order` / `orders` — NOT `orders/create` or `orders/cancel`.**
+
 ```typescript
-// Create
-const order = await skill.createLimitOrder({
-  chain: 'solana',
-  side: 'buy',
-  inputToken: 'So11111111111111111111111111111111111111112',    // SOL
-  outputToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
-  inputAmount: '1',
-  limitPrice: '160',  // trigger when 1 SOL = 160 USDC
-  slippage: 1,
-  expireIn: 86400,    // 24 hours
+// Limit buy — buy WIF when price drops to $0.50 on Solana
+const buyResult = await skill.limitBuy({
+  apiKey: GDEX_API_KEY_PRIMARY,
+  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',  // control wallet
+  sessionPrivateKey: '<session-key-hex>',
+  chainId: 622112261,           // Solana
+  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
+  amount: '10000000',           // lamports
+  triggerPrice: '0.50',
+  profitPercent: '50',          // optional: TP at 50% gain
+  lossPercent: '25',            // optional: SL at 25% loss
 });
 
-// Cancel
-await skill.cancelLimitOrder({ orderId: order.id, chain: 'solana' });
+// Limit sell — sell WIF when price reaches $999.99 (take-profit)
+const sellResult = await skill.limitSell({
+  apiKey: GDEX_API_KEY_PRIMARY,
+  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',
+  sessionPrivateKey: '<session-key-hex>',
+  chainId: 622112261,
+  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
+  amount: '100000',
+  triggerPrice: '999.99',
+});
 
-// List
-const orders = await skill.getLimitOrders({ walletAddress: '...', chain: 'solana', status: 'open' });
+// Delete/cancel an order
+await skill.updateOrder({
+  apiKey: GDEX_API_KEY_PRIMARY,
+  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',
+  sessionPrivateKey: '<session-key-hex>',
+  chainId: 622112261,
+  orderId: '<64-char-hex-order-id>',
+  isDelete: true,
+});
+
+// List active orders (uses session-key auth, not full computedData)
+const { count, orders } = await skill.getLimitOrders({
+  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',
+  data: encryptedSessionKey,  // from buildGdexUserSessionData()
+  chainId: 622112261,
+});
 ```
 
 ---

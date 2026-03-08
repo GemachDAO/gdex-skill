@@ -350,3 +350,99 @@ export function buildHlComputedData(params: {
     signature,
   });
 }
+
+// ── Limit order action types ─────────────────────────────────────────────────
+
+export type LimitOrderActionType = 'limit_buy' | 'limit_sell' | 'update_order';
+
+/**
+ * ABI-encode data for a limit order action.
+ *
+ * Schemas (all fields are strings):
+ *   limit_buy:    [tokenAddress, amount, triggerPrice, profitPercent, lossPercent, nonce]
+ *   limit_sell:   [tokenAddress, amount, triggerPrice, nonce]
+ *   update_order: [orderId, amount, triggerPrice, profitPercent, lossPercent, nonce, isDelete]
+ */
+export function encodeLimitOrderData(
+  action: LimitOrderActionType,
+  params: Record<string, string>,
+): string {
+  const abi = AbiCoder.defaultAbiCoder();
+  let encoded: string;
+
+  switch (action) {
+    case 'limit_buy':
+      encoded = abi.encode(
+        ['string', 'string', 'string', 'string', 'string', 'string'],
+        [params.tokenAddress, params.amount, params.triggerPrice,
+         params.profitPercent, params.lossPercent, params.nonce],
+      );
+      break;
+    case 'limit_sell':
+      encoded = abi.encode(
+        ['string', 'string', 'string', 'string'],
+        [params.tokenAddress, params.amount, params.triggerPrice, params.nonce],
+      );
+      break;
+    case 'update_order':
+      encoded = abi.encode(
+        ['string', 'string', 'string', 'string', 'string', 'string', 'string'],
+        [params.orderId, params.amount, params.triggerPrice,
+         params.profitPercent, params.lossPercent, params.nonce, params.isDelete],
+      );
+      break;
+    default:
+      throw new Error(`Unknown limit order action: ${action}`);
+  }
+
+  return encoded.startsWith('0x') ? encoded.slice(2) : encoded;
+}
+
+/**
+ * Sign a limit order action message with the session private key.
+ * Message format: `{action}-{userId}-{dataHex}`
+ * Returns 130-char hex (r64+s64+v2) without 0x prefix.
+ */
+export function signLimitOrderMessage(
+  action: LimitOrderActionType,
+  userId: string,
+  dataHex: string,
+  sessionPrivateKey: string,
+): string {
+  const normalizedUserId = userId.startsWith('0x') ? userId.toLowerCase() : userId;
+  const msg = `${action}-${normalizedUserId}-${dataHex}`;
+  const digest = keccak256(toUtf8Bytes(msg));
+  const sig = new SigningKey(sessionPrivateKey).sign(digest);
+  const r = sig.r.replace(/^0x/, '');
+  const s = sig.s.replace(/^0x/, '');
+  const v = sig.yParity.toString(16).padStart(2, '0');
+  return `${r}${s}${v}`;
+}
+
+/**
+ * Build encrypted computedData for a limit order action.
+ */
+export function buildLimitOrderComputedData(params: {
+  action: LimitOrderActionType;
+  apiKey: string;
+  userId: string;
+  sessionPrivateKey: string;
+  actionParams: Record<string, string>;
+}): string {
+  const nonce = generateGdexNonce().toString();
+  const fullParams = { ...params.actionParams, nonce };
+
+  const data = encodeLimitOrderData(params.action, fullParams);
+  const signature = signLimitOrderMessage(
+    params.action,
+    params.userId,
+    data,
+    params.sessionPrivateKey,
+  );
+  return buildEncryptedGdexPayload({
+    apiKey: params.apiKey,
+    userId: params.userId,
+    data,
+    signature,
+  });
+}

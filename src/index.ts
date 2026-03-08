@@ -50,7 +50,7 @@ import {
   hlCancelAllOrders,
   hlUpdateLeverage,
 } from './actions/perpTrade';
-import { createLimitOrder, cancelLimitOrder, getLimitOrders } from './actions/limitOrders';
+import { limitBuy, limitSell, updateOrder, getLimitOrders, createLimitOrder, cancelLimitOrder } from './actions/limitOrders';
 import {
   getCopyTradeSettings,
   setCopyTradeSettings,
@@ -88,9 +88,16 @@ export type {
 } from './types/token';
 export type {
   LimitOrder,
+  LimitBuyParams,
+  LimitBuyResponse,
+  LimitSellParams,
+  LimitSellResponse,
+  UpdateOrderParams,
+  UpdateOrderResponse,
+  GetLimitOrdersParams,
+  GetLimitOrdersResponse,
   CreateLimitOrderParams,
   CancelLimitOrderParams,
-  GetLimitOrdersParams,
 } from './types/orders';
 export type {
   PerpPosition,
@@ -186,14 +193,27 @@ export {
   encodeHlActionData,
   signHlActionMessage,
   buildHlComputedData,
+  encodeLimitOrderData,
+  signLimitOrderMessage,
+  buildLimitOrderComputedData,
 } from './utils/gdexManagedCrypto';
-export type { HlActionType } from './utils/gdexManagedCrypto';
+export type { HlActionType, LimitOrderActionType } from './utils/gdexManagedCrypto';
 
 // Import parameter types for the GdexSkill class methods
 import type { BuyTokenParams, SellTokenParams, TradeResult } from './types/trading';
 import type { Portfolio, Balance, TradeRecord, PortfolioParams, BalanceParams, TradeHistoryParams } from './types/portfolio';
 import type { TokenDetails, TokenDetailsParams, TrendingToken, TrendingParams, OHLCVData, OHLCVParams } from './types/token';
-import type { LimitOrder, CreateLimitOrderParams, CancelLimitOrderParams, GetLimitOrdersParams } from './types/orders';
+import type {
+  LimitOrder,
+  LimitBuyParams,
+  LimitBuyResponse,
+  LimitSellParams,
+  LimitSellResponse,
+  UpdateOrderParams,
+  UpdateOrderResponse,
+  GetLimitOrdersParams,
+  GetLimitOrdersResponse,
+} from './types/orders';
 import type {
   PerpPosition,
   GetPositionsParams,
@@ -564,32 +584,42 @@ export class GdexSkill {
   // ── Limit Orders ───────────────────────────────────────────────────────────
 
   /**
-   * Create a limit order.
-   *
-   * @param params - Order parameters
-   * @returns Created limit order object
+   * List active limit orders for a user on a specific chain.
    */
-  async createLimitOrder(params: CreateLimitOrderParams): Promise<LimitOrder> {
-    return createLimitOrder(this.client, params);
-  }
-
-  /**
-   * Cancel an existing limit order.
-   *
-   * @param params - Cancel parameters (orderId and chain)
-   */
-  async cancelLimitOrder(params: CancelLimitOrderParams): Promise<void> {
-    return cancelLimitOrder(this.client, params);
-  }
-
-  /**
-   * Get limit orders for a wallet.
-   *
-   * @param params - Query parameters
-   * @returns List of limit orders
-   */
-  async getLimitOrders(params: GetLimitOrdersParams): Promise<LimitOrder[]> {
+  async getLimitOrders(params: GetLimitOrdersParams): Promise<GetLimitOrdersResponse> {
     return getLimitOrders(this.client, params);
+  }
+
+  /**
+   * Create a limit buy order — "buy token X when its price drops to Y."
+   */
+  async limitBuy(params: LimitBuyParams): Promise<LimitBuyResponse> {
+    return limitBuy(this.client, params);
+  }
+
+  /**
+   * Create a limit sell order — "sell token X when its price reaches Y."
+   */
+  async limitSell(params: LimitSellParams): Promise<LimitSellResponse> {
+    return limitSell(this.client, params);
+  }
+
+  /**
+   * Update or delete an existing limit order.
+   * Set isDelete=true to cancel.
+   */
+  async updateOrder(params: UpdateOrderParams): Promise<UpdateOrderResponse> {
+    return updateOrder(this.client, params);
+  }
+
+  /** @deprecated Use limitBuy() */
+  async createLimitOrder(params: LimitBuyParams): Promise<LimitBuyResponse> {
+    return limitBuy(this.client, params);
+  }
+
+  /** @deprecated Use updateOrder() with isDelete=true */
+  async cancelLimitOrder(params: UpdateOrderParams): Promise<UpdateOrderResponse> {
+    return updateOrder(this.client, { ...params, isDelete: true });
   }
 
   // ── Copy Trading ───────────────────────────────────────────────────────────

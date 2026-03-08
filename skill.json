@@ -211,47 +211,71 @@
       }
     },
     {
-      "name": "create_limit_order",
-      "description": "Create a limit order to buy or sell a token at a target price.",
+      "name": "limit_buy",
+      "description": "Create a limit buy order — buy a token when its price drops to a target. Uses ABI-encoded + signed + AES-encrypted computedData.",
       "parameters": {
         "type": "object",
-        "required": ["chain", "side", "inputToken", "outputToken", "inputAmount", "limitPrice"],
+        "required": ["apiKey", "userId", "sessionPrivateKey", "chainId", "tokenAddress", "amount", "triggerPrice"],
         "properties": {
-          "chain": { "type": ["string", "number"] },
-          "side": { "type": "string", "enum": ["buy", "sell"] },
-          "inputToken": { "type": "string", "description": "Input token address." },
-          "outputToken": { "type": "string", "description": "Output token address." },
-          "inputAmount": { "type": "string", "description": "Amount of input token." },
-          "limitPrice": { "type": "string", "description": "Target price (output per input)." },
-          "slippage": { "type": "number", "default": 1 },
-          "expireIn": { "type": "number", "description": "Expiry in seconds from now." }
+          "apiKey": { "type": "string", "description": "API key for AES encryption." },
+          "userId": { "type": "string", "description": "Control wallet address (NOT managed wallet)." },
+          "sessionPrivateKey": { "type": "string", "description": "Session private key from sign-in." },
+          "chainId": { "type": "number", "description": "Numeric chain ID (e.g. 622112261 for Solana)." },
+          "tokenAddress": { "type": "string", "description": "Token address to buy." },
+          "amount": { "type": "string", "description": "Native token to spend in raw units (wei/lamports)." },
+          "triggerPrice": { "type": "string", "description": "USD price at which to trigger the buy." },
+          "profitPercent": { "type": "string", "description": "Take-profit % above trigger (e.g. '50'), '0' to skip." },
+          "lossPercent": { "type": "string", "description": "Stop-loss % below trigger (e.g. '25'), '0' to skip." }
         }
       }
     },
     {
-      "name": "cancel_limit_order",
-      "description": "Cancel an existing limit order.",
+      "name": "limit_sell",
+      "description": "Create a limit sell order — sell a token when price reaches a target. Auto-classifies as take-profit or stop-loss. Uses ABI-encoded + signed + AES-encrypted computedData.",
       "parameters": {
         "type": "object",
-        "required": ["orderId", "chain"],
+        "required": ["apiKey", "userId", "sessionPrivateKey", "chainId", "tokenAddress", "amount", "triggerPrice"],
         "properties": {
-          "orderId": { "type": "string" },
-          "chain": { "type": ["string", "number"] }
+          "apiKey": { "type": "string", "description": "API key for AES encryption." },
+          "userId": { "type": "string", "description": "Control wallet address (NOT managed wallet)." },
+          "sessionPrivateKey": { "type": "string", "description": "Session private key from sign-in." },
+          "chainId": { "type": "number", "description": "Numeric chain ID." },
+          "tokenAddress": { "type": "string", "description": "Token address to sell." },
+          "amount": { "type": "string", "description": "Token amount to sell in raw units." },
+          "triggerPrice": { "type": "string", "description": "USD price at which to trigger the sell." }
+        }
+      }
+    },
+    {
+      "name": "update_order",
+      "description": "Update or delete an existing limit order. Set isDelete=true to cancel. Uses ABI-encoded + signed + AES-encrypted computedData.",
+      "parameters": {
+        "type": "object",
+        "required": ["apiKey", "userId", "sessionPrivateKey", "chainId", "orderId"],
+        "properties": {
+          "apiKey": { "type": "string", "description": "API key for AES encryption." },
+          "userId": { "type": "string", "description": "Control wallet address (NOT managed wallet)." },
+          "sessionPrivateKey": { "type": "string", "description": "Session private key from sign-in." },
+          "chainId": { "type": "number", "description": "Numeric chain ID." },
+          "orderId": { "type": "string", "description": "64-char hex order ID from getLimitOrders()." },
+          "amount": { "type": "string", "description": "New amount in raw units (optional for update)." },
+          "triggerPrice": { "type": "string", "description": "New trigger price in USD (optional for update)." },
+          "profitPercent": { "type": "string", "description": "New TP % (buy orders only)." },
+          "lossPercent": { "type": "string", "description": "New SL % (buy orders only)." },
+          "isDelete": { "type": "boolean", "description": "Set true to cancel/delete the order.", "default": false }
         }
       }
     },
     {
       "name": "get_limit_orders",
-      "description": "Retrieve limit orders for a wallet.",
+      "description": "List active limit orders for a user on a specific chain. Uses session-key auth (encrypted data query param).",
       "parameters": {
         "type": "object",
-        "required": ["walletAddress"],
+        "required": ["userId", "data", "chainId"],
         "properties": {
-          "walletAddress": { "type": "string" },
-          "chain": { "type": ["string", "number"] },
-          "status": { "type": "string", "enum": ["open", "filled", "cancelled", "expired", "partially_filled"] },
-          "page": { "type": "number", "default": 1 },
-          "limit": { "type": "number", "default": 20 }
+          "userId": { "type": "string", "description": "Control wallet address." },
+          "data": { "type": "string", "description": "Encrypted session key from buildGdexUserSessionData()." },
+          "chainId": { "type": "number", "description": "Numeric chain ID." }
         }
       }
     },

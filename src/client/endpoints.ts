@@ -27,8 +27,9 @@ export const TRADE_HISTORY = '/v1/user_history';
 
 /** Order endpoints */
 export const ORDERS = '/v1/orders';
-export const ORDERS_CREATE = '/v1/orders/create';
-export const ORDERS_CANCEL = '/v1/orders/cancel';
+export const LIMIT_BUY = '/v1/limit_buy';
+export const LIMIT_SELL = '/v1/limit_sell';
+export const UPDATE_ORDER = '/v1/update_order';
 
 /** HyperLiquid perp endpoints (managed custody computedData) */
 export const HL_DEPOSIT = '/v1/hl/deposit';
