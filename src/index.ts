@@ -61,6 +61,24 @@ import {
   createCopyTrade,
   updateCopyTrade,
 } from './actions/copyTrade';
+import {
+  getHlTopTraders,
+  getHlTopTradersByPnl,
+  getHlUserStats,
+  getHlPerpDexes,
+  getHlAllAssets,
+  getHlClearinghouseState,
+  getHlClearinghouseStateAll,
+  getHlOpenOrdersForCopy,
+  getHlOpenOrdersAllForCopy,
+  getHlMetaAndAssetCtxs,
+  getHlDepositTokens,
+  getHlUsdcBalanceForCopy,
+  getHlCopyTradeList,
+  getHlCopyTradeTxList,
+  createHlCopyTrade,
+  updateHlCopyTrade,
+} from './actions/hlCopyTrade';
 import { getPortfolio, getBalances, getTradeHistory } from './actions/portfolio';
 import { getTokenDetails, getTrendingTokens, getOHLCV } from './actions/tokenInfo';
 import { getTopTraders } from './actions/topTraders';
@@ -134,6 +152,27 @@ export type {
   UpdateCopyTradeParams,
   UpdateCopyTradeResponse,
 } from './types/copyTrade';
+export type {
+  HlCopyTradeConfig,
+  HlCopyTradeListParams,
+  HlCopyTradeListResponse,
+  HlCopyTradeTxListParams,
+  HlCopyTradeTx,
+  HlCopyTradeTxListResponse,
+  CreateHlCopyTradeParams,
+  CreateHlCopyTradeResponse,
+  UpdateHlCopyTradeParams,
+  UpdateHlCopyTradeResponse,
+  HlTopTrader,
+  HlTopTradersResponse,
+  HlDailyPnl,
+  HlUserStats,
+  HlUserStatsResponse,
+  HlPerpDexesResponse,
+  HlAllAssetsResponse,
+  HlDepositToken,
+  HlDepositTokensResponse,
+} from './types/hlCopyTrade';
 export type {
   BridgeEstimateParams,
   BridgeEstimate,
@@ -252,6 +291,21 @@ import type {
   UpdateCopyTradeParams,
   UpdateCopyTradeResponse,
 } from './types/copyTrade';
+import type {
+  HlCopyTradeListParams,
+  HlCopyTradeListResponse,
+  HlCopyTradeTxListParams,
+  HlCopyTradeTxListResponse,
+  CreateHlCopyTradeParams,
+  CreateHlCopyTradeResponse,
+  UpdateHlCopyTradeParams,
+  UpdateHlCopyTradeResponse,
+  HlTopTradersResponse,
+  HlUserStatsResponse,
+  HlPerpDexesResponse,
+  HlAllAssetsResponse,
+  HlDepositTokensResponse,
+} from './types/hlCopyTrade';
 import type {
   BridgeEstimateParams,
   BridgeEstimate,
@@ -684,6 +738,88 @@ export class GdexSkill {
   /** Update, toggle, or delete an existing copy trade (computedData auth). */
   async updateCopyTrade(params: UpdateCopyTradeParams): Promise<UpdateCopyTradeResponse> {
     return updateCopyTrade(this.client, params);
+  }
+
+  // ── HL Perp Copy Trading ──────────────────────────────────────────────────
+
+  /** Top HL traders by volume/tradeCount/deposit (no auth, cached 15 min). */
+  async getHlTopTraders(sort?: string): Promise<HlTopTradersResponse> {
+    return getHlTopTraders(this.client, sort);
+  }
+
+  /** Top 30 HL traders by PnL (no auth, cached 15 min). */
+  async getHlTopTradersByPnl(): Promise<HlTopTradersResponse> {
+    return getHlTopTradersByPnl(this.client);
+  }
+
+  /** Detailed HL trading stats for a user (no auth, cached 1 hr). */
+  async getHlUserStats(userAddress: string): Promise<HlUserStatsResponse> {
+    return getHlUserStats(this.client, userAddress);
+  }
+
+  /** Available perpetual DEXes (no auth). */
+  async getHlPerpDexes(): Promise<HlPerpDexesResponse> {
+    return getHlPerpDexes(this.client);
+  }
+
+  /** All tradeable HL assets (no auth). */
+  async getHlAllAssets(): Promise<HlAllAssetsResponse> {
+    return getHlAllAssets(this.client);
+  }
+
+  /** Clearinghouse state for a user on a DEX (no auth). */
+  async getHlClearinghouseState(userAddress: string): Promise<unknown> {
+    return getHlClearinghouseState(this.client, userAddress);
+  }
+
+  /** Clearinghouse state across all DEXes (no auth). */
+  async getHlClearinghouseStateAll(userAddress: string): Promise<unknown> {
+    return getHlClearinghouseStateAll(this.client, userAddress);
+  }
+
+  /** Open orders on a DEX (no auth). */
+  async getHlOpenOrdersForCopy(userAddress: string): Promise<unknown> {
+    return getHlOpenOrdersForCopy(this.client, userAddress);
+  }
+
+  /** Open orders across all DEXes (no auth). */
+  async getHlOpenOrdersAllForCopy(userAddress: string): Promise<unknown> {
+    return getHlOpenOrdersAllForCopy(this.client, userAddress);
+  }
+
+  /** Market metadata and asset contexts (no auth). */
+  async getHlMetaAndAssetCtxs(): Promise<unknown> {
+    return getHlMetaAndAssetCtxs(this.client);
+  }
+
+  /** Supported deposit tokens (no auth). */
+  async getHlDepositTokens(): Promise<HlDepositTokensResponse> {
+    return getHlDepositTokens(this.client);
+  }
+
+  /** USDC balance on Arbitrum (no auth). */
+  async getHlUsdcBalanceForCopy(userAddress: string): Promise<unknown> {
+    return getHlUsdcBalanceForCopy(this.client, userAddress);
+  }
+
+  /** List user's HL copy trade configs (session-key auth). */
+  async getHlCopyTradeList(params: HlCopyTradeListParams): Promise<HlCopyTradeListResponse> {
+    return getHlCopyTradeList(this.client, params);
+  }
+
+  /** HL copy trade fill history (session-key auth, cached 15s). */
+  async getHlCopyTradeTxList(params: HlCopyTradeTxListParams): Promise<HlCopyTradeTxListResponse> {
+    return getHlCopyTradeTxList(this.client, params);
+  }
+
+  /** Create a new HL perp copy trade (computedData auth). */
+  async createHlCopyTrade(params: CreateHlCopyTradeParams): Promise<CreateHlCopyTradeResponse> {
+    return createHlCopyTrade(this.client, params);
+  }
+
+  /** Update, toggle, or delete an HL perp copy trade (computedData auth). */
+  async updateHlCopyTrade(params: UpdateHlCopyTradeParams): Promise<UpdateHlCopyTradeResponse> {
+    return updateHlCopyTrade(this.client, params);
   }
 
   // ── Portfolio ──────────────────────────────────────────────────────────────

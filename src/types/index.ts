@@ -8,6 +8,7 @@ export * from './token';
 export * from './orders';
 export * from './perp';
 export * from './copyTrade';
+export * from './hlCopyTrade';
 export * from './bridge';
 export * from './managed';
 

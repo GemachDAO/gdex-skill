@@ -12,7 +12,9 @@ export type HlActionType =
   | 'hl_close_all'
   | 'hl_cancel_order'
   | 'hl_cancel_all_orders'
-  | 'hl_update_leverage';
+  | 'hl_update_leverage'
+  | 'hl_create'
+  | 'hl_update';
 
 /**
  * Derive AES-256-CBC key/iv from API key using the documented hash chain.
@@ -289,6 +291,33 @@ export function encodeHlActionData(
       encoded = abi.encode(
         ['string', 'uint32', 'bool', 'string'],
         [params.coin, params.leverage, params.isCross, params.nonce],
+      );
+      break;
+    case 'hl_create':
+      // [string×8] = [traderWallet, copyTradeName, copyMode, fixedAmountCostPerOrder,
+      //               lossPercent, profitPercent, nonce, oppositeCopy]
+      encoded = abi.encode(
+        ['string', 'string', 'string', 'string', 'string', 'string', 'string', 'string'],
+        [
+          params.traderWallet, params.copyTradeName, params.copyMode,
+          params.fixedAmountCostPerOrder, params.lossPercent, params.profitPercent,
+          params.nonce, params.oppositeCopy,
+        ],
+      );
+      break;
+    case 'hl_update':
+      // [string×11] = [traderWallet, copyTradeName, copyMode, fixedAmountCostPerOrder,
+      //                lossPercent, profitPercent, nonce, isDelete, isChangeStatus,
+      //                copyTradeId, oppositeCopy]
+      encoded = abi.encode(
+        ['string', 'string', 'string', 'string', 'string', 'string',
+         'string', 'string', 'string', 'string', 'string'],
+        [
+          params.traderWallet, params.copyTradeName, params.copyMode,
+          params.fixedAmountCostPerOrder, params.lossPercent, params.profitPercent,
+          params.nonce, params.isDelete, params.isChangeStatus,
+          params.copyTradeId, params.oppositeCopy,
+        ],
       );
       break;
     default:

@@ -518,6 +518,139 @@
       }
     },
     {
+      "name": "get_hl_top_traders",
+      "description": "Get top HyperLiquid perp traders by volume, trade count, or deposit. No auth. Cached 15 min.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "sort": { "type": "string", "enum": ["volume", "tradeCount", "deposit"], "default": "volume" }
+        }
+      }
+    },
+    {
+      "name": "get_hl_top_traders_by_pnl",
+      "description": "Get top 30 HyperLiquid perp traders ranked by PnL. No auth. Cached 15 min.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_hl_user_stats",
+      "description": "Get detailed trading stats for an HL user: daily PnL, volumes, trade counts, win rates. No auth. Cached 1 hr. NOTE: Requires MANAGED wallet address, not control wallet.",
+      "parameters": {
+        "type": "object",
+        "required": ["userAddress"],
+        "properties": {
+          "userAddress": { "type": "string", "description": "EVM wallet address." }
+        }
+      }
+    },
+    {
+      "name": "get_hl_perp_dexes",
+      "description": "Get available perpetual DEX list. No auth.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_hl_all_assets",
+      "description": "Get all tradeable assets on HyperLiquid. No auth.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_hl_clearinghouse_state",
+      "description": "Get account state (positions, margin) on a HyperLiquid DEX. No auth.",
+      "parameters": {
+        "type": "object",
+        "required": ["userAddress"],
+        "properties": {
+          "userAddress": { "type": "string", "description": "EVM wallet address." }
+        }
+      }
+    },
+    {
+      "name": "get_hl_deposit_tokens",
+      "description": "Get supported deposit tokens for HyperLiquid. No auth.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_hl_copy_trade_list",
+      "description": "List all HL perp copy trade configurations for a user. Requires session-key auth.",
+      "parameters": {
+        "type": "object",
+        "required": ["userId", "data"],
+        "properties": {
+          "userId": { "type": "string", "description": "Control wallet address." },
+          "data": { "type": "string", "description": "AES-encrypted session key." }
+        }
+      }
+    },
+    {
+      "name": "get_hl_copy_trade_tx_list",
+      "description": "Get HL copy trade fill history with enrichment (copyTradeName, traderTxHash, etc.). Session-key auth. Cached 15s.",
+      "parameters": {
+        "type": "object",
+        "required": ["userId", "data"],
+        "properties": {
+          "userId": { "type": "string" },
+          "data": { "type": "string" },
+          "page": { "type": "string", "default": "1" },
+          "limit": { "type": "string", "default": "10", "description": "Max 100." }
+        }
+      }
+    },
+    {
+      "name": "create_hl_copy_trade",
+      "description": "Create a new HL perpetual futures copy trade. Copies a trader's long/short perp positions. Uses hl_create ABI (8 fields, all strings). Requires computedData auth.",
+      "parameters": {
+        "type": "object",
+        "required": ["apiKey", "userId", "sessionPrivateKey", "traderWallet", "copyTradeName", "copyMode", "fixedAmountCostPerOrder", "lossPercent", "profitPercent"],
+        "properties": {
+          "apiKey": { "type": "string", "description": "API key for AES encryption." },
+          "userId": { "type": "string", "description": "Control wallet address." },
+          "sessionPrivateKey": { "type": "string", "description": "Session private key from sign-in." },
+          "traderWallet": { "type": "string", "description": "EVM address of the trader to copy." },
+          "copyTradeName": { "type": "string", "description": "Human-readable label." },
+          "copyMode": { "type": "number", "enum": [1, 2], "description": "1 = Fixed USD amount per order, 2 = Proportion of trader's size." },
+          "fixedAmountCostPerOrder": { "type": "string", "description": "USD amount (mode 1) or ratio (mode 2)." },
+          "lossPercent": { "type": "string", "description": "Stop-loss percentage (must be > 0 and < 100)." },
+          "profitPercent": { "type": "string", "description": "Take-profit percentage (must be > 0)." },
+          "oppositeCopy": { "type": "boolean", "description": "Copy in opposite direction (short when trader goes long).", "default": false }
+        }
+      }
+    },
+    {
+      "name": "update_hl_copy_trade",
+      "description": "Update or delete an HL perp copy trade. Uses hl_update ABI (11 fields, all strings). WARNING: Both isDelete and isChangeStatus permanently DELETE the trade. Requires computedData auth.",
+      "parameters": {
+        "type": "object",
+        "required": ["apiKey", "userId", "sessionPrivateKey", "copyTradeId", "traderWallet", "copyTradeName", "copyMode", "fixedAmountCostPerOrder", "lossPercent", "profitPercent"],
+        "properties": {
+          "apiKey": { "type": "string" },
+          "userId": { "type": "string" },
+          "sessionPrivateKey": { "type": "string" },
+          "copyTradeId": { "type": "string", "description": "The copy trade ID to modify." },
+          "traderWallet": { "type": "string" },
+          "copyTradeName": { "type": "string" },
+          "copyMode": { "type": "number", "enum": [1, 2] },
+          "fixedAmountCostPerOrder": { "type": "string" },
+          "lossPercent": { "type": "string" },
+          "profitPercent": { "type": "string" },
+          "oppositeCopy": { "type": "boolean", "default": false },
+          "isDelete": { "type": "boolean", "description": "Set true to permanently delete." },
+          "isChangeStatus": { "type": "boolean", "description": "WARNING: Permanently DELETES the trade (same as isDelete). Does NOT toggle isActive." }
+        }
+      }
+    },
+    {
       "name": "managed_sign_in",
       "description": "Sign in to GDEX managed-custody system using encrypted computedData. Requires a control wallet signature.",
       "parameters": {

@@ -42,6 +42,23 @@ export const HL_UPDATE_LEVERAGE = '/v1/hl/update_leverage';
 export const HL_GBOT_USDC_BALANCE = '/v1/hl/gbot_usdc_balance';
 export const HL_USER_STATS = '/v1/hl/user_stats';
 
+/** HyperLiquid perp copy trade endpoints */
+export const HL_COPY_LIST = '/v1/hl/list';
+export const HL_COPY_TX_LIST = '/v1/hl/tx_list';
+export const HL_COPY_CREATE = '/v1/hl/create';
+export const HL_COPY_UPDATE = '/v1/hl/update';
+export const HL_TOP_TRADERS = '/v1/hl/top_traders';
+export const HL_TOP_TRADERS_BY_PNL = '/v1/hl/top_traders_by_pnl';
+export const HL_PERP_DEXES = '/v1/hl/perp_dexes';
+export const HL_ALL_ASSETS = '/v1/hl/all_assets';
+export const HL_CLEARINGHOUSE_STATE = '/v1/hl/clearinghouse_state';
+export const HL_CLEARINGHOUSE_STATE_ALL = '/v1/hl/clearinghouse_state_all';
+export const HL_OPEN_ORDERS = '/v1/hl/open_orders';
+export const HL_OPEN_ORDERS_ALL = '/v1/hl/open_orders_all';
+export const HL_META_AND_ASSET_CTXS = '/v1/hl/meta_and_asset_ctxs';
+export const HL_DEPOSIT_TOKENS = '/v1/hl/deposit_tokens';
+export const HL_USDC_BALANCE = '/v1/hl/usdc_balance';
+
 /** Copy trade endpoints */
 export const COPY_TRADE_LIST = '/v1/copy_trade/list';
 export const COPY_TRADE_TX_LIST = '/v1/copy_trade/tx_list';

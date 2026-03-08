@@ -5,6 +5,7 @@ export * from './spotTrade';
 export * from './perpTrade';
 export * from './limitOrders';
 export * from './copyTrade';
+export * from './hlCopyTrade';
 export * from './portfolio';
 export * from './tokenInfo';
 export * from './topTraders';

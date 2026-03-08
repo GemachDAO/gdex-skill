@@ -26,6 +26,7 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 | **Data** | `gdex-portfolio` | Cross-chain portfolio, balances, trade history | Yes |
 | | `gdex-token-discovery` | Token details, trending tokens, OHLCV, top traders | Yes |
 | **Platform** | `gdex-copy-trading` | Copy trade wallets, create/delete configs, tx history, DEXes (Solana only for writes) | Discovery: No / Read+Write: Yes |
+| | `gdex-perp-copy-trading` | HL perp copy trading — copy long/short futures positions, opposite copy, top traders, market data | Discovery: No / Read+Write: Yes |
 | | `gdex-bridge` | Cross-chain bridging with quotes | Yes |
 | | `gdex-wallet-setup` | Generate EVM wallets, session keys, wallet info | **No** |
 
@@ -37,6 +38,7 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 - **"Check portfolio/balances"** → Load `gdex-authentication` + `gdex-portfolio`
 - **"User has no wallet"** → Load `gdex-wallet-setup` + `gdex-authentication`
 - **"Copy a trader"** → Load `gdex-authentication` + `gdex-copy-trading` (sign-in must use `chainId: 622112261`)
+- **"Copy a perp trader"** → Load `gdex-authentication` + `gdex-perp-copy-trading` (sign-in must use `chainId: 1`)
 - **"Bridge tokens"** → Load `gdex-authentication` + `gdex-bridge`
 - **"Create a limit order"** → Load `gdex-authentication` + `gdex-limit-orders`
 - **"Set a limit buy"** → Load `gdex-authentication` + `gdex-limit-orders` (use `limitBuy()`)
@@ -64,6 +66,8 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 > **Copy trade write operations (create/delete) use `chainId: 622112261` for sign-in, NOT `chainId: 1`.** The chainId field in the ABI is `uint256` (not string). The update endpoint uses 16 ABI fields (not 15): `[traderWallet, copyTradeName, chainId(uint256), gasPrice, buyMode, copyBuyAmount, isBuyExistingToken, lossPercent, profitPercent, nonce, copySell, excludedDexNumbers, copyTradeId, isDelete, isChangeStatus, excludedProgramIds]`. Both `isDelete='1'` and `isChangeStatus='1'` permanently delete the trade — there is no toggle. Boolean fields use `''` (empty string) for false and `'1'` for true; string `'0'` is truthy and will trigger deletion.
 
 > **Limit order endpoints are `limit_buy` / `limit_sell` / `update_order` — NOT `orders/create` / `orders/cancel`.** Use `limitBuy()` for buy orders, `limitSell()` for sell orders (auto-classifies TP vs SL), and `updateOrder({ isDelete: true })` to cancel. Listing uses `GET /v1/orders` with `userId` + encrypted `data` + `chainId`. All write endpoints use ABI-encoded + signed + AES-encrypted `computedData` (same managed-custody pattern). Minimum order is ~0.01 native token. See **gdex-limit-orders** skill for full details.
+
+> **HL perp copy trading is completely separate from Solana copy trading.** Uses `chainId: 1` (EVM), ABI methods `hl_create`/`hl_update` (8 and 11 string fields), and goes through `buildHlComputedData()`. Both `isDelete` and `isChangeStatus` permanently **DELETE** the trade (same as Solana — there is no toggle). Both TP and SL are **mandatory** (> 0). Max 3 copy trades per user. Supports opposite-direction copying via `oppositeCopy`. Backend stores ABI byte-offsets for `copyMode` and `oppositeCopy` (e.g., `copyMode=416`), not the actual values. `user_stats` requires the managed wallet address, not the control wallet. See **gdex-perp-copy-trading** skill for full details.
 
 ## Quick Start
 

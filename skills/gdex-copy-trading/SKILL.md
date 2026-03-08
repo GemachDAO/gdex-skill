@@ -183,16 +183,18 @@ await skill.updateCopyTrade({
 });
 ```
 
-### Toggle Active/Inactive
+### Delete a Copy Trade (isChangeStatus)
+
+> **⚠️ WARNING: `isChangeStatus` permanently DELETES the trade. It does NOT toggle `isActive`.**
 
 ```typescript
 await skill.updateCopyTrade({
   ...existingParams,
-  isChangeStatus: true,      // toggles isActive on/off
+  isChangeStatus: true,      // WARNING: permanently deletes (same as isDelete)
 });
 ```
 
-### Delete a Copy Trade
+### Delete a Copy Trade (isDelete)
 
 ```typescript
 await skill.updateCopyTrade({
