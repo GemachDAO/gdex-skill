@@ -90,8 +90,13 @@ const signInResult = await skill.signInWithComputedData({
 
 // Step 5: Resolve user profile / check managed wallet
 const userData = buildGdexUserSessionData(sessionKey, apiKey);
-const user = await skill.getManagedUser({ userId, data: userData, chainId: 900 });
+const user = await skill.getManagedUser({ userId, data: userData, chainId: 622112261 }); // Solana
+// → { address: "CFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1", chainId: "622112261", ... }
 ```
+
+> **Critical: Solana chainId is `622112261` (`ChainId.SOLANA`), NOT `900`.** Using `900` returns the EVM managed address with `balance: null`. The `/v1/user` endpoint returns a **different managed wallet address** per `chainId`:
+> - `chainId=1` → EVM managed: `0x9967179de55bd67e6b90fcc4f908556d93938c0f`
+> - `chainId=622112261` → Solana managed: `CFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1` (base58)
 
 ### Nonce Generation
 

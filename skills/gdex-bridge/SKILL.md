@@ -1,24 +1,34 @@
 ---
 name: gdex-bridge
-description: Cross-chain bridging — get quotes and execute token transfers between Solana, Sui, and EVM chains
+description: Cross-chain bridging — get estimates and execute native token transfers between EVM chains, Solana, and Sui via ChangeNow
 ---
 
 # GDEX: Cross-Chain Bridge
 
-Bridge tokens between supported chains with quote previews and slippage control.
+Bridge **native tokens** between supported chains with quote previews and time estimates.
+Uses ChangeNow as the bridge provider (StarGate support exists but is currently disabled).
 
 ## When to Use
 
-- Moving tokens from one chain to another (e.g., Solana → Base)
-- Getting a bridge quote before executing
-- Checking estimated fees and delivery times
+- Moving native tokens from one chain to another (e.g., ETH on Ethereum → ETH on Base)
+- Getting a bridge estimate before executing
+- Checking bridge order history
 
 ## Prerequisites
 
 - `@gdexsdk/gdex-skill` installed
-- Authenticated via `loginWithApiKey()` — see **gdex-authentication**
+- Authenticated via managed-custody sign-in — see **gdex-authentication**
+- Session keypair (sessionPrivateKey + sessionKey) from sign-in flow
 
-## Get a Bridge Quote
+## Backend Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/v1/bridge/estimate_bridge` | Get a bridge quote |
+| `POST` | `/v1/bridge/request_bridge` | Execute a bridge (encrypted) |
+| `GET` | `/v1/bridge/bridge_orders` | List bridge order history |
+
+## 1. Get a Bridge Estimate (Quote)
 
 ```typescript
 import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
@@ -26,69 +36,143 @@ import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
 
-const quote = await skill.getBridgeQuote({
-  fromChain: 'solana',
-  toChain: 8453,          // Base
-  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',  // USDC on Solana
-  amount: '100',
+const estimate = await skill.estimateBridge({
+  fromChainId: 1,        // Ethereum
+  toChainId: 8453,       // Base
+  amount: '1000000000000000000',  // 1 ETH in wei
 });
 ```
 
-### Quote Response
-
-```typescript
-interface BridgeQuote {
-  fromChain: string | number;
-  toChain: string | number;
-  inputAmount: string;
-  outputAmount: string;     // estimated output after fees
-  feeUsd?: number;
-  estimatedTime?: number;   // seconds
-  protocol?: string;        // bridge protocol used
-}
-```
-
-## Execute a Bridge
-
-```typescript
-const bridge = await skill.bridge({
-  fromChain: 'solana',
-  toChain: 8453,            // Base
-  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-  amount: '100',
-  slippage: 0.5,
-  destinationAddress: '0xOptionalDestination',  // optional: defaults to your managed wallet
-});
-```
-
-### Parameters
+### Query Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `fromChain` | `string \| ChainId` | Yes | Source chain |
-| `toChain` | `string \| ChainId` | Yes | Destination chain |
-| `tokenAddress` | `string` | Yes | Token to bridge |
-| `amount` | `string` | Yes | Amount to bridge |
-| `slippage` | `number` | No | Max slippage % |
-| `destinationAddress` | `string` | No | Destination wallet (defaults to managed wallet) |
-| `walletAddress` | `string` | No | Source wallet override |
+| `fromChainId` | `number` | Yes | Source chain ID |
+| `toChainId` | `number` | Yes | Destination chain ID |
+| `amount` | `string` | Yes | Amount in **raw token units** (wei for EVM, lamports for Solana) |
+
+### Estimate Response
+
+```typescript
+interface BridgeEstimate {
+  tool: string;              // "ChangeNow"
+  fromChainId: number;
+  fromAmount: string;        // input amount (raw units)
+  toChainId: number;
+  estimateAmount: string;    // estimated output (raw units)
+  minEstimateTime: number;   // seconds
+  maxEstimateTime: number;   // seconds
+}
+```
+
+### Error Codes
+| Code | Meaning |
+|------|---------|
+| 101 | Missing params / same chain / unsupported chain |
+| 106 | ChangeNow API error |
+| 107 | Unsupported chain (e.g., Fraxtal 252) or catch-all |
+
+## 2. Execute a Bridge
+
+The bridge endpoint requires an **AES-encrypted `computedData` payload** containing ABI-encoded parameters and a secp256k1 signature — the same pattern as managed spot trades.
+
+```typescript
+import {
+  GdexSkill,
+  GDEX_API_KEY_PRIMARY,
+  generateGdexSessionKeyPair,
+  buildGdexSignInMessage,
+  buildGdexSignInComputedData,
+} from '@gdexsdk/gdex-skill';
+import { ethers } from 'ethers';
+
+// After sign-in (you have sessionPrivateKey from the auth flow):
+const result = await skill.requestBridge({
+  fromChainId: 1,          // Ethereum
+  toChainId: 8453,         // Base
+  amount: '1000000000000000000',  // 1 ETH in wei
+  userId: controlAddress,
+  sessionPrivateKey,
+  apiKey: GDEX_API_KEY_PRIMARY,
+});
+
+if (result.isSuccess) {
+  console.log('TX hash:', result.hash);
+  console.log(`ETA: ${result.minTime}-${result.maxTime}s`);
+}
+```
+
+### Encryption Protocol
+
+The SDK handles this automatically, but for reference:
+
+1. **ABI-encode data**: `['string', 'uint64', 'uint64', 'string']` → `[amount, fromChainId, toChainId, nonce]`
+2. **Sign message**: `"request_bridge-{userId.toLowerCase()}-{dataHex}"` using secp256k1 session key
+3. **Encrypt JSON**: `{ userId, data, signature }` → AES-256-CBC with key/IV derived from SHA256(apiKey)
+4. **POST body**: `{ computedData: "<hex>" }`
 
 ### Bridge Result
 
 ```typescript
 interface BridgeResult {
-  sourceTxHash: string;
-  destinationTxHash?: string;   // available after completion
-  fromChain: string | number;
-  toChain: string | number;
-  inputAmount: string;
-  outputAmount: string;
-  status: string;
-  estimatedCompletionTime?: number;
+  isSuccess: boolean;
+  hash: string | null;       // source chain tx hash
+  message: string;
+  minTime?: number;          // seconds
+  maxTime?: number;          // seconds
+  error?: string;            // on failure
+}
+```
+
+### Error Codes
+| Code | Meaning |
+|------|---------|
+| 101 | Missing params / same chain / unsupported chain |
+| 102 | Invalid or reused nonce |
+| 103 | User wallet not found on chain |
+| 104 | Unauthorized (signature verification failed) |
+| 105 | Below minimum bridge amount / insufficient balance |
+
+## 3. Get Bridge Order History
+
+```typescript
+import { buildGdexUserSessionData, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+
+const data = buildGdexUserSessionData(sessionKey, GDEX_API_KEY_PRIMARY);
+const orders = await skill.getBridgeOrders({
+  userId: controlAddress,
+  data,
+});
+console.log(`${orders.count} bridge orders`);
+orders.bridgeOrders.forEach(o => {
+  console.log(`${o.fromChainId} → ${o.toChainId}: ${o.fromAmount} (tx: ${o.txHash})`);
+});
+```
+
+### Response
+
+```typescript
+interface BridgeOrdersResponse {
+  count: number;
+  bridgeOrders: BridgeOrder[];
+}
+
+interface BridgeOrder {
+  userId: string;
+  fromChainId: number;
+  toChainId: number;
+  fromAmount: string;
+  estimateToAmount: string;
+  fromWallet: string;
+  toWallet: string;
+  txHash: string;
+  requestTime: number;
 }
 ```
 
 ## Supported Chains for Bridging
+
+Controlled by backend `config.bridgeSupportedChainIds`. Known supported:
 
 | Chain | ChainId |
 |-------|---------|
@@ -96,40 +180,21 @@ interface BridgeResult {
 | Optimism | `10` |
 | BSC | `56` |
 | Sonic | `146` |
-| Fraxtal | `252` |
-| Nibiru | `6900` |
 | Base | `8453` |
 | Arbitrum | `42161` |
 | Berachain | `80094` |
-| Solana | `'solana'` / `622112261` |
-| Sui | `'sui'` / `1313131213` |
+| Solana | `622112261` |
+| Sui | `1313131213` |
 
-## Example: Bridge USDC from Solana to Base
+> **Fraxtal (252) is explicitly blocked** by the backend and will return error code 107.
 
-```typescript
-const skill = new GdexSkill();
-skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
+## Key Points
 
-// 1. Check the quote
-const quote = await skill.getBridgeQuote({
-  fromChain: 'solana',
-  toChain: 8453,
-  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-  amount: '100',
-});
-console.log(`Output: ${quote.outputAmount} USDC, Fee: $${quote.feeUsd}, Time: ${quote.estimatedTime}s`);
-
-// 2. Execute if acceptable
-const result = await skill.bridge({
-  fromChain: 'solana',
-  toChain: 8453,
-  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-  amount: '100',
-  slippage: 0.5,
-});
-console.log('Source tx:', result.sourceTxHash);
-console.log('Status:', result.status);
-```
+- **Native tokens only** — the bridge transfers the chain's native token (ETH, SOL, BNB, etc.), not arbitrary ERC-20s.
+- **Amounts in raw units** — use wei for EVM (1 ETH = `"1000000000000000000"`), lamports for Solana (1 SOL = `"1000000000"`).
+- **Minimum bridge amount** — each chain has a `minBridge` config (default 1 in native decimals). Below this triggers error 105.
+- **Nonce required** — each `requestBridge` call uses a unique nonce verified server-side. The SDK generates this automatically.
+- **ChangeNow provider** — all bridges currently go through ChangeNow (StarGate code exists but is disabled).
 
 ## Related Skills
 

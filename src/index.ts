@@ -61,7 +61,7 @@ import {
 import { getPortfolio, getBalances, getTradeHistory } from './actions/portfolio';
 import { getTokenDetails, getTrendingTokens, getOHLCV } from './actions/tokenInfo';
 import { getTopTraders } from './actions/topTraders';
-import { bridge, getBridgeQuote } from './actions/bridge';
+import { estimateBridge, requestBridge, getBridgeOrders } from './actions/bridge';
 import { getWalletInfo } from './actions/wallet';
 
 // Types
@@ -116,7 +116,17 @@ export type {
   RemoveWalletParams,
   GetCopyTradeSettingsParams,
 } from './types/copyTrade';
-export type { BridgeParams, BridgeResult, BridgeQuote } from './types/bridge';
+export type {
+  BridgeEstimateParams,
+  BridgeEstimate,
+  BridgeRequestParams,
+  BridgeResult,
+  BridgeOrdersParams,
+  BridgeOrdersResponse,
+  BridgeOrder,
+  BridgeParams,
+  BridgeQuote,
+} from './types/bridge';
 export type { TopTrader, TopTradersParams, WalletInfo, WalletInfoParams } from './types/index';
 export type {
   GdexManagedSignInParams,
@@ -200,7 +210,14 @@ import type {
   HlOrderResult,
 } from './types/perp';
 import type { CopyTradeSettings, CopyTradeWallet, AddWalletParams, RemoveWalletParams, GetCopyTradeSettingsParams } from './types/copyTrade';
-import type { BridgeParams, BridgeResult, BridgeQuote } from './types/bridge';
+import type {
+  BridgeEstimateParams,
+  BridgeEstimate,
+  BridgeRequestParams,
+  BridgeResult,
+  BridgeOrdersParams,
+  BridgeOrdersResponse,
+} from './types/bridge';
 import type { TopTrader, TopTradersParams, WalletInfo, WalletInfoParams } from './types/index';
 import type {
   GdexManagedSignInParams,
@@ -710,23 +727,34 @@ export class GdexSkill {
   // ── Bridge ─────────────────────────────────────────────────────────────────
 
   /**
-   * Bridge tokens from one chain to another.
+   * Get a bridge estimate / quote for native token bridging.
    *
-   * @param params - Bridge parameters
-   * @returns Bridge result with transaction hashes
+   * @param params - fromChainId, toChainId, amount (raw token units)
+   * @returns Estimate with output amount, provider, and time range
    */
-  async bridge(params: BridgeParams): Promise<BridgeResult> {
-    return bridge(this.client, params);
+  async estimateBridge(params: BridgeEstimateParams): Promise<BridgeEstimate> {
+    return estimateBridge(this.client, params);
   }
 
   /**
-   * Get a bridge quote without executing the transaction.
+   * Execute a cross-chain bridge transaction.
+   * Requires session auth — builds ABI-encoded + signed + encrypted payload.
    *
-   * @param params - Bridge parameters (amount required)
-   * @returns Quote with expected output amount and fees
+   * @param params - Bridge request parameters including userId, sessionPrivateKey, apiKey
+   * @returns Bridge result with tx hash and success status
    */
-  async getBridgeQuote(params: BridgeParams): Promise<BridgeQuote> {
-    return getBridgeQuote(this.client, params);
+  async requestBridge(params: BridgeRequestParams): Promise<BridgeResult> {
+    return requestBridge(this.client, params);
+  }
+
+  /**
+   * Get bridge order history for a user.
+   *
+   * @param params - userId and encrypted session data
+   * @returns List of completed bridge orders
+   */
+  async getBridgeOrders(params: BridgeOrdersParams): Promise<BridgeOrdersResponse> {
+    return getBridgeOrders(this.client, params);
   }
 
   // ── Wallet ─────────────────────────────────────────────────────────────────

@@ -48,6 +48,17 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 
 > **`hlUpdateLeverage` / `/v1/hl/update_leverage` is not implemented** on the backend (returns 404). Leverage is set automatically when placing orders — pass the desired leverage indirectly via position sizing.
 
+> **Solana chainId is `622112261`, NOT `900`.** The correct Solana chain ID is `ChainId.SOLANA = 622112261`. Using `900` falls back to the EVM managed address with `balance: null`. The `/v1/user` endpoint returns a **different managed wallet** per `chainId`:
+> - `chainId=1` → EVM managed: `0x9967...`
+> - `chainId=622112261` → Solana managed: `CFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1` (base58)
+> Always use `ChainId.SOLANA` from the SDK's enum to avoid this mistake.
+
+> **Solana Meteora swaps are broken (backend bug).** Tokens that route through Meteora DLMM (e.g. BONK) fail with `Program error: 1` because the backend doesn’t wrap SOL into WSOL before calling `Swap2`. **Raydium-routed tokens work correctly** (e.g. WIF). Check `token.dexId` — if it's `"meteora"`, the swap will fail. Prefer tokens with `isRaydium: true` or `dexId: "raydium"`.
+
+> **Solana trades need ~0.01 SOL minimum.** ATA (Associated Token Account) creation costs ~0.002 SOL per new token, plus priority fees (default 0.0005 SOL) and base tx fees. First trade on a new token needs ~0.007 SOL overhead beyond the swap amount.
+
+> **Bridge endpoints use different paths than expected.** The actual backend routes are `GET /v1/bridge/estimate_bridge`, `POST /v1/bridge/request_bridge`, and `GET /v1/bridge/bridge_orders`. The `request_bridge` endpoint requires ABI-encoded + signed + AES-encrypted `computedData` (same pattern as managed trades). Bridge is **native tokens only** and uses ChangeNow as provider. Amounts must be in **raw token units** (wei/lamports). See **gdex-bridge** skill for full details.
+
 ## Quick Start
 
 ```typescript

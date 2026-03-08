@@ -41,7 +41,9 @@ const trade = await skill.buyToken({
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `chain` | `string \| ChainId` | Yes | `'solana'`, `'sui'`, or ChainId number (1=Ethereum, 8453=Base, 42161=Arbitrum, 56=BSC) |
+| `chain` | `string \| ChainId` | Yes | `'solana'`, `'sui'`, or ChainId number (1=Ethereum, 8453=Base, 42161=Arbitrum, 56=BSC, **622112261=Solana**) |
+
+> **Critical:** The Solana numeric chainId is `622112261` (`ChainId.SOLANA`), NOT `900`. Using `900` returns the EVM managed address with `balance: null`. The `/v1/user` endpoint returns a different managed wallet per chainId (e.g. `CFSi4Y...` for Solana, `0x9967...` for EVM). |
 | `tokenAddress` | `string` | Yes | Contract address of the token to buy |
 | `amount` | `string` | Yes | Amount of native token to spend (e.g., `'0.1'` for 0.1 SOL) |
 | `slippage` | `number` | No | Max slippage % (default: 1) |
@@ -105,9 +107,18 @@ const trade = buildGdexManagedTradeComputedData({
 
 const result = await skill.submitManagedPurchase({
   computedData: trade.computedData,
-  chainId: 900,   // 900=Solana, 101=Sui, or EVM chain ID
-  slippage: 1,
+  chainId: 622112261,   // 622112261=Solana (ChainId.SOLANA), NOT 900
+  slippage: 15,          // 10-15% recommended for Solana
 });
+```
+
+### Solana-Specific Notes (Live-Tested)
+
+- **Raydium-routed tokens work; Meteora tokens fail.** The backend has a bug where Meteora DLMM swaps don't wrap SOL into WSOL before swapping. Check `token.dexId` — if `"meteora"`, the swap will fail with `Program error: 1`. Tokens with `dexId: "raydium"` work correctly.
+- **Minimum ~0.01 SOL balance needed.** Each new token ATA costs ~0.002 SOL rent + priority fee (0.0005 default) + base tx fee. The first trade on a token needs significantly more SOL than just the swap amount.
+- **Amount is in lamports** (1 SOL = 1,000,000,000 lamports). Pass as a string, e.g. `'5000000'` for 0.005 SOL.
+- **Use `chainId: 622112261`**, not `900`. Using `900` will submit the trade to the wrong chain context.
+```
 ```
 
 ## Trade Status Polling

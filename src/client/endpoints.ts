@@ -63,9 +63,9 @@ export const TRADING_VIEW_SYMBOLS = '/v1/trading_view/symbols';
 export const TRADING_VIEW_HISTORY = '/v1/trading_view/history';
 
 /** Bridge endpoints */
-export const BRIDGE = '/v1/bridge';
-export const BRIDGE_QUOTE = '/v1/bridge/quote';
-export const BRIDGE_STATUS = '/v1/bridge/status';
+export const BRIDGE_ESTIMATE = '/v1/bridge/estimate_bridge';
+export const BRIDGE_REQUEST = '/v1/bridge/request_bridge';
+export const BRIDGE_ORDERS = '/v1/bridge/bridge_orders';
 
 /** Top traders endpoints */
 export const TOP_TRADERS = '/v1/copy_trade/top_traders';
