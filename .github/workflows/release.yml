@@ -1,0 +1,117 @@
+name: Release
+
+on:
+  # Manual trigger from GitHub UI — pick the version bump type
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump type
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+
+  # Also trigger on pushed version tags (e.g. git tag v1.1.0 && git push --tags)
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  ci:
+    name: CI Checks
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: ci
+    # Only run on manual dispatch or tag push — not on every CI run
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build SDK
+        run: npm run build
+
+      - name: Build MCP Server
+        run: cd mcp-server && npm ci && npm run build
+
+      # ── Version bump (only on manual dispatch) ──────────────────────────
+      - name: Bump version
+        if: github.event_name == 'workflow_dispatch'
+        id: bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Bump version in package.json (no git tag yet)
+          NEW_VERSION=$(npm version ${{ inputs.bump }} --no-git-tag-version)
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Bumped to $NEW_VERSION"
+
+          # Also bump mcp-server version to match
+          cd mcp-server
+          npm version ${{ inputs.bump }} --no-git-tag-version
+          cd ..
+
+          # Commit and tag
+          git add package.json package-lock.json mcp-server/package.json mcp-server/package-lock.json
+          git commit -m "chore: release $NEW_VERSION"
+          git tag "$NEW_VERSION"
+          git push origin main --tags
+
+      # ── Resolve version for tag-push trigger ────────────────────────────
+      - name: Get version from tag
+        if: github.event_name == 'push'
+        id: tag_version
+        run: echo "version=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      # ── Build release artifacts ─────────────────────────────────────────
+      - name: Set release version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ steps.bump.outputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Package SDK tarball
+        run: npm pack
+
+      - name: Package MCP Server tarball
+        working-directory: mcp-server
+        run: npm pack
+
+      # ── Create GitHub Release ───────────────────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            *.tgz
+            mcp-server/*.tgz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
