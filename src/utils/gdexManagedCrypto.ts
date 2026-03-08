@@ -446,3 +446,107 @@ export function buildLimitOrderComputedData(params: {
     signature,
   });
 }
+
+// ── Copy trade action types ──────────────────────────────────────────────────
+
+export type CopyTradeActionType = 'create_copy_trade' | 'update_copy_trade';
+
+/**
+ * ABI-encode data for a copy trade action.
+ *
+ * Schemas:
+ *   create_copy_trade (12 fields, chainId is uint256):
+ *     [traderWallet, copyTradeName, chainId(uint256), gasPrice, buyMode, copyBuyAmount,
+ *      isBuyExistingToken, lossPercent, profitPercent, nonce, copySell, excludedDexNumbers]
+ *
+ *   update_copy_trade (16 fields, chainId is uint256):
+ *     [traderWallet, copyTradeName, chainId(uint256), gasPrice, buyMode, copyBuyAmount,
+ *      isBuyExistingToken, lossPercent, profitPercent, nonce, copySell,
+ *      excludedDexNumbers, copyTradeId, isDelete, isChangeStatus, excludedProgramIds]
+ */
+export function encodeCopyTradeData(
+  action: CopyTradeActionType,
+  params: Record<string, string>,
+): string {
+  const abi = AbiCoder.defaultAbiCoder();
+  let encoded: string;
+
+  switch (action) {
+    case 'create_copy_trade':
+      encoded = abi.encode(
+        ['string', 'string', 'uint256', 'string', 'string', 'string',
+         'string', 'string', 'string', 'string', 'string', 'string'],
+        [params.traderWallet, params.copyTradeName, params.chainId,
+         params.gasPrice, params.buyMode, params.copyBuyAmount,
+         params.isBuyExistingToken, params.lossPercent, params.profitPercent,
+         params.nonce, params.copySell, params.excludedDexNumbers],
+      );
+      break;
+    case 'update_copy_trade':
+      encoded = abi.encode(
+        ['string', 'string', 'uint256', 'string', 'string', 'string',
+         'string', 'string', 'string', 'string', 'string', 'string',
+         'string', 'string', 'string', 'string'],
+        [params.traderWallet, params.copyTradeName, params.chainId,
+         params.gasPrice, params.buyMode, params.copyBuyAmount,
+         params.isBuyExistingToken, params.lossPercent, params.profitPercent,
+         params.nonce, params.copySell, params.excludedDexNumbers,
+         params.copyTradeId, params.isDelete, params.isChangeStatus,
+         params.excludedProgramIds],
+      );
+      break;
+    default:
+      throw new Error(`Unknown copy trade action: ${action}`);
+  }
+
+  return encoded.startsWith('0x') ? encoded.slice(2) : encoded;
+}
+
+/**
+ * Sign a copy trade action message with the session private key.
+ * Message format: `{action}-{userId}-{dataHex}`
+ * Returns 130-char hex (r64+s64+v2) without 0x prefix.
+ */
+export function signCopyTradeMessage(
+  action: CopyTradeActionType,
+  userId: string,
+  dataHex: string,
+  sessionPrivateKey: string,
+): string {
+  const normalizedUserId = userId.startsWith('0x') ? userId.toLowerCase() : userId;
+  const msg = `${action}-${normalizedUserId}-${dataHex}`;
+  const digest = keccak256(toUtf8Bytes(msg));
+  const sig = new SigningKey(sessionPrivateKey).sign(digest);
+  const r = sig.r.replace(/^0x/, '');
+  const s = sig.s.replace(/^0x/, '');
+  const v = sig.yParity.toString(16).padStart(2, '0');
+  return `${r}${s}${v}`;
+}
+
+/**
+ * Build encrypted computedData for a copy trade action.
+ */
+export function buildCopyTradeComputedData(params: {
+  action: CopyTradeActionType;
+  apiKey: string;
+  userId: string;
+  sessionPrivateKey: string;
+  actionParams: Record<string, string>;
+}): string {
+  const nonce = generateGdexNonce().toString();
+  const fullParams = { ...params.actionParams, nonce };
+
+  const data = encodeCopyTradeData(params.action, fullParams);
+  const signature = signCopyTradeMessage(
+    params.action,
+    params.userId,
+    data,
+    params.sessionPrivateKey,
+  );
+  return buildEncryptedGdexPayload({
+    apiKey: params.apiKey,
+    userId: params.userId,
+    data,
+    signature,
+  });
+}

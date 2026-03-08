@@ -418,55 +418,101 @@
       }
     },
     {
-      "name": "add_copy_trade_wallet",
-      "description": "Add a wallet to copy trade tracking.",
-      "parameters": {
-        "type": "object",
-        "required": ["walletAddress", "chain"],
-        "properties": {
-          "walletAddress": { "type": "string", "description": "Wallet address to track." },
-          "chain": { "type": ["string", "number"] },
-          "label": { "type": "string" }
-        }
-      }
-    },
-    {
-      "name": "remove_copy_trade_wallet",
-      "description": "Remove a wallet from copy trade tracking.",
-      "parameters": {
-        "type": "object",
-        "required": ["walletAddress", "chain"],
-        "properties": {
-          "walletAddress": { "type": "string" },
-          "chain": { "type": ["string", "number"] }
-        }
-      }
-    },
-    {
       "name": "get_copy_trade_wallets",
-      "description": "Get all wallets being tracked for copy trading.",
+      "description": "Get top 300 wallets by totalPnl for the copy trade leaderboard. No auth required.",
       "parameters": {
         "type": "object",
-        "required": ["userId"],
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_copy_trade_custom_wallets",
+      "description": "Get top 300 wallets by net received (receivedMinusSpent). No auth required.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_copy_trade_gems",
+      "description": "Get hot new tokens heavily traded by top wallets. No auth required.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_copy_trade_dexes",
+      "description": "List supported DEXes for a chain (e.g. Raydium, Pumpfun on Solana).",
+      "parameters": {
+        "type": "object",
+        "required": ["chainId"],
         "properties": {
-          "userId": { "type": "string" }
+          "chainId": { "type": "number", "description": "Chain ID (622112261 for Solana)." }
         }
       }
     },
     {
-      "name": "set_copy_trade_settings",
-      "description": "Configure copy trading settings (max trade size, slippage, chains, etc.).",
+      "name": "get_copy_trade_list",
+      "description": "List all copy trade configurations for a user. Requires session-key auth.",
       "parameters": {
         "type": "object",
-        "required": ["enabled"],
+        "required": ["userId", "data"],
         "properties": {
-          "enabled": { "type": "boolean" },
-          "maxTradeSize": { "type": "string" },
-          "slippage": { "type": "number" },
-          "chains": { "type": "array", "items": { "type": ["string", "number"] } },
-          "copyBuysOnly": { "type": "boolean" },
-          "copySellsOnly": { "type": "boolean" },
-          "autoStopLossPercent": { "type": "number" }
+          "userId": { "type": "string", "description": "Control wallet address." },
+          "data": { "type": "string", "description": "AES-encrypted session key." }
+        }
+      }
+    },
+    {
+      "name": "get_copy_trade_tx_list",
+      "description": "List copy trade transaction history with PnL. Requires session-key auth.",
+      "parameters": {
+        "type": "object",
+        "required": ["userId", "data"],
+        "properties": {
+          "userId": { "type": "string" },
+          "data": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "create_copy_trade",
+      "description": "Create a new copy trade to auto-mirror a Solana trader's buys and sells. Requires computedData auth.",
+      "parameters": {
+        "type": "object",
+        "required": ["traderWallet", "copyTradeName", "chainId", "buyMode", "copyBuyAmount", "lossPercent", "profitPercent"],
+        "properties": {
+          "traderWallet": { "type": "string", "description": "Solana wallet address of the trader to copy." },
+          "copyTradeName": { "type": "string", "description": "Human-readable label." },
+          "chainId": { "type": "number", "description": "Must be Solana chain ID (622112261)." },
+          "buyMode": { "type": "number", "description": "1 = fixed SOL amount, 2 = percentage of trader's amount." },
+          "copyBuyAmount": { "type": "string", "description": "SOL amount (mode 1) or percentage 0-100 (mode 2)." },
+          "lossPercent": { "type": "string", "description": "Stop-loss percentage (> 0, < 100)." },
+          "profitPercent": { "type": "string", "description": "Take-profit percentage (> 0)." },
+          "copySell": { "type": "boolean", "description": "Also copy sell trades." },
+          "isBuyExistingToken": { "type": "boolean", "description": "Also buy tokens already held by trader." },
+          "excludedDexNumbers": { "type": "array", "items": { "type": "number" }, "description": "DEX numbers to exclude." }
+        }
+      }
+    },
+    {
+      "name": "update_copy_trade",
+      "description": "Update, toggle active/inactive, or delete an existing copy trade. Requires computedData auth.",
+      "parameters": {
+        "type": "object",
+        "required": ["copyTradeId", "traderWallet", "chainId", "buyMode", "copyBuyAmount", "lossPercent", "profitPercent"],
+        "properties": {
+          "copyTradeId": { "type": "string", "description": "The copy trade ID to modify." },
+          "traderWallet": { "type": "string" },
+          "copyTradeName": { "type": "string" },
+          "chainId": { "type": "number" },
+          "buyMode": { "type": "number" },
+          "copyBuyAmount": { "type": "string" },
+          "lossPercent": { "type": "string" },
+          "profitPercent": { "type": "string" },
+          "isDelete": { "type": "boolean", "description": "Set true to permanently delete." },
+          "isChangeStatus": { "type": "boolean", "description": "Set true to toggle active/inactive." }
         }
       }
     },

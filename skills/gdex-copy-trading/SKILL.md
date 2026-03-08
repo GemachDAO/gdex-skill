@@ -1,172 +1,284 @@
 ---
 name: gdex-copy-trading
-description: Copy trade setup — track top trader wallets, configure copy parameters, view performance stats, and discover top traders
+description: Copy trade setup — discover top wallets, create/manage copy trades, view transaction history, and browse supported DEXes. Solana only for write operations.
 ---
 
 # GDEX: Copy Trading
 
-Track successful trader wallets and automatically copy their trades. Includes top trader discovery with P&L rankings.
+Automatically mirror trades from top-performing Solana wallets. Includes wallet leaderboards, hot token gems, backed by a background process that copies buys/sells in real-time.
 
 ## When to Use
 
-- Finding top-performing traders to follow
-- Adding wallets to copy-trade tracking
-- Configuring copy trade parameters (size limits, slippage, etc.)
-- Managing tracked wallets
+- Browsing the top wallet leaderboard (by PnL or net profit)
+- Discovering hot new tokens from top wallets
+- Creating a copy trade to follow a specific trader
+- Updating, toggling, or deleting a copy trade
+- Viewing copy trade transaction history with PnL
+- Listing supported DEXes for exclusion
 
 ## Prerequisites
 
 - `@gdexsdk/gdex-skill` installed
-- Authenticated via `loginWithApiKey()` — see **gdex-authentication**
+- For discovery: `loginWithApiKey()` only
+- For read (list/tx_list): Full sign-in with session key
+- For write (create/update): Full sign-in + computedData
 
-## Discover Top Traders
+## Auth Tiers
 
-```typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+| Tier | Endpoints | Auth Needed |
+|------|-----------|-------------|
+| Discovery | `wallets`, `custom_wallets`, `gems`, `dexes_list`, `top_traders` | API key only |
+| Read | `list`, `tx_list` | Session-key auth (`userId` + encrypted `data`) |
+| Write | `create`, `update` | computedData (ABI-encode + sign + AES-encrypt) |
 
-const skill = new GdexSkill();
-skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
+> **Write operations are Solana-only.** All create/update calls reject non-Solana chain IDs.
 
-const traders = await skill.getTopTraders({
-  period: '7d',      // '1d' | '7d' | '30d' | 'all'
-  limit: 10,
-  sortBy: 'pnl',     // 'pnl' | 'winRate' | 'volume' | 'tradeCount'
-});
-```
+## Discovery Endpoints (No Auth)
 
-### Top Trader Response
-
-```typescript
-interface TopTrader {
-  address: string;
-  label?: string;
-  chain: string | number;
-  totalPnlUsd: number;
-  winRate: number;
-  tradeCount: number;
-  totalVolumeUsd: number;
-  performance?: {
-    pnl7d?: number;
-    pnl30d?: number;
-    roi?: number;
-  };
-}
-```
-
-## Add a Wallet to Track
+### Top Wallets by PnL
 
 ```typescript
-await skill.addCopyTradeWallet({
-  walletAddress: '0xTopTraderAddress',
-  chain: 'solana',
-  label: 'Alpha Trader',   // optional label
-});
+const wallets = await skill.getCopyTradeWallets();
+// Returns 300 wallets sorted by totalPnl, cached 2 minutes
 ```
 
-## Get Tracked Wallets
+### Top Wallets by Net Received
 
 ```typescript
-const wallets = await skill.getCopyTradeWallets('your-user-id');
+const custom = await skill.getCopyTradeCustomWallets();
+// Returns 300 wallets sorted by receivedMinusSpent, cached 2 minutes
 ```
 
-### Tracked Wallet Response
+### CopyTradeWallet Response Shape
 
 ```typescript
 interface CopyTradeWallet {
-  address: string;
-  label?: string;
-  chain: string | number;
-  active: boolean;
-  addedAt?: string;
-  stats: {
-    totalCopiedTrades: number;
-    profitableTrades: number;
-    totalPnlUsd: number;
-    winRate: number;
-  };
+  _id: string;
+  chainId: number;             // 622112261 for Solana
+  address: string;             // Solana wallet address
+  lastTxTimestamp: number;     // Unix timestamp
+  receivedMinusSpent: number;  // Net USD profit
+  spent: number;               // Total USD spent
+  lastCalculateUnrealizedPnl: number;
+  totalPnl: number;            // Total PnL (incl. unrealized)
+  unrealizedValue: number;     // Current unrealized USD
+  received: number;            // Total USD received
 }
 ```
 
-## Configure Copy Trade Settings
+### Hot Token Gems
 
 ```typescript
-await skill.setCopyTradeSettings({
-  enabled: true,
-  maxTradeSize: '100',       // max $100 per copied trade
-  slippage: 1,               // 1% max slippage
-  delay: 5,                  // 5 second delay before copying
-  copyBuysOnly: false,       // copy both buys and sells
-  copySellsOnly: false,
-  chains: ['solana', 8453],  // only copy on these chains
-  maxPositions: 10,          // max concurrent positions
+const gems = await skill.getCopyTradeGems();
+// Tokens heavily traded by 3+ hot wallets with >$10 total value
+// Cached 20 seconds; may return empty array
+```
+
+### Supported DEXes
+
+```typescript
+const dexes = await skill.getCopyTradeDexes(622112261); // Solana chain ID
+// { success: true, dexes: [{ chainId, dexNumber, dexName, programId }] }
+```
+
+Live DEX list (Solana):
+
+| # | DEX | Program ID |
+|---|-----|-----------|
+| 1 | pumpfun | `6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P` |
+| 2 | pumpswap | `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA` |
+| 3 | raydium | `675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8` |
+| 4 | raydiumCpmm | `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C` |
+| 5 | meteoraDlmm | `LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo` |
+
+## Read Endpoints (Session-Key Auth)
+
+Require `userId` and `data` (AES-encrypted session key from `buildGdexUserSessionData`).
+
+### List User's Copy Trades
+
+```typescript
+import { buildGdexUserSessionData } from '@gdexsdk/gdex-skill';
+
+const data = buildGdexUserSessionData(sessionKey, apiKey);
+const list = await skill.getCopyTradeList({ userId, data });
+// { isSuccess: true, count: 2, allCopyTrades: [...], dexes: [...] }
+```
+
+### CopyTradeConfig Shape
+
+```typescript
+interface CopyTradeConfig {
+  copyTradeId: string;
+  copyTradeName: string;
+  buyMode: number;          // 1 = fixed SOL, 2 = % of trader's amount
+  chainId: number;
+  isActive: boolean;
+  userId: string;
+  userWallet: string;
+  traderWallet: string;
+  lossPercent: number;      // stop-loss %
+  profitPercent: number;    // take-profit %
+  gasPrice: string;
+  copyBuyFixedAmount: string;
+  copyBuyPercent: number;
+  isBuyExistingToken: boolean;
+  copySell: boolean;
+  excludedProgramIds: string[];
+  excludedDexNumbers: number[];
+  txCount?: number;
+  lastTxTimestamp?: number;
+}
+```
+
+### Transaction History
+
+```typescript
+const txList = await skill.getCopyTradeTxList({ userId, data });
+// { isSuccess: true, count: 5, txes: [...] }
+```
+
+Each `CopyTradeTx` includes:
+- `isBuy`, `priceUsd`, `boughtPrice`, `pnlPercentage`
+- `tokenInfo`: `{ address, symbol, name, decimals, dexId, marketCap, logoUrl }`
+
+## Write Endpoints (ComputedData Auth, Solana Only)
+
+### Create a Copy Trade
+
+```typescript
+await skill.createCopyTrade({
+  apiKey,
+  userId,
+  sessionPrivateKey,
+  chainId: 622112261,
+  traderWallet: 'SolanaWalletAddress',
+  copyTradeName: 'My Alpha Trader',
+  buyMode: 1,               // 1 = fixed SOL amount
+  copyBuyAmount: '0.5',     // 0.5 SOL per copied trade
+  lossPercent: '50',         // 50% stop-loss
+  profitPercent: '100',      // 100% take-profit
+  copySell: true,
+  isBuyExistingToken: true,
+  excludedDexNumbers: [],    // empty = allow all DEXes
 });
 ```
 
-### Settings Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `enabled` | `boolean` | Enable/disable copy trading |
-| `maxTradeSize` | `string` | Maximum USD per copied trade |
-| `slippage` | `number` | Max slippage % |
-| `delay` | `number` | Seconds to wait before copying |
-| `copyBuysOnly` | `boolean` | Only copy buy trades |
-| `copySellsOnly` | `boolean` | Only copy sell trades |
-| `chains` | `array` | Limit to specific chains |
-| `maxPositions` | `number` | Max concurrent positions |
-
-## Get Current Settings
+### Update a Copy Trade
 
 ```typescript
-const settings = await skill.getCopyTradeSettings();
-console.log('Enabled:', settings.enabled);
-console.log('Max trade size:', settings.maxTradeSize);
-```
-
-## Remove a Tracked Wallet
-
-```typescript
-await skill.removeCopyTradeWallet({
-  walletAddress: '0xTopTraderAddress',
-  chain: 'solana',
+await skill.updateCopyTrade({
+  apiKey,
+  userId,
+  sessionPrivateKey,
+  chainId: 622112261,
+  copyTradeId: 'a1b2c3...',
+  traderWallet: 'SolanaWalletAddress',
+  copyTradeName: 'Updated Name',
+  buyMode: 2,                // switch to percentage mode
+  copyBuyAmount: '50',       // 50% of trader's amount
+  lossPercent: '30',
+  profitPercent: '200',
+  copySell: true,
 });
 ```
 
-## Example: Full Copy Trading Setup
+### Toggle Active/Inactive
 
 ```typescript
+await skill.updateCopyTrade({
+  ...existingParams,
+  isChangeStatus: true,      // toggles isActive on/off
+});
+```
+
+### Delete a Copy Trade
+
+```typescript
+await skill.updateCopyTrade({
+  ...existingParams,
+  isDelete: true,
+});
+```
+
+## Backend Validation Rules
+
+- **Solana only**: chainId must be the Solana chain ID (622112261)
+- **Valid wallet**: traderWallet must be a valid Solana address
+- **TP/SL**: lossPercent > 0 and < 100, profitPercent > 0
+- **buyMode 2**: percentage must be > 0 and <= 100
+- **No duplicates**: Can't copy the same wallet+chain+user twice
+- **Max limit**: Backend enforces max copy trades per user
+- **Circular dependency**: Prevents A→B→C→A copy chains (checked to depth 50)
+
+## How Copies Execute
+
+Trades are NOT executed at API call time. A background process monitors tracked wallets in real-time:
+1. Detects trader buy/sell transactions
+2. Checks excluded DEXes and deduplication
+3. Calculates buy amount (fixed or percentage)
+4. Executes the copy trade
+5. Places automatic TP/SL orders based on your settings
+
+## Example: Full Copy Trading Flow
+
+```typescript
+import {
+  GdexSkill,
+  buildGdexUserSessionData,
+  generateGdexSessionKeyPair,
+  buildGdexSignInMessage,
+  buildGdexSignInComputedData,
+} from '@gdexsdk/gdex-skill';
+import { ethers } from 'ethers';
+
 const skill = new GdexSkill();
-skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
+skill.loginWithApiKey(apiKey);
 
-// 1. Find top performers
-const traders = await skill.getTopTraders({ period: '30d', limit: 5, sortBy: 'pnl' });
+// 1. Sign in with session key
+const wallet = ethers.Wallet.fromPhrase(mnemonic);
+const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
+const nonce = String(Date.now());
+const msg = buildGdexSignInMessage(wallet.address, nonce, sessionKey);
+const sig = await wallet.signMessage(msg);
+const payload = buildGdexSignInComputedData({ apiKey, userId: wallet.address, sessionKey, nonce, signature: sig });
+await skill.signInWithComputedData({ computedData: payload.computedData, chainId: 1 });
+const data = buildGdexUserSessionData(sessionKey, apiKey);
+const userId = wallet.address.toLowerCase();
 
-// 2. Track the best one
-const best = traders[0];
-await skill.addCopyTradeWallet({
-  walletAddress: best.address,
-  chain: best.chain,
-  label: `Top PnL: $${best.totalPnlUsd.toFixed(0)}`,
+// 2. Browse top wallets
+const wallets = await skill.getCopyTradeWallets();
+const best = wallets[0];
+console.log(`Top wallet: ${best.address}, PnL: $${best.totalPnl.toFixed(2)}`);
+
+// 3. Check DEXes
+const { dexes } = await skill.getCopyTradeDexes(622112261);
+
+// 4. Create a copy trade
+await skill.createCopyTrade({
+  apiKey,
+  userId,
+  sessionPrivateKey,
+  chainId: 622112261,
+  traderWallet: best.address,
+  copyTradeName: `Top PnL: ${best.address.slice(0, 8)}`,
+  buyMode: 1,
+  copyBuyAmount: '0.1',
+  lossPercent: '50',
+  profitPercent: '100',
+  copySell: true,
 });
 
-// 3. Configure conservative settings
-await skill.setCopyTradeSettings({
-  enabled: true,
-  maxTradeSize: '50',
-  slippage: 1,
-  copyBuysOnly: true,
-  maxPositions: 5,
-});
-
-// 4. Monitor performance
-const wallets = await skill.getCopyTradeWallets('userId');
-for (const w of wallets) {
-  console.log(`${w.label}: ${w.stats.totalCopiedTrades} trades, $${w.stats.totalPnlUsd.toFixed(2)} PnL`);
+// 5. Monitor
+const list = await skill.getCopyTradeList({ userId, data });
+for (const ct of list.allCopyTrades) {
+  console.log(`${ct.copyTradeName}: active=${ct.isActive}, ${ct.txCount ?? 0} trades`);
 }
 ```
 
 ## Related Skills
 
-- **gdex-authentication** — Auth setup required for copy trading
-- **gdex-portfolio** — Monitor your portfolio including copied positions
-- **gdex-spot-trading** — Understanding the trades being copied
+- **gdex-authentication** — Auth setup and sign-in required for read/write
+- **gdex-token-discovery** — Top trader rankings (`getTopTraders`)
+- **gdex-portfolio** — Monitor portfolio including copied positions
+- **gdex-spot-trading** — Understand the trades being copied

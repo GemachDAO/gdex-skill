@@ -43,10 +43,14 @@ export const HL_GBOT_USDC_BALANCE = '/v1/hl/gbot_usdc_balance';
 export const HL_USER_STATS = '/v1/hl/user_stats';
 
 /** Copy trade endpoints */
-export const COPY_TRADE_SETTINGS = '/v1/copy_trade/settings';
+export const COPY_TRADE_LIST = '/v1/copy_trade/list';
+export const COPY_TRADE_TX_LIST = '/v1/copy_trade/tx_list';
+export const COPY_TRADE_CREATE = '/v1/copy_trade/create';
+export const COPY_TRADE_UPDATE = '/v1/copy_trade/update';
 export const COPY_TRADE_WALLETS = '/v1/copy_trade/wallets';
-export const COPY_TRADE_WALLET_ADD = '/v1/copy_trade/wallets/add';
-export const COPY_TRADE_WALLET_REMOVE = '/v1/copy_trade/wallets/remove';
+export const COPY_TRADE_CUSTOM_WALLETS = '/v1/copy_trade/custom_wallets';
+export const COPY_TRADE_GEMS = '/v1/copy_trade/gems';
+export const COPY_TRADE_DEXES_LIST = '/v1/copy_trade/dexes_list';
 
 /** Token endpoints */
 export const TOKEN_DETAILS = '/v1/token_details';
@@ -55,7 +59,6 @@ export const TOKEN_TOP_TRADERS = '/v1/token/top_traders';
 
 /** Trending endpoints */
 export const TRENDING = '/v1/trending/list';
-export const TRENDING_CHAIN = '/v1/trending/:chain';
 
 /** OHLCV / TradingView endpoints */
 export const OHLCV = '/v1/candles';

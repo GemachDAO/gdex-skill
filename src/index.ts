@@ -52,11 +52,14 @@ import {
 } from './actions/perpTrade';
 import { limitBuy, limitSell, updateOrder, getLimitOrders, createLimitOrder, cancelLimitOrder } from './actions/limitOrders';
 import {
-  getCopyTradeSettings,
-  setCopyTradeSettings,
   getCopyTradeWallets,
-  addCopyTradeWallet,
-  removeCopyTradeWallet,
+  getCopyTradeCustomWallets,
+  getCopyTradeGems,
+  getCopyTradeDexes,
+  getCopyTradeList,
+  getCopyTradeTxList,
+  createCopyTrade,
+  updateCopyTrade,
 } from './actions/copyTrade';
 import { getPortfolio, getBalances, getTradeHistory } from './actions/portfolio';
 import { getTokenDetails, getTrendingTokens, getOHLCV } from './actions/tokenInfo';
@@ -79,7 +82,6 @@ export type {
 export type {
   TokenDetails,
   TokenDetailsParams,
-  TokenPool,
   TrendingToken,
   TrendingParams,
   OHLCVCandle,
@@ -117,11 +119,20 @@ export type {
   HlOrderResult,
 } from './types/perp';
 export type {
-  CopyTradeSettings,
   CopyTradeWallet,
-  AddWalletParams,
-  RemoveWalletParams,
-  GetCopyTradeSettingsParams,
+  CopyTradeDex,
+  CopyTradeDexListResponse,
+  CopyTradeListParams,
+  CopyTradeConfig,
+  CopyTradeListResponse,
+  CopyTradeTxListParams,
+  CopyTradeTxTokenInfo,
+  CopyTradeTx,
+  CopyTradeTxListResponse,
+  CreateCopyTradeParams,
+  CreateCopyTradeResponse,
+  UpdateCopyTradeParams,
+  UpdateCopyTradeResponse,
 } from './types/copyTrade';
 export type {
   BridgeEstimateParams,
@@ -229,7 +240,18 @@ import type {
   HlResponse,
   HlOrderResult,
 } from './types/perp';
-import type { CopyTradeSettings, CopyTradeWallet, AddWalletParams, RemoveWalletParams, GetCopyTradeSettingsParams } from './types/copyTrade';
+import type {
+  CopyTradeWallet,
+  CopyTradeDexListResponse,
+  CopyTradeListParams,
+  CopyTradeListResponse,
+  CopyTradeTxListParams,
+  CopyTradeTxListResponse,
+  CreateCopyTradeParams,
+  CreateCopyTradeResponse,
+  UpdateCopyTradeParams,
+  UpdateCopyTradeResponse,
+} from './types/copyTrade';
 import type {
   BridgeEstimateParams,
   BridgeEstimate,
@@ -624,51 +646,44 @@ export class GdexSkill {
 
   // ── Copy Trading ───────────────────────────────────────────────────────────
 
-  /**
-   * Get copy trade settings for a user.
-   *
-   * @param params - Query parameters
-   * @returns Current copy trade settings
-   */
-  async getCopyTradeSettings(params: GetCopyTradeSettingsParams): Promise<CopyTradeSettings> {
-    return getCopyTradeSettings(this.client, params);
+  /** Top 300 wallets ranked by totalPnl (no auth, cached 2 min). */
+  async getCopyTradeWallets(): Promise<CopyTradeWallet[]> {
+    return getCopyTradeWallets(this.client);
   }
 
-  /**
-   * Update copy trade settings.
-   *
-   * @param settings - New settings to apply
-   */
-  async setCopyTradeSettings(settings: CopyTradeSettings): Promise<void> {
-    return setCopyTradeSettings(this.client, settings);
+  /** Top 300 wallets ranked by net received (no auth, cached 2 min). */
+  async getCopyTradeCustomWallets(): Promise<CopyTradeWallet[]> {
+    return getCopyTradeCustomWallets(this.client);
   }
 
-  /**
-   * Get all wallets being tracked for copy trading.
-   *
-   * @param userId - User ID
-   * @returns List of tracked wallets
-   */
-  async getCopyTradeWallets(userId: string): Promise<CopyTradeWallet[]> {
-    return getCopyTradeWallets(this.client, userId);
+  /** Hot new tokens from top wallets (no auth, cached 20s). */
+  async getCopyTradeGems(): Promise<unknown[]> {
+    return getCopyTradeGems(this.client);
   }
 
-  /**
-   * Add a wallet to copy trade tracking.
-   *
-   * @param params - Add wallet parameters
-   */
-  async addCopyTradeWallet(params: AddWalletParams): Promise<void> {
-    return addCopyTradeWallet(this.client, params);
+  /** Supported DEXes for a chain. */
+  async getCopyTradeDexes(chainId: number): Promise<CopyTradeDexListResponse> {
+    return getCopyTradeDexes(this.client, chainId);
   }
 
-  /**
-   * Remove a wallet from copy trade tracking.
-   *
-   * @param params - Remove wallet parameters
-   */
-  async removeCopyTradeWallet(params: RemoveWalletParams): Promise<void> {
-    return removeCopyTradeWallet(this.client, params);
+  /** List user's copy trade configs (session-key auth). */
+  async getCopyTradeList(params: CopyTradeListParams): Promise<CopyTradeListResponse> {
+    return getCopyTradeList(this.client, params);
+  }
+
+  /** List copy trade transaction history (session-key auth). */
+  async getCopyTradeTxList(params: CopyTradeTxListParams): Promise<CopyTradeTxListResponse> {
+    return getCopyTradeTxList(this.client, params);
+  }
+
+  /** Create a new copy trade configuration (computedData auth, Solana only). */
+  async createCopyTrade(params: CreateCopyTradeParams): Promise<CreateCopyTradeResponse> {
+    return createCopyTrade(this.client, params);
+  }
+
+  /** Update, toggle, or delete an existing copy trade (computedData auth). */
+  async updateCopyTrade(params: UpdateCopyTradeParams): Promise<UpdateCopyTradeResponse> {
+    return updateCopyTrade(this.client, params);
   }
 
   // ── Portfolio ──────────────────────────────────────────────────────────────

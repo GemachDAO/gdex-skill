@@ -127,22 +127,18 @@ describe('tokenInfo', () => {
 
   describe('getOHLCV', () => {
     it('should fetch OHLCV data', async () => {
-      const mockOHLCV = {
-        tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-        chain: 'solana',
-        resolution: '60',
-        candles: [
-          {
-            time: 1700000000,
-            open: '1.00',
-            high: '1.01',
-            low: '0.99',
-            close: '1.005',
-            volume: '1000000',
-          },
-        ],
-      };
-      client.get = jest.fn().mockResolvedValue(mockOHLCV);
+      // Backend returns { data: OHLCVCandle[] }, the action wraps it into OHLCVData
+      const mockCandles = [
+        {
+          time: 1700000000,
+          open: '1.00',
+          high: '1.01',
+          low: '0.99',
+          close: '1.005',
+          volume: '1000000',
+        },
+      ];
+      client.get = jest.fn().mockResolvedValue({ data: mockCandles });
 
       const data = await getOHLCV(client, {
         tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
@@ -160,7 +156,12 @@ describe('tokenInfo', () => {
         from: 1700000000,
         to: 1700086400,
       }));
-      expect(data).toEqual(mockOHLCV);
+      expect(data).toEqual({
+        tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        chain: 'solana',
+        resolution: '60',
+        candles: mockCandles,
+      });
     });
 
     it('should throw GdexValidationError for missing tokenAddress', async () => {

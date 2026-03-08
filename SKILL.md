@@ -24,8 +24,8 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 | | `gdex-perp-funding` | Deposit/withdraw USDC to/from HyperLiquid | Yes |
 | | `gdex-limit-orders` | Limit buy, limit sell, update/delete orders via encrypted payloads | Yes |
 | **Data** | `gdex-portfolio` | Cross-chain portfolio, balances, trade history | Yes |
-| | `gdex-token-discovery` | Token details, trending tokens, OHLCV charts | **No** |
-| **Platform** | `gdex-copy-trading` | Copy trade settings, tracked wallets, top traders | Yes |
+| | `gdex-token-discovery` | Token details, trending tokens, OHLCV, top traders | Yes |
+| **Platform** | `gdex-copy-trading` | Copy trade wallets, create/update/delete configs, tx history, DEXes (Solana only for writes) | Discovery: No / Read+Write: Yes |
 | | `gdex-bridge` | Cross-chain bridging with quotes | Yes |
 | | `gdex-wallet-setup` | Generate EVM wallets, session keys, wallet info | **No** |
 
@@ -33,7 +33,7 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 
 - **"Buy/sell a token"** → Load `gdex-authentication` + `gdex-spot-trading`
 - **"Open a perp position"** → Load `gdex-authentication` + `gdex-perp-funding` + `gdex-perp-trading`
-- **"Check token price or trending"** → Load `gdex-token-discovery` (no auth needed)
+- **"Check token price or trending"** → Load `gdex-authentication` + `gdex-token-discovery`
 - **"Check portfolio/balances"** → Load `gdex-authentication` + `gdex-portfolio`
 - **"User has no wallet"** → Load `gdex-wallet-setup` + `gdex-authentication`
 - **"Copy a trader"** → Load `gdex-authentication` + `gdex-copy-trading`

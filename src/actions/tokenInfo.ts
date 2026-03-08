@@ -8,6 +8,7 @@ import {
   TokenDetailsParams,
   TrendingToken,
   TrendingParams,
+  OHLCVCandle,
   OHLCVData,
   OHLCVParams,
 } from '../types/token';
@@ -29,10 +30,14 @@ export async function getTokenDetails(
   validateRequired(params.tokenAddress, 'tokenAddress');
   validateChain(params.chain);
 
-  return client.get<TokenDetails>(Endpoints.TOKEN_DETAILS, {
+  // Backend returns { tokens: [...] } — unwrap to first token
+  const resp = await client.get<{ tokens: TokenDetails[] }>(Endpoints.TOKEN_DETAILS, {
     ...buildTokenAliases(params.tokenAddress),
     ...buildChainAliases(params.chain),
   });
+  const tokens = resp?.tokens;
+  if (Array.isArray(tokens) && tokens.length > 0) return tokens[0];
+  return resp as unknown as TokenDetails;
 }
 
 /**
@@ -55,7 +60,13 @@ export async function getTrendingTokens(
   if (params.minLiquidity) queryParams.minLiquidity = params.minLiquidity;
   if (params.minVolume) queryParams.minVolume = params.minVolume;
 
-  return client.get<TrendingToken[]>(Endpoints.TRENDING, queryParams);
+  // Backend returns { isSuccess, trendingTokens: [...] } — unwrap
+  const resp = await client.get<{ isSuccess?: boolean; trendingTokens?: TrendingToken[] }>(Endpoints.TRENDING, queryParams);
+  if (resp && typeof resp === 'object' && 'trendingTokens' in resp) {
+    return resp.trendingTokens ?? [];
+  }
+  // Fallback if backend returns a flat array
+  return Array.isArray(resp) ? resp : [];
 }
 
 /**
@@ -81,5 +92,12 @@ export async function getOHLCV(client: GdexApiClient, params: OHLCVParams): Prom
   if (params.to) queryParams.to = params.to;
   if (params.limit) queryParams.limit = params.limit;
 
-  return client.get<OHLCVData>(Endpoints.OHLCV, queryParams);
+  // Backend returns { data: OHLCVCandle[] } — normalize into OHLCVData
+  const resp = await client.get<{ data?: OHLCVCandle[] }>(Endpoints.OHLCV, queryParams);
+  return {
+    tokenAddress: params.tokenAddress,
+    chain: params.chain,
+    resolution: params.resolution,
+    candles: resp?.data ?? [],
+  };
 }

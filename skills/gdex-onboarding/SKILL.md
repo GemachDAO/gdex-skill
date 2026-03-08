@@ -84,7 +84,7 @@ const trade = await skill.buyToken({
 | | `gdex-limit-orders` | Create, cancel, and list limit orders |
 | **Data** | `gdex-portfolio` | Cross-chain portfolio, balances, trade history |
 | | `gdex-token-discovery` | Token details, trending tokens, OHLCV charts (no auth) |
-| **Platform** | `gdex-copy-trading` | Copy trade settings, tracked wallets, top traders |
+| **Platform** | `gdex-copy-trading` | Copy trade wallets, create/manage configs, tx history, DEXes (Solana writes only) |
 | | `gdex-bridge` | Cross-chain bridging with quotes |
 | | `gdex-wallet-setup` | Generate EVM wallets, session keys, get wallet info |
 

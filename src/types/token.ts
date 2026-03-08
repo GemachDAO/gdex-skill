@@ -14,68 +14,104 @@ export interface TokenDetailsParams {
 }
 
 /**
- * Detailed token information.
+ * Detailed token information (as returned by /v1/token_details).
+ *
+ * The backend stores tokens in MongoDB with these fields.
  */
 export interface TokenDetails {
+  /** MongoDB _id (internal) */
+  _id?: string | null;
   /** Token contract address */
   address: string;
-  /** Token symbol */
+  /** Numeric chain ID */
+  chainId: number;
+  /** Token symbol (may include $ prefix e.g. "$WIF") */
   symbol: string;
   /** Token name */
   name: string;
-  /** Token logo URL */
-  logoUrl?: string;
   /** Number of decimals */
   decimals: number;
-  /** Chain the token is on */
-  chain: SupportedChain;
   /** Current price in USD */
-  priceUsd?: string;
-  /** Price change in the last 24 hours (%) */
-  priceChange24h?: string;
-  /** Price change in the last 1 hour (%) */
-  priceChange1h?: string;
+  priceUsd?: number | string;
+  /** Current price in native token (ETH/SOL) */
+  priceNative?: number | string;
   /** Market capitalization in USD */
-  marketCap?: string;
-  /** Fully diluted market cap in USD */
-  fdv?: string;
-  /** Total supply */
+  marketCap?: number;
+  /** Total supply in raw units */
   totalSupply?: string;
-  /** Circulating supply */
-  circulatingSupply?: string;
-  /** 24h trading volume in USD */
-  volume24h?: string;
   /** Liquidity in USD */
-  liquidity?: string;
-  /** Token creation timestamp */
-  createdAt?: number;
-  /** Associated DEX pools */
-  pools?: TokenPool[];
-  /** Social links */
-  socials?: {
-    website?: string;
-    twitter?: string;
-    telegram?: string;
-    discord?: string;
+  liquidityUsd?: number;
+  /** Liquidity in native token */
+  liquidityEth?: number;
+  /** Native reserves in pool */
+  ethReserve?: number;
+  /** Token reserves in pool */
+  tokenReserve?: number;
+  /** User's share of native reserves */
+  userEthReserve?: number;
+  /** User's share of token reserves */
+  userTokenReserve?: number;
+  /** DEX pair address */
+  pairAddress?: string;
+  /** Primary DEX name (e.g. "raydium") */
+  dexId?: string;
+  /** All DEXes this token is on */
+  dexes?: string[];
+  /** Whether listed on a DEX */
+  isListedOnDex?: boolean;
+  /** Whether on Raydium */
+  isRaydium?: boolean;
+  /** Whether on Meteora */
+  isMeteora?: boolean;
+  /** Whether launched via pump.fun */
+  isPumpfun?: boolean;
+  /** Whether on PumpSwap */
+  isPumpSwap?: boolean;
+  /** Whether on Raydium LaunchLab */
+  isRaydiumLaunchLab?: boolean;
+  /** Price changes by period */
+  priceChanges?: {
+    m5?: number;
+    h1?: number;
+    h6?: number;
+    h24?: number;
   };
-}
-
-/**
- * DEX pool information for a token.
- */
-export interface TokenPool {
-  /** Pool address */
-  address: string;
-  /** DEX name */
-  dex: string;
-  /** Paired token address */
-  pairedToken: string;
-  /** Paired token symbol */
-  pairedSymbol: string;
-  /** Pool liquidity in USD */
-  liquidity?: string;
-  /** Pool 24h volume in USD */
-  volume24h?: string;
+  /** Volume by period */
+  volumes?: {
+    m5?: number;
+    h1?: number;
+    h6?: number;
+    h24?: number;
+  };
+  /** Social/branding info */
+  socialInfo?: {
+    telegramUrl?: string;
+    twitterUrl?: string;
+    websiteUrl?: string;
+    logoUrl?: string;
+  };
+  /** Security audit info */
+  securities?: {
+    mintAbility?: boolean;
+    freezeAbility?: boolean;
+    mintAddress?: string;
+    freezeAddress?: string;
+    lpLockPercentage?: number;
+    topHoldersPercentage?: number;
+    isValidTop10HoldersPercent?: boolean;
+    holderCount?: number;
+    contractVerified?: number;
+    buyTax?: number;
+    sellTax?: number;
+  };
+  /** Security tag summary */
+  securitiesTag?: string;
+  /** Bonding curve progress (pump.fun tokens) */
+  bondingCurveProgress?: number;
+  /** Token creation timestamp (Unix ms) */
+  createdTime?: number;
+  /** Search array for text matching */
+  searchArray?: string[];
 }
 
 /**
@@ -95,34 +131,12 @@ export interface TrendingParams {
 }
 
 /**
- * A trending token entry.
+ * A trending token entry (same MongoDB schema as TokenDetails).
+ *
+ * The /v1/trending/list endpoint returns tokens from the same collection,
+ * so the shape is identical to TokenDetails.
  */
-export interface TrendingToken {
-  /** Rank position */
-  rank: number;
-  /** Token address */
-  address: string;
-  /** Token symbol */
-  symbol: string;
-  /** Token name */
-  name: string;
-  /** Token logo URL */
-  logoUrl?: string;
-  /** Chain */
-  chain: SupportedChain;
-  /** Current price in USD */
-  priceUsd: string;
-  /** Price change % */
-  priceChange: string;
-  /** 24h volume in USD */
-  volume24h: string;
-  /** Liquidity in USD */
-  liquidity: string;
-  /** Market cap in USD */
-  marketCap?: string;
-  /** Transactions in 24h */
-  txCount24h?: number;
-}
+export type TrendingToken = TokenDetails;
 
 /**
  * OHLCV (Open/High/Low/Close/Volume) candle data.
