@@ -1,0 +1,145 @@
+---
+name: gdex-onboarding
+description: Start here — GDEX overview, architecture, supported chains, available skills, and quickstart for cross-chain DeFi trading via managed-custody wallets
+---
+
+# GDEX: Agent Onboarding
+
+GDEX is a cross-chain DeFi trading infrastructure for AI agents. It provides spot trading, perpetual futures (HyperLiquid), portfolio management, token discovery, copy trading, and bridging across Solana, Sui, and 12+ EVM chains — all through a single SDK with managed-custody wallets.
+
+## When to Use
+
+- You're new to GDEX and need to understand the platform
+- You need to decide which skill to load for a specific task
+- You want a quick overview of supported chains and capabilities
+
+## Architecture
+
+```
+Agent → @gdexsdk/gdex-skill SDK → GDEX Backend (trade-api.gemach.io/v1) → On-chain Execution
+```
+
+**Key concepts:**
+- **Managed custody** — GDEX provisions and manages all on-chain trading wallets server-side. Your control wallet only signs in once.
+- **Encrypted payloads** — All trades use AES-256-CBC encrypted `computedData` payloads. The API key derives the AES key deterministically via SHA256 hash chain.
+- **Session keypairs** — A secp256k1 session key signs trade payloads after initial control-wallet sign-in.
+- **Shared API keys** — Pre-configured keys let agents authenticate instantly without wallet signing.
+
+## Quick Start
+
+```bash
+npm install @gdexsdk/gdex-skill
+```
+
+```typescript
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+
+const skill = new GdexSkill();
+skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
+
+// No-auth: check trending tokens
+const trending = await skill.getTrendingTokens({ chain: 'solana', period: '24h', limit: 5 });
+
+// Auth required: buy a token
+const trade = await skill.buyToken({
+  chain: 'solana',
+  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  amount: '0.1',
+  slippage: 1,
+});
+```
+
+**Shared API Keys (pre-configured for all agents):**
+- Primary: `9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54`
+- Secondary: `2c8f0a91-5d34-4e7b-9a62-f1c3d8e4b705`
+
+## Supported Chains
+
+| Chain | ChainId | DEXes | Perps | Bridge |
+|-------|---------|-------|-------|--------|
+| Ethereum | `1` | Uniswap v2/v3, Odos | — | Yes |
+| Optimism | `10` | Uniswap v3, Odos | — | Yes |
+| BSC | `56` | PancakeSwap, Odos | — | Yes |
+| Sonic | `146` | — | — | Yes |
+| Fraxtal | `252` | Uniswap v3 | — | Yes |
+| Nibiru | `6900` | — | — | Yes |
+| Base | `8453` | Uniswap v3, Odos, Arcadia | — | Yes |
+| Arbitrum | `42161` | Uniswap v3, Odos | — | Yes |
+| Berachain | `80094` | — | — | Yes |
+| Solana | `622112261` / `'solana'` | Raydium, Raydium v2, Orca | — | Yes |
+| Sui | `1313131213` / `'sui'` | Cetus, Bluefin | — | Yes |
+| HyperLiquid | — | — | Native perp engine | — |
+
+**Chain IDs for managed-custody:** 900 = Solana, 101 = Sui, or standard EVM chain IDs.
+
+## Available Skills
+
+| Category | Skill | Description |
+|----------|-------|-------------|
+| **Getting Started** | `gdex-onboarding` | **You are here** — Overview, architecture, quickstart |
+| **Auth** | `gdex-authentication` | Managed-custody auth, encryption, session key flow |
+| **Trading** | `gdex-spot-trading` | Buy/sell tokens on any supported chain |
+| | `gdex-perp-trading` | HyperLiquid perpetual futures — positions, orders, leverage |
+| | `gdex-perp-funding` | Deposit/withdraw USDC to/from HyperLiquid |
+| | `gdex-limit-orders` | Create, cancel, and list limit orders |
+| **Data** | `gdex-portfolio` | Cross-chain portfolio, balances, trade history |
+| | `gdex-token-discovery` | Token details, trending tokens, OHLCV charts (no auth) |
+| **Platform** | `gdex-copy-trading` | Copy trade settings, tracked wallets, top traders |
+| | `gdex-bridge` | Cross-chain bridging with quotes |
+| | `gdex-wallet-setup` | Generate EVM wallets, session keys, get wallet info |
+
+## Recommended Next Steps
+
+**If you want to trade tokens (spot):**
+1. Load **gdex-authentication** for auth setup
+2. Load **gdex-spot-trading** for buy/sell operations
+
+**If you want perpetual futures:**
+1. Load **gdex-authentication** for auth setup
+2. Load **gdex-perp-funding** to deposit USDC to HyperLiquid
+3. Load **gdex-perp-trading** for positions and orders
+
+**If you just need market data (no auth):**
+1. Load **gdex-token-discovery** — works immediately, no authentication needed
+
+**If the user has no wallet:**
+1. Load **gdex-wallet-setup** to generate an EVM control wallet
+2. Load **gdex-authentication** to sign in via managed custody
+
+**If you want to copy successful traders:**
+1. Load **gdex-authentication** for auth setup
+2. Load **gdex-copy-trading** for tracking wallets and settings
+
+**If you want to bridge assets cross-chain:**
+1. Load **gdex-authentication** for auth setup
+2. Load **gdex-bridge** for bridging operations
+
+## Key Links
+
+| Resource | URL |
+|----------|-----|
+| SDK (npm) | https://www.npmjs.com/package/@gdexsdk/gdex-skill |
+| Repository | https://github.com/GemachDAO/gdex-skill |
+| Trading Dashboard | https://gdex.pro |
+| Backend API | https://trade-api.gemach.io/v1 |
+
+## Installation
+
+```bash
+# Install all skills globally (recommended)
+npx skills add GemachDAO/gdex-skill --all --agent '*' -g
+
+# Install specific skill
+npx skills add GemachDAO/gdex-skill --skill gdex-spot-trading
+
+# Install SDK
+npm install @gdexsdk/gdex-skill
+```
+
+## Related Skills
+
+- **gdex-authentication** — Managed-custody auth flow and encryption details
+- **gdex-spot-trading** — Buy/sell tokens on any chain
+- **gdex-perp-trading** — HyperLiquid perpetual futures
+- **gdex-token-discovery** — Token info without authentication
+- **gdex-wallet-setup** — Wallet generation for new users

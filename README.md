@@ -54,10 +54,35 @@ Cross-chain spot trading · Perpetual futures · Portfolio management · Token d
 Install directly into Claude Code, Cursor, Codex, Windsurf, and [40+ other agents](https://github.com/vercel-labs/skills#supported-agents) using the [skills CLI](https://skills.sh):
 
 ```bash
+# Install all skills (recommended)
+npx skills add GemachDAO/gdex-skill --all --agent '*' -g
+
+# Install just the root routing skill
 npx skills add GemachDAO/gdex-skill
+
+# Install a specific skill
+npx skills add GemachDAO/gdex-skill --skill gdex-spot-trading
 ```
 
-This copies `SKILL.md` into your agent's skill directory. The agent will then be able to call the Gbot Trading API for any trading, portfolio, or token discovery task — **no API key setup required** (shared keys are built in).
+GDEX uses a **multi-skill architecture** — agents load only the skills they need, keeping context lean and focused.
+
+### Available Skills
+
+| Skill | Description |
+|-------|-------------|
+| `gdex-onboarding` | Platform overview, architecture, supported chains, quickstart |
+| `gdex-authentication` | Managed-custody auth, encryption, session keys, API key login |
+| `gdex-spot-trading` | Buy/sell tokens on any chain with DEX routing |
+| `gdex-perp-trading` | HyperLiquid perpetual futures — positions, orders, leverage |
+| `gdex-perp-funding` | Deposit/withdraw USDC to/from HyperLiquid |
+| `gdex-limit-orders` | Create, cancel, and list limit orders |
+| `gdex-portfolio` | Cross-chain portfolio, balances, trade history |
+| `gdex-token-discovery` | Token details, trending tokens, OHLCV charts (no auth) |
+| `gdex-copy-trading` | Copy trade settings, tracked wallets, top traders |
+| `gdex-bridge` | Cross-chain bridging with quotes |
+| `gdex-wallet-setup` | Generate EVM wallets, session keys, wallet info (no auth) |
+
+The root `SKILL.md` acts as a router — it tells agents which skill to load for any given task. **No API key setup required** (shared keys are built in).
 
 ---
 

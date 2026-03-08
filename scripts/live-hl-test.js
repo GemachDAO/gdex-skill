@@ -152,9 +152,12 @@ async function main() {
   // ── Step 5: Deposit USDC to HyperLiquid ────────────────────────────────
 
   step(5, `Deposit $${depositAmount} USDC to HyperLiquid`);
+  // IMPORTANT: walletAddress must be the CONTROL address (used during sign-in),
+  // not the managed address. The backend verifies the session key signature
+  // against the userId from sign-in.
   const creds = {
     apiKey,
-    walletAddress: managedAddress,
+    walletAddress: controlAddress,
     sessionPrivateKey,
   };
 

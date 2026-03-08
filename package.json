@@ -14,6 +14,7 @@
     "dist",
     "src",
     "scripts",
+    "skills",
     "SKILL.md",
     "skill.json",
     "README.md"
@@ -28,6 +29,7 @@
     "verify:live": "npm run build --silent && node scripts/live-smoke.js",
     "verify:first-shot": "npm run build --silent && node scripts/first-shot-e2e.js",
     "verify:managed": "npm run build --silent && node scripts/managed-e2e.js",
+    "validate": "npx ts-node scripts/validate-skills.ts",
     "lint": "eslint src tests --ext .ts",
     "lint:fix": "eslint src tests --ext .ts --fix",
     "clean": "rm -rf dist",
