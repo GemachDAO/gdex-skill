@@ -1,6 +1,6 @@
 ---
 name: gdex-perp-copy-trading
-description: HyperLiquid perpetual futures copy trading — discover top perp traders, create/manage perp copy trades, view fill history, opposite-direction copying, market data, and account state. Completely separate from Solana spot copy trading.
+description: HyperLiquid perpetual futures copy trading — discover top perp traders, create/manage perp copy trades, fill history, opposite-direction copying, and market data
 ---
 
 # GDEX: Perp Copy Trading (HyperLiquid)

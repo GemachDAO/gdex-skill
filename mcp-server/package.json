@@ -1,0 +1,46 @@
+{
+  "name": "@gdexsdk/mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for GDEX Trading SDK — exposes trading documentation, SDK patterns, and API info as tools for AI assistants",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "gdex-mcp-server": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "start": "node dist/index.js",
+    "dev": "npx tsx src/index.ts"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "gdex",
+    "trading",
+    "ai-agent",
+    "claude",
+    "cursor",
+    "vscode"
+  ],
+  "author": "GemachDAO",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GemachDAO/gdex-skill",
+    "directory": "mcp-server"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

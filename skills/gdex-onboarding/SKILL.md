@@ -85,8 +85,16 @@ const trade = await skill.buyToken({
 | **Data** | `gdex-portfolio` | Cross-chain portfolio, balances, trade history |
 | | `gdex-token-discovery` | Token details, trending tokens, OHLCV charts (no auth) |
 | **Platform** | `gdex-copy-trading` | Copy trade wallets, create/manage configs, tx history, DEXes (Solana writes only) |
+| | `gdex-perp-copy-trading` | HL perp copy trading — top traders, create/manage configs, market data |
 | | `gdex-bridge` | Cross-chain bridging with quotes |
 | | `gdex-wallet-setup` | Generate EVM wallets, session keys, get wallet info |
+| **Frontend** | `gdex-ui-install-setup` | React/Next.js project setup, SDK context providers |
+| | `gdex-ui-trading-components` | React component patterns for trading UIs |
+| | `gdex-ui-portfolio-dashboard` | Portfolio dashboard components |
+| | `gdex-ui-wallet-connection` | Wallet connection UI and auth flows |
+| | `gdex-ui-theming` | CSS theming — dark/light mode, trading colors |
+| | `gdex-ui-page-layouts` | Full page compositions for trading apps |
+| **Developer Tools** | `gdex-sdk-debugging` | Troubleshoot errors, chain quirks, common pitfalls |
 
 ## Recommended Next Steps
 
@@ -114,6 +122,15 @@ const trade = await skill.buyToken({
 1. Load **gdex-authentication** for auth setup
 2. Load **gdex-bridge** for bridging operations
 
+**If you want to build a trading frontend:**
+1. Load **gdex-ui-install-setup** for React/Next.js project setup
+2. Load **gdex-ui-trading-components** for order forms and position tables
+3. Load **gdex-ui-theming** for dark/light mode and trading colors
+4. Load **gdex-ui-page-layouts** for full page compositions
+
+**If you're debugging an issue:**
+1. Load **gdex-sdk-debugging** for error codes, chain quirks, and common pitfalls
+
 ## Key Links
 
 | Resource | URL |
@@ -136,6 +153,20 @@ npx skills add GemachDAO/gdex-skill --skill gdex-spot-trading
 npm install @gdexsdk/gdex-skill
 ```
 
+## MCP Server
+
+For AI clients that support [Model Context Protocol](https://modelcontextprotocol.io), the GDEX MCP server exposes 8 tools for searching docs, getting code patterns, and exploring workflows:
+
+```bash
+npx @gdexsdk/mcp-server init --client claude   # Claude Code
+npx @gdexsdk/mcp-server init --client cursor   # Cursor
+npx @gdexsdk/mcp-server init --client vscode   # VS Code Copilot
+npx @gdexsdk/mcp-server init --client codex    # Codex
+npx @gdexsdk/mcp-server init --client opencode  # OpenCode
+```
+
+Tools: `search_gdex_docs`, `get_sdk_pattern`, `get_api_info`, `explain_workflow`, `get_chain_info`, `get_trading_guide`, `get_copy_trade_guide`, `get_component_guide`.
+
 ## Related Skills
 
 - **gdex-authentication** — Managed-custody auth flow and encryption details
@@ -143,3 +174,5 @@ npm install @gdexsdk/gdex-skill
 - **gdex-perp-trading** — HyperLiquid perpetual futures
 - **gdex-token-discovery** — Token info without authentication
 - **gdex-wallet-setup** — Wallet generation for new users
+- **gdex-ui-install-setup** — Frontend project setup with React/Next.js
+- **gdex-sdk-debugging** — Error troubleshooting and debugging guide

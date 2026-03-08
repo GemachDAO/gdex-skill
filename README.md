@@ -26,6 +26,7 @@ Cross-chain spot trading · Perpetual futures · Portfolio management · Token d
 ## Table of Contents
 
 - [Install as an Agent Skill](#-install-as-an-agent-skill)
+- [MCP Server](#-mcp-server)
 - [SDK Installation](#-sdk-installation)
 - [Quick Start](#-quick-start)
 - [Verify (offline)](#-verify-offline)
@@ -80,14 +81,67 @@ GDEX uses a **multi-skill architecture** — agents load only the skills they ne
 | `gdex-portfolio` | Cross-chain portfolio, balances, trade history |
 | `gdex-token-discovery` | Token details, trending tokens, OHLCV charts (no auth) |
 | `gdex-copy-trading` | Copy trade create/delete, leaderboards, tx history, DEX list (Solana only for writes) |
+| `gdex-perp-copy-trading` | HL perp copy trading — top traders, create/manage configs, market data |
 | `gdex-bridge` | Cross-chain bridging with quotes |
 | `gdex-wallet-setup` | Generate EVM wallets, session keys, wallet info (no auth) |
+| `gdex-ui-install-setup` | React/Next.js project setup, SDK context providers, environment variables |
+| `gdex-ui-trading-components` | React component patterns for order forms, position tables, copy trade panels |
+| `gdex-ui-portfolio-dashboard` | Portfolio dashboard components — balances, trade history, chain selectors |
+| `gdex-ui-wallet-connection` | Wallet connection UI — connect buttons, auth state, chain switching |
+| `gdex-ui-theming` | CSS theming — dark/light mode, trading colors, responsive breakpoints, Tailwind |
+| `gdex-ui-page-layouts` | Full page compositions — trading, portfolio, copy trading, bridge pages |
+| `gdex-sdk-debugging` | Troubleshoot errors — error codes, encryption debugging, chain quirks, HL gotchas |
 
 The root `SKILL.md` acts as a router — it tells agents which skill to load for any given task. **No API key setup required** (shared keys are built in).
 
 ---
 
-## 📦 SDK Installation
+## � MCP Server
+
+The GDEX MCP server exposes SDK documentation and code patterns as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI client can use it.
+
+### Quick Setup
+
+```bash
+# Auto-generate config for your AI client
+npx @gdexsdk/mcp-server init --client claude   # → .mcp.json
+npx @gdexsdk/mcp-server init --client cursor   # → .cursor/mcp.json
+npx @gdexsdk/mcp-server init --client vscode   # → .vscode/mcp.json
+npx @gdexsdk/mcp-server init --client codex    # → .codex/config.toml
+npx @gdexsdk/mcp-server init --client opencode  # → .opencode/mcp.json
+```
+
+### Manual Config
+
+Add to your client's MCP config:
+
+```json
+{
+  "mcpServers": {
+    "gdex-mcp-server": {
+      "command": "npx",
+      "args": ["@gdexsdk/mcp-server"]
+    }
+  }
+}
+```
+
+### Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `search_gdex_docs` | Search documentation by keyword |
+| `get_sdk_pattern` | TypeScript code patterns by operation |
+| `get_api_info` | API endpoint details (URL, method, params) |
+| `explain_workflow` | Step-by-step trading workflows |
+| `get_chain_info` | Supported chains and capabilities |
+| `get_trading_guide` | Spot, perp, or limit trading guides |
+| `get_copy_trade_guide` | Copy trading guides (Solana / HL) |
+| `get_component_guide` | React UI component patterns |
+
+---
+
+## �📦 SDK Installation
 
 ```bash
 npm install @gdexsdk/gdex-skill

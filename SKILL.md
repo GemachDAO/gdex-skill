@@ -29,6 +29,13 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 | | `gdex-perp-copy-trading` | HL perp copy trading — copy long/short futures positions, opposite copy, top traders, market data | Discovery: No / Read+Write: Yes |
 | | `gdex-bridge` | Cross-chain bridging with quotes | Yes |
 | | `gdex-wallet-setup` | Generate EVM wallets, session keys, wallet info | **No** |
+| **Frontend** | `gdex-ui-install-setup` | React/Next.js project setup, SDK context providers, environment variables | — |
+| | `gdex-ui-trading-components` | React component patterns for order forms, position tables, copy trade panels | — |
+| | `gdex-ui-portfolio-dashboard` | Portfolio dashboard components — balances, trade history, chain selectors | — |
+| | `gdex-ui-wallet-connection` | Wallet connection UI — connect buttons, auth state, chain switching | — |
+| | `gdex-ui-theming` | CSS theming — dark/light mode, trading colors, responsive breakpoints, Tailwind | — |
+| | `gdex-ui-page-layouts` | Full page compositions — trading, portfolio, copy trading, bridge pages | — |
+| **Developer Tools** | `gdex-sdk-debugging` | Troubleshoot errors — error codes, encryption debugging, chain quirks, HL gotchas | — |
 
 ## Quick Decision Guide
 
@@ -43,6 +50,10 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 - **"Create a limit order"** → Load `gdex-authentication` + `gdex-limit-orders`
 - **"Set a limit buy"** → Load `gdex-authentication` + `gdex-limit-orders` (use `limitBuy()`)
 - **"Set a take-profit/stop-loss sell"** → Load `gdex-authentication` + `gdex-limit-orders` (use `limitSell()`)
+- **"Build a trading UI"** → Load `gdex-ui-install-setup` + `gdex-ui-trading-components` + `gdex-ui-theming`
+- **"Create a portfolio dashboard"** → Load `gdex-ui-install-setup` + `gdex-ui-portfolio-dashboard`
+- **"Build a complete trading app"** → Load `gdex-ui-install-setup` + `gdex-ui-page-layouts` + `gdex-ui-wallet-connection` + `gdex-ui-theming`
+- **"Debug an error"** → Load `gdex-sdk-debugging`
 
 ## Critical Notes (Live-Tested)
 
