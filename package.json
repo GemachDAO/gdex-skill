@@ -1,6 +1,6 @@
 {
   "name": "@gdexsdk/gdex-skill",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "AI Agent Skill SDK for Gbot Trading Dashboard — cross-chain spot/perp trading, portfolio management, and token discovery",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
