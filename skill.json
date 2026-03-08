@@ -498,21 +498,22 @@
     },
     {
       "name": "update_copy_trade",
-      "description": "Update, toggle active/inactive, or delete an existing copy trade. Requires computedData auth.",
+      "description": "Delete an existing copy trade. Uses 16-field ABI with chainId as uint256. Both isDelete and isChangeStatus trigger permanent deletion. Requires computedData auth.",
       "parameters": {
         "type": "object",
         "required": ["copyTradeId", "traderWallet", "chainId", "buyMode", "copyBuyAmount", "lossPercent", "profitPercent"],
         "properties": {
-          "copyTradeId": { "type": "string", "description": "The copy trade ID to modify." },
+          "copyTradeId": { "type": "string", "description": "The copy trade ID to delete." },
           "traderWallet": { "type": "string" },
           "copyTradeName": { "type": "string" },
-          "chainId": { "type": "number" },
+          "chainId": { "type": "number", "description": "Must be Solana chain ID (622112261)." },
           "buyMode": { "type": "number" },
           "copyBuyAmount": { "type": "string" },
           "lossPercent": { "type": "string" },
           "profitPercent": { "type": "string" },
-          "isDelete": { "type": "boolean", "description": "Set true to permanently delete." },
-          "isChangeStatus": { "type": "boolean", "description": "Set true to toggle active/inactive." }
+          "isDelete": { "type": "boolean", "description": "Set true to permanently delete. Both isDelete and isChangeStatus cause deletion." },
+          "isChangeStatus": { "type": "boolean", "description": "Set true to permanently delete (same effect as isDelete on current backend)." },
+          "excludedProgramIds": { "type": "array", "items": { "type": "string" }, "description": "Program IDs to exclude from copy trading." }
         }
       }
     },
@@ -524,7 +525,7 @@
         "required": ["computedData", "chainId"],
         "properties": {
           "computedData": { "type": "string", "description": "AES-256-CBC encrypted sign-in payload." },
-          "chainId": { "type": ["number", "string"], "description": "Chain ID (900=Solana, 101=Sui, or numeric EVM)." }
+          "chainId": { "type": ["number", "string"], "description": "Chain ID (622112261=Solana for copy trades, 42161=Arbitrum for HL perps, or numeric EVM)." }
         }
       }
     },

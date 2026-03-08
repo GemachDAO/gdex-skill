@@ -25,7 +25,7 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 | | `gdex-limit-orders` | Limit buy, limit sell, update/delete orders via encrypted payloads | Yes |
 | **Data** | `gdex-portfolio` | Cross-chain portfolio, balances, trade history | Yes |
 | | `gdex-token-discovery` | Token details, trending tokens, OHLCV, top traders | Yes |
-| **Platform** | `gdex-copy-trading` | Copy trade wallets, create/update/delete configs, tx history, DEXes (Solana only for writes) | Discovery: No / Read+Write: Yes |
+| **Platform** | `gdex-copy-trading` | Copy trade wallets, create/delete configs, tx history, DEXes (Solana only for writes) | Discovery: No / Read+Write: Yes |
 | | `gdex-bridge` | Cross-chain bridging with quotes | Yes |
 | | `gdex-wallet-setup` | Generate EVM wallets, session keys, wallet info | **No** |
 
@@ -36,7 +36,7 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 - **"Check token price or trending"** → Load `gdex-authentication` + `gdex-token-discovery`
 - **"Check portfolio/balances"** → Load `gdex-authentication` + `gdex-portfolio`
 - **"User has no wallet"** → Load `gdex-wallet-setup` + `gdex-authentication`
-- **"Copy a trader"** → Load `gdex-authentication` + `gdex-copy-trading`
+- **"Copy a trader"** → Load `gdex-authentication` + `gdex-copy-trading` (sign-in must use `chainId: 622112261`)
 - **"Bridge tokens"** → Load `gdex-authentication` + `gdex-bridge`
 - **"Create a limit order"** → Load `gdex-authentication` + `gdex-limit-orders`
 - **"Set a limit buy"** → Load `gdex-authentication` + `gdex-limit-orders` (use `limitBuy()`)
@@ -60,6 +60,8 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 > **Solana trades need ~0.01 SOL minimum.** ATA (Associated Token Account) creation costs ~0.002 SOL per new token, plus priority fees (default 0.0005 SOL) and base tx fees. First trade on a new token needs ~0.007 SOL overhead beyond the swap amount.
 
 > **Bridge endpoints use different paths than expected.** The actual backend routes are `GET /v1/bridge/estimate_bridge`, `POST /v1/bridge/request_bridge`, and `GET /v1/bridge/bridge_orders`. The `request_bridge` endpoint requires ABI-encoded + signed + AES-encrypted `computedData` (same pattern as managed trades). Bridge is **native tokens only** and uses ChangeNow as provider. Amounts must be in **raw token units** (wei/lamports). See **gdex-bridge** skill for full details.
+
+> **Copy trade write operations (create/delete) use `chainId: 622112261` for sign-in, NOT `chainId: 1`.** The chainId field in the ABI is `uint256` (not string). The update endpoint uses 16 ABI fields (not 15): `[traderWallet, copyTradeName, chainId(uint256), gasPrice, buyMode, copyBuyAmount, isBuyExistingToken, lossPercent, profitPercent, nonce, copySell, excludedDexNumbers, copyTradeId, isDelete, isChangeStatus, excludedProgramIds]`. Both `isDelete='1'` and `isChangeStatus='1'` permanently delete the trade — there is no toggle. Boolean fields use `''` (empty string) for false and `'1'` for true; string `'0'` is truthy and will trigger deletion.
 
 > **Limit order endpoints are `limit_buy` / `limit_sell` / `update_order` — NOT `orders/create` / `orders/cancel`.** Use `limitBuy()` for buy orders, `limitSell()` for sell orders (auto-classifies TP vs SL), and `updateOrder({ isDelete: true })` to cancel. Listing uses `GET /v1/orders` with `userId` + encrypted `data` + `chainId`. All write endpoints use ABI-encoded + signed + AES-encrypted `computedData` (same managed-custody pattern). Minimum order is ~0.01 native token. See **gdex-limit-orders** skill for full details.
 

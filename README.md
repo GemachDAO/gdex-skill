@@ -78,7 +78,7 @@ GDEX uses a **multi-skill architecture** — agents load only the skills they ne
 | `gdex-limit-orders` | Create, cancel, and list limit orders |
 | `gdex-portfolio` | Cross-chain portfolio, balances, trade history |
 | `gdex-token-discovery` | Token details, trending tokens, OHLCV charts (no auth) |
-| `gdex-copy-trading` | Copy trade settings, tracked wallets, top traders |
+| `gdex-copy-trading` | Copy trade create/delete, leaderboards, tx history, DEX list (Solana only for writes) |
 | `gdex-bridge` | Cross-chain bridging with quotes |
 | `gdex-wallet-setup` | Generate EVM wallets, session keys, wallet info (no auth) |
 
@@ -254,7 +254,7 @@ Recommended environment variables for your own app:
 | `GDEX_DEBUG` | Enable debug logging to pass as `debug` | `false` |
 | `GDEX_CONTROL_WALLET` | Control wallet address (userId) for managed custody | — |
 | `GDEX_SESSION_PRIVATE` | Session private key (hex, 0x-prefixed) for managed custody | — |
-| `GDEX_MANAGED_CHAIN_ID` | Chain ID for managed trades (900=Solana, 101=Sui) | `900` |
+| `GDEX_MANAGED_CHAIN_ID` | Chain ID for managed trades (622112261=Solana, 42161=Arbitrum for perps) | `622112261` |
 | `CONFIRM_LIVE_TRADE` | Set to `YES` to submit real trades | — |
 
 ---
@@ -364,6 +364,9 @@ if (result.requestId) {
 | `encodeLimitOrderData(action, params)` | ABI-encode limit order data (buy/sell/update schemas) |
 | `signLimitOrderMessage(action, userId, data, privKey)` | Sign limit order with session key |
 | `buildLimitOrderComputedData({...})` | Build encrypted limit order payload |
+| `encodeCopyTradeData(action, params)` | ABI-encode copy trade data (create: 12 fields, update: 16 fields, chainId is `uint256`) |
+| `signCopyTradeMessage(action, userId, data, privKey)` | Sign copy trade with session key |
+| `buildCopyTradeComputedData({...})` | Build encrypted copy trade payload |
 | `buildEncryptedGdexPayload({...})` | Encrypt JSON `{userId, data, signature}` for `computedData` |
 | `encryptGdexComputedData(plaintext, apiKey)` | AES-256-CBC encrypt UTF-8 plaintext |
 | `encryptGdexHexData(hexData, apiKey)` | AES-256-CBC encrypt raw hex-decoded bytes |
@@ -528,22 +531,108 @@ const { count, orders } = await skill.getLimitOrders({
 
 ### Copy Trading
 
+> **Solana-only for write operations.** Sign-in must use `chainId: 622112261`. The ABI encodes `chainId` as `uint256`.
+
+#### Discovery (no auth)
+
 ```typescript
-// Add a wallet to copy
-await skill.addCopyTradeWallet({ walletAddress: 'TopTraderAddress', chain: 'solana', label: 'Alpha' });
+// Top 300 wallets by total PnL (cached 2 min)
+const topWallets = await skill.getCopyTradeWallets();
+// [{ address, totalPnl, receivedMinusSpent, spent, unrealizedValue, chainId }]
 
-// Configure settings
-await skill.setCopyTradeSettings({
-  enabled: true,
-  maxTradeSize: '100',       // max $100 per copied trade
-  slippage: 1,
-  copyBuysOnly: false,
-  autoStopLossPercent: 10,   // SL at 10% loss
-});
+// Top 300 by net received
+const customWallets = await skill.getCopyTradeCustomWallets();
 
-const wallets = await skill.getCopyTradeWallets('userId');
-await skill.removeCopyTradeWallet({ walletAddress: 'TopTraderAddress', chain: 'solana' });
+// Hot new tokens from top wallets (cached 20s)
+const gems = await skill.getCopyTradeGems();
+
+// Supported DEXes for Solana
+const dexes = await skill.getCopyTradeDexes(622112261);
+// [{ dexName: 'pumpfun', dexNumber: 0, programId: '...' }, ...]
 ```
+
+#### Read (session-key auth)
+
+```typescript
+import { buildGdexUserSessionData } from '@gdexsdk/gdex-skill';
+
+const data = buildGdexUserSessionData(sessionKey, apiKey);
+
+// List copy trade configs (cached 20s per user)
+const { allCopyTrades, dexes } = await skill.getCopyTradeList({ userId, data });
+// allCopyTrades: [{ copyTradeId, copyTradeName, traderWallet, isActive, lossPercent, profitPercent, ... }]
+
+// Transaction history with PnL
+const { txes } = await skill.getCopyTradeTxList({ userId, data });
+```
+
+#### Create (computedData auth)
+
+```typescript
+import {
+  GDEX_API_KEY_PRIMARY,
+  buildCopyTradeComputedData,
+  generateGdexSessionKeyPair,
+  buildGdexSignInMessage,
+  buildGdexSignInComputedData,
+} from '@gdexsdk/gdex-skill';
+
+// Sign-in MUST use chainId: 622112261 for copy trade operations
+const result = await skill.createCopyTrade({
+  apiKey: GDEX_API_KEY_PRIMARY,
+  userId: controlWalletAddress,
+  sessionPrivateKey,
+  chainId: 622112261,                // Solana only
+  traderWallet: 'SolanaTraderAddress',
+  copyTradeName: 'Alpha Trader',
+  buyMode: 1,                        // 1 = fixed SOL, 2 = percentage
+  copyBuyAmount: '0.001',            // SOL amount (mode 1) or percentage (mode 2)
+  lossPercent: '50',                 // stop-loss at 50%
+  profitPercent: '100',              // take-profit at 100%
+  copySell: true,                    // also copy sell trades
+  isBuyExistingToken: false,         // skip tokens already held
+  excludedDexNumbers: [],            // no DEX exclusions
+});
+// { isSuccess: true, message: 'created new copy trade successfully', allCopyTrades: [...] }
+```
+
+#### Delete (computedData auth)
+
+```typescript
+// Delete a copy trade (isDelete: true)
+const deleteResult = await skill.updateCopyTrade({
+  apiKey: GDEX_API_KEY_PRIMARY,
+  userId: controlWalletAddress,
+  sessionPrivateKey,
+  chainId: 622112261,
+  copyTradeId: '<64-char-hex-id>',
+  traderWallet: 'SolanaTraderAddress',
+  copyTradeName: 'Alpha Trader',
+  buyMode: 1,
+  copyBuyAmount: '0.001',
+  lossPercent: '50',
+  profitPercent: '100',
+  isDelete: true,                    // permanently deletes the copy trade
+});
+// { isSuccess: true, message: 'Updated' }
+```
+
+> **WARNING:** Both `isDelete: true` and `isChangeStatus: true` permanently delete the copy trade.
+> There is no toggle/pause functionality on the current backend. Boolean fields use `''` for false
+> and `'1'` for true internally; string `'0'` is truthy in JS and will trigger deletion.
+
+#### Copy Trade ABI Reference
+
+| Action | Fields | ABI Types |
+|---|---|---|
+| `create_copy_trade` | 12 | `['string','string','uint256','string'×9]` |
+| `update_copy_trade` | 16 | `['string','string','uint256','string'×13]` |
+
+**Create field order:** `[traderWallet, copyTradeName, chainId, gasPrice, buyMode, copyBuyAmount, isBuyExistingToken, lossPercent, profitPercent, nonce, copySell, excludedDexNumbers]`
+
+**Update field order:** `[traderWallet, copyTradeName, chainId, gasPrice, buyMode, copyBuyAmount, isBuyExistingToken, lossPercent, profitPercent, nonce, copySell, excludedDexNumbers, copyTradeId, isDelete, isChangeStatus, excludedProgramIds]`
+
+> `chainId` at position 2 is `uint256`, all other fields are `string`. Nonce is auto-generated by the SDK.
 
 ---
 
