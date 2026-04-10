@@ -49,6 +49,15 @@ import {
   hlCancelOrder,
   hlCancelAllOrders,
   hlUpdateLeverage,
+  createHlTrader,
+  getHlAllMids,
+  getHlTradeHistory,
+  getHlTraderLeverageContext,
+  getHlSpotState,
+  hlExecuteCrossPerp,
+  hlExecuteIsolatedPerp,
+  hlExecuteSpot,
+  hlDirectCancelOrder,
 } from './actions/perpTrade';
 import { limitBuy, limitSell, updateOrder, getLimitOrders, createLimitOrder, cancelLimitOrder } from './actions/limitOrders';
 import {
@@ -655,6 +664,112 @@ export class GdexSkill {
    */
   async hlUpdateLeverage(params: HlUpdateLeverageParams): Promise<HlResponse> {
     return hlUpdateLeverage(this.client, params);
+  }
+
+  // ── Direct HyperLiquid Execution (via @gdexsdk/hyper-liquid-trader) ────────
+
+  /**
+   * Create a new HyperLiquidTrading instance for direct execution.
+   * Useful when callers need their own instance with custom WS URLs.
+   */
+  async createHlTrader(wsUrls?: string[]) {
+    return createHlTrader(wsUrls);
+  }
+
+  /**
+   * Get all mid prices for all assets on HyperLiquid.
+   */
+  async getHlAllMids(): Promise<Record<string, string> | undefined> {
+    return getHlAllMids();
+  }
+
+  /**
+   * Get trade history for a wallet on HyperLiquid.
+   */
+  async getHlTradeHistory(walletAddress: string) {
+    return getHlTradeHistory(walletAddress);
+  }
+
+  /**
+   * Get the leverage context for a trader on a specific coin.
+   */
+  async getHlTraderLeverageContext(traderWallet: string, coin: string): Promise<number | undefined> {
+    return getHlTraderLeverageContext(traderWallet, coin);
+  }
+
+  /**
+   * Get spot clearinghouse state for a wallet on HyperLiquid.
+   */
+  async getHlSpotState(walletAddress: string) {
+    return getHlSpotState(walletAddress);
+  }
+
+  /**
+   * Execute a cross-margin perpetual trade directly on HyperLiquid.
+   * Bypasses GDEX managed custody — requires a private key.
+   */
+  async hlExecuteCrossPerp(
+    privateKey: string,
+    params: {
+      coin: string;
+      isLong: boolean;
+      price: string;
+      positionSize: string;
+      reduceOnly?: boolean;
+      leverage?: number;
+      takeProfit?: { price: string; triggerPrice: string };
+      stopLoss?: { price: string; triggerPrice: string };
+      builderFee?: { address: string; feeRate: number };
+    },
+    isMarket = true,
+  ): Promise<unknown> {
+    return hlExecuteCrossPerp(privateKey, params, isMarket);
+  }
+
+  /**
+   * Execute an isolated-margin perpetual trade directly on HyperLiquid.
+   * Automatically sets leverage and forces isolated margin mode.
+   */
+  async hlExecuteIsolatedPerp(
+    privateKey: string,
+    params: {
+      coin: string;
+      isLong: boolean;
+      price: string;
+      positionSize: string;
+      leverage: number;
+      reduceOnly?: boolean;
+      takeProfit?: { price: string; triggerPrice: string };
+      stopLoss?: { price: string; triggerPrice: string };
+      builderFee?: { address: string; feeRate: number };
+    },
+    isMarket = true,
+  ): Promise<unknown> {
+    return hlExecuteIsolatedPerp(privateKey, params, isMarket);
+  }
+
+  /**
+   * Execute a spot trade directly on HyperLiquid.
+   */
+  async hlExecuteSpot(
+    privateKey: string,
+    params: {
+      coin: string;
+      isBuy: boolean;
+      price: string;
+      size: string;
+      builderFee?: { address: string; feeRate: number };
+    },
+    isMarket = true,
+  ): Promise<unknown> {
+    return hlExecuteSpot(privateKey, params, isMarket);
+  }
+
+  /**
+   * Cancel an open order directly on HyperLiquid by order ID.
+   */
+  async hlDirectCancelOrder(privateKey: string, coin: string, oid: number): Promise<unknown> {
+    return hlDirectCancelOrder(privateKey, coin, oid);
   }
 
   // ── Limit Orders ───────────────────────────────────────────────────────────

@@ -2,7 +2,8 @@
  * Types for perpetual futures trading on HyperLiquid via GDEX managed custody.
  *
  * Write operations use the computedData flow (ABI encode → sign → encrypt → POST).
- * Read operations use the @nktkas/hyperliquid PublicClient directly.
+ * Read operations use the @gdexsdk/hyper-liquid-trader SDK.
+ * Direct execution uses the HyperLiquidTrading class for cross/isolated perp and spot.
  */
 
 /** Perpetual position side */

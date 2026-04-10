@@ -17,7 +17,7 @@ Cross-chain spot trading · Perpetual futures · Portfolio management · Token d
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F7DF1E.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![skills.sh](https://img.shields.io/badge/skills.sh-compatible-8B5CF6.svg?style=for-the-badge)](https://skills.sh)
-[![Tests](https://img.shields.io/badge/tests-91%20passing-22C55E.svg?style=for-the-badge)](#testing)
+[![Tests](https://img.shields.io/badge/tests-103%20passing-22C55E.svg?style=for-the-badge)](#testing)
 
 </div>
 
@@ -532,6 +532,45 @@ const positions = await skill.getPerpPositions({ walletAddress: '0x...' });
 ```
 
 > **HL Deposit notes:** Amount is in human-readable USDC (e.g., `'10'` for 10 USDC). The SDK automatically converts to smallest unit (6 decimals). Minimum deposit is 10 USDC. Your managed wallet must have the deposit amount + 1% fee buffer in USDC on Arbitrum. After the on-chain tx confirms, HyperLiquid takes ~10 minutes to credit the deposit.
+
+#### Direct HyperLiquid Execution (via `@gdexsdk/hyper-liquid-trader`)
+
+For direct trading on HyperLiquid L1 without managed custody — use your own private key:
+
+```typescript
+// Cross-margin perpetual trade
+const result = await skill.hlExecuteCrossPerp(
+  process.env.PRIVATE_KEY!,
+  { coin: 'BTC', isLong: true, price: '100000', positionSize: '0.001', leverage: 10 },
+);
+
+// Isolated-margin perpetual trade
+const result2 = await skill.hlExecuteIsolatedPerp(
+  process.env.PRIVATE_KEY!,
+  { coin: 'ETH', isLong: false, price: '3000', positionSize: '1', leverage: 5 },
+);
+
+// Spot trade on HyperLiquid
+const result3 = await skill.hlExecuteSpot(
+  process.env.PRIVATE_KEY!,
+  { coin: 'PURR', isBuy: true, price: '0.50', size: '100' },
+);
+
+// Cancel an order directly
+await skill.hlDirectCancelOrder(process.env.PRIVATE_KEY!, 'BTC', orderId);
+
+// Get all mid prices
+const mids = await skill.getHlAllMids();
+
+// Get trade history
+const trades = await skill.getHlTradeHistory('0xYourWallet');
+
+// Get a trader's leverage context (for copy trading)
+const leverage = await skill.getHlTraderLeverageContext('0xTraderWallet', 'BTC');
+
+// Create a standalone HyperLiquidTrading instance with custom WS URLs
+const trader = await skill.createHlTrader(['wss://custom-ws.example.com']);
+```
 
 ---
 
@@ -1053,6 +1092,7 @@ AI Agent (Claude Code / Cursor / Codex / ...)
    ▼
 @gdexsdk/gdex-skill  (this package)
    │  TypeScript methods with full type safety
+   │  @gdexsdk/hyper-liquid-trader for HyperLiquid L1 queries & direct execution
    │  Managed-custody: AES-256-CBC encryption + secp256k1 session signing
    │  computedData payloads for all trade operations
    │  Auto-retry with exponential backoff
