@@ -102,12 +102,17 @@ export async function getHlAccountState(walletAddress: string): Promise<HlAccoun
     };
   });
 
+  // Withdrawable is approximately accountValue - totalMarginUsed
+  const accountVal = parseFloat(state.marginSummary.accountValue || '0');
+  const marginUsed = parseFloat(state.marginSummary.totalMarginUsed || '0');
+  const withdrawable = Math.max(0, accountVal - marginUsed).toString();
+
   return {
     accountValue: state.marginSummary.accountValue,
     totalNtlPos: state.marginSummary.totalNtlPos,
     totalRawUsd: state.marginSummary.totalRawUsd,
     totalMarginUsed: state.marginSummary.totalMarginUsed,
-    withdrawable: '0', // derive from account value minus margin used
+    withdrawable,
     positions,
   };
 }

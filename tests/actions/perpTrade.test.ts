@@ -112,6 +112,7 @@ describe('perpTrade', () => {
 
       expect(getMockTrader().getAccountState).toHaveBeenCalledWith('0x1234');
       expect(state.accountValue).toBe('1000.50');
+      expect(state.withdrawable).toBe('950.5');
       expect(state.positions).toHaveLength(1);
       expect(state.positions[0].coin).toBe('BTC');
       expect(state.positions[0].side).toBe('long');
