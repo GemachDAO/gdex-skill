@@ -59,8 +59,8 @@ Install directly into Claude Code, Cursor, Codex, Windsurf, and [40+ other agent
 # Install all skills (recommended)
 npx skills add GemachDAO/gdex-skill --all --agent '*' -g
 
-# Install just the root routing skill
-npx skills add GemachDAO/gdex-skill
+# Install the overview/routing skill
+npx skills add GemachDAO/gdex-skill --skill gdex-trading
 
 # Install a specific skill
 npx skills add GemachDAO/gdex-skill --skill gdex-spot-trading
@@ -92,7 +92,7 @@ GDEX uses a **multi-skill architecture** — agents load only the skills they ne
 | `gdex-ui-page-layouts` | Full page compositions — trading, portfolio, copy trading, bridge pages |
 | `gdex-sdk-debugging` | Troubleshoot errors — error codes, encryption debugging, chain quirks, HL gotchas |
 
-The root `SKILL.md` acts as a router — it tells agents which skill to load for any given task. **No API key setup required** (shared keys are built in).
+The `gdex-trading` skill acts as a router — it tells agents which skill to load for any given task. **No API key setup required** (shared keys are built in).
 
 ---
 
@@ -1085,9 +1085,9 @@ Test suites:
 ```
 AI Agent (Claude Code / Cursor / Codex / ...)
    │
-   │  npx skills add GemachDAO/gdex-skill
-   │  ──────────────────────────────────
-   │  SKILL.md → agent skill directory
+   │  npx skills add GemachDAO/gdex-skill --all
+   │  ──────────────────────────────────────────
+   │  skills/*/SKILL.md → agent skill directories
    │
    ▼
 @gdexsdk/gdex-skill  (this package)

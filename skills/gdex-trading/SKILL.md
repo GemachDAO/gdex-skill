@@ -1,6 +1,6 @@
 ---
 name: gdex-trading
-description: Cross-chain DeFi trading skill for AI agents — spot trading, perpetual futures, portfolio management, and token discovery on Solana, Sui, and 12+ EVM chains via managed-custody wallets. Load gdex-onboarding to get started, or load a specific skill below for your task.
+description: Cross-chain DeFi trading for AI agents — spot trading, perp futures, portfolio, and token discovery on Solana, Sui, and 12+ EVM chains. Load gdex-onboarding to get started.
 metadata:
   author: GemachDAO
   version: "1.0.0"
