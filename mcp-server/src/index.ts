@@ -6,6 +6,19 @@ import { z } from 'zod';
 import { loadSkills, searchSkills, getSkillContent, listSkills } from './knowledge.js';
 import { handleInit } from './init.js';
 
+// Execution tool registrations
+import { registerAuthTools } from './tools/auth.js';
+import { registerSpotTradeTools } from './tools/spotTrade.js';
+import { registerPerpTradeTools } from './tools/perpTrade.js';
+import { registerPerpReadTools } from './tools/perpRead.js';
+import { registerDirectExecTools } from './tools/directExec.js';
+import { registerLimitOrderTools } from './tools/limitOrders.js';
+import { registerCopyTradeTools } from './tools/copyTrade.js';
+import { registerHlCopyTradeTools } from './tools/hlCopyTrade.js';
+import { registerPortfolioTools } from './tools/portfolio.js';
+import { registerBridgeTools } from './tools/bridge.js';
+import { registerManagedTools } from './tools/managed.js';
+
 // Handle init command before starting server
 const args = process.argv.slice(2);
 if (args[0] === 'init') {
@@ -14,7 +27,7 @@ if (args[0] === 'init') {
 }
 
 const server = new McpServer(
-  { name: 'gdex-mcp-server', version: '1.0.0' },
+  { name: 'gdex-mcp-server', version: '2.0.0' },
   { capabilities: { tools: {} } },
 );
 
@@ -342,6 +355,19 @@ server.tool(
     return { content: [{ type: 'text', text: `# Component Guide: ${component}\n\n${results.join('\n\n---\n\n')}` }] };
   },
 );
+
+// --- Register all execution tools ---
+registerAuthTools(server);
+registerSpotTradeTools(server);
+registerPerpTradeTools(server);
+registerPerpReadTools(server);
+registerDirectExecTools(server);
+registerLimitOrderTools(server);
+registerCopyTradeTools(server);
+registerHlCopyTradeTools(server);
+registerPortfolioTools(server);
+registerBridgeTools(server);
+registerManagedTools(server);
 
 // --- Start server ---
 const transport = new StdioServerTransport();

@@ -98,7 +98,7 @@ The root `SKILL.md` acts as a router — it tells agents which skill to load for
 
 ## � MCP Server
 
-The GDEX MCP server exposes SDK documentation and code patterns as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI client can use it.
+The GDEX MCP server exposes **76 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
 
 ### Quick Setup
 
@@ -120,13 +120,39 @@ Add to your client's MCP config:
   "mcpServers": {
     "gdex-mcp-server": {
       "command": "npx",
-      "args": ["@gdexsdk/mcp-server"]
+      "args": ["@gdexsdk/mcp-server"],
+      "env": {
+        "GDEX_API_KEY": "your-api-key"
+      }
     }
   }
 }
 ```
 
-### Available MCP Tools
+### Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `GDEX_API_KEY` | GDEX API key — auto-authenticates on startup | Optional |
+| `GDEX_API_URL` | Override API base URL (default: `https://trade-api.gemach.io/v1`) | Optional |
+
+### MCP Execution Tools (68 tools)
+
+| Category | Tools | Description |
+|----------|-------|-------------|
+| **Auth** | `auth_login`, `generate_session_keypair`, `managed_sign_in`, `build_sign_in_payload` | API key login, session keys, managed custody sign-in |
+| **Spot Trading** | `buy_token`, `sell_token` | Buy/sell on Solana, Sui, Ethereum, Base, Arbitrum, BSC, and 10+ chains |
+| **Perp Trading** | `open_perp_position`, `place_perp_order`, `close_perp_position`, `close_all_positions`, `cancel_perp_order`, `cancel_all_perp_orders`, `set_leverage`, `perp_deposit`, `perp_withdraw` | Full HyperLiquid perpetual futures — long/short, leverage 1-50x, TP/SL |
+| **Perp Data** | `get_account_state`, `get_perp_positions`, `get_mark_price`, `get_all_mid_prices`, `get_usdc_balance`, `get_hl_open_orders`, `get_hl_trade_history`, `get_hl_spot_state`, `get_trader_leverage` | Real-time HyperLiquid account, positions, prices |
+| **Direct Execution** | `execute_cross_perp`, `execute_isolated_perp`, `execute_spot`, `direct_cancel_order` | Private-key execution — cross/isolated margin, spot, cancel |
+| **Limit Orders** | `limit_buy`, `limit_sell`, `update_order`, `get_limit_orders` | Limit buy/sell with TP/SL, order management |
+| **Copy Trading (Solana)** | `get_copy_trade_wallets`, `get_copy_trade_custom_wallets`, `get_copy_trade_gems`, `get_copy_trade_dexes`, `get_copy_trade_list`, `get_copy_trade_tx_list`, `create_copy_trade`, `update_copy_trade` | Auto-mirror top Solana traders |
+| **Copy Trading (HL Perp)** | `get_hl_top_traders`, `get_hl_top_traders_by_pnl`, `get_hl_user_stats`, `get_hl_perp_dexes`, `get_hl_all_assets`, `get_hl_clearinghouse_state`, `get_hl_meta_and_asset_ctxs`, `get_hl_deposit_tokens`, `get_hl_copy_trade_list`, `get_hl_copy_trade_tx_list`, `create_hl_copy_trade`, `update_hl_copy_trade` | Copy HyperLiquid perp traders |
+| **Portfolio & Data** | `get_portfolio`, `get_balances`, `get_trade_history`, `get_token_details`, `get_trending_tokens`, `get_ohlcv`, `get_top_traders`, `get_wallet_info`, `generate_evm_wallet` | Cross-chain portfolio, market data, OHLCV candles |
+| **Bridge** | `estimate_bridge`, `execute_bridge`, `get_bridge_orders` | Cross-chain native token bridging |
+| **Managed Custody** | `managed_purchase`, `managed_sell`, `managed_trade_status`, `build_trade_payload` | Low-level encrypted trade submission |
+
+### MCP Documentation Tools (8 tools)
 
 | Tool | Description |
 |------|-------------|
