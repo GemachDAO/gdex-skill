@@ -131,13 +131,18 @@ Add to your client's MCP config:
 | Tool | Description |
 |------|-------------|
 | `search_gdex_docs` | Search documentation by keyword |
-| `get_sdk_pattern` | TypeScript code patterns by operation |
+| `get_sdk_pattern` | TypeScript code patterns by operation (spot, perp, leverage, positions, direct-trading, etc.) |
 | `get_api_info` | API endpoint details (URL, method, params) |
-| `explain_workflow` | Step-by-step trading workflows |
+| `explain_workflow` | Step-by-step trading workflows (includes leverage, position-management, direct-trading, order-management) |
 | `get_chain_info` | Supported chains and capabilities |
-| `get_trading_guide` | Spot, perp, or limit trading guides |
+| `get_trading_guide` | Trading guides for spot, perp, limit, leverage, funding, or direct execution |
 | `get_copy_trade_guide` | Copy trading guides (Solana / HL) |
 | `get_component_guide` | React UI component patterns |
+| `get_leverage_guide` | Leverage management — cross vs isolated margin, setting leverage, querying context |
+| `get_position_management_guide` | Position management — view positions, account state, mark prices, balances |
+| `get_order_management_guide` | Order management — market, limit, TP/SL, cancel, close positions |
+| `get_perp_funding_guide` | Perp funding — deposit/withdraw USDC to/from HyperLiquid |
+| `get_direct_trading_guide` | Direct private-key trading on HyperLiquid (cross perp, isolated perp, spot) |
 
 ---
 
