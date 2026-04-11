@@ -61,6 +61,7 @@
     "url": "https://github.com/GemachDAO/gdex-skill.git"
   },
   "dependencies": {
+    "@gdexsdk/hyper-liquid-trader": "^1.1.1",
     "@nktkas/hyperliquid": "^0.32.1",
     "axios": "^1.7.9",
     "axios-retry": "^4.5.0",

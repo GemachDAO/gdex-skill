@@ -17,6 +17,14 @@ import {
   hlCancelOrder,
   hlCancelAllOrders,
   hlUpdateLeverage,
+  getHlAllMids,
+  getHlTradeHistory,
+  getHlTraderLeverageContext,
+  getHlSpotState,
+  hlExecuteCrossPerp,
+  hlExecuteIsolatedPerp,
+  hlExecuteSpot,
+  hlDirectCancelOrder,
 } from '../../src/actions/perpTrade';
 import { GdexValidationError } from '../../src/utils/errors';
 import * as crypto from '../../src/utils/gdexManagedCrypto';
@@ -32,11 +40,11 @@ jest.mock('../../src/utils/gdexManagedCrypto', () => {
 
 const MockedClient = GdexApiClient as jest.MockedClass<typeof GdexApiClient>;
 
-// Access the mock InfoClient instance from the global module mock
-function getMockInfoClient() {
+// Access the mock HyperLiquidTrading instance from the global module mock
+function getMockTrader() {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { __mockInfoClient } = require('@nktkas/hyperliquid');
-  return __mockInfoClient;
+  const { __mockTrader } = require('@gdexsdk/hyper-liquid-trader');
+  return __mockTrader;
 }
 
 const TEST_CREDS = {
@@ -52,16 +60,24 @@ describe('perpTrade', () => {
     client = new MockedClient() as jest.Mocked<GdexApiClient>;
     // Re-set mock return values after jest's resetMocks clears them
     (crypto.buildHlComputedData as jest.Mock).mockReturnValue('mock-computed-data');
-    const hl = require('@nktkas/hyperliquid');
-    hl.InfoClient.mockImplementation(() => hl.__mockInfoClient);
-    const mock = hl.__mockInfoClient;
-    mock.clearinghouseState.mockResolvedValue({
-      crossMarginSummary: { accountValue: '0', totalNtlPos: '0', totalRawUsd: '0', totalMarginUsed: '0' },
-      withdrawable: '0',
+    const hl = require('@gdexsdk/hyper-liquid-trader');
+    hl.HyperLiquidTrading.mockImplementation(() => hl.__mockTrader);
+    const mock = hl.__mockTrader;
+    mock.getAccountState.mockResolvedValue({
+      marginSummary: { accountValue: '0', totalNtlPos: '0', totalRawUsd: '0', totalMarginUsed: '0' },
       assetPositions: [],
     });
-    mock.l2Book.mockResolvedValue({ levels: [[], []] });
-    mock.frontendOpenOrders.mockResolvedValue([]);
+    mock.getMidPrice.mockResolvedValue(0);
+    mock.getAllMids.mockResolvedValue({});
+    mock.getBalance.mockResolvedValue(0);
+    mock.getOpenOrders.mockResolvedValue([]);
+    mock.getTradeHistory.mockResolvedValue([]);
+    mock.getSpotState.mockResolvedValue(undefined);
+    mock.getTraderLeverageContext.mockResolvedValue(undefined);
+    mock.executeCrossPerp.mockResolvedValue({ status: 'ok' });
+    mock.executeIsolatedPerp.mockResolvedValue({ status: 'ok' });
+    mock.executeSpot.mockResolvedValue({ status: 'ok' });
+    mock.cancelOrder.mockResolvedValue({ status: 'ok' });
   });
 
   // ── Read operations (HyperLiquid L1) ──────────────────────────────────────
@@ -69,13 +85,12 @@ describe('perpTrade', () => {
   describe('getHlAccountState', () => {
     it('should return account state with positions', async () => {
       const mockState = {
-        crossMarginSummary: {
+        marginSummary: {
           accountValue: '1000.50',
           totalNtlPos: '500.00',
           totalRawUsd: '1000.50',
           totalMarginUsed: '50.00',
         },
-        withdrawable: '950.50',
         assetPositions: [
           {
             position: {
@@ -91,13 +106,13 @@ describe('perpTrade', () => {
           },
         ],
       };
-      getMockInfoClient().clearinghouseState.mockResolvedValue(mockState);
+      getMockTrader().getAccountState.mockResolvedValue(mockState);
 
       const state = await getHlAccountState('0x1234');
 
-      expect(getMockInfoClient().clearinghouseState).toHaveBeenCalledWith({ user: '0x1234' });
+      expect(getMockTrader().getAccountState).toHaveBeenCalledWith('0x1234');
       expect(state.accountValue).toBe('1000.50');
-      expect(state.withdrawable).toBe('950.50');
+      expect(state.withdrawable).toBe('950.5');
       expect(state.positions).toHaveLength(1);
       expect(state.positions[0].coin).toBe('BTC');
       expect(state.positions[0].side).toBe('long');
@@ -107,13 +122,12 @@ describe('perpTrade', () => {
 
     it('should map short positions correctly', async () => {
       const mockState = {
-        crossMarginSummary: {
+        marginSummary: {
           accountValue: '500',
           totalNtlPos: '200',
           totalRawUsd: '500',
           totalMarginUsed: '20',
         },
-        withdrawable: '480',
         assetPositions: [
           {
             position: {
@@ -129,11 +143,19 @@ describe('perpTrade', () => {
           },
         ],
       };
-      getMockInfoClient().clearinghouseState.mockResolvedValue(mockState);
+      getMockTrader().getAccountState.mockResolvedValue(mockState);
 
       const state = await getHlAccountState('0xabcd');
       expect(state.positions[0].side).toBe('short');
       expect(state.positions[0].size).toBe('2.5');
+    });
+
+    it('should return empty state when getAccountState returns undefined', async () => {
+      getMockTrader().getAccountState.mockResolvedValue(undefined);
+
+      const state = await getHlAccountState('0x1234');
+      expect(state.accountValue).toBe('0');
+      expect(state.positions).toHaveLength(0);
     });
 
     it('should throw for empty walletAddress', async () => {
@@ -144,14 +166,13 @@ describe('perpTrade', () => {
   describe('getPerpPositions', () => {
     it('should return all positions', async () => {
       const mockState = {
-        crossMarginSummary: { accountValue: '100', totalNtlPos: '0', totalRawUsd: '100', totalMarginUsed: '0' },
-        withdrawable: '100',
+        marginSummary: { accountValue: '100', totalNtlPos: '0', totalRawUsd: '100', totalMarginUsed: '0' },
         assetPositions: [
           { position: { coin: 'BTC', szi: '0.01', entryPx: '100000', leverage: { value: 10 }, liquidationPx: null, unrealizedPnl: '0', marginUsed: '100', positionValue: '1000' } },
           { position: { coin: 'ETH', szi: '-1', entryPx: '3000', leverage: { value: 5 }, liquidationPx: null, unrealizedPnl: '0', marginUsed: '600', positionValue: '3000' } },
         ],
       };
-      getMockInfoClient().clearinghouseState.mockResolvedValue(mockState);
+      getMockTrader().getAccountState.mockResolvedValue(mockState);
 
       const positions = await getPerpPositions({ walletAddress: '0x123' });
       expect(positions).toHaveLength(2);
@@ -159,14 +180,13 @@ describe('perpTrade', () => {
 
     it('should filter by coin when specified', async () => {
       const mockState = {
-        crossMarginSummary: { accountValue: '100', totalNtlPos: '0', totalRawUsd: '100', totalMarginUsed: '0' },
-        withdrawable: '100',
+        marginSummary: { accountValue: '100', totalNtlPos: '0', totalRawUsd: '100', totalMarginUsed: '0' },
         assetPositions: [
           { position: { coin: 'BTC', szi: '0.01', entryPx: '100000', leverage: { value: 10 }, liquidationPx: null, unrealizedPnl: '0', marginUsed: '100', positionValue: '1000' } },
           { position: { coin: 'ETH', szi: '-1', entryPx: '3000', leverage: { value: 5 }, liquidationPx: null, unrealizedPnl: '0', marginUsed: '600', positionValue: '3000' } },
         ],
       };
-      getMockInfoClient().clearinghouseState.mockResolvedValue(mockState);
+      getMockTrader().getAccountState.mockResolvedValue(mockState);
 
       const positions = await getPerpPositions({ walletAddress: '0x123', coin: 'btc' });
       expect(positions).toHaveLength(1);
@@ -175,21 +195,16 @@ describe('perpTrade', () => {
   });
 
   describe('getHlMarkPrice', () => {
-    it('should return mark price from L2 book', async () => {
-      getMockInfoClient().l2Book.mockResolvedValue({
-        levels: [
-          [{ px: '99990', sz: '1' }], // bids
-          [{ px: '100010', sz: '0.5' }], // asks
-        ],
-      });
+    it('should return mid price from trader SDK', async () => {
+      getMockTrader().getMidPrice.mockResolvedValue(100010);
 
       const price = await getHlMarkPrice('BTC');
       expect(price).toBe(100010);
-      expect(getMockInfoClient().l2Book).toHaveBeenCalledWith({ coin: 'BTC' });
+      expect(getMockTrader().getMidPrice).toHaveBeenCalledWith('BTC');
     });
 
-    it('should return 0 when book is null', async () => {
-      getMockInfoClient().l2Book.mockResolvedValue(null);
+    it('should return 0 when getMidPrice returns undefined', async () => {
+      getMockTrader().getMidPrice.mockResolvedValue(undefined);
       const price = await getHlMarkPrice('XYZ');
       expect(price).toBe(0);
     });
@@ -200,24 +215,59 @@ describe('perpTrade', () => {
   });
 
   describe('getHlUsdcBalance', () => {
-    it('should compute available balance', async () => {
-      getMockInfoClient().clearinghouseState.mockResolvedValue({
-        crossMarginSummary: { accountValue: '1000', totalMarginUsed: '200' },
-      });
+    it('should return balance from trader SDK', async () => {
+      getMockTrader().getBalance.mockResolvedValue(800);
 
       const balance = await getHlUsdcBalance('0x123');
       expect(balance).toBe(800);
     });
+
+    it('should return 0 when getBalance returns undefined', async () => {
+      getMockTrader().getBalance.mockResolvedValue(undefined);
+
+      const balance = await getHlUsdcBalance('0x123');
+      expect(balance).toBe(0);
+    });
   });
 
   describe('getHlOpenOrders', () => {
-    it('should call frontendOpenOrders', async () => {
+    it('should call getOpenOrders', async () => {
       const mockOrders = [{ oid: 1, coin: 'BTC', side: 'B', sz: '0.01' }];
-      getMockInfoClient().frontendOpenOrders.mockResolvedValue(mockOrders);
+      getMockTrader().getOpenOrders.mockResolvedValue(mockOrders);
 
       const orders = await getHlOpenOrders('0x123');
-      expect(getMockInfoClient().frontendOpenOrders).toHaveBeenCalledWith({ user: '0x123' });
+      expect(getMockTrader().getOpenOrders).toHaveBeenCalledWith('0x123');
       expect(orders).toEqual(mockOrders);
+    });
+  });
+
+  describe('getHlAllMids', () => {
+    it('should return all mid prices', async () => {
+      const mids = { BTC: '100000', ETH: '3000' };
+      getMockTrader().getAllMids.mockResolvedValue(mids);
+
+      const result = await getHlAllMids();
+      expect(result).toEqual(mids);
+    });
+  });
+
+  describe('getHlTradeHistory', () => {
+    it('should return trade history', async () => {
+      const history = [{ coin: 'BTC', size: '0.01' }];
+      getMockTrader().getTradeHistory.mockResolvedValue(history);
+
+      const result = await getHlTradeHistory('0x123');
+      expect(result).toEqual(history);
+    });
+  });
+
+  describe('getHlTraderLeverageContext', () => {
+    it('should return leverage for trader/coin', async () => {
+      getMockTrader().getTraderLeverageContext.mockResolvedValue(10);
+
+      const leverage = await getHlTraderLeverageContext('0xtrader', 'btc');
+      expect(leverage).toBe(10);
+      expect(getMockTrader().getTraderLeverageContext).toHaveBeenCalledWith('0xtrader', 'BTC');
     });
   });
 
@@ -470,6 +520,90 @@ describe('perpTrade', () => {
     it('should throw for empty coin', async () => {
       await expect(
         hlUpdateLeverage(client, { ...TEST_CREDS, coin: '', leverage: 40 })
+      ).rejects.toThrow(GdexValidationError);
+    });
+  });
+
+  // ── Direct execution tests (via HyperLiquidTrading SDK) ───────────────────
+
+  describe('hlExecuteCrossPerp', () => {
+    it('should call executeCrossPerp on trader SDK', async () => {
+      const result = await hlExecuteCrossPerp('0xprivkey', {
+        coin: 'btc',
+        isLong: true,
+        price: '100000',
+        positionSize: '0.001',
+      });
+
+      expect(getMockTrader().executeCrossPerp).toHaveBeenCalledWith(
+        '0xprivkey',
+        expect.objectContaining({ coin: 'BTC', isLong: true, price: '100000', positionSize: '0.001' }),
+        true,
+      );
+      expect(result).toEqual({ status: 'ok' });
+    });
+
+    it('should throw for missing privateKey', async () => {
+      await expect(
+        hlExecuteCrossPerp('', { coin: 'BTC', isLong: true, price: '100', positionSize: '1' })
+      ).rejects.toThrow(GdexValidationError);
+    });
+
+    it('should throw for empty coin', async () => {
+      await expect(
+        hlExecuteCrossPerp('0xprivkey', { coin: '', isLong: true, price: '100', positionSize: '1' })
+      ).rejects.toThrow(GdexValidationError);
+    });
+  });
+
+  describe('hlExecuteIsolatedPerp', () => {
+    it('should call executeIsolatedPerp on trader SDK', async () => {
+      const result = await hlExecuteIsolatedPerp('0xprivkey', {
+        coin: 'eth',
+        isLong: false,
+        price: '3000',
+        positionSize: '1',
+        leverage: 10,
+      });
+
+      expect(getMockTrader().executeIsolatedPerp).toHaveBeenCalledWith(
+        '0xprivkey',
+        expect.objectContaining({ coin: 'ETH', isLong: false, leverage: 10 }),
+        true,
+      );
+      expect(result).toEqual({ status: 'ok' });
+    });
+  });
+
+  describe('hlExecuteSpot', () => {
+    it('should call executeSpot on trader SDK', async () => {
+      const result = await hlExecuteSpot('0xprivkey', {
+        coin: 'sol',
+        isBuy: true,
+        price: '150',
+        size: '10',
+      });
+
+      expect(getMockTrader().executeSpot).toHaveBeenCalledWith(
+        '0xprivkey',
+        expect.objectContaining({ coin: 'SOL', isBuy: true }),
+        true,
+      );
+      expect(result).toEqual({ status: 'ok' });
+    });
+  });
+
+  describe('hlDirectCancelOrder', () => {
+    it('should call cancelOrder on trader SDK', async () => {
+      const result = await hlDirectCancelOrder('0xprivkey', 'BTC', 123);
+
+      expect(getMockTrader().cancelOrder).toHaveBeenCalledWith('0xprivkey', 'BTC', 123);
+      expect(result).toEqual({ status: 'ok' });
+    });
+
+    it('should throw for empty coin', async () => {
+      await expect(
+        hlDirectCancelOrder('0xprivkey', '', 123)
       ).rejects.toThrow(GdexValidationError);
     });
   });

@@ -21,6 +21,7 @@ module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   moduleNameMapper: {
     '^@nktkas/hyperliquid$': '<rootDir>/tests/__mocks__/@nktkas/hyperliquid.ts',
+    '^@gdexsdk/hyper-liquid-trader$': '<rootDir>/tests/__mocks__/@gdexsdk/hyper-liquid-trader.ts',
   },
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   coverageDirectory: 'coverage',

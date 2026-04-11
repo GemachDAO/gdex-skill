@@ -2,7 +2,10 @@
  * Perpetual futures trading actions on HyperLiquid via GDEX managed custody.
  *
  * Write operations: ABI-encode → sign with session key → encrypt → POST computedData.
- * Read operations: Query the HyperLiquid L1 directly via @nktkas/hyperliquid PublicClient.
+ * Read operations: Query the HyperLiquid L1 via @gdexsdk/hyper-liquid-trader SDK.
+ *
+ * Direct execution (private key trading): Uses HyperLiquidTrading class for
+ * cross perp, isolated perp, and spot execution without managed custody.
  */
 import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';
@@ -24,30 +27,43 @@ import {
 import { validateAmount, validateCoin, validateRequired } from '../utils/validation';
 import { buildHlComputedData } from '../utils/gdexManagedCrypto';
 
-// Lazy-load @nktkas/hyperliquid to avoid CJS/ESM incompatibility
+// Lazy-load @gdexsdk/hyper-liquid-trader to avoid CJS/ESM incompatibility
 // with @noble/hashes v2 (ESM-only) on Node < 22.
 // In production: dynamic import() preserves ESM semantics in CJS output.
 // In Jest: require() so moduleNameMapper can intercept it.
-let _hlModule: { InfoClient: any; HttpTransport: any } | null = null;
-async function getHlModule(): Promise<{ InfoClient: any; HttpTransport: any }> {
-  if (!_hlModule) {
+let _hlTraderModule: { HyperLiquidTrading: any } | null = null;
+async function getHlTraderModule(): Promise<{ HyperLiquidTrading: any }> {
+  if (!_hlTraderModule) {
     if (process.env.JEST_WORKER_ID) {
-      _hlModule = require('@nktkas/hyperliquid');
+      _hlTraderModule = require('@gdexsdk/hyper-liquid-trader');
     } else {
       const dynamicImport = new Function('modulePath', 'return import(modulePath)');
-      _hlModule = await dynamicImport('@nktkas/hyperliquid');
+      _hlTraderModule = await dynamicImport('@gdexsdk/hyper-liquid-trader');
     }
   }
-  return _hlModule!;
+  return _hlTraderModule!;
 }
 
-// Create HL InfoClient on demand
-async function getHlClient() {
-  const { InfoClient, HttpTransport } = await getHlModule();
-  return new InfoClient({ transport: new HttpTransport() });
+// Singleton HyperLiquidTrading instance for read operations
+let _hlTrader: any = null;
+async function getHlTrader() {
+  if (!_hlTrader) {
+    const { HyperLiquidTrading } = await getHlTraderModule();
+    _hlTrader = new HyperLiquidTrading();
+  }
+  return _hlTrader;
 }
 
-// ── Read operations (direct HyperLiquid L1 queries) ──────────────────────────
+/**
+ * Create a fresh HyperLiquidTrading instance (e.g. for direct execution).
+ * Useful when callers need their own instance with custom WS URLs.
+ */
+export async function createHlTrader(wsUrls?: string[]) {
+  const { HyperLiquidTrading } = await getHlTraderModule();
+  return new HyperLiquidTrading(wsUrls);
+}
+
+// ── Read operations (HyperLiquid L1 queries via @gdexsdk/hyper-liquid-trader) ─
 
 /**
  * Get the full HyperLiquid clearinghouse state for a wallet.
@@ -55,8 +71,19 @@ async function getHlClient() {
  */
 export async function getHlAccountState(walletAddress: string): Promise<HlAccountState> {
   validateRequired(walletAddress, 'walletAddress');
-  const client = await getHlClient();
-  const state = await client.clearinghouseState({ user: walletAddress });
+  const trader = await getHlTrader();
+  const state = await trader.getAccountState(walletAddress);
+
+  if (!state) {
+    return {
+      accountValue: '0',
+      totalNtlPos: '0',
+      totalRawUsd: '0',
+      totalMarginUsed: '0',
+      withdrawable: '0',
+      positions: [],
+    };
+  }
 
   const positions: PerpPosition[] = state.assetPositions.map((ap: any) => {
     const p = ap.position;
@@ -75,12 +102,17 @@ export async function getHlAccountState(walletAddress: string): Promise<HlAccoun
     };
   });
 
+  // Withdrawable is approximately accountValue - totalMarginUsed
+  const accountVal = parseFloat(state.marginSummary.accountValue || '0');
+  const marginUsed = parseFloat(state.marginSummary.totalMarginUsed || '0');
+  const withdrawable = Math.max(0, accountVal - marginUsed).toString();
+
   return {
-    accountValue: state.crossMarginSummary.accountValue,
-    totalNtlPos: state.crossMarginSummary.totalNtlPos,
-    totalRawUsd: state.crossMarginSummary.totalRawUsd,
-    totalMarginUsed: state.crossMarginSummary.totalMarginUsed,
-    withdrawable: state.withdrawable,
+    accountValue: state.marginSummary.accountValue,
+    totalNtlPos: state.marginSummary.totalNtlPos,
+    totalRawUsd: state.marginSummary.totalRawUsd,
+    totalMarginUsed: state.marginSummary.totalMarginUsed,
+    withdrawable,
     positions,
   };
 }
@@ -98,26 +130,22 @@ export async function getPerpPositions(params: GetPositionsParams): Promise<Perp
 }
 
 /**
- * Get the mark price for an asset from the HyperLiquid L2 book.
+ * Get the mark price for an asset from HyperLiquid mid prices.
  */
 export async function getHlMarkPrice(coin: string): Promise<number> {
   validateCoin(coin);
-  const client = await getHlClient();
-  const book = await client.l2Book({ coin: coin.toUpperCase() });
-  if (!book) return 0;
-  const asks = book.levels[1];
-  return asks.length > 0 ? Number(asks[asks.length - 1].px) : 0;
+  const trader = await getHlTrader();
+  const price = await trader.getMidPrice(coin.toUpperCase());
+  return price ?? 0;
 }
 
 /**
  * Get the USDC balance available on HyperLiquid for a wallet.
  */
 export async function getHlUsdcBalance(walletAddress: string): Promise<number> {
-  const client = await getHlClient();
-  const state = await client.clearinghouseState({ user: walletAddress });
-  const accountValue = Number(state.crossMarginSummary?.accountValue ?? 0);
-  const totalMarginUsed = Number(state.crossMarginSummary?.totalMarginUsed ?? 0);
-  return accountValue - totalMarginUsed;
+  const trader = await getHlTrader();
+  const balance = await trader.getBalance(walletAddress);
+  return balance ?? 0;
 }
 
 /**
@@ -125,8 +153,166 @@ export async function getHlUsdcBalance(walletAddress: string): Promise<number> {
  */
 export async function getHlOpenOrders(walletAddress: string) {
   validateRequired(walletAddress, 'walletAddress');
-  const client = await getHlClient();
-  return client.frontendOpenOrders({ user: walletAddress });
+  const trader = await getHlTrader();
+  return trader.getOpenOrders(walletAddress) ?? [];
+}
+
+/**
+ * Get all mid prices for all assets on HyperLiquid.
+ */
+export async function getHlAllMids(): Promise<Record<string, string> | undefined> {
+  const trader = await getHlTrader();
+  return trader.getAllMids();
+}
+
+/**
+ * Get trade history for a wallet on HyperLiquid.
+ */
+export async function getHlTradeHistory(walletAddress: string) {
+  validateRequired(walletAddress, 'walletAddress');
+  const trader = await getHlTrader();
+  return trader.getTradeHistory(walletAddress);
+}
+
+/**
+ * Get the leverage context for a trader on a specific coin.
+ * Useful for copy trading to match the trader's leverage settings.
+ */
+export async function getHlTraderLeverageContext(traderWallet: string, coin: string): Promise<number | undefined> {
+  validateRequired(traderWallet, 'traderWallet');
+  validateCoin(coin);
+  const trader = await getHlTrader();
+  return trader.getTraderLeverageContext(traderWallet, coin.toUpperCase());
+}
+
+/**
+ * Get spot clearinghouse state for a wallet on HyperLiquid.
+ */
+export async function getHlSpotState(walletAddress: string) {
+  validateRequired(walletAddress, 'walletAddress');
+  const trader = await getHlTrader();
+  return trader.getSpotState(walletAddress);
+}
+
+// ── Direct execution (private key trading via @gdexsdk/hyper-liquid-trader) ──
+
+/**
+ * Execute a cross-margin perpetual trade directly on HyperLiquid.
+ * This bypasses the GDEX managed custody flow and requires a private key.
+ *
+ * @param privateKey - Wallet private key (hex string)
+ * @param params - Trade parameters (coin, isLong, price, positionSize, etc.)
+ * @param isMarket - Whether this is a market order (default: true)
+ */
+export async function hlExecuteCrossPerp(
+  privateKey: string,
+  params: {
+    coin: string;
+    isLong: boolean;
+    price: string;
+    positionSize: string;
+    reduceOnly?: boolean;
+    leverage?: number;
+    takeProfit?: { price: string; triggerPrice: string };
+    stopLoss?: { price: string; triggerPrice: string };
+    builderFee?: { address: string; feeRate: number };
+  },
+  isMarket = true,
+): Promise<unknown> {
+  validateCoin(params.coin);
+  validateRequired(params.price, 'price');
+  validateRequired(params.positionSize, 'positionSize');
+  validateRequired(privateKey, 'privateKey');
+
+  const trader = await getHlTrader();
+  return trader.executeCrossPerp(privateKey, {
+    ...params,
+    coin: params.coin.toUpperCase(),
+  }, isMarket);
+}
+
+/**
+ * Execute an isolated-margin perpetual trade directly on HyperLiquid.
+ * Automatically sets leverage and forces isolated margin mode.
+ *
+ * @param privateKey - Wallet private key (hex string)
+ * @param params - Trade parameters including required leverage
+ * @param isMarket - Whether this is a market order (default: true)
+ */
+export async function hlExecuteIsolatedPerp(
+  privateKey: string,
+  params: {
+    coin: string;
+    isLong: boolean;
+    price: string;
+    positionSize: string;
+    leverage: number;
+    reduceOnly?: boolean;
+    takeProfit?: { price: string; triggerPrice: string };
+    stopLoss?: { price: string; triggerPrice: string };
+    builderFee?: { address: string; feeRate: number };
+  },
+  isMarket = true,
+): Promise<unknown> {
+  validateCoin(params.coin);
+  validateRequired(params.price, 'price');
+  validateRequired(params.positionSize, 'positionSize');
+  validateRequired(privateKey, 'privateKey');
+
+  const trader = await getHlTrader();
+  return trader.executeIsolatedPerp(privateKey, {
+    ...params,
+    coin: params.coin.toUpperCase(),
+  }, isMarket);
+}
+
+/**
+ * Execute a spot trade directly on HyperLiquid.
+ *
+ * @param privateKey - Wallet private key (hex string)
+ * @param params - Spot trade parameters
+ * @param isMarket - Whether this is a market order (default: true)
+ */
+export async function hlExecuteSpot(
+  privateKey: string,
+  params: {
+    coin: string;
+    isBuy: boolean;
+    price: string;
+    size: string;
+    builderFee?: { address: string; feeRate: number };
+  },
+  isMarket = true,
+): Promise<unknown> {
+  validateCoin(params.coin);
+  validateRequired(params.price, 'price');
+  validateRequired(params.size, 'size');
+  validateRequired(privateKey, 'privateKey');
+
+  const trader = await getHlTrader();
+  return trader.executeSpot(privateKey, {
+    ...params,
+    coin: params.coin.toUpperCase(),
+  }, isMarket);
+}
+
+/**
+ * Cancel an open order directly on HyperLiquid by order ID.
+ *
+ * @param privateKey - Wallet private key (hex string)
+ * @param coin - Asset coin symbol
+ * @param oid - Order ID to cancel
+ */
+export async function hlDirectCancelOrder(
+  privateKey: string,
+  coin: string,
+  oid: number,
+): Promise<unknown> {
+  validateCoin(coin);
+  validateRequired(privateKey, 'privateKey');
+
+  const trader = await getHlTrader();
+  return trader.cancelOrder(privateKey, coin.toUpperCase(), oid);
 }
 
 /**
