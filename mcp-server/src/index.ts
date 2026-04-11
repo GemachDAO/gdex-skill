@@ -83,7 +83,7 @@ account.positions.forEach(p =>
 | Most altcoins | 5x–20x |
 
 ## Important Notes
-- Backend auto-sets max leverage before managed-custody trades unless you call hlUpdateLeverage() first
+- The backend automatically sets leverage to the asset's maximum allowed value before managed-custody trades, unless you first call hlUpdateLeverage() to set a specific value
 - Leverage changes apply to NEW orders, not existing positions
 - Higher leverage = higher liquidation risk — use stop losses
 - Cross margin is default; specify isCross: false for isolated`;
@@ -737,7 +737,7 @@ await skill.hlCreateOrder({
 
 **Key notes:**
 - Use \`hlUpdateLeverage()\` to explicitly set leverage (1x–50x depending on asset)
-- Backend calls setMaxLeverage() before each trade, but explicit is recommended
+- Without explicit hlUpdateLeverage(), the backend defaults to the asset's max allowed leverage before each managed-custody trade
 - \`hlCloseAll\` is unreliable — close positions per-coin with reduceOnly orders
 - All managed-custody operations use \`walletAddress\` = control wallet (NOT managed)
 - Use \`getHlMarkPrice('BTC')\` to get current price before placing orders
