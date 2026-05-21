@@ -94,6 +94,114 @@ import { getTopTraders } from './actions/topTraders';
 import { estimateBridge, requestBridge, getBridgeOrders } from './actions/bridge';
 import { getWalletInfo } from './actions/wallet';
 
+// Backend v1.1.0 additions
+import { transferNative, transferToken } from './actions/transfers';
+import type { TransferRequest, TransferResponse } from './actions/transfers';
+import {
+  addComment,
+  getComments,
+  voteSentiment,
+  getWatchList,
+  changeWatchList,
+  importToken,
+} from './actions/social';
+import type {
+  AddCommentParams,
+  GetCommentsParams,
+  VoteSentimentParams,
+  GetWatchListParams,
+  ChangeWatchListParams,
+  ImportTokenParams,
+  CommentItem,
+  WatchListItem,
+} from './actions/social';
+import {
+  getWalletPerformance,
+  getNof1Analytics,
+  getNativePrices,
+  generatePnl,
+} from './actions/analytics';
+import type {
+  WalletPerformanceParams,
+  Nof1AnalyticsParams,
+  NativePricesParams,
+  GeneratePnlParams,
+} from './actions/analytics';
+import {
+  getNewestTokens,
+  getTopTokens,
+  getBigBuys,
+  getCurrentlyLiveTokens,
+  getLiveStatus,
+  getXstocks,
+  getZoraTokens,
+  getTokenTrades,
+  getTokenImage,
+} from './actions/tokenDiscovery';
+import type {
+  TokenListParams,
+  BigBuysParams,
+  LiveStatusParams,
+  TokenTradesParams,
+  TokenImageParams,
+} from './actions/tokenDiscovery';
+import {
+  getHlOutcomes,
+  getHlOutcomeAccount,
+  createHlOutcomeOrder,
+  cancelHlOutcomeOrder,
+  closeHlOutcomeOrder,
+} from './actions/hlOutcomes';
+import type {
+  OutcomesListParams,
+  OutcomeAccountParams,
+  OutcomeOrderRequest,
+} from './actions/hlOutcomes';
+import {
+  getHlReferralInfo,
+  requestHlReferralClaim,
+} from './actions/hlReferral';
+import type {
+  HlReferralInfoParams,
+  HlReferralClaimRequest,
+} from './actions/hlReferral';
+import {
+  getTrendingList,
+  getTrendingOptions,
+  registerTrending,
+  getTrendingBookingStatus,
+} from './actions/trending';
+import type {
+  TrendingListParams,
+  TrendingRegisterParams,
+  TrendingBookingStatusParams,
+} from './actions/trending';
+import { getRetailers } from './actions/retailer';
+import type { RetailerListParams } from './actions/retailer';
+import {
+  hlEnableTrading,
+  hlSwapCollateral,
+  getHlBuilderReferral,
+  getHlListUserCopyPnl,
+  getHlTxList,
+  getHlPositionsByAddress,
+  getHlAccountStateByAddress,
+} from './actions/hlExtras';
+import type {
+  HlEnableTradingRequest,
+  HlSwapCollateralRequest,
+  HlBuilderReferralParams,
+  HlListUserCopyPnlParams,
+  HlTxListParams,
+  HlReadByAddressParams,
+} from './actions/hlExtras';
+import { oauthLogin, associateEmail } from './actions/auth';
+import type {
+  OAuthLoginParams,
+  OAuthLoginResponse,
+  AssociateEmailParams,
+} from './actions/auth';
+
 // Types
 export type { GdexSkillConfig, TransactionResult, SupportedChain, NonEvmChain } from './types/common';
 export { ChainId, GdexErrorCode } from './types/common';
@@ -203,6 +311,63 @@ export type {
   GdexManagedTradeSubmitResult,
   GdexManagedTradeStatus,
 } from './types/managed';
+
+// Backend v1.1.0 additional action param types
+export type {
+  TransferRequest,
+  TransferResponse,
+} from './actions/transfers';
+export type {
+  AddCommentParams,
+  GetCommentsParams,
+  VoteSentimentParams,
+  GetWatchListParams,
+  ChangeWatchListParams,
+  ImportTokenParams,
+  CommentItem,
+  WatchListItem,
+} from './actions/social';
+export type {
+  WalletPerformanceParams,
+  Nof1AnalyticsParams,
+  NativePricesParams,
+  GeneratePnlParams,
+} from './actions/analytics';
+export type {
+  TokenListParams,
+  BigBuysParams,
+  LiveStatusParams,
+  TokenTradesParams,
+  TokenImageParams,
+} from './actions/tokenDiscovery';
+export type {
+  OutcomesListParams,
+  OutcomeAccountParams,
+  OutcomeOrderRequest,
+} from './actions/hlOutcomes';
+export type {
+  HlReferralInfoParams,
+  HlReferralClaimRequest,
+} from './actions/hlReferral';
+export type {
+  TrendingListParams,
+  TrendingRegisterParams,
+  TrendingBookingStatusParams,
+} from './actions/trending';
+export type { RetailerListParams } from './actions/retailer';
+export type {
+  HlEnableTradingRequest,
+  HlSwapCollateralRequest,
+  HlBuilderReferralParams,
+  HlListUserCopyPnlParams,
+  HlTxListParams,
+  HlReadByAddressParams,
+} from './actions/hlExtras';
+export type {
+  OAuthLoginParams,
+  OAuthLoginResponse,
+  AssociateEmailParams,
+} from './actions/auth';
 
 // Error classes
 export {
@@ -1097,6 +1262,228 @@ export class GdexSkill {
    */
   generateEvmWallet(): GeneratedEvmWallet {
     return generateEvmWallet();
+  }
+
+  // ── Transfers (backend v1.1.0) ─────────────────────────────────────────────
+
+  /** Transfer native asset (ETH, SOL, SUI, BNB, …) via managed custody. */
+  async transferNative(req: TransferRequest): Promise<TransferResponse> {
+    return transferNative(this.client, req);
+  }
+
+  /** Transfer an ERC20 / SPL token via managed custody. */
+  async transferToken(req: TransferRequest): Promise<TransferResponse> {
+    return transferToken(this.client, req);
+  }
+
+  // ── Social / Watchlist ────────────────────────────────────────────────────
+
+  /** Post a comment on a token. */
+  async addComment(params: AddCommentParams): Promise<Record<string, unknown>> {
+    return addComment(this.client, params);
+  }
+
+  /** Get comments for a token. */
+  async getComments(params: GetCommentsParams): Promise<CommentItem[]> {
+    return getComments(this.client, params);
+  }
+
+  /** Cast a bullish/bearish sentiment vote on a token. */
+  async voteSentiment(params: VoteSentimentParams): Promise<Record<string, unknown>> {
+    return voteSentiment(this.client, params);
+  }
+
+  /** Fetch the user's watchlist. */
+  async getWatchList(params: GetWatchListParams): Promise<WatchListItem[]> {
+    return getWatchList(this.client, params);
+  }
+
+  /** Add or remove a token from the user's watchlist. */
+  async changeWatchList(params: ChangeWatchListParams): Promise<Record<string, unknown>> {
+    return changeWatchList(this.client, params);
+  }
+
+  /** Import a user-defined custom token into the platform. */
+  async importToken(params: ImportTokenParams): Promise<Record<string, unknown>> {
+    return importToken(this.client, params);
+  }
+
+  // ── Portfolio Analytics ───────────────────────────────────────────────────
+
+  /** Get wallet performance / PnL summary. */
+  async getWalletPerformance(params: WalletPerformanceParams): Promise<Record<string, unknown>> {
+    return getWalletPerformance(this.client, params);
+  }
+
+  /** Get NoF1 advanced analytics for a wallet. */
+  async getNof1Analytics(params: Nof1AnalyticsParams): Promise<Record<string, unknown>> {
+    return getNof1Analytics(this.client, params);
+  }
+
+  /** Get current native token prices keyed by chain. */
+  async getNativePrices(params: NativePricesParams = {}): Promise<Record<string, unknown>> {
+    return getNativePrices(this.client, params);
+  }
+
+  /** Trigger backend PnL generation for a wallet. */
+  async generatePnl(params: GeneratePnlParams): Promise<Record<string, unknown>> {
+    return generatePnl(this.client, params);
+  }
+
+  // ── Extended Token Discovery ──────────────────────────────────────────────
+
+  /** Newest tokens across all chains or a specific chain. */
+  async getNewestTokens(params: TokenListParams = {}): Promise<Record<string, unknown>> {
+    return getNewestTokens(this.client, params);
+  }
+
+  /** Top tokens by volume / market cap. */
+  async getTopTokens(params: TokenListParams = {}): Promise<Record<string, unknown>> {
+    return getTopTokens(this.client, params);
+  }
+
+  /** "Big buy" alerts for a chain. */
+  async getBigBuys(params: BigBuysParams): Promise<Record<string, unknown>> {
+    return getBigBuys(this.client, params);
+  }
+
+  /** Currently livestreaming token launches. */
+  async getCurrentlyLiveTokens(params: TokenListParams = {}): Promise<Record<string, unknown>> {
+    return getCurrentlyLiveTokens(this.client, params);
+  }
+
+  /** Livestream status for a single token. */
+  async getLiveStatus(params: LiveStatusParams): Promise<Record<string, unknown>> {
+    return getLiveStatus(this.client, params);
+  }
+
+  /** Tokenised equities (xStocks). */
+  async getXstocks(params: TokenListParams = {}): Promise<Record<string, unknown>> {
+    return getXstocks(this.client, params);
+  }
+
+  /** Zora-protocol token listings. */
+  async getZoraTokens(params: TokenListParams = {}): Promise<Record<string, unknown>> {
+    return getZoraTokens(this.client, params);
+  }
+
+  /** Recent trades for a specific token. */
+  async getTokenTrades(params: TokenTradesParams): Promise<Record<string, unknown>> {
+    return getTokenTrades(this.client, params);
+  }
+
+  /** Server-rendered token social-card image metadata. */
+  async getTokenImage(params: TokenImageParams): Promise<Record<string, unknown>> {
+    return getTokenImage(this.client, params);
+  }
+
+  // ── HyperLiquid Outcomes (HIP-3 event markets) ────────────────────────────
+
+  async getHlOutcomes(params: OutcomesListParams = {}): Promise<Record<string, unknown>> {
+    return getHlOutcomes(this.client, params);
+  }
+
+  async getHlOutcomeAccount(params: OutcomeAccountParams): Promise<Record<string, unknown>> {
+    return getHlOutcomeAccount(this.client, params);
+  }
+
+  async createHlOutcomeOrder(req: OutcomeOrderRequest): Promise<Record<string, unknown>> {
+    return createHlOutcomeOrder(this.client, req);
+  }
+
+  async cancelHlOutcomeOrder(req: OutcomeOrderRequest): Promise<Record<string, unknown>> {
+    return cancelHlOutcomeOrder(this.client, req);
+  }
+
+  async closeHlOutcomeOrder(req: OutcomeOrderRequest): Promise<Record<string, unknown>> {
+    return closeHlOutcomeOrder(this.client, req);
+  }
+
+  // ── HyperLiquid Referral (distinct from copy trading) ─────────────────────
+
+  async getHlReferralInfo(params: HlReferralInfoParams): Promise<Record<string, unknown>> {
+    return getHlReferralInfo(this.client, params);
+  }
+
+  async requestHlReferralClaim(req: HlReferralClaimRequest): Promise<Record<string, unknown>> {
+    return requestHlReferralClaim(this.client, req);
+  }
+
+  // ── Trending Promotion (paid slot booking) ────────────────────────────────
+
+  async getTrendingList(params: TrendingListParams = {}): Promise<Record<string, unknown>> {
+    return getTrendingList(this.client, params);
+  }
+
+  async getTrendingOptions(): Promise<Record<string, unknown>> {
+    return getTrendingOptions(this.client);
+  }
+
+  async registerTrending(params: TrendingRegisterParams): Promise<Record<string, unknown>> {
+    return registerTrending(this.client, params);
+  }
+
+  async getTrendingBookingStatus(
+    params: TrendingBookingStatusParams = {},
+  ): Promise<Record<string, unknown>> {
+    return getTrendingBookingStatus(this.client, params);
+  }
+
+  // ── Retailer (branded onboarding) ─────────────────────────────────────────
+
+  async getRetailers(params: RetailerListParams = {}): Promise<Record<string, unknown>> {
+    return getRetailers(this.client, params);
+  }
+
+  // ── HyperLiquid Extras (HIP-3, builder, swap collateral, copy PnL) ────────
+
+  /** Enable HL trading for a managed wallet (one-time approval / builder code). */
+  async hlEnableTrading(req: HlEnableTradingRequest): Promise<Record<string, unknown>> {
+    return hlEnableTrading(this.client, req);
+  }
+
+  /** Swap collateral between HL perp DEXes (HIP-3). */
+  async hlSwapCollateral(req: HlSwapCollateralRequest): Promise<Record<string, unknown>> {
+    return hlSwapCollateral(this.client, req);
+  }
+
+  /** Get builder-referral metadata. */
+  async getHlBuilderReferral(params: HlBuilderReferralParams): Promise<Record<string, unknown>> {
+    return getHlBuilderReferral(this.client, params);
+  }
+
+  /** Per-user realised PnL from copy-trading. */
+  async getHlListUserCopyPnl(params: HlListUserCopyPnlParams): Promise<Record<string, unknown>> {
+    return getHlListUserCopyPnl(this.client, params);
+  }
+
+  /** Get HL transaction list (fills / orders). */
+  async getHlTxList(params: HlTxListParams): Promise<Record<string, unknown>> {
+    return getHlTxList(this.client, params);
+  }
+
+  /** Get HL positions by address (backend convenience). */
+  async getHlPositionsByAddress(params: HlReadByAddressParams): Promise<Record<string, unknown>> {
+    return getHlPositionsByAddress(this.client, params);
+  }
+
+  /** Get HL account state by address (backend convenience). */
+  async getHlAccountStateByAddress(
+    params: HlReadByAddressParams,
+  ): Promise<Record<string, unknown>> {
+    return getHlAccountStateByAddress(this.client, params);
+  }
+
+  // ── OAuth / Email association ─────────────────────────────────────────────
+
+  /** Log in or sign up via OAuth (Google / Apple / Twitter). */
+  async oauthLogin(params: OAuthLoginParams): Promise<OAuthLoginResponse> {
+    return oauthLogin(this.client, params);
+  }
+
+  /** Associate an email address with an existing account. */
+  async associateEmail(params: AssociateEmailParams): Promise<Record<string, unknown>> {
+    return associateEmail(this.client, params);
   }
 }
 
