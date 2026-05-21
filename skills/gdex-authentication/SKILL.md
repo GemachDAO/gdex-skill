@@ -330,6 +330,25 @@ An autonomous agent must persist these across operations:
 - `managedEvmAddress` — from `/v1/user?chainId=1` (needed for `user_stats` only)
 - `managedSolanaAddress` — from `/v1/user?chainId=622112261` (for on-chain queries only)
 
+## Google OAuth + Email Association Flow
+
+The backend (`ServiceMain.oauthLogin` / `ServiceMain.associateEmail`, v1.1.0)
+supports a Google-only OAuth onboarding path mounted at `/v1/auth/*`. **There
+is no `provider` field and no Apple/GitHub/Twitter branch** — only Google ID
+tokens are accepted, and **the client never sends a raw `email`**.
+
+Flow:
+
+1. **`associate_email` first** — links the caller's wallet to the email claim
+   carried inside the verified Google ID token. The backend extracts the
+   email server-side; the client only sends `{ computedData, idToken }`,
+   where `computedData` is a managed-custody payload built with
+   `buildAssociateEmailComputedData` (ABI `['associate_email', [nonce]]`,
+   sig msg `associate_email-${userId}-${data}`).
+2. **`oauth_login` with the same `idToken`** — body
+   `{ idToken, chainId? }`. If the wallet still has no `associatedEmail`
+   the backend responds 404 with internal code 108; re-run step 1 and retry.
+
 ## Related Skills
 
 - **gdex-onboarding** — Platform overview and getting started

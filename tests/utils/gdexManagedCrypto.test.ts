@@ -2,6 +2,7 @@
  * Tests for managed-custody crypto helpers.
  */
 import {
+  buildAssociateEmailComputedData,
   buildEncryptedGdexPayload,
   buildGdexManagedTradeComputedData,
   buildGdexSignInComputedData,
@@ -123,5 +124,31 @@ describe('gdexManagedCrypto', () => {
       data: '1234',
       signature: 'abcd',
     });
+  });
+
+  it('should build associate-email computedData payload', () => {
+    const { AbiCoder } = require('ethers') as typeof import('ethers');
+    const pair = generateGdexSessionKeyPair();
+    const computedData = buildAssociateEmailComputedData({
+      apiKey,
+      walletAddress: '0xAbCd',
+      sessionPrivateKey: pair.sessionPrivateKey,
+      userId: '0xAbCd',
+      nonce: 'n-42',
+    });
+    expect(computedData).toMatch(/^[0-9a-f]+$/);
+
+    const decrypted = decryptGdexComputedData(computedData, apiKey);
+    const parsed = JSON.parse(decrypted) as { userId: string; data: string; signature: string };
+
+    // userId is preserved verbatim in the encrypted payload
+    expect(parsed.userId).toBe('0xAbCd');
+    // 65-byte signature serialized as 130-char hex without 0x prefix
+    expect(parsed.signature).toMatch(/^[0-9a-f]{130}$/i);
+
+    // ABI: ['associate_email', [nonce]] — values are [nonce] of type string
+    const abi = AbiCoder.defaultAbiCoder();
+    const [decodedNonce] = abi.decode(['string'], '0x' + parsed.data);
+    expect(decodedNonce).toBe('n-42');
   });
 });

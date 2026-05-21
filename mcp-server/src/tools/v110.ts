@@ -410,26 +410,33 @@ export function registerV110Tools(server: McpServer): void {
   );
 
   // ── OAuth / Email association ────────────────────────────────────────────
+  // Backend: POST /v1/auth/oauth-login and POST /v1/auth/associate-email
+  // (ServiceMain.oauthLogin / ServiceMain.associateEmail, v1.1.0). Google
+  // ID tokens only; if oauth-login returns 404/code 108 the wallet has no
+  // associated email yet and the caller must call associate_email first.
   server.tool(
     'oauth_login',
-    'Log in or sign up via OAuth (Google / Apple / Twitter).',
+    'Log in or sign up using a Google ID token. Google OIDC only — there is no Apple/GitHub branch. If the wallet has no associated email yet, the backend returns 404 with internal code 108 and the caller must invoke associate_email first (using the same idToken) before retrying.',
     {
-      provider: z.string().describe("e.g. 'google' | 'apple' | 'twitter'"),
-      token: z.string().describe('Provider-issued ID token / access token'),
-      email: z.string().optional(),
-      refSourceCode: z.string().optional(),
+      idToken: z.string().describe('Google-issued OIDC ID token (JWT).'),
+      chainId: z
+        .union([z.string(), z.number()])
+        .optional()
+        .describe('Optional chain id hint for wallet resolution.'),
     },
     async (params: any) => handleToolCall(async () => getSdk().oauthLogin(params as any)),
   );
 
   server.tool(
     'associate_email',
-    'Associate an email address with an existing wallet-based account.',
+    'Link the email claim from a Google ID token to the caller\'s wallet. Must be called before oauth_login when the wallet has no associated email yet (oauth-login returns 404/code 108). The email is NOT sent by the client — the backend extracts it server-side from the verified Google idToken. computedData must be built with buildAssociateEmailComputedData (managed-custody payload).',
     {
-      userId: z.string(),
-      email: z.string(),
-      data: z.string().optional(),
-      verificationToken: z.string().optional(),
+      computedData: z
+        .string()
+        .describe('Managed-custody encrypted payload from buildAssociateEmailComputedData.'),
+      idToken: z
+        .string()
+        .describe('Google-issued OIDC ID token (JWT). Backend extracts the email claim from this token.'),
     },
     async (params: any) => handleToolCall(async () => getSdk().associateEmail(params as any)),
   );

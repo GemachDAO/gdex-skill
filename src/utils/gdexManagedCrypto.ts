@@ -380,6 +380,51 @@ export function buildHlComputedData(params: {
   });
 }
 
+// ── Associate-email managed-custody helper ───────────────────────────────────
+
+/**
+ * Build encrypted computedData for `POST /v1/auth/associate-email`.
+ *
+ * Backend (`ServiceMain.associateEmail`, v1.1.0) decodes the payload with:
+ *   ABI:        ['associate_email', [nonce]]
+ *   sig msg:    `associate_email-${userId}-${data}`
+ *
+ * The email itself is NOT part of this payload — the backend extracts the
+ * email claim from the verified Google ID token sent alongside.
+ */
+export function buildAssociateEmailComputedData(params: {
+  apiKey: string;
+  walletAddress: string;
+  sessionPrivateKey: string;
+  userId: string;
+  nonce?: string;
+}): string {
+  const nonce = params.nonce ?? generateGdexNonce().toString();
+  const abi = AbiCoder.defaultAbiCoder();
+  // ABI: ['associate_email', [nonce]] — action label is the sign-message prefix,
+  // ABI values are just [nonce] (matching the `hl_close_all` / `hl_withdraw` style).
+  const encoded = abi.encode(['string'], [nonce]);
+  const data = encoded.startsWith('0x') ? encoded.slice(2) : encoded;
+
+  const normalizedUserId = params.userId.startsWith('0x')
+    ? params.userId.toLowerCase()
+    : params.userId;
+  const msg = `associate_email-${normalizedUserId}-${data}`;
+  const digest = keccak256(toUtf8Bytes(msg));
+  const sig = new SigningKey(params.sessionPrivateKey).sign(digest);
+  const r = sig.r.replace(/^0x/, '');
+  const s = sig.s.replace(/^0x/, '');
+  const v = sig.yParity.toString(16).padStart(2, '0');
+  const signature = `${r}${s}${v}`;
+
+  return buildEncryptedGdexPayload({
+    apiKey: params.apiKey,
+    userId: params.userId,
+    data,
+    signature,
+  });
+}
+
 // ── Limit order action types ─────────────────────────────────────────────────
 
 export type LimitOrderActionType = 'limit_buy' | 'limit_sell' | 'update_order';
