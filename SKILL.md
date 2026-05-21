@@ -100,15 +100,14 @@ The high-level `getPortfolio()` and `getBalances()` methods send `walletAddress`
 import { buildGdexUserSessionData } from '@gdexsdk/gdex-skill';
 const data = buildGdexUserSessionData(sessionKey, apiKey);
 
-// Portfolio
+// Portfolio (balances embedded under portfolio.balances[])
 const portfolio = await skill.client.get('/v1/portfolio', {
   params: { userId: controlAddress, chainId: 622112261, data }
 });
 
-// Balances
-const balances = await skill.client.get('/v1/balances', {
-  params: { userId: controlAddress, chainId: 622112261, data }
-});
+// Balances — read from /v1/portfolio (balances embedded under portfolio.balances[]).
+// There is no separate /v1/balances endpoint on backend v1.1.0.
+const balances = portfolio.balances ?? [];
 ```
 
 ### Trade History — Different Param Names (Live-Tested)
@@ -116,7 +115,7 @@ const balances = await skill.client.get('/v1/balances', {
 Backend expects `user` (not `userId`), and the managed Solana chainId for trade history is `900` (not `622112261`):
 
 ```typescript
-const history = await skill.client.get('/v1/user_trade_history', {
+const history = await skill.client.get('/v1/user_history', {
   params: { user: controlAddress, chainId: 900, data, page: 1, limit: 20 }
 });
 ```

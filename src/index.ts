@@ -669,18 +669,11 @@ export class GdexSkill {
   /**
    * Poll managed trade status by `requestId`.
    *
-   * Uses the canonical `/v1/trade-status/:requestId` path first,
-   * then falls back to legacy query endpoint for compatibility.
+   * Uses the canonical `/v1/trade-status/:requestId` path
+   * (`Endpoints.tradeStatusPath`).
    */
   async getManagedTradeStatus(requestId: string): Promise<GdexManagedTradeStatus> {
-    try {
-      return await this.client.get<GdexManagedTradeStatus>(Endpoints.tradeStatusPath(requestId));
-    } catch {
-      return this.client.get<GdexManagedTradeStatus>(Endpoints.TRADE_STATUS, {
-        requestId,
-        jobId: requestId,
-      });
-    }
+    return this.client.get<GdexManagedTradeStatus>(Endpoints.tradeStatusPath(requestId));
   }
 
   // ── Spot Trading ──────────────────────────────────────────────────────────

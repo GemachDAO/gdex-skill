@@ -81,7 +81,7 @@ describe('portfolio', () => {
   // ── getBalances ───────────────────────────────────────────────────────────
 
   describe('getBalances', () => {
-    it('should fetch balances for a wallet on a specific chain', async () => {
+    it('should fetch balances embedded in /v1/portfolio (no separate /v1/balances on v1.1.0)', async () => {
       const mockBalances = [
         {
           tokenAddress: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
@@ -94,20 +94,30 @@ describe('portfolio', () => {
           chain: ChainId.ETHEREUM,
         },
       ];
-      client.get = jest.fn().mockResolvedValue(mockBalances);
+      client.get = jest.fn().mockResolvedValue({ balances: mockBalances });
 
       const balances = await getBalances(client, {
         walletAddress: '0x1234567890123456789012345678901234567890',
         chain: ChainId.ETHEREUM,
       });
 
-      expect(client.get).toHaveBeenCalledWith('/v1/portfolio/balances', expect.objectContaining({
+      expect(client.get).toHaveBeenCalledTimes(1);
+      expect(client.get).toHaveBeenCalledWith('/v1/portfolio', expect.objectContaining({
         walletAddress: '0x1234567890123456789012345678901234567890',
         wallet: '0x1234567890123456789012345678901234567890',
         chain: ChainId.ETHEREUM,
         chainId: ChainId.ETHEREUM,
       }));
       expect(balances).toEqual(mockBalances);
+    });
+
+    it('returns [] when portfolio response has no balances array', async () => {
+      client.get = jest.fn().mockResolvedValue({});
+      const balances = await getBalances(client, {
+        walletAddress: '0x1234567890123456789012345678901234567890',
+        chain: ChainId.ETHEREUM,
+      });
+      expect(balances).toEqual([]);
     });
   });
 

@@ -37,6 +37,10 @@ export async function getPortfolio(client: GdexApiClient, params: PortfolioParam
 /**
  * Get token balances for a wallet on a specific chain.
  *
+ * On backend v1.1.0 there is no dedicated `/v1/balances` route — balances are
+ * embedded in the portfolio response under `portfolio.balances[]`. We fetch
+ * `/v1/portfolio` and return the embedded array.
+ *
  * @param client - API client
  * @param params - Balance query parameters
  */
@@ -50,12 +54,8 @@ export async function getBalances(client: GdexApiClient, params: BalanceParams):
   };
   if (params.tokenAddress) Object.assign(queryParams, buildTokenAliases(params.tokenAddress));
 
-  try {
-    return await client.get<Balance[]>(Endpoints.BALANCES, queryParams);
-  } catch {
-    const portfolio = await client.get<Portfolio>(Endpoints.PORTFOLIO, queryParams);
-    return Array.isArray(portfolio?.balances) ? portfolio.balances : [];
-  }
+  const portfolio = await client.get<Portfolio>(Endpoints.PORTFOLIO, queryParams);
+  return Array.isArray(portfolio?.balances) ? portfolio.balances : [];
 }
 
 /**
@@ -85,5 +85,5 @@ export async function getTradeHistory(
   if (params.startTime) queryParams.from = params.startTime;
   if (params.endTime) queryParams.to = params.endTime;
 
-  return client.get<TradeRecord[]>(Endpoints.TRADE_HISTORY, queryParams);
+  return client.get<TradeRecord[]>(Endpoints.USER_HISTORY, queryParams);
 }

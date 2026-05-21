@@ -61,7 +61,7 @@ export async function getTrendingTokens(
   if (params.minVolume) queryParams.minVolume = params.minVolume;
 
   // Backend returns { isSuccess, trendingTokens: [...] } — unwrap
-  const resp = await client.get<{ isSuccess?: boolean; trendingTokens?: TrendingToken[] }>(Endpoints.TRENDING, queryParams);
+  const resp = await client.get<{ isSuccess?: boolean; trendingTokens?: TrendingToken[] }>(Endpoints.TRENDING_LIST, queryParams);
   if (resp && typeof resp === 'object' && 'trendingTokens' in resp) {
     return resp.trendingTokens ?? [];
   }

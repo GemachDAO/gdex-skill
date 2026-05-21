@@ -79,16 +79,19 @@ interface Balance {
 
 ## Chain-Specific Balances
 
-> **WARNING (Live-Tested):** Same issue as portfolio — use raw client:
+> **WARNING (Live-Tested):** Same issue as portfolio — use raw client. On
+> backend v1.1.0 balances are embedded in the portfolio response under
+> `portfolio.balances[]` (there is no separate `/v1/balances` endpoint).
 
 ```typescript
-const balances = await skill.client.get('/v1/balances', {
+const portfolio = await skill.client.get('/v1/portfolio', {
   params: {
     userId: controlAddress,
     chainId: 622112261,       // numeric chain ID
     data,                     // encrypted session key
   }
 });
+const balances = portfolio.balances ?? [];
 ```
 
 ### Parameters
@@ -104,7 +107,7 @@ const balances = await skill.client.get('/v1/balances', {
 > **WARNING (Live-Tested):** The backend expects param `user` (NOT `userId`), and managed Solana chainId for trade history is `900` (NOT `622112261`). Use the raw client:
 
 ```typescript
-const history = await skill.client.get('/v1/user_trade_history', {
+const history = await skill.client.get('/v1/user_history', {
   params: {
     user: controlAddress,     // NOTE: "user", not "userId"
     chainId: 900,             // NOTE: 900 for Solana trade history, not 622112261
@@ -153,13 +156,11 @@ const portfolio = await skill.client.get('/v1/portfolio', {
   params: { userId, chainId: 622112261, data }
 });
 
-// 2. Get balances
-const balances = await skill.client.get('/v1/balances', {
-  params: { userId, chainId: 622112261, data }
-});
+// 2. Get balances (embedded in portfolio.balances[] on backend v1.1.0)
+const balances = portfolio.balances ?? [];
 
 // 3. Get trade history (use "user" param, chainId 900 for Solana)
-const history = await skill.client.get('/v1/user_trade_history', {
+const history = await skill.client.get('/v1/user_history', {
   params: { user: userId, chainId: 900, data, page: 1, limit: 20 }
 });
 ```

@@ -1,19 +1,26 @@
 /**
- * All API endpoint constants for the Gbot backend.
+ * All API endpoint constants for the Gbot backend (v1.1.0).
+ *
+ * Source of truth: gbotTradingDashboardBackend/src/api/routes/*.ts. Constants
+ * removed in PR 3 of the v1.1.0 sweep:
+ *   - /v1/auth/nonce, /v1/auth/login, /v1/auth/refresh, /v1/auth/logout
+ *     (no wallet-signing nonce/login flow on v1.1.0 — see /v1/sign_in)
+ *   - /v1/user/update, /v1/wallet/info, /v1/balances
+ *   - /v1/trade/status (replaced by tradeStatusPath(requestId))
+ *   - /v1/token/search (replaced by /v1/trading_view/search)
+ *   - /v1/trading_view/{config,symbols,history} (parameterised per provider)
+ *   - duplicate TRENDING_LIST / TRENDING
+ *   - TRADE_HISTORY renamed to USER_HISTORY (path is /v1/user_history; legacy
+ *     /v1/user_trade_history is not present on v1.1.0)
  */
 
 /** Auth endpoints */
-export const AUTH_NONCE = '/v1/auth/nonce';
-export const AUTH_LOGIN = '/v1/auth/login';
 export const AUTH_SIGN_IN = '/v1/sign_in';
-export const AUTH_REFRESH = '/v1/auth/refresh';
-export const AUTH_LOGOUT = '/v1/auth/logout';
 export const AUTH_OAUTH_LOGIN = '/v1/auth/oauth-login';
 export const AUTH_ASSOCIATE_EMAIL = '/v1/auth/associate-email';
 
 /** User endpoints */
 export const USER_PROFILE = '/v1/user';
-export const USER_UPDATE = '/v1/user/update';
 export const USER_CONFIG = '/v1/config';
 export const USER_SWITCH_CHAIN = '/v1/switch_chain';
 
@@ -24,14 +31,13 @@ export const ADMIN_ADD = '/v1/admin/add';
 /** Trading endpoints */
 export const PURCHASE_V2 = '/v1/purchase_v2';
 export const SELL_V2 = '/v1/sell_v2';
-export const TRADE_STATUS = '/v1/trade/status'; // legacy compatibility
 export const TRADE_STATUS_BASE = '/v1/trade-status';
 export const tradeStatusPath = (requestId: string): string => `${TRADE_STATUS_BASE}/${requestId}`;
 
-/** Portfolio endpoints */
+/** Portfolio endpoints — balances are embedded under portfolio.balances[] */
 export const PORTFOLIO = '/v1/portfolio';
-export const BALANCES = '/v1/portfolio/balances'; // legacy compatibility
-export const TRADE_HISTORY = '/v1/user_history';
+/** User history (trades). Replaces legacy /v1/user_trade_history. */
+export const USER_HISTORY = '/v1/user_history';
 
 /** Order endpoints */
 export const ORDERS = '/v1/orders';
@@ -79,17 +85,23 @@ export const COPY_TRADE_DEXES_LIST = '/v1/copy_trade/dexes_list';
 
 /** Token endpoints */
 export const TOKEN_DETAILS = '/v1/token_details';
-export const TOKEN_SEARCH = '/v1/token/search';
+/** Token search lives under the trading_view router on v1.1.0. */
+export const TOKEN_SEARCH = '/v1/trading_view/search';
 export const TOKEN_TOP_TRADERS = '/v1/token/top_traders';
 
-/** Trending endpoints */
-export const TRENDING = '/v1/trending/list';
-
-/** OHLCV / TradingView endpoints */
+/** OHLCV endpoint */
 export const OHLCV = '/v1/candles';
-export const TRADING_VIEW_CONFIG = '/v1/trading_view/config';
-export const TRADING_VIEW_SYMBOLS = '/v1/trading_view/symbols';
-export const TRADING_VIEW_HISTORY = '/v1/trading_view/history';
+
+/** TradingView router (/v1/trading_view/*) — parameterised per provider. */
+const TRADING_VIEW_BASE = '/v1/trading_view';
+export const tradingViewConfigPath = (provider: string): string =>
+  `${TRADING_VIEW_BASE}/${provider}/config`;
+export const tradingViewSymbolsPath = (provider: string): string =>
+  `${TRADING_VIEW_BASE}/${provider}/symbols`;
+export const tradingViewHistoryPath = (provider: string): string =>
+  `${TRADING_VIEW_BASE}/${provider}/history`;
+export const tradingViewMarksPath = (provider: string): string =>
+  `${TRADING_VIEW_BASE}/${provider}/marks`;
 
 /** Bridge endpoints */
 export const BRIDGE_ESTIMATE = '/v1/bridge/estimate_bridge';
@@ -98,9 +110,6 @@ export const BRIDGE_ORDERS = '/v1/bridge/bridge_orders';
 
 /** Top traders endpoints */
 export const TOP_TRADERS = '/v1/copy_trade/top_traders';
-
-/** Wallet endpoints */
-export const WALLET_INFO = '/v1/wallet/info'; // not always enabled in all deployments
 
 /** Transfer endpoints (managed custody) */
 export const TRANSFER_NATIVE = '/v1/transfer';
