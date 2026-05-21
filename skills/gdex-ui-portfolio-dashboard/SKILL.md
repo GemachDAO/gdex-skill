@@ -327,8 +327,8 @@ export function usePortfolioQuery(userId: string, sessionKey: string, apiKey: st
 | Component | SDK Method | Skill |
 |-----------|------------|-------|
 | `PortfolioOverview` | `skill.client.get('/v1/portfolio', ...)` | gdex-portfolio |
-| `TokenBalanceGrid` | `skill.client.get('/v1/balances', ...)` | gdex-portfolio |
-| `TradeHistoryTable` | `skill.client.get('/v1/user_trade_history', ...)` | gdex-portfolio |
+| `TokenBalanceGrid` | `skill.client.get('/v1/portfolio', ...)` (balances embedded under `portfolio.balances[]`) | gdex-portfolio |
+| `TradeHistoryTable` | `skill.client.get('/v1/user_history', ...)` | gdex-portfolio |
 | `ChainSelector` | (UI only) | — |
 
 ## Related Skills

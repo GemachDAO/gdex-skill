@@ -8,7 +8,7 @@
  * - Request/response interceptors for logging and error normalization
  */
 
-import axios, { AxiosHeaders, AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import axiosRetry from 'axios-retry';
 import { GdexSkillConfig, GdexErrorCode } from '../types';
 import {
@@ -18,7 +18,7 @@ import {
   GdexNetworkError,
   GdexRateLimitError,
 } from '../utils/errors';
-import { AuthCredentials, AuthSession, signEvmMessage, signSolanaMessage } from './auth';
+import { AuthCredentials, AuthSession } from './auth';
 import * as Endpoints from './endpoints';
 
 /** Default SDK User-Agent — must match browser UA to pass Cloudflare / backend validation */
@@ -131,25 +131,10 @@ export class GdexApiClient {
             error.message;
 
           if (status === 401 || status === 403) {
-            // Try to refresh session once
-            if (this.credentials && status === 401) {
-              try {
-                await this.authenticate(this.credentials);
-                // Retry the original request
-                if (error.config) {
-                  if (this.session?.token) {
-                    if (!error.config.headers) {
-                      error.config.headers = new AxiosHeaders();
-                    }
-                    error.config.headers['Authorization'] = `Bearer ${this.session.token}`;
-                  }
-                  return this.http.request(error.config);
-                }
-              } catch {
-                // Auth refresh failed — clear session
-                this.session = null;
-              }
-            }
+            // No automatic re-auth on v1.1.0 — wallet-signing nonce/login is gone.
+            // Clear stale session so callers re-authenticate via setApiKey /
+            // oauthLogin / managed sign-in.
+            if (status === 401) this.session = null;
             return Promise.reject(new GdexAuthError(message, status));
           }
 
@@ -207,58 +192,26 @@ export class GdexApiClient {
   }
 
   /**
-   * Set credentials and authenticate with the backend via wallet signing.
-   * The client will automatically re-authenticate on 401 responses.
+   * Authenticate with the backend.
    *
-   * @param credentials - Wallet credentials for signing
+   * @deprecated The wallet-signing nonce/login flow (`/v1/auth/nonce`,
+   * `/v1/auth/login`) does not exist on backend v1.1.0. Use one of the
+   * supported flows instead:
+   *   - API key:        `client.setApiKey(apiKey)`
+   *   - Google OAuth:   `oauthLogin(client, { idToken })`
+   *   - Managed sign-in: `POST /v1/sign_in` via `buildGdexSignInComputedData`
+   *
+   * This method is preserved for binary compatibility but always throws.
+   *
+   * @param credentials - Wallet credentials (unused, kept for signature compat)
    */
-  async authenticate(credentials: AuthCredentials): Promise<AuthSession> {
-    this.credentials = credentials;
-
-    // 1. Get nonce from backend
-    const nonceResp = await this.http.post<{ nonce: string }>(Endpoints.AUTH_NONCE, {
-      address: credentials.address,
-      type: credentials.type,
-    });
-    const { nonce } = nonceResp.data;
-
-    // 2. Sign the nonce
-    let signature: string;
-    if (credentials.signer) {
-      signature = await credentials.signer(nonce);
-    } else if (credentials.privateKey) {
-      if (credentials.type === 'evm') {
-        signature = await signEvmMessage(credentials.privateKey, nonce);
-      } else if (credentials.type === 'solana') {
-        signature = await signSolanaMessage(credentials.privateKey, nonce);
-      } else {
-        throw new GdexAuthError(`Unsupported wallet type for automatic signing: ${credentials.type}`);
-      }
-    } else {
-      throw new GdexAuthError(
-        'Either privateKey or signer function must be provided in AuthCredentials'
-      );
-    }
-
-    // 3. Exchange signature for session token
-    const loginResp = await this.http.post<{ token: string; expiresAt: number }>(
-      Endpoints.AUTH_LOGIN,
-      {
-        address: credentials.address,
-        type: credentials.type,
-        nonce,
-        signature,
-      }
+  async authenticate(_credentials: AuthCredentials): Promise<AuthSession> {
+    throw new GdexAuthError(
+      'GdexApiClient.authenticate() is no longer supported — the backend ' +
+        'removed the /v1/auth/nonce + /v1/auth/login wallet-signing endpoints ' +
+        'in v1.1.0. Use setApiKey(apiKey), oauthLogin({ idToken }), or the ' +
+        'managed-custody /v1/sign_in flow (buildGdexSignInComputedData) instead.',
     );
-
-    this.session = {
-      token: loginResp.data.token,
-      expiresAt: loginResp.data.expiresAt,
-      address: credentials.address,
-      type: credentials.type,
-    };
-
-    return this.session;
   }
 
   /**

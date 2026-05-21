@@ -425,6 +425,57 @@ export function buildAssociateEmailComputedData(params: {
   });
 }
 
+// ── Transfer managed-custody helper ──────────────────────────────────────────
+
+/**
+ * Build encrypted computedData for `POST /v1/transfer` and `POST /v1/transfer_token`.
+ *
+ * Backend (`ServiceMain.transfer`, v1.1.0) decodes the payload with:
+ *   ABI:        ['transfer', [recipient, amount, nonce]]
+ *   sig msg:    `transfer-${userId}-${data}`
+ *
+ * `amount` is a decimal string already scaled to token decimals (e.g. "1000000"
+ * for 1 USDC at 6 decimals, or "1000000000000000000" for 1 ETH at 18 decimals).
+ * The action label (`transfer`) is the sign-message prefix only — the ABI
+ * values are just `[recipient, amount, nonce]` (matching the `hl_withdraw` /
+ * `associate_email` style used elsewhere in this file).
+ */
+export function buildTransferComputedData(params: {
+  apiKey: string;
+  walletAddress: string;
+  sessionPrivateKey: string;
+  userId: string;
+  recipient: string;
+  amount: string;
+  nonce?: string;
+}): string {
+  const nonce = params.nonce ?? generateGdexNonce().toString();
+  const abi = AbiCoder.defaultAbiCoder();
+  const encoded = abi.encode(
+    ['string', 'string', 'string'],
+    [params.recipient, params.amount, nonce],
+  );
+  const data = encoded.startsWith('0x') ? encoded.slice(2) : encoded;
+
+  const normalizedUserId = params.userId.startsWith('0x')
+    ? params.userId.toLowerCase()
+    : params.userId;
+  const msg = `transfer-${normalizedUserId}-${data}`;
+  const digest = keccak256(toUtf8Bytes(msg));
+  const sig = new SigningKey(params.sessionPrivateKey).sign(digest);
+  const r = sig.r.replace(/^0x/, '');
+  const s = sig.s.replace(/^0x/, '');
+  const v = sig.yParity.toString(16).padStart(2, '0');
+  const signature = `${r}${s}${v}`;
+
+  return buildEncryptedGdexPayload({
+    apiKey: params.apiKey,
+    userId: params.userId,
+    data,
+    signature,
+  });
+}
+
 // ── Limit order action types ─────────────────────────────────────────────────
 
 export type LimitOrderActionType = 'limit_buy' | 'limit_sell' | 'update_order';

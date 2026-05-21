@@ -2,13 +2,21 @@
  * Social / community actions — comments, sentiment voting, watchlist,
  * and user-imported custom tokens.
  *
- * Backed by:
- *   POST /v1/add_comment
- *   GET  /v1/comments
- *   POST /v1/vote_sentiment
- *   GET  /v1/watch_list
- *   POST /v1/change_watch_list
- *   POST /v1/import_token
+ * Backed by (gbotTradingDashboardBackend v1.1.0):
+ *   POST /v1/add_comment        — ServiceMain.addComment
+ *   GET  /v1/comments           — ServiceMain.getComments
+ *   POST /v1/vote_sentiment     — ServiceMain.voteSentiment
+ *   GET  /v1/watch_list         — ServiceMain.getWatchList
+ *   POST /v1/change_watch_list  — ServiceMain.changeWatchList
+ *   POST /v1/import_token       — ServiceMain.importToken
+ *
+ * Plain-JSON write endpoints (verified against v1.1.0 on 2026-05-21):
+ *   `addComment`, `voteSentiment`, `changeWatchList`, and `importToken` do
+ *   NOT invoke `serverDecryptData` in `ServiceMain`. They accept plain JSON
+ *   and rely on the standard session header for authentication. Do not send
+ *   a `computedData` field on any of these four — the backend will not
+ *   decode it and silently fall back to header-based identity, masking the
+ *   real intent.
  */
 import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';

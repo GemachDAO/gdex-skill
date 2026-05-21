@@ -206,11 +206,11 @@ These are **critical for autonomous agents** — the high-level SDK methods have
 | Endpoint | SDK Method Issue | Correct Raw Client Call |
 |----------|-----------------|------------------------|
 | Portfolio | `getPortfolio()` sends `walletAddress`+`chain` | `GET /v1/portfolio?userId=X&chainId=N&data=Y` |
-| Balances | `getBalances()` sends `walletAddress`+`chain` | `GET /v1/balances?userId=X&chainId=N&data=Y` |
-| Trade History | `getTradeHistory()` sends `userId` | `GET /v1/user_trade_history?user=X&chainId=900&data=Y` |
+| Balances | `getBalances()` sends `walletAddress`+`chain` | `GET /v1/portfolio?userId=X&chainId=N&data=Y` (balances embedded under `portfolio.balances[]`) |
+| Trade History | `getTradeHistory()` sends `userId` | `GET /v1/user_history?user=X&chainId=900&data=Y` |
 
 **Key differences:**
-- Portfolio/balances: Backend expects `userId` + `chainId` + `data` (encrypted session key), NOT `walletAddress` + `chain`
+- Portfolio/balances: Backend expects `userId` + `chainId` + `data` (encrypted session key), NOT `walletAddress` + `chain`. On v1.1.0 there is no separate `/v1/balances` endpoint — balances are embedded under `portfolio.balances[]`.
 - Trade history: Backend expects `user` (NOT `userId`) and `chainId: 900` for Solana (NOT `622112261`)
 - All three require the encrypted session key from `buildGdexUserSessionData()`
 
@@ -218,13 +218,13 @@ These are **critical for autonomous agents** — the high-level SDK methods have
 import { buildGdexUserSessionData } from '@gdexsdk/gdex-skill';
 const data = buildGdexUserSessionData(sessionKey, apiKey);
 
-// Correct portfolio call
+// Correct portfolio call (balances are inside portfolio.balances[])
 const portfolio = await skill.client.get('/v1/portfolio', {
   params: { userId: controlAddress, chainId: 622112261, data }
 });
 
 // Correct trade history call
-const history = await skill.client.get('/v1/user_trade_history', {
+const history = await skill.client.get('/v1/user_history', {
   params: { user: controlAddress, chainId: 900, data, page: 1, limit: 20 }
 });
 ```

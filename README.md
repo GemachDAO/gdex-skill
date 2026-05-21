@@ -98,7 +98,7 @@ The root `SKILL.md` acts as a router — it tells agents which skill to load for
 
 ## � MCP Server
 
-The GDEX MCP server exposes **76 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
+The GDEX MCP server exposes **116 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
 
 ### Quick Setup
 
@@ -136,7 +136,7 @@ Add to your client's MCP config:
 | `GDEX_API_KEY` | GDEX API key — auto-authenticates on startup | Optional |
 | `GDEX_API_URL` | Override API base URL (default: `https://trade-api.gemach.io/v1`) | Optional |
 
-### MCP Execution Tools (68 tools)
+### MCP Execution Tools (108 tools)
 
 | Category | Tools | Description |
 |----------|-------|-------------|
