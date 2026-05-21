@@ -8,10 +8,18 @@ export const AUTH_LOGIN = '/v1/auth/login';
 export const AUTH_SIGN_IN = '/v1/sign_in';
 export const AUTH_REFRESH = '/v1/auth/refresh';
 export const AUTH_LOGOUT = '/v1/auth/logout';
+export const AUTH_OAUTH_LOGIN = '/v1/auth/oauth-login';
+export const AUTH_ASSOCIATE_EMAIL = '/v1/auth/associate-email';
 
 /** User endpoints */
 export const USER_PROFILE = '/v1/user';
 export const USER_UPDATE = '/v1/user/update';
+export const USER_CONFIG = '/v1/config';
+export const USER_SWITCH_CHAIN = '/v1/switch_chain';
+
+/** Admin endpoints */
+export const ADMIN_STATS = '/v1/admin/stats';
+export const ADMIN_ADD = '/v1/admin/add';
 
 /** Trading endpoints */
 export const PURCHASE_V2 = '/v1/purchase_v2';
@@ -93,6 +101,81 @@ export const TOP_TRADERS = '/v1/copy_trade/top_traders';
 
 /** Wallet endpoints */
 export const WALLET_INFO = '/v1/wallet/info'; // not always enabled in all deployments
+
+/** Transfer endpoints (managed custody) */
+export const TRANSFER_NATIVE = '/v1/transfer';
+export const TRANSFER_TOKEN = '/v1/transfer_token';
+
+/** Social / community endpoints */
+export const ADD_COMMENT = '/v1/add_comment';
+export const COMMENTS = '/v1/comments';
+export const VOTE_SENTIMENT = '/v1/vote_sentiment';
+
+/** Watchlist endpoints */
+export const WATCH_LIST = '/v1/watch_list';
+export const CHANGE_WATCH_LIST = '/v1/change_watch_list';
+
+/** User-imported tokens */
+export const IMPORT_TOKEN = '/v1/import_token';
+
+/** Portfolio analytics */
+export const WALLET_PERFORMANCE = '/v1/wallet_performance';
+export const NOF1_ANALYTICS = '/v1/nof1_analytics';
+export const NATIVE_PRICES = '/v1/native_prices';
+export const GENERATE_PNL = '/v1/generate_pnl';
+
+/** Referral endpoints */
+export const REFERRAL_INFO = '/v1/referral';
+export const REFERRAL_REQUEST_CLAIM = '/v1/request_claim';
+
+/** Token discovery extensions */
+export const TOKEN_BIGBUYS_BASE = '/v1/bigbuys';
+export const tokenBigBuysPath = (chainId: number | string): string => `${TOKEN_BIGBUYS_BASE}/${chainId}`;
+export const TOKEN_NEWEST = '/v1/newest';
+export const TOKEN_CURRENTLY_LIVE = '/v1/currently_live';
+export const TOKEN_LIVE_STATUS_BASE = '/v1/live_status';
+export const tokenLiveStatusPath = (address: string): string => `${TOKEN_LIVE_STATUS_BASE}/${address}`;
+export const TOKEN_TOP_TOKENS = '/v1/top_tokens';
+export const TOKEN_TRADES = '/v1/token_trades';
+export const TOKEN_XSTOCKS = '/v1/xstocks';
+export const TOKEN_ZORA = '/v1/zora';
+
+/** Token router (/v1/token/*) */
+export const TOKEN_IMAGE = '/v1/token/token_image';
+
+/** HyperLiquid trading abstraction */
+export const HL_ENABLE_TRADING = '/v1/hl/enable_trading';
+export const HL_SWAP_COLLATERAL = '/v1/hl/swap_collateral';
+
+/** HyperLiquid HIP-3 outcomes / event markets */
+export const HL_OUTCOMES = '/v1/hl/outcomes';
+export const HL_OUTCOME_ACCOUNT = '/v1/hl/outcome_account';
+export const HL_OUTCOME_CREATE_ORDER = '/v1/hl/outcome/create_order';
+export const HL_OUTCOME_CANCEL_ORDER = '/v1/hl/outcome/cancel_order';
+export const HL_OUTCOME_CLOSE_ORDER = '/v1/hl/outcome/close_order';
+
+/** HyperLiquid extras */
+export const HL_BUILDER_REFERRAL = '/v1/hl/builder_referral';
+export const HL_TX_LIST = '/v1/hl/tx_list';
+export const HL_LIST_USER_COPY_PNL = '/v1/hl/list_user_copy_pnl';
+export const HL_POSITIONS = '/v1/hl/positions';
+export const HL_ACCOUNT_STATE = '/v1/hl/account_state';
+
+/** HyperLiquid referral router (/v1/hl_ref/*) — distinct from copy trading */
+export const HL_REF_INFO = '/v1/hl_ref/info';
+export const HL_REF_REQUEST_CLAIM = '/v1/hl_ref/request_claim';
+
+/** Trending router (/v1/trending/*) — paid trending slot booking */
+export const TRENDING_LIST = '/v1/trending/list';
+export const TRENDING_OPTIONS = '/v1/trending/options';
+export const TRENDING_REGISTER = '/v1/trending/register';
+export const TRENDING_BOOKING_STATUS = '/v1/trending/booking_status';
+
+/** Retailer router (/v1/retailer/*) — branded onboarding integrations */
+export const RETAILER_LIST = '/v1/retailer';
+
+/** Stats endpoint */
+export const STATS = '/v1/stats';
 
 /** Health check */
 export const HEALTH = '/v1/status';

@@ -29,6 +29,14 @@ Cross-chain DeFi trading infrastructure for AI agents. All trading goes through 
 | | `gdex-perp-copy-trading` | HL perp copy trading — copy long/short futures positions, opposite copy, top traders, market data | Discovery: No / Read+Write: Yes |
 | | `gdex-bridge` | Cross-chain bridging with quotes | Yes |
 | | `gdex-wallet-setup` | Generate EVM wallets, session keys, wallet info | **No** |
+| **Transfers & Social** | `gdex-transfers` | Native + ERC20/SPL transfers via managed custody | Yes |
+| | `gdex-watchlist-social` | Watchlist, comments, bullish/bearish sentiment voting | Yes |
+| | `gdex-token-import` | Register user-defined custom tokens | Yes |
+| | `gdex-livestream-discovery` | Solana livestream-token discovery + big-buy alert feeds | — |
+| **HyperLiquid Extras** | `gdex-hl-outcomes` | HL HIP-3 outcome / event markets | Yes |
+| | `gdex-hl-referral` | HL referral info + reward claims (`/v1/hl_ref/*`) | Yes |
+| **Promotion & Partners** | `gdex-trending-promotion` | Paid trending-slot promotion | Yes |
+| | `gdex-retailer-onboarding` | Retailer partner integrations | — |
 | **Frontend** | `gdex-ui-install-setup` | React/Next.js project setup, SDK context providers, environment variables | — |
 | | `gdex-ui-trading-components` | React component patterns for order forms, position tables, copy trade panels | — |
 | | `gdex-ui-portfolio-dashboard` | Portfolio dashboard components — balances, trade history, chain selectors | — |

@@ -18,6 +18,7 @@ import { registerHlCopyTradeTools } from './tools/hlCopyTrade.js';
 import { registerPortfolioTools } from './tools/portfolio.js';
 import { registerBridgeTools } from './tools/bridge.js';
 import { registerManagedTools } from './tools/managed.js';
+import { registerV110Tools } from './tools/v110.js';
 
 // Handle init command before starting server
 const args = process.argv.slice(2);
@@ -27,7 +28,7 @@ if (args[0] === 'init') {
 }
 
 const server = new McpServer(
-  { name: 'gdex-mcp-server', version: '2.0.0' },
+  { name: 'gdex-mcp-server', version: '3.2.0' },
   { capabilities: { tools: {} } },
 );
 
@@ -259,28 +260,34 @@ server.tool(
   async ({ chain }) => {
     const chainTable = `# Supported Chains
 
-| Chain | ChainId | DEXes | Perps | Bridge |
-|-------|---------|-------|-------|--------|
-| Ethereum | 1 | Uniswap v2/v3, Odos | — | Yes |
-| Optimism | 10 | Uniswap v3, Odos | — | Yes |
-| BSC | 56 | PancakeSwap, Odos | — | Yes |
-| Sonic | 146 | — | — | Yes |
-| Fraxtal | 252 | Uniswap v3 | — | Yes |
-| Nibiru | 6900 | — | — | Yes |
-| Base | 8453 | Uniswap v3, Odos, Arcadia | — | Yes |
-| Arbitrum | 42161 | Uniswap v3, Odos | — | Yes |
-| Berachain | 80094 | — | — | Yes |
-| Solana | 622112261 | Raydium, Raydium v2, Orca | — | Yes |
-| Sui | 1313131213 | Cetus, Bluefin | — | Yes |
-| HyperLiquid | — | — | Native perp engine | — |
+| Chain | ChainId | Spot DEXes | Perps | Bridge |
+|-------|---------|------------|-------|--------|
+| Ethereum | 1 | Uniswap v2/v3, SushiSwap v3, Odos | — | Yes |
+| Optimism | 10 | Uniswap v3, Velodrome, VelodromeCL, Odos | — | Yes |
+| BSC | 56 | PancakeSwap v2/v3, DyorSwap, Odos | — | Yes |
+| Sonic | 146 | Shadow Exchange, Wagmi, Metropolis | — | Yes |
+| Fraxtal | 252 | FraxSwap, Uniswap v3 | — | No |
+| Sei | 1329 | DragonSwap v1/v2 | — | No |
+| Avalanche | 43114 | TraderJoe (config present) | — | No |
+| Nibiru | 6900 | DexV3 | — | No |
+| Base | 8453 | Uniswap v3, BaseSwap, SushiSwap v3, Aerodrome, Odos, Arcadia Swap | — | Yes |
+| Arbitrum | 42161 | Uniswap v3, Camelot v2/v3, SushiSwap v3, Odos | — | Yes |
+| Berachain | 80094 | Kodiak | — | Yes |
+| Solana | 622112261 | Raydium CPM/CLMM, Raydium v2, Orca, Pharaoh, SpookySwap | — | Yes |
+| Sui | 1313131213 | Cetus, Bluefin, Mobius | — | Yes |
+| HyperLiquid | — (Arbitrum 42161 for deposit) | — | Native perp engine + HIP-3 perp dexes | — |
+
+Aggregators: Raydium CPM/CLMM, Uniswap V2/V3, PancakeSwap V2/V3, SushiSwap V3, Camelot V2/V3, BaseSwap, FraxSwap, Velodrome / VelodromeCL, DragonSwap V1/V2, Kodiak, TraderJoe, Pharaoh, SpookySwap, Metropolis, Shadow Exchange, Wagmi, Mobius, DyorSwap, Cetus, Bluefin, Odos, Arcadia Swap, OmniSwap (cross-chain), DexV3 (Nibiru).
 
 **Critical notes:**
-- Solana chainId is \`622112261\`, NOT \`900\`
-- For managed-custody: 900 = Solana, 101 = Sui, or standard EVM chain IDs
+- Solana chainId is \`622112261\`, NOT \`900\` (legacy synthetic id)
+- Sui chainId is \`1313131213\` (internal synthetic id)
+- For managed-custody sign-in: 900 = Solana, 101 = Sui, or standard EVM chain IDs
 - \`/v1/user\` returns different managed wallets per chainId
 - Solana copy trades require sign-in with \`chainId: 622112261\`
 - HL perp copy trades require sign-in with \`chainId: 1\`
-- HL operations (deposit, orders) use \`chainId: 42161\` (Arbitrum)`;
+- HL operations (deposit, orders) use \`chainId: 42161\` (Arbitrum) for the deposit route
+- HIP-3 perp DEXes: query \`/v1/hl/perp_dexes\` and pass \`dex\` parameter on read endpoints; use \`_all\` variants (clearinghouse_state_all, open_orders_all) for combined views`;
 
     if (chain) {
       const chainLower = chain.toLowerCase();
@@ -368,6 +375,7 @@ registerHlCopyTradeTools(server);
 registerPortfolioTools(server);
 registerBridgeTools(server);
 registerManagedTools(server);
+registerV110Tools(server);
 
 // --- Start server ---
 const transport = new StdioServerTransport();

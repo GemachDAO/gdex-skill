@@ -37,6 +37,14 @@ import type {
 import { validateRequired } from '../utils/validation';
 import { buildHlComputedData } from '../utils/gdexManagedCrypto';
 
+/** Normalise a string-or-object address argument used by HL read endpoints. */
+function normalizeAddressArg(
+  arg: string | { userAddress: string; dex?: string },
+): { address: string; dex?: string } {
+  if (typeof arg === 'string') return { address: arg };
+  return { address: arg.userAddress, dex: arg.dex };
+}
+
 // ── Discovery (no auth) ─────────────────────────────────────────────────────
 
 /**
@@ -97,14 +105,17 @@ export async function getHlAllAssets(
 /**
  * Get clearinghouse state (account state) for a user on a specific DEX. No auth.
  *
- * @param userAddress - EVM wallet address
+ * @param userAddress - EVM wallet address (or `{ userAddress, dex }` for HIP-3 multi-dex)
  */
 export async function getHlClearinghouseState(
   client: GdexApiClient,
-  userAddress: string,
+  userAddress: string | { userAddress: string; dex?: string },
 ): Promise<unknown> {
-  validateRequired(userAddress, 'userAddress');
-  return client.get<unknown>(Endpoints.HL_CLEARINGHOUSE_STATE, { address: userAddress });
+  const { address, dex } = normalizeAddressArg(userAddress);
+  validateRequired(address, 'userAddress');
+  const query: Record<string, unknown> = { address };
+  if (dex) query.dex = dex;
+  return client.get<unknown>(Endpoints.HL_CLEARINGHOUSE_STATE, query);
 }
 
 /**
@@ -123,14 +134,17 @@ export async function getHlClearinghouseStateAll(
 /**
  * Get open orders on a specific DEX. No auth.
  *
- * @param userAddress - EVM wallet address
+ * @param userAddress - EVM wallet address (or `{ userAddress, dex }` for HIP-3 multi-dex)
  */
 export async function getHlOpenOrdersForCopy(
   client: GdexApiClient,
-  userAddress: string,
+  userAddress: string | { userAddress: string; dex?: string },
 ): Promise<unknown> {
-  validateRequired(userAddress, 'userAddress');
-  return client.get<unknown>(Endpoints.HL_OPEN_ORDERS, { address: userAddress });
+  const { address, dex } = normalizeAddressArg(userAddress);
+  validateRequired(address, 'userAddress');
+  const query: Record<string, unknown> = { address };
+  if (dex) query.dex = dex;
+  return client.get<unknown>(Endpoints.HL_OPEN_ORDERS, query);
 }
 
 /**
@@ -148,10 +162,16 @@ export async function getHlOpenOrdersAllForCopy(
 
 /**
  * Get market metadata and asset contexts. No auth.
+ *
+ * @param dex - Optional perp-dex identifier for HIP-3 deployments
  */
 export async function getHlMetaAndAssetCtxs(
   client: GdexApiClient,
+  dex?: string,
 ): Promise<unknown> {
+  if (dex) {
+    return client.get<unknown>(Endpoints.HL_META_AND_ASSET_CTXS, { dex });
+  }
   return client.get<unknown>(Endpoints.HL_META_AND_ASSET_CTXS);
 }
 
