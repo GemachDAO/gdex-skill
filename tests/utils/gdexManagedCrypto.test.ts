@@ -9,6 +9,7 @@ import {
   buildGdexSignInMessage,
   buildGdexTradeSignatureMessage,
   buildGdexUserSessionData,
+  buildTransferComputedData,
   decryptGdexComputedData,
   deriveGdexAesMaterial,
   encryptGdexComputedData,
@@ -150,5 +151,57 @@ describe('gdexManagedCrypto', () => {
     const abi = AbiCoder.defaultAbiCoder();
     const [decodedNonce] = abi.decode(['string'], '0x' + parsed.data);
     expect(decodedNonce).toBe('n-42');
+  });
+
+  it('should build transfer computedData payload that decodes to [recipient, amount, nonce]', () => {
+    const { AbiCoder } = require('ethers') as typeof import('ethers');
+    const pair = generateGdexSessionKeyPair();
+    const computedData = buildTransferComputedData({
+      apiKey,
+      walletAddress: '0xAbCd',
+      sessionPrivateKey: pair.sessionPrivateKey,
+      userId: '0xAbCd',
+      recipient: '0xRecipient',
+      amount: '1000000',
+      nonce: 'n-7',
+    });
+    expect(computedData).toMatch(/^[0-9a-f]+$/);
+
+    const decrypted = decryptGdexComputedData(computedData, apiKey);
+    const parsed = JSON.parse(decrypted) as { userId: string; data: string; signature: string };
+
+    // userId is preserved verbatim in the encrypted payload
+    expect(parsed.userId).toBe('0xAbCd');
+    // 65-byte signature serialized as 130-char hex without 0x prefix
+    expect(parsed.signature).toMatch(/^[0-9a-f]{130}$/i);
+
+    // ABI: ['transfer', [recipient, amount, nonce]] — values are 3 strings
+    const abi = AbiCoder.defaultAbiCoder();
+    const [recipient, amount, nonce] = abi.decode(
+      ['string', 'string', 'string'],
+      '0x' + parsed.data,
+    );
+    expect(recipient).toBe('0xRecipient');
+    expect(amount).toBe('1000000');
+    expect(nonce).toBe('n-7');
+  });
+
+  it('should auto-generate a nonce for transfer computedData when not provided', () => {
+    const { AbiCoder } = require('ethers') as typeof import('ethers');
+    const pair = generateGdexSessionKeyPair();
+    const computedData = buildTransferComputedData({
+      apiKey,
+      walletAddress: '0xAbCd',
+      sessionPrivateKey: pair.sessionPrivateKey,
+      userId: '0xAbCd',
+      recipient: '0xRecipient',
+      amount: '42',
+    });
+    const decrypted = decryptGdexComputedData(computedData, apiKey);
+    const parsed = JSON.parse(decrypted) as { data: string };
+    const abi = AbiCoder.defaultAbiCoder();
+    const [, , nonce] = abi.decode(['string', 'string', 'string'], '0x' + parsed.data);
+    expect(typeof nonce).toBe('string');
+    expect((nonce as string).length).toBeGreaterThan(0);
   });
 });
