@@ -32,26 +32,42 @@ that are not yet indexed.
 ## SDK Usage
 
 ```typescript
-import { GdexSkill } from '@gdexsdk/gdex-skill';
+import { GdexSkill, buildImportTokenComputedData } from '@gdexsdk/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(process.env.GDEX_API_KEY!);
 
+// Structured shape — SDK builds computedData internally
 await skill.importToken({
   tokenAddress: '0xCustomToken',
-  chain: 8453,
-  symbol: 'CUSTOM',
-  name: 'My Custom Token',
-  decimals: 18,
-  userId: '0xWallet',
-  data: encryptedSessionKey,
+  chainId: 8453,
+  managed: {
+    apiKey: process.env.GDEX_API_KEY!,
+    walletAddress: '0xWallet',
+    sessionPrivateKey: '0x…',
+    userId: '0xWallet',
+  },
+});
+
+// Or raw shape — caller pre-built computedData
+await skill.importToken({
+  computedData: buildImportTokenComputedData({
+    apiKey: process.env.GDEX_API_KEY!,
+    walletAddress: '0xWallet',
+    sessionPrivateKey: '0x…',
+    userId: '0xWallet',
+    tokenAddress: '0xCustomToken',
+    chainId: '8453',
+  }),
+  chainId: 8453,
 });
 ```
 
 ## Notes
 
-- `symbol`, `name`, and `decimals` are best-effort hints — the backend may
-  override them with on-chain data when available.
+- `import_token` uses managed-custody **encrypted `computedData`**:
+  ABI `['import_token', [tokenAddress, chainId, nonce]]`,
+  sig message `import_token-${userId}-${data}`.
 - The backend deduplicates imports per `(userId, chain, tokenAddress)`.
 - After import, queries such as `getTokenDetails`, `getBalances`, and
   `getPortfolio` will start returning data for the token (subject to

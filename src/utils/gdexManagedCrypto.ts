@@ -476,6 +476,102 @@ export function buildTransferComputedData(params: {
   });
 }
 
+// ── Social write managed-custody helpers ─────────────────────────────────────
+
+/**
+ * Build encrypted computedData for `POST /v1/change_watch_list`.
+ *
+ * Backend (`ServiceMain.changeWatchList`, v1.1.0) decodes the payload with:
+ *   ABI:        ['watch_list', [tokenAddress, chainId, isAdded, nonce]]
+ *   sig msg:    `watch_list-${userId}-${data}`
+ *
+ * `isAdded` is `true` when adding the token to the watchlist and `false`
+ * when removing it. `chainId` is passed as a string (matching the
+ * all-strings ABI style used for transfers).
+ */
+export function buildWatchListComputedData(params: {
+  apiKey: string;
+  walletAddress: string;
+  sessionPrivateKey: string;
+  userId: string;
+  tokenAddress: string;
+  chainId: string;
+  isAdded: boolean;
+  nonce?: string;
+}): string {
+  const nonce = params.nonce ?? generateGdexNonce().toString();
+  const abi = AbiCoder.defaultAbiCoder();
+  const encoded = abi.encode(
+    ['string', 'string', 'bool', 'string'],
+    [params.tokenAddress, params.chainId, params.isAdded, nonce],
+  );
+  const data = encoded.startsWith('0x') ? encoded.slice(2) : encoded;
+
+  const normalizedUserId = params.userId.startsWith('0x')
+    ? params.userId.toLowerCase()
+    : params.userId;
+  const msg = `watch_list-${normalizedUserId}-${data}`;
+  const digest = keccak256(toUtf8Bytes(msg));
+  const sig = new SigningKey(params.sessionPrivateKey).sign(digest);
+  const r = sig.r.replace(/^0x/, '');
+  const s = sig.s.replace(/^0x/, '');
+  const v = sig.yParity.toString(16).padStart(2, '0');
+  const signature = `${r}${s}${v}`;
+
+  return buildEncryptedGdexPayload({
+    apiKey: params.apiKey,
+    userId: params.userId,
+    data,
+    signature,
+  });
+}
+
+/**
+ * Build encrypted computedData for `POST /v1/import_token`.
+ *
+ * Backend (`ServiceMain.importToken`, v1.1.0) decodes the payload with:
+ *   ABI:        ['import_token', [tokenAddress, chainId, nonce]]
+ *   sig msg:    `import_token-${userId}-${data}`
+ *
+ * `chainId` is passed as a string (matching the all-strings ABI style used
+ * for transfers).
+ */
+export function buildImportTokenComputedData(params: {
+  apiKey: string;
+  walletAddress: string;
+  sessionPrivateKey: string;
+  userId: string;
+  tokenAddress: string;
+  chainId: string;
+  nonce?: string;
+}): string {
+  const nonce = params.nonce ?? generateGdexNonce().toString();
+  const abi = AbiCoder.defaultAbiCoder();
+  const encoded = abi.encode(
+    ['string', 'string', 'string'],
+    [params.tokenAddress, params.chainId, nonce],
+  );
+  const data = encoded.startsWith('0x') ? encoded.slice(2) : encoded;
+
+  const normalizedUserId = params.userId.startsWith('0x')
+    ? params.userId.toLowerCase()
+    : params.userId;
+  const msg = `import_token-${normalizedUserId}-${data}`;
+  const digest = keccak256(toUtf8Bytes(msg));
+  const sig = new SigningKey(params.sessionPrivateKey).sign(digest);
+  const r = sig.r.replace(/^0x/, '');
+  const s = sig.s.replace(/^0x/, '');
+  const v = sig.yParity.toString(16).padStart(2, '0');
+  const signature = `${r}${s}${v}`;
+
+  return buildEncryptedGdexPayload({
+    apiKey: params.apiKey,
+    userId: params.userId,
+    data,
+    signature,
+  });
+}
+
 // ── Limit order action types ─────────────────────────────────────────────────
 
 export type LimitOrderActionType = 'limit_buy' | 'limit_sell' | 'update_order';
