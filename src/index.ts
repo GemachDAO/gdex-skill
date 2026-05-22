@@ -420,6 +420,8 @@ export {
   encodeLimitOrderData,
   signLimitOrderMessage,
   buildLimitOrderComputedData,
+  buildWatchListComputedData,
+  buildImportTokenComputedData,
 } from './utils/gdexManagedCrypto';
 export type { HlActionType, LimitOrderActionType } from './utils/gdexManagedCrypto';
 

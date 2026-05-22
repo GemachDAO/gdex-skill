@@ -36,22 +36,42 @@ token (comments and bullish/bearish sentiment votes).
 ## SDK Usage
 
 ```typescript
-import { GdexSkill } from '@gdexsdk/gdex-skill';
+import { GdexSkill, buildWatchListComputedData } from '@gdexsdk/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(process.env.GDEX_API_KEY!);
 
-// Watchlist
+// Watchlist (managed custody — backend decodes computedData)
 const list = await skill.getWatchList({ userId: '0xWallet', data: encryptedSessionKey });
+
+// Structured shape — SDK builds computedData internally
 await skill.changeWatchList({
   tokenAddress: '0xToken',
-  chain: 8453,
+  chainId: 8453,
   action: 'add',
-  userId: '0xWallet',
-  data: encryptedSessionKey,
+  managed: {
+    apiKey: process.env.GDEX_API_KEY!,
+    walletAddress: '0xWallet',
+    sessionPrivateKey: '0x…',
+    userId: '0xWallet',
+  },
 });
 
-// Comments
+// Or raw shape — caller pre-built computedData
+await skill.changeWatchList({
+  computedData: buildWatchListComputedData({
+    apiKey: process.env.GDEX_API_KEY!,
+    walletAddress: '0xWallet',
+    sessionPrivateKey: '0x…',
+    userId: '0xWallet',
+    tokenAddress: '0xToken',
+    chainId: '8453',
+    isAdded: true,
+  }),
+  chainId: 8453,
+});
+
+// Comments (plain JSON)
 const comments = await skill.getComments({ tokenAddress: '0xToken', chain: 8453 });
 await skill.addComment({
   tokenAddress: '0xToken',
@@ -61,7 +81,7 @@ await skill.addComment({
   data: encryptedSessionKey,
 });
 
-// Sentiment
+// Sentiment (plain JSON)
 await skill.voteSentiment({
   tokenAddress: '0xToken',
   chain: 8453,
@@ -73,6 +93,11 @@ await skill.voteSentiment({
 
 ## Notes
 
+- `change_watch_list` uses managed-custody **encrypted `computedData`**:
+  ABI `['watch_list', [tokenAddress, chainId, isAdded, nonce]]`,
+  sig message `watch_list-${userId}-${data}`.
+- `add_comment` and `vote_sentiment` use **plain JSON** with the standard
+  session header for auth — they do NOT go through `serverDecryptData`.
 - Watchlist entries are scoped to `(userId, chain, tokenAddress)`.
 - Sentiment votes are deduplicated per `(userId, tokenAddress)` — re-voting
   updates the existing vote.
