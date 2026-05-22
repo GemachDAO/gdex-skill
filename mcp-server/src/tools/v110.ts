@@ -88,28 +88,20 @@ export function registerV110Tools(server: McpServer): void {
 
   server.tool(
     'change_watchlist',
-    "Add or remove a token from the user's watchlist.",
+    "Add or remove a token from the user's watchlist via managed custody. Requires pre-built encrypted computedData.",
     {
-      tokenAddress: z.string(),
-      chain: z.union([z.string(), z.number()]),
-      action: z.enum(['add', 'remove']),
-      userId: z.string(),
-      data: z.string().optional(),
+      computedData: z.string().describe('Encrypted computedData payload'),
+      chainId: z.union([z.string(), z.number()]).optional().describe('Optional chain id hint'),
     },
     async (params: any) => handleToolCall(async () => getSdk().changeWatchList(params as any)),
   );
 
   server.tool(
     'import_token',
-    'Import a user-defined custom token into the platform.',
+    'Import a user-defined custom token into the platform via managed custody. Requires pre-built encrypted computedData.',
     {
-      tokenAddress: z.string(),
-      chain: z.union([z.string(), z.number()]),
-      symbol: z.string().optional(),
-      name: z.string().optional(),
-      decimals: z.number().optional(),
-      userId: z.string(),
-      data: z.string().optional(),
+      computedData: z.string().describe('Encrypted computedData payload'),
+      chainId: z.union([z.string(), z.number()]).optional().describe('Optional chain id hint'),
     },
     async (params: any) => handleToolCall(async () => getSdk().importToken(params as any)),
   );

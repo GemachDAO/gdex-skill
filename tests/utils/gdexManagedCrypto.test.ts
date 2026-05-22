@@ -9,7 +9,9 @@ import {
   buildGdexSignInMessage,
   buildGdexTradeSignatureMessage,
   buildGdexUserSessionData,
+  buildImportTokenComputedData,
   buildTransferComputedData,
+  buildWatchListComputedData,
   decryptGdexComputedData,
   deriveGdexAesMaterial,
   encryptGdexComputedData,
@@ -196,6 +198,133 @@ describe('gdexManagedCrypto', () => {
       userId: '0xAbCd',
       recipient: '0xRecipient',
       amount: '42',
+    });
+    const decrypted = decryptGdexComputedData(computedData, apiKey);
+    const parsed = JSON.parse(decrypted) as { data: string };
+    const abi = AbiCoder.defaultAbiCoder();
+    const [, , nonce] = abi.decode(['string', 'string', 'string'], '0x' + parsed.data);
+    expect(typeof nonce).toBe('string');
+    expect((nonce as string).length).toBeGreaterThan(0);
+  });
+
+  it('should build watch_list computedData payload that decodes to [tokenAddress, chainId, isAdded, nonce]', () => {
+    const { AbiCoder } = require('ethers') as typeof import('ethers');
+    const pair = generateGdexSessionKeyPair();
+    const computedData = buildWatchListComputedData({
+      apiKey,
+      walletAddress: '0xAbCd',
+      sessionPrivateKey: pair.sessionPrivateKey,
+      userId: '0xAbCd',
+      tokenAddress: '0xToken',
+      chainId: '1',
+      isAdded: true,
+      nonce: 'n-w',
+    });
+    expect(computedData).toMatch(/^[0-9a-f]+$/);
+
+    const decrypted = decryptGdexComputedData(computedData, apiKey);
+    const parsed = JSON.parse(decrypted) as { userId: string; data: string; signature: string };
+    expect(parsed.userId).toBe('0xAbCd');
+    expect(parsed.signature).toMatch(/^[0-9a-f]{130}$/i);
+
+    // ABI: ['watch_list', [tokenAddress, chainId, isAdded, nonce]]
+    const abi = AbiCoder.defaultAbiCoder();
+    const [tokenAddress, chainId, isAdded, nonce] = abi.decode(
+      ['string', 'string', 'bool', 'string'],
+      '0x' + parsed.data,
+    );
+    expect(tokenAddress).toBe('0xToken');
+    expect(chainId).toBe('1');
+    expect(isAdded).toBe(true);
+    expect(nonce).toBe('n-w');
+  });
+
+  it('should encode watch_list isAdded=false (remove) correctly', () => {
+    const { AbiCoder } = require('ethers') as typeof import('ethers');
+    const pair = generateGdexSessionKeyPair();
+    const computedData = buildWatchListComputedData({
+      apiKey,
+      walletAddress: '0xAbCd',
+      sessionPrivateKey: pair.sessionPrivateKey,
+      userId: '0xAbCd',
+      tokenAddress: '0xToken',
+      chainId: '8453',
+      isAdded: false,
+      nonce: 'n-w2',
+    });
+    const decrypted = decryptGdexComputedData(computedData, apiKey);
+    const parsed = JSON.parse(decrypted) as { data: string };
+    const abi = AbiCoder.defaultAbiCoder();
+    const [, , isAdded] = abi.decode(
+      ['string', 'string', 'bool', 'string'],
+      '0x' + parsed.data,
+    );
+    expect(isAdded).toBe(false);
+  });
+
+  it('should auto-generate a nonce for watch_list computedData when not provided', () => {
+    const { AbiCoder } = require('ethers') as typeof import('ethers');
+    const pair = generateGdexSessionKeyPair();
+    const computedData = buildWatchListComputedData({
+      apiKey,
+      walletAddress: '0xAbCd',
+      sessionPrivateKey: pair.sessionPrivateKey,
+      userId: '0xAbCd',
+      tokenAddress: '0xToken',
+      chainId: '1',
+      isAdded: true,
+    });
+    const decrypted = decryptGdexComputedData(computedData, apiKey);
+    const parsed = JSON.parse(decrypted) as { data: string };
+    const abi = AbiCoder.defaultAbiCoder();
+    const [, , , nonce] = abi.decode(
+      ['string', 'string', 'bool', 'string'],
+      '0x' + parsed.data,
+    );
+    expect(typeof nonce).toBe('string');
+    expect((nonce as string).length).toBeGreaterThan(0);
+  });
+
+  it('should build import_token computedData payload that decodes to [tokenAddress, chainId, nonce]', () => {
+    const { AbiCoder } = require('ethers') as typeof import('ethers');
+    const pair = generateGdexSessionKeyPair();
+    const computedData = buildImportTokenComputedData({
+      apiKey,
+      walletAddress: '0xAbCd',
+      sessionPrivateKey: pair.sessionPrivateKey,
+      userId: '0xAbCd',
+      tokenAddress: '0xToken',
+      chainId: '8453',
+      nonce: 'n-i',
+    });
+    expect(computedData).toMatch(/^[0-9a-f]+$/);
+
+    const decrypted = decryptGdexComputedData(computedData, apiKey);
+    const parsed = JSON.parse(decrypted) as { userId: string; data: string; signature: string };
+    expect(parsed.userId).toBe('0xAbCd');
+    expect(parsed.signature).toMatch(/^[0-9a-f]{130}$/i);
+
+    // ABI: ['import_token', [tokenAddress, chainId, nonce]]
+    const abi = AbiCoder.defaultAbiCoder();
+    const [tokenAddress, chainId, nonce] = abi.decode(
+      ['string', 'string', 'string'],
+      '0x' + parsed.data,
+    );
+    expect(tokenAddress).toBe('0xToken');
+    expect(chainId).toBe('8453');
+    expect(nonce).toBe('n-i');
+  });
+
+  it('should auto-generate a nonce for import_token computedData when not provided', () => {
+    const { AbiCoder } = require('ethers') as typeof import('ethers');
+    const pair = generateGdexSessionKeyPair();
+    const computedData = buildImportTokenComputedData({
+      apiKey,
+      walletAddress: '0xAbCd',
+      sessionPrivateKey: pair.sessionPrivateKey,
+      userId: '0xAbCd',
+      tokenAddress: '0xToken',
+      chainId: '1',
     });
     const decrypted = decryptGdexComputedData(computedData, apiKey);
     const parsed = JSON.parse(decrypted) as { data: string };

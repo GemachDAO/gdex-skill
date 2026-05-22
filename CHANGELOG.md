@@ -15,6 +15,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [3.3.1] - 2026-05-22
+
+### Added
+
+- `buildWatchListComputedData` and `buildImportTokenComputedData` helpers in `src/utils/gdexManagedCrypto.ts`, exported from `src/index.ts`.
+- Round-trip and wire-shape tests in `tests/utils/gdexManagedCrypto.test.ts` and `tests/actions/social.test.ts`.
+
+### Changed
+
+- `changeWatchList` and `importToken` in `src/actions/social.ts` now accept either a structured payload or a pre-encoded `{ computedData, chainId? }` shape and always send `{ computedData, chainId? }` over the wire.
+- Top-of-file comment in `src/actions/social.ts` updated so only `addComment` and `voteSentiment` are listed as plain-JSON endpoints.
+- `change_watchlist` and `import_token` MCP tool schemas in `mcp-server/src/tools/v110.ts` reduced to `{ computedData, chainId? }`.
+- SKILL examples in `skills/gdex-watchlist-social/SKILL.md` and `skills/gdex-token-import/SKILL.md` updated to the encrypted shape.
+
+### Fixed
+
+- Lands PR #10 changes that were referenced by the 3.3.0 CHANGELOG but never merged onto main.
+
 ## [3.3.0] - 2026-05-22
 
 Backend contract verified against
