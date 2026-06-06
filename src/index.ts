@@ -157,6 +157,9 @@ import type {
   OutcomesListParams,
   OutcomeAccountParams,
   OutcomeOrderRequest,
+  CreateOutcomeOrderParams,
+  CancelOutcomeOrderParams,
+  CloseOutcomeOrderParams,
 } from './actions/hlOutcomes';
 import {
   getHlReferralInfo,
@@ -190,7 +193,9 @@ import {
 } from './actions/hlExtras';
 import type {
   HlEnableTradingRequest,
+  HlEnableTradingParams,
   HlSwapCollateralRequest,
+  HlSwapCollateralStructured,
   HlBuilderReferralParams,
   HlListUserCopyPnlParams,
   HlTxListParams,
@@ -345,6 +350,10 @@ export type {
   OutcomesListParams,
   OutcomeAccountParams,
   OutcomeOrderRequest,
+  CreateOutcomeOrderParams,
+  CancelOutcomeOrderParams,
+  CloseOutcomeOrderParams,
+  OutcomeManagedCreds,
 } from './actions/hlOutcomes';
 export type {
   HlReferralInfoParams,
@@ -358,7 +367,10 @@ export type {
 export type { RetailerListParams } from './actions/retailer';
 export type {
   HlEnableTradingRequest,
+  HlEnableTradingParams,
   HlSwapCollateralRequest,
+  HlSwapCollateralStructured,
+  HlManagedCreds,
   HlBuilderReferralParams,
   HlListUserCopyPnlParams,
   HlTxListParams,
@@ -1399,15 +1411,15 @@ export class GdexSkill {
     return getHlOutcomeAccount(this.client, params);
   }
 
-  async createHlOutcomeOrder(req: OutcomeOrderRequest): Promise<Record<string, unknown>> {
+  async createHlOutcomeOrder(req: CreateOutcomeOrderParams | OutcomeOrderRequest): Promise<Record<string, unknown>> {
     return createHlOutcomeOrder(this.client, req);
   }
 
-  async cancelHlOutcomeOrder(req: OutcomeOrderRequest): Promise<Record<string, unknown>> {
+  async cancelHlOutcomeOrder(req: CancelOutcomeOrderParams | OutcomeOrderRequest): Promise<Record<string, unknown>> {
     return cancelHlOutcomeOrder(this.client, req);
   }
 
-  async closeHlOutcomeOrder(req: OutcomeOrderRequest): Promise<Record<string, unknown>> {
+  async closeHlOutcomeOrder(req: CloseOutcomeOrderParams | OutcomeOrderRequest): Promise<Record<string, unknown>> {
     return closeHlOutcomeOrder(this.client, req);
   }
 
@@ -1450,12 +1462,12 @@ export class GdexSkill {
   // ── HyperLiquid Extras (HIP-3, builder, swap collateral, copy PnL) ────────
 
   /** Enable HL trading for a managed wallet (one-time approval / builder code). */
-  async hlEnableTrading(req: HlEnableTradingRequest): Promise<Record<string, unknown>> {
+  async hlEnableTrading(req: HlEnableTradingParams): Promise<Record<string, unknown>> {
     return hlEnableTrading(this.client, req);
   }
 
   /** Swap collateral between HL perp DEXes (HIP-3). */
-  async hlSwapCollateral(req: HlSwapCollateralRequest): Promise<Record<string, unknown>> {
+  async hlSwapCollateral(req: HlSwapCollateralRequest | HlSwapCollateralStructured): Promise<Record<string, unknown>> {
     return hlSwapCollateral(this.client, req);
   }
 

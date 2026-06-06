@@ -14,7 +14,12 @@ export type HlActionType =
   | 'hl_cancel_all_orders'
   | 'hl_update_leverage'
   | 'hl_create'
-  | 'hl_update';
+  | 'hl_update'
+  | 'hl_enable_trading'
+  | 'hl_swap_token'
+  | 'hl_outcome_create_order'
+  | 'hl_outcome_cancel_order'
+  | 'hl_outcome_close_order';
 
 /**
  * Derive AES-256-CBC key/iv from API key using the documented hash chain.
@@ -318,6 +323,41 @@ export function encodeHlActionData(
           params.nonce, params.isDelete, params.isChangeStatus,
           params.copyTradeId, params.oppositeCopy,
         ],
+      );
+      break;
+    case 'hl_enable_trading':
+      // [string] = [nonce]
+      encoded = abi.encode(['string'], [params.nonce]);
+      break;
+    case 'hl_swap_token':
+      // [string, string, string, string] = [fromToken, toToken, amount, nonce]
+      encoded = abi.encode(
+        ['string', 'string', 'string', 'string'],
+        [params.fromToken, params.toToken, params.amount, params.nonce],
+      );
+      break;
+    case 'hl_outcome_create_order':
+      // [string, string, bool, string, string, bool, bool, string]
+      encoded = abi.encode(
+        ['string', 'string', 'bool', 'string', 'string', 'bool', 'bool', 'string'],
+        [
+          params.outcomeId, params.coin, params.isBuy, params.price, params.size,
+          params.reduceOnly, params.isMarket, params.nonce,
+        ],
+      );
+      break;
+    case 'hl_outcome_cancel_order':
+      // [string, string, string, string] = [nonce, outcomeId, coin, orderId]
+      encoded = abi.encode(
+        ['string', 'string', 'string', 'string'],
+        [params.nonce, params.outcomeId, params.coin, params.orderId],
+      );
+      break;
+    case 'hl_outcome_close_order':
+      // [string, string, string, string, bool, string] = [outcomeId, coin, price, size, isMarket, nonce]
+      encoded = abi.encode(
+        ['string', 'string', 'string', 'string', 'bool', 'string'],
+        [params.outcomeId, params.coin, params.price, params.size, params.isMarket, params.nonce],
       );
       break;
     default:

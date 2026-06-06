@@ -13,11 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SDK, signs in per chain, and prints the managed-custody deposit addresses to fund.
 - `tests/utils/apiAliases.test.ts` — covers numeric and string-alias chain mapping.
 - `toBackendSlippage` helper (`src/utils/slippage.ts`) + tests.
+- HyperLiquid outcome-market (HIP-3) write support. `hlEnableTrading`, `hlSwapCollateral`,
+  `createHlOutcomeOrder`, `cancelHlOutcomeOrder`, and `closeHlOutcomeOrder` now build the
+  encrypted `computedData` from structured params (previously every outcome write required
+  a hand-built payload with no SDK builder). Adds the `hl_enable_trading`, `hl_swap_token`,
+  `hl_outcome_create_order`, `hl_outcome_cancel_order`, and `hl_outcome_close_order` ABI
+  encoders to `encodeHlActionData`, plus round-trip tests. Live-verified end to end
+  (enable_trading → resting outcome order → cancel).
 
 ### Changed
 
 ### Fixed
 
+- `getHlOutcomeAccount` now sends the required `outcomeId` (the backend rejects the
+  previous `dex`-only query with 400).
 - HyperLiquid market orders now work with the documented `price: '0'`. `hlCreateOrder`
   resolves the current mark price for market orders before sending, because the backend
   multiplies the supplied price by a slippage factor and enforces a min-notional check
