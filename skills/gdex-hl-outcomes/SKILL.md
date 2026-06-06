@@ -81,6 +81,40 @@ await skill.cancelHlOutcomeOrder({ apiKey, walletAddress, sessionPrivateKey, out
 await skill.closeHlOutcomeOrder({ apiKey, walletAddress, sessionPrivateKey, outcomeId: 101, coin: '#1010', price: '0', size: '20', isMarket: true });
 ```
 
+## Collateral currency (HIP-3 / HIP-4) — swap before trading
+
+Each outcome market is quoted in a specific stablecoin (its `quoteToken` —
+`USDC`, `USDH`, `USDE`, or `USDT0`). HIP-3 and HIP-4 deployments use different
+quote currencies, so **before placing an order you must hold that market's
+currency in your HL spot balance.** If you only hold USDC, swap into the
+market's currency first with `hlSwapCollateral` (a HL spot swap), then swap
+back when done.
+
+```typescript
+// Check the market's currency
+const m = (await skill.getHlOutcomes({ status: 'open' })).data.meta.outcomes
+  .find((o) => o.outcome === 101);
+console.log(m.quoteToken);   // e.g. 'USDH'
+
+// If it's not USDC, swap USDC -> that currency (amount = NON-USDC token amount).
+// HyperLiquid enforces a $10 minimum per swap order.
+await skill.hlSwapCollateral({
+  apiKey, walletAddress, sessionPrivateKey,
+  fromToken: 'USDC', toToken: 'USDH', amount: '15',   // buy 15 USDH
+});
+
+// ...place / manage outcome orders in that currency...
+
+// Swap leftover back to USDC when finished
+await skill.hlSwapCollateral({
+  apiKey, walletAddress, sessionPrivateKey,
+  fromToken: 'USDH', toToken: 'USDC', amount: '15',
+});
+```
+
+Supported swap currencies: `USDC` ⇄ `USDH` / `USDE` / `USDT0`. MCP exposes this
+as the `hl_swap_collateral` tool with the same structured params.
+
 ## Notes
 
 - **Coin format:** orders take `coin` as `"#<outcomeId><sideIndex>"` — side 0
