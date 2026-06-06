@@ -14,16 +14,37 @@
 import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';
 import { validateRequired } from '../utils/validation';
+import { buildHlComputedData } from '../utils/gdexManagedCrypto';
+
+/** Managed-custody credentials (control wallet address from sign-in). */
+export interface HlManagedCreds {
+  apiKey: string;
+  walletAddress: string;
+  sessionPrivateKey: string;
+}
 
 export interface HlEnableTradingRequest {
   /** Pre-built encrypted computedData payload */
   computedData: string;
 }
 
+export type HlEnableTradingParams = HlEnableTradingRequest | HlManagedCreds;
+
 export interface HlSwapCollateralRequest {
   /** Pre-built encrypted computedData payload */
   computedData: string;
   /** Optional source / destination perp dex identifiers */
+  fromDex?: string;
+  toDex?: string;
+}
+
+export interface HlSwapCollateralStructured extends HlManagedCreds {
+  /** Source token/dex identifier the backend expects (e.g. 'USDC'). */
+  fromToken: string;
+  /** Destination token/dex identifier. */
+  toToken: string;
+  /** Amount to move (string units the backend expects). */
+  amount: string;
   fromDex?: string;
   toDex?: string;
 }
@@ -63,10 +84,20 @@ export interface HlReadByAddressParams {
  */
 export async function hlEnableTrading(
   client: GdexApiClient,
-  req: HlEnableTradingRequest,
+  req: HlEnableTradingParams,
 ): Promise<Record<string, unknown>> {
-  validateRequired(req.computedData, 'computedData');
-  return client.post(Endpoints.HL_ENABLE_TRADING, req);
+  if ('computedData' in req) {
+    return client.post(Endpoints.HL_ENABLE_TRADING, req);
+  }
+  validateRequired(req.walletAddress, 'walletAddress');
+  const computedData = buildHlComputedData({
+    action: 'hl_enable_trading',
+    apiKey: req.apiKey,
+    walletAddress: req.walletAddress,
+    sessionPrivateKey: req.sessionPrivateKey,
+    actionParams: {},
+  });
+  return client.post(Endpoints.HL_ENABLE_TRADING, { computedData });
 }
 
 /**
@@ -75,10 +106,20 @@ export async function hlEnableTrading(
  */
 export async function hlSwapCollateral(
   client: GdexApiClient,
-  req: HlSwapCollateralRequest,
+  req: HlSwapCollateralRequest | HlSwapCollateralStructured,
 ): Promise<Record<string, unknown>> {
-  validateRequired(req.computedData, 'computedData');
-  return client.post(Endpoints.HL_SWAP_COLLATERAL, req);
+  if ('computedData' in req) {
+    return client.post(Endpoints.HL_SWAP_COLLATERAL, req);
+  }
+  validateRequired(req.walletAddress, 'walletAddress');
+  const computedData = buildHlComputedData({
+    action: 'hl_swap_token',
+    apiKey: req.apiKey,
+    walletAddress: req.walletAddress,
+    sessionPrivateKey: req.sessionPrivateKey,
+    actionParams: { fromToken: req.fromToken, toToken: req.toToken, amount: req.amount },
+  });
+  return client.post(Endpoints.HL_SWAP_COLLATERAL, { computedData, fromDex: req.fromDex, toDex: req.toDex });
 }
 
 /** Get builder-referral metadata for a wallet (earned, eligibility). */

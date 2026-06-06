@@ -44,12 +44,12 @@ describe('spotTrade', () => {
         chain: 'solana',
         tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         amount: '0.1',
-        slippage: 1,
+        slippage: 100, // 1% -> 100 bps on the wire
       }));
       expect(result).toEqual(mockResult);
     });
 
-    it('should use default slippage of 1 when not specified', async () => {
+    it('should use default slippage of 1% (100 bps) when not specified', async () => {
       client.post = jest.fn().mockResolvedValue({});
 
       await buyToken(client, {
@@ -59,7 +59,7 @@ describe('spotTrade', () => {
       });
 
       expect(client.post).toHaveBeenCalledWith('/v1/purchase_v2', expect.objectContaining({
-        slippage: 1,
+        slippage: 100,
       }));
     });
 
@@ -156,7 +156,7 @@ describe('spotTrade', () => {
       expect(client.post).toHaveBeenCalledWith('/v1/sell_v2', expect.objectContaining({
         chain: 'solana',
         amount: '100',
-        slippage: 0.5,
+        slippage: 50, // 0.5% -> 50 bps on the wire
       }));
       expect(result).toEqual(mockResult);
     });

@@ -21,6 +21,7 @@
 
 import { generateEvmWallet } from './utils/walletGeneration';
 import type { GeneratedEvmWallet } from './utils/walletGeneration';
+import { toBackendSlippage } from './utils/slippage';
 import { GdexApiClient } from './client';
 import { AuthCredentials, AuthSession } from './client/auth';
 import * as Endpoints from './client/endpoints';
@@ -156,6 +157,9 @@ import type {
   OutcomesListParams,
   OutcomeAccountParams,
   OutcomeOrderRequest,
+  CreateOutcomeOrderParams,
+  CancelOutcomeOrderParams,
+  CloseOutcomeOrderParams,
 } from './actions/hlOutcomes';
 import {
   getHlReferralInfo,
@@ -189,7 +193,9 @@ import {
 } from './actions/hlExtras';
 import type {
   HlEnableTradingRequest,
+  HlEnableTradingParams,
   HlSwapCollateralRequest,
+  HlSwapCollateralStructured,
   HlBuilderReferralParams,
   HlListUserCopyPnlParams,
   HlTxListParams,
@@ -344,6 +350,10 @@ export type {
   OutcomesListParams,
   OutcomeAccountParams,
   OutcomeOrderRequest,
+  CreateOutcomeOrderParams,
+  CancelOutcomeOrderParams,
+  CloseOutcomeOrderParams,
+  OutcomeManagedCreds,
 } from './actions/hlOutcomes';
 export type {
   HlReferralInfoParams,
@@ -357,7 +367,10 @@ export type {
 export type { RetailerListParams } from './actions/retailer';
 export type {
   HlEnableTradingRequest,
+  HlEnableTradingParams,
   HlSwapCollateralRequest,
+  HlSwapCollateralStructured,
+  HlManagedCreds,
   HlBuilderReferralParams,
   HlListUserCopyPnlParams,
   HlTxListParams,
@@ -658,14 +671,30 @@ export class GdexSkill {
    * Submit managed-custody buy trade using encrypted `computedData`.
    */
   async submitManagedPurchase(params: GdexManagedTradeParams): Promise<GdexManagedTradeSubmitResult> {
-    return this.client.post<GdexManagedTradeSubmitResult>(Endpoints.PURCHASE_V2, params);
+    return this.client.post<GdexManagedTradeSubmitResult>(
+      Endpoints.PURCHASE_V2,
+      this.encodeManagedSlippage(params)
+    );
   }
 
   /**
    * Submit managed-custody sell trade using encrypted `computedData`.
    */
   async submitManagedSell(params: GdexManagedTradeParams): Promise<GdexManagedTradeSubmitResult> {
-    return this.client.post<GdexManagedTradeSubmitResult>(Endpoints.SELL_V2, params);
+    return this.client.post<GdexManagedTradeSubmitResult>(
+      Endpoints.SELL_V2,
+      this.encodeManagedSlippage(params)
+    );
+  }
+
+  /**
+   * Convert the public `slippage` percent to the basis-point value the v2 trade
+   * endpoints expect. Leaves the payload untouched when slippage is omitted so the
+   * backend applies its own default.
+   */
+  private encodeManagedSlippage(params: GdexManagedTradeParams): GdexManagedTradeParams {
+    if (params.slippage === undefined) return params;
+    return { ...params, slippage: toBackendSlippage(params.slippage) };
   }
 
   /**
@@ -1382,15 +1411,15 @@ export class GdexSkill {
     return getHlOutcomeAccount(this.client, params);
   }
 
-  async createHlOutcomeOrder(req: OutcomeOrderRequest): Promise<Record<string, unknown>> {
+  async createHlOutcomeOrder(req: CreateOutcomeOrderParams | OutcomeOrderRequest): Promise<Record<string, unknown>> {
     return createHlOutcomeOrder(this.client, req);
   }
 
-  async cancelHlOutcomeOrder(req: OutcomeOrderRequest): Promise<Record<string, unknown>> {
+  async cancelHlOutcomeOrder(req: CancelOutcomeOrderParams | OutcomeOrderRequest): Promise<Record<string, unknown>> {
     return cancelHlOutcomeOrder(this.client, req);
   }
 
-  async closeHlOutcomeOrder(req: OutcomeOrderRequest): Promise<Record<string, unknown>> {
+  async closeHlOutcomeOrder(req: CloseOutcomeOrderParams | OutcomeOrderRequest): Promise<Record<string, unknown>> {
     return closeHlOutcomeOrder(this.client, req);
   }
 
@@ -1433,12 +1462,12 @@ export class GdexSkill {
   // ── HyperLiquid Extras (HIP-3, builder, swap collateral, copy PnL) ────────
 
   /** Enable HL trading for a managed wallet (one-time approval / builder code). */
-  async hlEnableTrading(req: HlEnableTradingRequest): Promise<Record<string, unknown>> {
+  async hlEnableTrading(req: HlEnableTradingParams): Promise<Record<string, unknown>> {
     return hlEnableTrading(this.client, req);
   }
 
   /** Swap collateral between HL perp DEXes (HIP-3). */
-  async hlSwapCollateral(req: HlSwapCollateralRequest): Promise<Record<string, unknown>> {
+  async hlSwapCollateral(req: HlSwapCollateralRequest | HlSwapCollateralStructured): Promise<Record<string, unknown>> {
     return hlSwapCollateral(this.client, req);
   }
 

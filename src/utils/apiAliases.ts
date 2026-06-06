@@ -1,4 +1,9 @@
-import { SupportedChain } from '../types/common';
+import { SupportedChain, ChainId, NonEvmChain } from '../types/common';
+
+const NON_EVM_CHAIN_IDS: Record<NonEvmChain, number> = {
+  solana: ChainId.SOLANA,
+  sui: ChainId.SUI,
+};
 
 export function buildChainAliases(chain?: SupportedChain): Record<string, unknown> {
   if (chain === undefined) return {};
@@ -8,8 +13,11 @@ export function buildChainAliases(chain?: SupportedChain): Record<string, unknow
       chainId: chain,
     };
   }
+  // Non-EVM string chains ('solana' / 'sui') still need the numeric chainId the
+  // backend filters on; without it, discovery endpoints return empty results.
   return {
     chain,
+    chainId: NON_EVM_CHAIN_IDS[chain],
   };
 }
 

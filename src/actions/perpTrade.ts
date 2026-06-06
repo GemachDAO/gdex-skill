@@ -381,11 +381,28 @@ export async function perpWithdraw(client: GdexApiClient, params: PerpWithdrawPa
  * Place a market or limit order with optional TP/SL on HyperLiquid.
  * This is the primary way to open/close positions.
  */
+/**
+ * Resolve the price to send for an order. Market orders must carry the current
+ * mark price (not '0'): the backend multiplies the supplied price by a slippage
+ * factor and enforces a min-notional check (price * size >= $11), so price '0'
+ * fails with "Min order size value is 11$". For market orders with a missing or
+ * '0' price, fetch the current mark price.
+ */
+async function resolveMarketPrice(coin: string, price: string, isMarket: boolean): Promise<string> {
+  if (!isMarket) return price;
+  if (price && price !== '0' && Number(price) > 0) return price;
+  const mark = await getHlMarkPrice(coin);
+  return String(mark);
+}
+
 export async function hlCreateOrder(client: GdexApiClient, params: HlCreateOrderParams): Promise<HlOrderResult> {
   validateCoin(params.coin);
   validateRequired(params.price, 'price');
   validateRequired(params.size, 'size');
   validateRequired(params.walletAddress, 'walletAddress');
+
+  const isMarket = params.isMarket ?? true;
+  const price = await resolveMarketPrice(params.coin, params.price, isMarket);
 
   const computedData = buildHlComputedData({
     action: 'hl_create_order',
@@ -395,12 +412,12 @@ export async function hlCreateOrder(client: GdexApiClient, params: HlCreateOrder
     actionParams: {
       coin: params.coin.toUpperCase(),
       isLong: params.isLong,
-      price: params.price,
+      price,
       size: params.size,
       reduceOnly: params.reduceOnly ?? false,
       tpPrice: params.tpPrice ?? '',
       slPrice: params.slPrice ?? '',
-      isMarket: params.isMarket ?? true,
+      isMarket,
     },
   });
 

@@ -9,9 +9,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `scripts/archive/gen-fund-wallet.js` — generates a fresh control wallet via the
+  SDK, signs in per chain, and prints the managed-custody deposit addresses to fund.
+- `tests/utils/apiAliases.test.ts` — covers numeric and string-alias chain mapping.
+- `toBackendSlippage` helper (`src/utils/slippage.ts`) + tests.
+- HyperLiquid outcome-market (HIP-3) write support. `hlEnableTrading`, `hlSwapCollateral`,
+  `createHlOutcomeOrder`, `cancelHlOutcomeOrder`, and `closeHlOutcomeOrder` now build the
+  encrypted `computedData` from structured params (previously every outcome write required
+  a hand-built payload with no SDK builder). Adds the `hl_enable_trading`, `hl_swap_token`,
+  `hl_outcome_create_order`, `hl_outcome_cancel_order`, and `hl_outcome_close_order` ABI
+  encoders to `encodeHlActionData`, plus round-trip tests. Live-verified end to end
+  (enable_trading → resting outcome order → cancel).
+
 ### Changed
 
 ### Fixed
+
+- API errors now surface the backend's actual message. The client read only
+  `response.data.message`, but the backend returns `error` (and sometimes `code`),
+  so every failure showed as a generic "Request failed with status code 400".
+- MCP outcome/HIP-3 tools (`hl_create_outcome_order`, `hl_cancel_outcome_order`,
+  `hl_close_outcome_order`, `hl_enable_trading`, `hl_swap_collateral`) now accept
+  structured params and build the payload via the SDK — previously they required a
+  pre-built `computedData` no agent could produce. `hl_outcome_account` now takes
+  `outcomeId`. SKILL docs for `gdex-hl-outcomes` and `gdex-perp-funding` updated.
+- `getHlOutcomeAccount` now sends the required `outcomeId` (the backend rejects the
+  previous `dex`-only query with 400).
+- HyperLiquid market orders now work with the documented `price: '0'`. `hlCreateOrder`
+  resolves the current mark price for market orders before sending, because the backend
+  multiplies the supplied price by a slippage factor and enforces a min-notional check
+  (`price * size >= $11`) — so `price: '0'` previously failed with "Min order size value
+  is 11$" even for adequately-sized positions.
+- Spot trades now apply slippage correctly. `buyToken`, `sellToken`,
+  `submitManagedPurchase`, and `submitManagedSell` send the `slippage` percent to the
+  `purchase_v2` / `sell_v2` endpoints as basis points (×100). The backend trade worker
+  reads the wire value as the numerator of `[slippage, 10000]`, so the documented
+  `slippage: 5` (5%) was previously sent as 5 → 0.05%, ~100x too tight, causing Raydium
+  to revert managed sells with "exceeds desired slippage limit" (custom error 0x1e).
+- `buildChainAliases` now sends a numeric `chainId` for the `'solana'` and `'sui'`
+  string aliases. Previously only numeric chain inputs got a `chainId`, so documented
+  calls like `getTrendingTokens({ chain: 'solana' })` (and other discovery endpoints)
+  silently returned empty results because the backend filters on numeric `chainId`.
+- `scripts/e2e-full.js` wraps the section 4 and section 6 managed-custody sign-ins in
+  try/catch. A transient sign-in failure previously threw uncaught and aborted the
+  whole suite before later sections ran.
+- Resolved fixable dependency advisories via `npm audit fix` (root 13 → 6, mcp-server
+  7 → 0). Remaining root advisories require breaking upgrades and were left untouched.
 
 ### Removed
 

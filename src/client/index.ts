@@ -126,9 +126,14 @@ export class GdexApiClient {
       async (error: unknown) => {
         if (axios.isAxiosError(error)) {
           const status = error.response?.status;
+          const body = error.response?.data as
+            | { message?: string; error?: string; code?: number }
+            | undefined;
+          // Backend errors use `error` (and sometimes `code`); fall back to axios's
+          // generic message only when neither is present.
+          const detail = body?.message ?? body?.error ?? error.message;
           const message: string =
-            (error.response?.data as { message?: string })?.message ??
-            error.message;
+            body?.code !== undefined ? `${detail} (code ${body.code})` : detail;
 
           if (status === 401 || status === 403) {
             // No automatic re-auth on v1.1.0 — wallet-signing nonce/login is gone.
