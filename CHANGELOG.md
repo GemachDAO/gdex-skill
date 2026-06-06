@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- HyperLiquid market orders now work with the documented `price: '0'`. `hlCreateOrder`
+  resolves the current mark price for market orders before sending, because the backend
+  multiplies the supplied price by a slippage factor and enforces a min-notional check
+  (`price * size >= $11`) — so `price: '0'` previously failed with "Min order size value
+  is 11$" even for adequately-sized positions.
 - Spot trades now apply slippage correctly. `buyToken`, `sellToken`,
   `submitManagedPurchase`, and `submitManagedSell` send the `slippage` percent to the
   `purchase_v2` / `sell_v2` endpoints as basis points (×100). The backend trade worker
