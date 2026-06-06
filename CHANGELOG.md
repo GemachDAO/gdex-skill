@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [4.1.0] - 2026-06-06
+
+### Added
+
 - `scripts/archive/gen-fund-wallet.js` — generates a fresh control wallet via the
   SDK, signs in per chain, and prints the managed-custody deposit addresses to fund.
 - `tests/utils/apiAliases.test.ts` — covers numeric and string-alias chain mapping.
@@ -152,5 +160,6 @@ Minimum diff a caller needs to upgrade:
   `transfer_token`:     unchanged on the wire; structured shape now
                         available via `managed: {...}`.
 
-[Unreleased]: https://github.com/GemachDAO/gdex-skill/compare/v3.3.0...HEAD
+[Unreleased]: https://github.com/GemachDAO/gdex-skill/compare/v4.1.0...HEAD
+[4.1.0]: https://github.com/GemachDAO/gdex-skill/compare/v4.0.0...v4.1.0
 [3.3.0]: https://github.com/GemachDAO/gdex-skill/releases/tag/v3.3.0
