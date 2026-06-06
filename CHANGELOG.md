@@ -9,9 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `scripts/archive/gen-fund-wallet.js` — generates a fresh control wallet via the
+  SDK, signs in per chain, and prints the managed-custody deposit addresses to fund.
+- `tests/utils/apiAliases.test.ts` — covers numeric and string-alias chain mapping.
+
 ### Changed
 
 ### Fixed
+
+- `buildChainAliases` now sends a numeric `chainId` for the `'solana'` and `'sui'`
+  string aliases. Previously only numeric chain inputs got a `chainId`, so documented
+  calls like `getTrendingTokens({ chain: 'solana' })` (and other discovery endpoints)
+  silently returned empty results because the backend filters on numeric `chainId`.
+- `scripts/e2e-full.js` wraps the section 4 and section 6 managed-custody sign-ins in
+  try/catch. A transient sign-in failure previously threw uncaught and aborted the
+  whole suite before later sections ran.
+- Resolved fixable dependency advisories via `npm audit fix` (root 13 → 6, mcp-server
+  7 → 0). Remaining root advisories require breaking upgrades and were left untouched.
 
 ### Removed
 

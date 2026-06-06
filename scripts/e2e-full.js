@@ -224,17 +224,19 @@ async function main() {
 
     // Ensure we have session keys
     if (!sessionPrivateKey) {
-      const kp = generateGdexSessionKeyPair();
-      sessionPrivateKey = kp.sessionPrivateKey;
-      sessionKey = kp.sessionKey;
-      const nonce = generateGdexNonce().toString();
-      const msg = buildGdexSignInMessage(controlAddr, nonce, sessionKey);
-      const sig = await wallet.signMessage(msg);
-      const payload = buildGdexSignInComputedData({
-        apiKey, userId: controlAddr, sessionKey, nonce,
-        signature: sig.replace(/^0x/, ''),
-      });
-      await skill.signInWithComputedData({ computedData: payload.computedData, chainId: 622112261 });
+      try {
+        const kp = generateGdexSessionKeyPair();
+        sessionPrivateKey = kp.sessionPrivateKey;
+        sessionKey = kp.sessionKey;
+        const nonce = generateGdexNonce().toString();
+        const msg = buildGdexSignInMessage(controlAddr, nonce, sessionKey);
+        const sig = await wallet.signMessage(msg);
+        const payload = buildGdexSignInComputedData({
+          apiKey, userId: controlAddr, sessionKey, nonce,
+          signature: sig.replace(/^0x/, ''),
+        });
+        await skill.signInWithComputedData({ computedData: payload.computedData, chainId: 622112261 });
+      } catch (e) { bad('signIn (spot trading)', e); return; }
     }
 
     const { buildGdexManagedTradeComputedData: buildTradeCD } = require('../dist');
@@ -418,7 +420,7 @@ async function main() {
       sessionPrivateKey = kp.sessionPrivateKey;
       sessionKey = kp.sessionKey;
     }
-    {
+    try {
       const nonce = generateGdexNonce().toString();
       const msg = buildGdexSignInMessage(controlAddr, nonce, sessionKey);
       const sig = await wallet.signMessage(msg);
@@ -427,6 +429,8 @@ async function main() {
         signature: sig.replace(/^0x/, ''),
       });
       await skill.signInWithComputedData({ computedData: payload.computedData, chainId: 622112261 });
+    } catch (e) {
+      bad('signInWithComputedData(limit-orders)', e);
     }
 
     // 6a. List current limit orders
