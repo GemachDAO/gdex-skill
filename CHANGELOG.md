@@ -12,11 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `scripts/archive/gen-fund-wallet.js` — generates a fresh control wallet via the
   SDK, signs in per chain, and prints the managed-custody deposit addresses to fund.
 - `tests/utils/apiAliases.test.ts` — covers numeric and string-alias chain mapping.
+- `toBackendSlippage` helper (`src/utils/slippage.ts`) + tests.
 
 ### Changed
 
 ### Fixed
 
+- Spot trades now apply slippage correctly. `buyToken`, `sellToken`,
+  `submitManagedPurchase`, and `submitManagedSell` send the `slippage` percent to the
+  `purchase_v2` / `sell_v2` endpoints as basis points (×100). The backend trade worker
+  reads the wire value as the numerator of `[slippage, 10000]`, so the documented
+  `slippage: 5` (5%) was previously sent as 5 → 0.05%, ~100x too tight, causing Raydium
+  to revert managed sells with "exceeds desired slippage limit" (custom error 0x1e).
 - `buildChainAliases` now sends a numeric `chainId` for the `'solana'` and `'sui'`
   string aliases. Previously only numeric chain inputs got a `chainId`, so documented
   calls like `getTrendingTokens({ chain: 'solana' })` (and other discovery endpoints)

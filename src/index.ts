@@ -21,6 +21,7 @@
 
 import { generateEvmWallet } from './utils/walletGeneration';
 import type { GeneratedEvmWallet } from './utils/walletGeneration';
+import { toBackendSlippage } from './utils/slippage';
 import { GdexApiClient } from './client';
 import { AuthCredentials, AuthSession } from './client/auth';
 import * as Endpoints from './client/endpoints';
@@ -658,14 +659,30 @@ export class GdexSkill {
    * Submit managed-custody buy trade using encrypted `computedData`.
    */
   async submitManagedPurchase(params: GdexManagedTradeParams): Promise<GdexManagedTradeSubmitResult> {
-    return this.client.post<GdexManagedTradeSubmitResult>(Endpoints.PURCHASE_V2, params);
+    return this.client.post<GdexManagedTradeSubmitResult>(
+      Endpoints.PURCHASE_V2,
+      this.encodeManagedSlippage(params)
+    );
   }
 
   /**
    * Submit managed-custody sell trade using encrypted `computedData`.
    */
   async submitManagedSell(params: GdexManagedTradeParams): Promise<GdexManagedTradeSubmitResult> {
-    return this.client.post<GdexManagedTradeSubmitResult>(Endpoints.SELL_V2, params);
+    return this.client.post<GdexManagedTradeSubmitResult>(
+      Endpoints.SELL_V2,
+      this.encodeManagedSlippage(params)
+    );
+  }
+
+  /**
+   * Convert the public `slippage` percent to the basis-point value the v2 trade
+   * endpoints expect. Leaves the payload untouched when slippage is omitted so the
+   * backend applies its own default.
+   */
+  private encodeManagedSlippage(params: GdexManagedTradeParams): GdexManagedTradeParams {
+    if (params.slippage === undefined) return params;
+    return { ...params, slippage: toBackendSlippage(params.slippage) };
   }
 
   /**

@@ -6,6 +6,7 @@ import * as Endpoints from '../client/endpoints';
 import { BuyTokenParams, SellTokenParams, TradeResult } from '../types/trading';
 import { validateTokenAddress, validateAmount, validateChain, validateSlippage } from '../utils/validation';
 import { buildChainAliases, buildTokenAliases, buildWalletAliases } from '../utils/apiAliases';
+import { toBackendSlippage } from '../utils/slippage';
 
 /**
  * Buy a token on a supported chain.
@@ -27,7 +28,7 @@ export async function buyToken(client: GdexApiClient, params: BuyTokenParams): P
     ...buildChainAliases(params.chain),
     ...buildTokenAliases(params.tokenAddress),
     amount: params.amount,
-    slippage: params.slippage ?? 1,
+    slippage: toBackendSlippage(params.slippage ?? 1),
     dex: params.dex,
     ...buildWalletAliases(params.walletAddress),
     referrer: params.referrer,
@@ -57,7 +58,7 @@ export async function sellToken(client: GdexApiClient, params: SellTokenParams):
     ...buildChainAliases(params.chain),
     ...buildTokenAliases(params.tokenAddress),
     amount: params.amount,
-    slippage: params.slippage ?? 1,
+    slippage: toBackendSlippage(params.slippage ?? 1),
     dex: params.dex,
     ...buildWalletAliases(params.walletAddress),
     referrer: params.referrer,
