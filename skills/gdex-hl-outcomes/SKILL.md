@@ -41,32 +41,60 @@ specific HIP-3 perp dex registered via `/v1/hl/perp_dexes`.
 
 ## SDK Usage
 
+The SDK builds the encrypted payload for you — pass structured params plus
+managed-custody credentials (`apiKey`, `walletAddress` = your **control**
+address from sign-in, `sessionPrivateKey`). A pre-built `computedData` is
+still accepted for advanced callers.
+
 ```typescript
 import { GdexSkill } from '@gdexsdk/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(process.env.GDEX_API_KEY!);
 
-// List markets
+// 1. List markets. Each `mids` key is a coin id: "#<outcomeId><sideIndex>",
+//    e.g. "#1010" = outcome 101 / side 0 (Yes), "#1011" = side 1 (No).
 const markets = await skill.getHlOutcomes({ status: 'open' });
 
-// Account state
+// 2. Enable trading once before the first outcome order (see Prerequisites).
+await skill.hlEnableTrading({ apiKey, walletAddress, sessionPrivateKey });
+
+// 3. Account state for one market (outcomeId is REQUIRED).
 const state = await skill.getHlOutcomeAccount({
-  userAddress: '0xWallet',
-  dex: 'outcomes-dex-id',
+  userAddress: managedAddress,   // the managed wallet holds outcome balances
+  outcomeId: 101,
 });
 
-// Open a position (caller pre-builds computedData)
+// 4. Place an order. price is a probability in [0,1]; size is in contracts.
 const order = await skill.createHlOutcomeOrder({
-  computedData,
-  dex: 'outcomes-dex-id',
+  apiKey, walletAddress, sessionPrivateKey,
+  outcomeId: 101,
+  coin: '#1010',        // Yes side of outcome 101
+  isBuy: true,
+  price: '0.55',        // limit; pass isMarket:true to take the book
+  size: '20',
+  isMarket: false,
 });
+
+// 5. Cancel / close
+await skill.cancelHlOutcomeOrder({ apiKey, walletAddress, sessionPrivateKey, outcomeId: 101, coin: '#1010', orderId });
+await skill.closeHlOutcomeOrder({ apiKey, walletAddress, sessionPrivateKey, outcomeId: 101, coin: '#1010', price: '0', size: '20', isMarket: true });
 ```
 
 ## Notes
 
-- Outcome markets are distinct from the default HyperLiquid perp engine —
-  they use a separate clearinghouse (use `swap_collateral` via the
-  **gdex-perp-funding** skill to move USDC between them).
-- Order schemas are not standardised across HIP-3 deployments; consult the
-  backend service for the exact `actionParams` ABI per outcome dex.
+- **Coin format:** orders take `coin` as `"#<outcomeId><sideIndex>"` — side 0
+  is the first `sideSpecs` entry (usually "Yes"), side 1 the second ("No").
+  Current prices are in the `mids` map returned by `getHlOutcomes`.
+- **Price is a probability** in `(0,1)`; **size is contracts**. HyperLiquid
+  enforces its own minimum order value (~$10–11 notional).
+- **`walletAddress` is the control address** used at sign-in (the same rule as
+  perp trading); outcome balances/positions live under the **managed** address,
+  so pass the managed address to `getHlOutcomeAccount`.
+- Outcome markets settle through HyperLiquid **spot** collateral, separate from
+  the perp engine. Funding an HL account (via **gdex-perp-funding**) and placing
+  an outcome order can move USDC from the perp to the spot/outcomes balance;
+  check both `getHlAccountState` (perp) and `getHlSpotState` (spot).
+- MCP: the same flow is available via the `hl_enable_trading`,
+  `hl_create_outcome_order`, `hl_cancel_outcome_order`, and
+  `hl_close_outcome_order` tools with these structured params.

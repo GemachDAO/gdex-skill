@@ -245,19 +245,29 @@ export function registerV110Tools(server: McpServer): void {
 
   server.tool(
     'hl_outcome_account',
-    'Get HyperLiquid outcomes account state for a wallet.',
+    'Get HyperLiquid outcomes account state for a wallet on a specific outcome market (coins, positions, open orders).',
     {
       userAddress: z.string(),
-      dex: z.string().optional(),
+      outcomeId: z.union([z.string(), z.number()]).describe('Outcome market id, e.g. 101'),
     },
     async (params: any) => handleToolCall(async () => getSdk().getHlOutcomeAccount(params as any)),
   );
 
   server.tool(
     'hl_create_outcome_order',
-    'Create an order on a HyperLiquid outcome market. Requires pre-built computedData.',
+    'Create an order on a HyperLiquid outcome (HIP-3) market. Pass structured params (apiKey, walletAddress=control address, sessionPrivateKey, outcomeId, coin like "#1010", isBuy, price 0-1, size) and the SDK builds the encrypted payload. A pre-built computedData is also accepted.',
     {
-      computedData: z.string(),
+      apiKey: z.string().optional(),
+      walletAddress: z.string().optional().describe('CONTROL wallet address from sign-in'),
+      sessionPrivateKey: z.string().optional(),
+      outcomeId: z.union([z.string(), z.number()]).optional(),
+      coin: z.string().optional().describe('Outcome asset id, e.g. "#1010" (outcome 101 Yes)'),
+      isBuy: z.boolean().optional(),
+      price: z.string().optional().describe('Limit price in [0,1]; pass "0" for market'),
+      size: z.string().optional().describe('Order size in contracts'),
+      reduceOnly: z.boolean().optional(),
+      isMarket: z.boolean().optional(),
+      computedData: z.string().optional(),
       dex: z.string().optional(),
     },
     async (params: any) => handleToolCall(async () => getSdk().createHlOutcomeOrder(params as any)),
@@ -265,9 +275,15 @@ export function registerV110Tools(server: McpServer): void {
 
   server.tool(
     'hl_cancel_outcome_order',
-    'Cancel a HyperLiquid outcome-market order. Requires pre-built computedData.',
+    'Cancel a HyperLiquid outcome-market order. Pass structured params (apiKey, walletAddress, sessionPrivateKey, outcomeId, coin, orderId) or a pre-built computedData.',
     {
-      computedData: z.string(),
+      apiKey: z.string().optional(),
+      walletAddress: z.string().optional(),
+      sessionPrivateKey: z.string().optional(),
+      outcomeId: z.union([z.string(), z.number()]).optional(),
+      coin: z.string().optional(),
+      orderId: z.string().optional(),
+      computedData: z.string().optional(),
       dex: z.string().optional(),
     },
     async (params: any) => handleToolCall(async () => getSdk().cancelHlOutcomeOrder(params as any)),
@@ -275,9 +291,17 @@ export function registerV110Tools(server: McpServer): void {
 
   server.tool(
     'hl_close_outcome_order',
-    'Close a HyperLiquid outcome-market position. Requires pre-built computedData.',
+    'Close a HyperLiquid outcome-market position. Pass structured params (apiKey, walletAddress, sessionPrivateKey, outcomeId, coin, price, size, isMarket) or a pre-built computedData.',
     {
-      computedData: z.string(),
+      apiKey: z.string().optional(),
+      walletAddress: z.string().optional(),
+      sessionPrivateKey: z.string().optional(),
+      outcomeId: z.union([z.string(), z.number()]).optional(),
+      coin: z.string().optional(),
+      price: z.string().optional(),
+      size: z.string().optional(),
+      isMarket: z.boolean().optional(),
+      computedData: z.string().optional(),
       dex: z.string().optional(),
     },
     async (params: any) => handleToolCall(async () => getSdk().closeHlOutcomeOrder(params as any)),
@@ -355,16 +379,27 @@ export function registerV110Tools(server: McpServer): void {
   // ── HyperLiquid Extras ───────────────────────────────────────────────────
   server.tool(
     'hl_enable_trading',
-    'Enable HL trading for a managed wallet (one-time approval / builder code). Requires pre-built computedData.',
-    { computedData: z.string() },
+    'Enable HL trading for a managed wallet (one-time, required before outcome/HIP-3 orders). Pass apiKey, walletAddress (control address), sessionPrivateKey and the SDK builds the payload; a pre-built computedData is also accepted.',
+    {
+      apiKey: z.string().optional(),
+      walletAddress: z.string().optional().describe('CONTROL wallet address from sign-in'),
+      sessionPrivateKey: z.string().optional(),
+      computedData: z.string().optional(),
+    },
     async (params: any) => handleToolCall(async () => getSdk().hlEnableTrading(params as any)),
   );
 
   server.tool(
     'hl_swap_collateral',
-    'Swap collateral between HL perp DEXes (HIP-3). Requires pre-built computedData.',
+    'Swap collateral between HL clearinghouses/perp DEXes (HIP-3). Pass apiKey, walletAddress, sessionPrivateKey, fromToken, toToken, amount or a pre-built computedData.',
     {
-      computedData: z.string(),
+      apiKey: z.string().optional(),
+      walletAddress: z.string().optional(),
+      sessionPrivateKey: z.string().optional(),
+      fromToken: z.string().optional(),
+      toToken: z.string().optional(),
+      amount: z.string().optional(),
+      computedData: z.string().optional(),
       fromDex: z.string().optional(),
       toDex: z.string().optional(),
     },

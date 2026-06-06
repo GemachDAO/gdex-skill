@@ -112,6 +112,20 @@ Withdraw ABI schema:
 - Normal delivery time is ~10 minutes after Arbitrum tx confirmation
 - Use `getHlUsdcBalance()` or `getHlAccountState()` to check
 
+### ⚠️ Deposit may return an error even when it succeeded (verify before retrying)
+The backend can return an error (HTTP 400, "Transaction has been reverted…")
+**even though the on-chain USDC transfer to the HL bridge succeeded** and the
+funds are en route. **Do not blindly retry** — a retry spends gas and can move
+funds twice. On any deposit error, first check the managed wallet's USDC
+balance on Arbitrum and `getHlAccountState()` / `getHlUsdcBalance()`; only
+retry if the balance is unchanged after a few minutes.
+
+### Deposited funds show under the managed address (and may move to spot)
+HyperLiquid credits the depositing wallet (the **managed** address), so check
+`getHlAccountState(managedAddress)`. Enabling outcome (HIP-3) trading or placing
+an outcome order can move USDC from the perp account to the **spot** balance —
+check `getHlSpotState(managedAddress)` if the perp balance reads `$0`.
+
 ### 400 Unauthorized (code 103)
 - **Most common cause:** Passing the managed address as `walletAddress` instead of the control wallet address — see **gdex-authentication**
 - Second cause: `uint256` vs `uint64` encoding mismatch for chainId — see **gdex-perp-trading** for full ABI details

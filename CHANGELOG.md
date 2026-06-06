@@ -25,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- API errors now surface the backend's actual message. The client read only
+  `response.data.message`, but the backend returns `error` (and sometimes `code`),
+  so every failure showed as a generic "Request failed with status code 400".
+- MCP outcome/HIP-3 tools (`hl_create_outcome_order`, `hl_cancel_outcome_order`,
+  `hl_close_outcome_order`, `hl_enable_trading`, `hl_swap_collateral`) now accept
+  structured params and build the payload via the SDK — previously they required a
+  pre-built `computedData` no agent could produce. `hl_outcome_account` now takes
+  `outcomeId`. SKILL docs for `gdex-hl-outcomes` and `gdex-perp-funding` updated.
 - `getHlOutcomeAccount` now sends the required `outcomeId` (the backend rejects the
   previous `dex`-only query with 400).
 - HyperLiquid market orders now work with the documented `price: '0'`. `hlCreateOrder`
