@@ -1695,11 +1695,21 @@ describe('HyperLiquid E2E — Crypto Pipeline (Real Crypto, No Mocks)', () => {
       expect(Number.isInteger(nonce)).toBe(true);
     });
 
-    it('should produce values near current Unix timestamp', () => {
-      const now = Math.floor(Date.now() / 1000);
+    it('should produce a current millisecond timestamp', () => {
+      const now = Date.now();
       const nonce = realCrypto.generateGdexNonce();
-      // Should be within ~1000 of current timestamp
-      expect(Math.abs(nonce - now)).toBeLessThan(2000);
+      // Millisecond-granularity nonce: at or just past the current ms timestamp.
+      expect(nonce).toBeGreaterThanOrEqual(now);
+      expect(nonce - now).toBeLessThan(2000);
+    });
+
+    it('should produce strictly increasing nonces for rapid calls', () => {
+      let prev = 0;
+      for (let i = 0; i < 1000; i++) {
+        const nonce = realCrypto.generateGdexNonce();
+        expect(nonce).toBeGreaterThan(prev);
+        prev = nonce;
+      }
     });
   });
 });
