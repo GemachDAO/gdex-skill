@@ -233,8 +233,22 @@ export function buildGdexManagedTradeComputedData(params: {
  * Matches the official SDK's generateUniqueNumber():
  *   Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000)
  */
+let _lastNonce = 0;
+
+/**
+ * Generate a unique, strictly-increasing nonce for managed-custody requests.
+ *
+ * Uses a millisecond timestamp and guards against same-millisecond collisions
+ * so that rapid sequences of trades never reuse a nonce. The previous
+ * second-granularity scheme (`floor(Date.now()/1000) + random(1000)`) produced
+ * frequent collisions when several orders were sent within the same second,
+ * causing the backend to reject them as "Invalid params" (reused nonce).
+ */
 export function generateGdexNonce(): number {
-  return Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000);
+  let nonce = Date.now();
+  if (nonce <= _lastNonce) nonce = _lastNonce + 1;
+  _lastNonce = nonce;
+  return nonce;
 }
 
 /**

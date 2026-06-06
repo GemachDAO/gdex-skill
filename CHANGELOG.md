@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `generateGdexNonce` now returns a strictly-increasing millisecond nonce. The old
+  `floor(Date.now()/1000) + random(1000)` scheme collided constantly when several
+  managed-custody actions were sent within the same second (rapid trade sequences),
+  causing the backend to reject them as "Invalid params" (reused nonce).
 - API errors now surface the backend's actual message. The client read only
   `response.data.message`, but the backend returns `error` (and sometimes `code`),
   so every failure showed as a generic "Request failed with status code 400".
