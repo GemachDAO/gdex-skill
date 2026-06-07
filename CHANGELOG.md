@@ -20,8 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **One-command MCP auto-config, no npm account required.**
   `npx -y github:GemachDAO/gdex-skill gdex-mcp-server init --client <claude|cursor|vscode|codex|opencode>`
   writes the agent's MCP config wired to launch the 116-tool server straight from GitHub
-  with the shared API key. The root package now exposes the `gdex-mcp-server` bin and its
-  `prepare` builds the MCP server, so the whole MCP stack ships from one GitHub install.
+  with the shared API key. The root package exposes the `gdex-mcp-server` bin and ships the
+  MCP server as a prebuilt, self-contained bundle (`mcp-server/dist/index.js`, built with
+  esbuild), so the whole MCP stack runs from one GitHub install with no install-time build
+  of the server.
 - `SECURITY.md` documenting the shared-key-by-design model, the build-on-install
   (`prepare`) flag, and the upstream-only transitive advisories.
 
