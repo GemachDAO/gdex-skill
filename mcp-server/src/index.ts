@@ -18,15 +18,19 @@ import { registerBridgeTools } from './tools/bridge.js';
 import { registerManagedTools } from './tools/managed.js';
 import { registerV110Tools } from './tools/v110.js';
 
-// Handle init command before starting server
-const args = process.argv.slice(2);
+// Handle init command before starting server.
+// `npx -y github:GemachDAO/gdex-skill gdex-mcp-server init --client <c>` auto-selects
+// the single bin and forwards the bin name as the first arg, so look past a leading
+// `gdex-mcp-server` token before checking for the `init` subcommand.
+const rawArgs = process.argv.slice(2);
+const args = rawArgs[0] === 'gdex-mcp-server' ? rawArgs.slice(1) : rawArgs;
 if (args[0] === 'init') {
   await handleInit(args);
   process.exit(0);
 }
 
 const server = new McpServer(
-  { name: 'gdex-mcp-server', version: '4.3.0' },
+  { name: 'gdex-mcp-server', version: '4.3.1' },
   { capabilities: { tools: {} } },
 );
 

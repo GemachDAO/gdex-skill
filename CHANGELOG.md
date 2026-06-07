@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.3.1] - 2026-06-07
+
+### Fixed
+
+- `gdex-mcp-server init` now works via the documented one-liner
+  `npx -y github:GemachDAO/gdex-skill gdex-mcp-server init --client <c>`.
+  `npx` auto-selects the package's single bin and forwards the `gdex-mcp-server`
+  token as the first argument, so the server saw `argv[0] === 'gdex-mcp-server'`
+  (not `'init'`) and silently started instead of writing the config. The entry
+  now skips a leading bin-name token before checking for the `init` subcommand.
+
 ## [4.3.0] - 2026-06-07
 
 ### Added
@@ -211,7 +222,8 @@ Minimum diff a caller needs to upgrade:
   `transfer_token`:     unchanged on the wire; structured shape now
                         available via `managed: {...}`.
 
-[Unreleased]: https://github.com/GemachDAO/gdex-skill/compare/v4.3.0...HEAD
+[Unreleased]: https://github.com/GemachDAO/gdex-skill/compare/v4.3.1...HEAD
+[4.3.1]: https://github.com/GemachDAO/gdex-skill/compare/v4.3.0...v4.3.1
 [4.3.0]: https://github.com/GemachDAO/gdex-skill/compare/v4.2.0...v4.3.0
 [4.2.0]: https://github.com/GemachDAO/gdex-skill/compare/v4.1.1...v4.2.0
 [4.1.1]: https://github.com/GemachDAO/gdex-skill/compare/v4.1.0...v4.1.1
