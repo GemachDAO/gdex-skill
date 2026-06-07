@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.4.0] - 2026-06-07
+
+### Added
+
+- **Official Gemach branding.** `assets/brand/` ships the white Gemach lion mark and a brand
+  reference (palette, logo usage, typography). The `gdex-ui-theming` skill now carries the
+  official brand tokens — Rich Black `#060A17`, Majorelle `#704FF6`, Argentinian `#61B8FF`,
+  Emerald `#49B875`, Rojo `#DF2E2E`, navy ramp, Inter — with the dark theme as the Gemach default.
+- **`examples/gemach-agent-demo/`** — a full reference UI (Express + SDK backend, Vite/React
+  dashboard from the `gdex-ui-*` patterns, Playwright recorder) that runs a fully live
+  HyperLiquid flow end to end: leverage open/close + limit, HL collateral swap, and CPI
+  outcome-market orders. Verified with real funds.
+
 ## [4.3.1] - 2026-06-07
 
 ### Fixed
@@ -222,7 +235,8 @@ Minimum diff a caller needs to upgrade:
   `transfer_token`:     unchanged on the wire; structured shape now
                         available via `managed: {...}`.
 
-[Unreleased]: https://github.com/GemachDAO/gdex-skill/compare/v4.3.1...HEAD
+[Unreleased]: https://github.com/GemachDAO/gdex-skill/compare/v4.4.0...HEAD
+[4.4.0]: https://github.com/GemachDAO/gdex-skill/compare/v4.3.1...v4.4.0
 [4.3.1]: https://github.com/GemachDAO/gdex-skill/compare/v4.3.0...v4.3.1
 [4.3.0]: https://github.com/GemachDAO/gdex-skill/compare/v4.2.0...v4.3.0
 [4.2.0]: https://github.com/GemachDAO/gdex-skill/compare/v4.1.1...v4.2.0
