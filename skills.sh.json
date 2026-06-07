@@ -1,0 +1,58 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "Getting Started",
+      "description": "Onboarding, managed-custody authentication, and wallet generation.",
+      "skills": ["gdex-onboarding", "gdex-authentication", "gdex-wallet-setup"]
+    },
+    {
+      "title": "Trading",
+      "description": "Spot swaps, HyperLiquid perpetual futures, funding, and limit orders.",
+      "skills": ["gdex-spot-trading", "gdex-perp-trading", "gdex-perp-funding", "gdex-limit-orders"]
+    },
+    {
+      "title": "Data & Discovery",
+      "description": "Portfolio, balances, token details, trending, OHLCV, and livestream discovery.",
+      "skills": ["gdex-portfolio", "gdex-token-discovery", "gdex-livestream-discovery"]
+    },
+    {
+      "title": "Copy Trading & Bridge",
+      "description": "Copy spot and perp traders, and cross-chain bridging.",
+      "skills": ["gdex-copy-trading", "gdex-perp-copy-trading", "gdex-bridge"]
+    },
+    {
+      "title": "Transfers & Social",
+      "description": "Native/token transfers, watchlists, sentiment voting, and custom token import.",
+      "skills": ["gdex-transfers", "gdex-watchlist-social", "gdex-token-import"]
+    },
+    {
+      "title": "HyperLiquid Extras",
+      "description": "HIP-3/HIP-4 outcome (event) markets and referral rewards.",
+      "skills": ["gdex-hl-outcomes", "gdex-hl-referral"]
+    },
+    {
+      "title": "Promotion & Partners",
+      "description": "Paid trending-slot promotion and retailer partner integrations.",
+      "skills": ["gdex-trending-promotion", "gdex-retailer-onboarding"]
+    },
+    {
+      "title": "Frontend (React / Next.js)",
+      "description": "UI building blocks — setup, trading components, dashboards, wallet connection, theming, and full page layouts.",
+      "skills": [
+        "gdex-ui-install-setup",
+        "gdex-ui-trading-components",
+        "gdex-ui-portfolio-dashboard",
+        "gdex-ui-wallet-connection",
+        "gdex-ui-theming",
+        "gdex-ui-page-layouts"
+      ]
+    },
+    {
+      "title": "Developer Tools",
+      "description": "Error codes, encryption debugging, and chain-specific gotchas.",
+      "skills": ["gdex-sdk-debugging"]
+    }
+  ]
+}

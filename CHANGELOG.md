@@ -13,6 +13,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.2.0] - 2026-06-07
+
+### Changed
+
+- **skills.sh now installs all 27 skills individually** instead of one umbrella skill.
+  Removed the root `SKILL.md` (which made the skills CLI treat the whole repo as a
+  single `gdex-trading` skill) so `npx skills add GemachDAO/gdex-skill` discovers each
+  skill (`gdex-spot-trading`, `gdex-perp-trading`, …) as a separate, installable unit.
+- The root skill's live-tested operational playbook (backend param quirks, endpoints
+  that don't work, HL signature/error codes, E2E results) was migrated into
+  `gdex-onboarding` so nothing is lost.
+
+### Added
+
+- `skills.sh.json` manifest grouping the 27 skills into categories for the skills.sh
+  listing (Getting Started, Trading, Data & Discovery, Copy Trading & Bridge, …).
+
 ## [4.1.1] - 2026-06-07
 
 ### Fixed
@@ -170,7 +187,8 @@ Minimum diff a caller needs to upgrade:
   `transfer_token`:     unchanged on the wire; structured shape now
                         available via `managed: {...}`.
 
-[Unreleased]: https://github.com/GemachDAO/gdex-skill/compare/v4.1.1...HEAD
+[Unreleased]: https://github.com/GemachDAO/gdex-skill/compare/v4.2.0...HEAD
+[4.2.0]: https://github.com/GemachDAO/gdex-skill/compare/v4.1.1...v4.2.0
 [4.1.1]: https://github.com/GemachDAO/gdex-skill/compare/v4.1.0...v4.1.1
 [4.1.0]: https://github.com/GemachDAO/gdex-skill/compare/v4.0.0...v4.1.0
 [3.3.0]: https://github.com/GemachDAO/gdex-skill/releases/tag/v3.3.0
