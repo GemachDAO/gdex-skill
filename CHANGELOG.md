@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.1.1] - 2026-06-07
+
+### Fixed
+
+- The SDK is now installable directly from GitHub: added a `prepare` script so
+  `npm install github:GemachDAO/gdex-skill` builds `dist/` on install. Previously
+  `dist/` was gitignored and there was no build-on-install hook, so a GitHub install
+  produced no runnable build. Install docs updated (the package was never published
+  to the npm registry, so the old `npm install @gdexsdk/gdex-skill` line did not work).
+
 ## [4.1.0] - 2026-06-06
 
 ### Added
@@ -160,6 +170,7 @@ Minimum diff a caller needs to upgrade:
   `transfer_token`:     unchanged on the wire; structured shape now
                         available via `managed: {...}`.
 
-[Unreleased]: https://github.com/GemachDAO/gdex-skill/compare/v4.1.0...HEAD
+[Unreleased]: https://github.com/GemachDAO/gdex-skill/compare/v4.1.1...HEAD
+[4.1.1]: https://github.com/GemachDAO/gdex-skill/compare/v4.1.0...v4.1.1
 [4.1.0]: https://github.com/GemachDAO/gdex-skill/compare/v4.0.0...v4.1.0
 [3.3.0]: https://github.com/GemachDAO/gdex-skill/releases/tag/v3.3.0

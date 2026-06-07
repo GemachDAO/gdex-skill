@@ -1,6 +1,6 @@
 {
   "name": "@gdexsdk/gdex-skill",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "description": "AI Agent Skill SDK for Gbot Trading Dashboard — cross-chain spot/perp trading, portfolio management, and token discovery",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -34,6 +34,7 @@
     "lint": "eslint src tests --ext .ts",
     "lint:fix": "eslint src tests --ext .ts --fix",
     "clean": "rm -rf dist",
+    "prepare": "npm run build",
     "postinstall": "node scripts/postinstall.js",
     "prepublishOnly": "npm run clean && npm run build"
   },
