@@ -55,19 +55,19 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install SDK dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Build SDK
-        run: npm run build
+      - name: Build MCP Server bundle
+        run: npm run build:mcp
 
-      - name: Install MCP Server dependencies
-        working-directory: mcp-server
-        run: npm ci
-
-      - name: Build MCP Server
-        working-directory: mcp-server
-        run: npm run build
+      - name: Ensure committed bundle is up to date
+        run: |
+          if ! git diff --quiet -- mcp-server/dist/index.js; then
+            echo "::error::mcp-server/dist/index.js is stale. Run 'npm run build:mcp' and commit the result."
+            git diff --stat -- mcp-server/dist/index.js
+            exit 1
+          fi
 
   validate-skills:
     name: Validate Skills
