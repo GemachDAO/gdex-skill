@@ -205,8 +205,8 @@ const trade = await skill.buyToken({
 # Install all skills
 npx skills add GemachDAO/gdex-skill --all --agent '*' -g
 
-# Install SDK
-npm install @gdexsdk/gdex-skill
+# Install SDK (from GitHub — builds on install; imports stay '@gdexsdk/gdex-skill')
+npm install github:GemachDAO/gdex-skill
 ```
 | userId | Control wallet address (from sign-in), NOT managed wallet |
 | Bridge receiver | `0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7` |

@@ -170,8 +170,12 @@ Add to your client's MCP config:
 ## �📦 SDK Installation
 
 ```bash
-npm install @gdexsdk/gdex-skill
+npm install github:GemachDAO/gdex-skill
 ```
+
+> Installs the SDK straight from GitHub (it builds on install). Imports stay
+> `from '@gdexsdk/gdex-skill'`. Pin a release with
+> `npm install github:GemachDAO/gdex-skill#v4.1.1`.
 
 > The install script displays a quick-start banner in your terminal. Optional peer dependencies for wallet signing (only needed for user-specific wallet auth):
 > ```bash
