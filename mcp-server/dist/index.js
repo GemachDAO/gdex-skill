@@ -141248,13 +141248,14 @@ function registerV110Tools(server2) {
 }
 
 // mcp-server/src/index.ts
-var args = process.argv.slice(2);
+var rawArgs = process.argv.slice(2);
+var args = rawArgs[0] === "gdex-mcp-server" ? rawArgs.slice(1) : rawArgs;
 if (args[0] === "init") {
   await handleInit(args);
   process.exit(0);
 }
 var server = new McpServer(
-  { name: "gdex-mcp-server", version: "4.3.0" },
+  { name: "gdex-mcp-server", version: "4.3.1" },
   { capabilities: { tools: {} } }
 );
 var skills = await loadSkills();
