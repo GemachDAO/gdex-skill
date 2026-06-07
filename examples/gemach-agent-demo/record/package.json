@@ -1,0 +1,1 @@
+{ "name": "gdex-ui-demo-record", "private": true, "type": "module", "dependencies": { "playwright": "^1.60.0" } }

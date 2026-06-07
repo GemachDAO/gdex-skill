@@ -1,0 +1,7 @@
+node_modules/
+dist/
+out/
+*.webm
+*.mp4
+*.gif
+*.log
