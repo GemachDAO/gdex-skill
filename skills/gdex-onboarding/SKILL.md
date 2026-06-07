@@ -155,17 +155,40 @@ npm install @gdexsdk/gdex-skill
 
 ## MCP Server
 
-For AI clients that support [Model Context Protocol](https://modelcontextprotocol.io), the GDEX MCP server exposes 8 tools for searching docs, getting code patterns, and exploring workflows:
+For AI clients that support [Model Context Protocol](https://modelcontextprotocol.io),
+the GDEX MCP server exposes **116 tools** covering the full SDK surface — spot and
+perp trading, HyperLiquid funding, limit orders, copy trading, bridging, portfolio
+and token data, transfers/social, and HIP-3/HIP-4 outcome (event) markets (e.g.
+`buy_token`, `open_perp_position`, `place_perp_order`, `hl_create_outcome_order`,
+`hl_swap_collateral`, `get_account_state`, `estimate_bridge`).
+
+> The skills.sh install does **not** configure the MCP server — it installs SKILL.md
+> skills only. The MCP server is a separate component. The skills work via the SDK
+> without it; set up MCP only if you prefer tool-call access.
+
+Until the `@gdexsdk/mcp-server` package is published to npm, run it from source:
 
 ```bash
-npx @gdexsdk/mcp-server init --client claude   # Claude Code
-npx @gdexsdk/mcp-server init --client cursor   # Cursor
-npx @gdexsdk/mcp-server init --client vscode   # VS Code Copilot
-npx @gdexsdk/mcp-server init --client codex    # Codex
-npx @gdexsdk/mcp-server init --client opencode  # OpenCode
+git clone https://github.com/GemachDAO/gdex-skill
+cd gdex-skill/mcp-server && npm install && npm run build
 ```
 
-Tools: `search_gdex_docs`, `get_sdk_pattern`, `get_api_info`, `explain_workflow`, `get_chain_info`, `get_trading_guide`, `get_copy_trade_guide`, `get_component_guide`.
+Then register it with your agent (e.g. Claude Code `.mcp.json`):
+
+```jsonc
+{
+  "mcpServers": {
+    "gdex": {
+      "command": "node",
+      "args": ["/absolute/path/to/gdex-skill/mcp-server/dist/index.js"],
+      "env": { "GDEX_API_KEY": "9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54" }
+    }
+  }
+}
+```
+
+Once published, `npx @gdexsdk/mcp-server init --client claude` (or `cursor`,
+`vscode`, `codex`, `opencode`) will wire this up automatically.
 
 ## Autonomous Agent Quickstart
 
