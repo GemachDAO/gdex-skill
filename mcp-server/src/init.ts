@@ -6,10 +6,16 @@ type Client = 'claude' | 'cursor' | 'vscode' | 'codex' | 'opencode';
 
 const SUPPORTED_CLIENTS: Client[] = ['claude', 'cursor', 'vscode', 'codex', 'opencode'];
 
+// Launch the MCP server straight from GitHub (no npm account/publish required).
+// The package builds on install (prepare script) and exposes the gdex-mcp-server bin.
+const GH_SOURCE = 'github:GemachDAO/gdex-skill';
+const SHARED_API_KEY = '9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54';
+
 function getConfig(client: Client): { path: string; content: string } {
   const mcpEntry = {
     command: 'npx',
-    args: ['@gdexsdk/mcp-server'],
+    args: ['-y', GH_SOURCE, 'gdex-mcp-server'],
+    env: { GDEX_API_KEY: SHARED_API_KEY },
   };
 
   switch (client) {
@@ -37,7 +43,8 @@ function getConfig(client: Client): { path: string; content: string } {
             'gdex-mcp-server': {
               type: 'stdio',
               command: 'npx',
-              args: ['@gdexsdk/mcp-server'],
+              args: ['-y', GH_SOURCE, 'gdex-mcp-server'],
+              env: { GDEX_API_KEY: SHARED_API_KEY },
             },
           },
         }, null, 2),
@@ -46,7 +53,7 @@ function getConfig(client: Client): { path: string; content: string } {
     case 'codex':
       return {
         path: '.codex/config.toml',
-        content: `[mcp_servers.gdex-mcp-server]\ncommand = "npx"\nargs = ["@gdexsdk/mcp-server"]\n`,
+        content: `[mcp_servers.gdex-mcp-server]\ncommand = "npx"\nargs = ["-y", "${GH_SOURCE}", "gdex-mcp-server"]\nenv = { GDEX_API_KEY = "${SHARED_API_KEY}" }\n`,
       };
 
     case 'opencode':

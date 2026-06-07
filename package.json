@@ -1,6 +1,6 @@
 {
   "name": "@gdexsdk/gdex-skill",
-  "version": "4.2.0",
+  "version": "4.3.0",
   "description": "AI Agent Skill SDK for Gbot Trading Dashboard — cross-chain spot/perp trading, portfolio management, and token discovery",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,11 +11,17 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "bin": {
+    "gdex-mcp-server": "mcp-server/dist/index.js"
+  },
   "files": [
     "dist",
     "src",
     "scripts",
     "skills",
+    "mcp-server/dist",
+    "mcp-server/src",
+    "mcp-server/package.json",
     "skills.sh.json",
     "skill.json",
     "README.md"
@@ -34,8 +40,8 @@
     "lint": "eslint src tests --ext .ts",
     "lint:fix": "eslint src tests --ext .ts --fix",
     "clean": "rm -rf dist",
-    "prepare": "npm run build",
-    "postinstall": "node scripts/postinstall.js",
+    "build:mcp": "npm --prefix mcp-server install --no-audit --no-fund && npm --prefix mcp-server run build",
+    "prepare": "npm run build && npm run build:mcp",
     "prepublishOnly": "npm run clean && npm run build"
   },
   "keywords": [
