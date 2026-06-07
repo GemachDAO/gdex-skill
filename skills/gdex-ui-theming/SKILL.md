@@ -22,28 +22,35 @@ Define a base theme using CSS variables. Trading UIs need specialized color sema
 /* styles/theme.css */
 
 :root {
-  /* Brand */
-  --color-brand: #3B82F6;
-  --color-brand-hover: #2563EB;
+  /* Brand — Gemach (see assets/brand) */
+  --color-brand: #704FF6;        /* Majorelle Blue (primary accent) */
+  --color-brand-hover: #5A3FE0;
+  --color-brand-2: #61B8FF;      /* Argentinian Blue (secondary accent) */
+
+  /* Gemach product lines */
+  --color-gbot: #DF2E2E;         /* Rojo */
+  --color-loans: #61B8FF;        /* Argentinian Blue */
+  --color-vaults: #704FF6;       /* Majorelle Blue */
+  --color-index: #49B875;        /* Emerald */
 
   /* Trading — Long / Short */
-  --color-long: #22C55E;
-  --color-long-bg: #22C55E1A;
-  --color-short: #EF4444;
-  --color-short-bg: #EF44441A;
+  --color-long: #49B875;         /* Emerald */
+  --color-long-bg: #49B8751A;
+  --color-short: #DF2E2E;        /* Rojo */
+  --color-short-bg: #DF2E2E1A;
 
   /* PnL */
-  --color-pnl-positive: #22C55E;
-  --color-pnl-negative: #EF4444;
-  --color-pnl-neutral: #6B7280;
+  --color-pnl-positive: #49B875;
+  --color-pnl-negative: #DF2E2E;
+  --color-pnl-neutral: #697083;
 
   /* Order Status */
-  --color-status-filled: #22C55E;
-  --color-status-pending: #F59E0B;
-  --color-status-cancelled: #6B7280;
-  --color-status-failed: #EF4444;
+  --color-status-filled: #49B875;
+  --color-status-pending: #61B8FF;
+  --color-status-cancelled: #697083;
+  --color-status-failed: #DF2E2E;
 
-  /* Chain Colors */
+  /* Chain Colors (chain brand colors, not Gemach) */
   --color-chain-solana: #9945FF;
   --color-chain-ethereum: #627EEA;
   --color-chain-base: #0052FF;
@@ -62,12 +69,12 @@ Define a base theme using CSS variables. Trading UIs need specialized color sema
   --border-secondary: #D1D5DB;
 
   /* Text (light mode) */
-  --text-primary: #111827;
-  --text-secondary: #6B7280;
-  --text-tertiary: #9CA3AF;
+  --text-primary: #060A17;       /* Rich Black */
+  --text-secondary: #4D5972;
+  --text-tertiary: #81899F;
   --text-on-brand: #FFFFFF;
 
-  /* Typography */
+  /* Typography — Gemach uses Inter */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
@@ -78,21 +85,39 @@ Define a base theme using CSS variables. Trading UIs need specialized color sema
   --radius-full: 9999px;
 }
 
-/* Dark Mode */
+/* Dark Mode (Gemach default — Rich Black + navy ramp) */
 [data-theme='dark'], .dark {
-  --bg-primary: #0F1117;
-  --bg-secondary: #1A1D28;
-  --bg-tertiary: #252836;
-  --bg-card: #1A1D28;
-  --bg-input: #252836;
-  --border-primary: #2D3348;
-  --border-secondary: #3D4462;
+  --bg-primary: #060A17;         /* Rich Black */
+  --bg-secondary: #0C1322;
+  --bg-tertiary: #162139;
+  --bg-card: #0D1424;
+  --bg-input: #152037;
+  --border-primary: #192843;
+  --border-secondary: #2E4164;
 
-  --text-primary: #F9FAFB;
-  --text-secondary: #9CA3AF;
-  --text-tertiary: #6B7280;
+  --text-primary: #FFFFFF;
+  --text-secondary: #A1A5B3;
+  --text-tertiary: #697083;
 }
 ```
+
+## Gemach brand palette (official)
+
+From the Gemach brand guide. The dark theme above is the Gemach default.
+
+| Token | Hex | Use |
+|-------|-----|-----|
+| Rich Black | `#060A17` | App background (dark) |
+| Majorelle Blue | `#704FF6` | Primary brand accent (Vaults) |
+| Argentinian Blue | `#61B8FF` | Secondary accent (Loans) |
+| Emerald | `#49B875` | Long / positive (Index Funds) |
+| Rojo | `#DF2E2E` | Short / negative (GBOT) |
+
+Navy → white neutral ramp: `#161D2F #152037 #162139 #192843 #2E4164 #4D5972 #697083 #81899F #A1A5B3 #D5D9E1 #FFFFFF`
+
+**Logo:** the white Gemach lion mark is at `assets/brand/gemach-lion.png`. Pair it with the
+`GEMACH` / `GDEX` wordmark in **Inter** (700–800 weight). On dark, use the white mark; on
+light, the black mark. **Font:** Inter (400/500/600/700/800) — load via Google Fonts or self-host.
 
 ## Dark / Light Mode Toggle
 

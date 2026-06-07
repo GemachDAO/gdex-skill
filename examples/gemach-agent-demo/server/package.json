@@ -1,0 +1,13 @@
+{
+  "name": "gdex-ui-demo-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend for the GDEX UI demo — live outcome trades + simulated perp, via the shipped SDK",
+  "main": "index.js",
+  "scripts": { "start": "node index.js" },
+  "dependencies": {
+    "@gdexsdk/gdex-skill": "github:GemachDAO/gdex-skill",
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}
