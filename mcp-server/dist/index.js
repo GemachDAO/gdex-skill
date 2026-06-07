@@ -141255,7 +141255,7 @@ if (args[0] === "init") {
   process.exit(0);
 }
 var server = new McpServer(
-  { name: "gdex-mcp-server", version: "4.3.1" },
+  { name: "gdex-mcp-server", version: "4.4.0" },
   { capabilities: { tools: {} } }
 );
 var skills = await loadSkills();
