@@ -162,33 +162,31 @@ and token data, transfers/social, and HIP-3/HIP-4 outcome (event) markets (e.g.
 `buy_token`, `open_perp_position`, `place_perp_order`, `hl_create_outcome_order`,
 `hl_swap_collateral`, `get_account_state`, `estimate_bridge`).
 
-> The skills.sh install does **not** configure the MCP server — it installs SKILL.md
-> skills only. The MCP server is a separate component. The skills work via the SDK
-> without it; set up MCP only if you prefer tool-call access.
-
-Until the `@gdexsdk/mcp-server` package is published to npm, run it from source:
+### Auto-configure (one command, no npm account)
 
 ```bash
-git clone https://github.com/GemachDAO/gdex-skill
-cd gdex-skill/mcp-server && npm install && npm run build
+npx -y github:GemachDAO/gdex-skill gdex-mcp-server init --client claude
+# clients: claude · cursor · vscode · codex · opencode
 ```
 
-Then register it with your agent (e.g. Claude Code `.mcp.json`):
+This writes the MCP config for your agent (e.g. `.mcp.json`) wired to launch the
+server straight from GitHub with the shared API key — no npm publish required:
 
 ```jsonc
 {
   "mcpServers": {
-    "gdex": {
-      "command": "node",
-      "args": ["/absolute/path/to/gdex-skill/mcp-server/dist/index.js"],
+    "gdex-mcp-server": {
+      "command": "npx",
+      "args": ["-y", "github:GemachDAO/gdex-skill", "gdex-mcp-server"],
       "env": { "GDEX_API_KEY": "9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54" }
     }
   }
 }
 ```
 
-Once published, `npx @gdexsdk/mcp-server init --client claude` (or `cursor`,
-`vscode`, `codex`, `opencode`) will wire this up automatically.
+> The skills.sh install configures **skills**, not MCP — run the command above to add
+> the MCP server. The skills also work via the SDK without MCP. The first launch
+> builds the package from source (cached afterward).
 
 ## Autonomous Agent Quickstart
 

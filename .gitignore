@@ -5,6 +5,12 @@ node_modules/
 dist/
 build/
 
+# Committed prebuilt MCP server bundle (self-contained, shipped for npx github installs).
+# Only the single esbuild bundle is tracked; any tsc build artifacts stay ignored.
+!mcp-server/dist/
+mcp-server/dist/*
+!mcp-server/dist/index.js
+
 # Coverage
 coverage/
 

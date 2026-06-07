@@ -53,8 +53,8 @@ jobs:
       - name: Build SDK
         run: npm run build
 
-      - name: Build MCP Server
-        run: cd mcp-server && npm ci && npm run build
+      - name: Build MCP Server bundle
+        run: npm run build:mcp
 
       # ── Version bump (only on manual dispatch) ──────────────────────────
       - name: Bump version

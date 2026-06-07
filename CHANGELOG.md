@@ -13,6 +13,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.3.0] - 2026-06-07
+
+### Added
+
+- **One-command MCP auto-config, no npm account required.**
+  `npx -y github:GemachDAO/gdex-skill gdex-mcp-server init --client <claude|cursor|vscode|codex|opencode>`
+  writes the agent's MCP config wired to launch the 116-tool server straight from GitHub
+  with the shared API key. The root package exposes the `gdex-mcp-server` bin and ships the
+  MCP server as a prebuilt, self-contained bundle (`mcp-server/dist/index.js`, built with
+  esbuild), so the whole MCP stack runs from one GitHub install with no install-time build
+  of the server.
+- `SECURITY.md` documenting the shared-key-by-design model, the build-on-install
+  (`prepare`) flag, and the upstream-only transitive advisories.
+
+### Changed
+
+- MCP `init` now targets the GitHub source instead of the unpublished
+  `@gdexsdk/mcp-server` npm package, and injects `GDEX_API_KEY` into the generated config.
+
+### Removed
+
+- The cosmetic `postinstall` banner script (flagged by supply-chain scanners as an
+  install script; provided no functionality).
+
 ## [4.2.0] - 2026-06-07
 
 ### Changed
@@ -187,7 +211,8 @@ Minimum diff a caller needs to upgrade:
   `transfer_token`:     unchanged on the wire; structured shape now
                         available via `managed: {...}`.
 
-[Unreleased]: https://github.com/GemachDAO/gdex-skill/compare/v4.2.0...HEAD
+[Unreleased]: https://github.com/GemachDAO/gdex-skill/compare/v4.3.0...HEAD
+[4.3.0]: https://github.com/GemachDAO/gdex-skill/compare/v4.2.0...v4.3.0
 [4.2.0]: https://github.com/GemachDAO/gdex-skill/compare/v4.1.1...v4.2.0
 [4.1.1]: https://github.com/GemachDAO/gdex-skill/compare/v4.1.0...v4.1.1
 [4.1.0]: https://github.com/GemachDAO/gdex-skill/compare/v4.0.0...v4.1.0
