@@ -238,6 +238,32 @@ The `limit_buy` and `update_order` ABI schemas encode `profitPercent` and `lossP
 **Fix:** SDK encodes as `uint256` (correct). Only matters if encoding manually.
 8. **Token support:** Is the token supported on this chain? Is the DEX working? (Meteora is broken)
 
+## Backend-Limited Behavior (Not SDK Bugs)
+
+These are server-side behaviors, verified live. They are **not fixable in the SDK** — don't
+waste a debugging loop on them. Treat the listed responses as expected.
+
+### Deposit returns HTTP 400 even when the transfer succeeds
+
+`perpDeposit` (USDC → HyperLiquid) frequently returns HTTP 400 while the on-chain transfer
+**still completes**. The error is a backend response-handling bug, not a failed deposit.
+
+**Symptom:** `perpDeposit` throws a 400, but the USDC arrives in the HL account moments later.
+**Do:** Don't retry blindly on the 400 (you'll double-deposit). Poll the HL perp balance /
+`getHlAccount` to confirm before retrying. Verify state, not the HTTP status.
+
+### Outcome-market listings are controlled by the backend, not the SDK
+
+The SDK can place/cancel/close orders on **any** outcome market (coin format
+`#<outcomeId><sideIndex>`, e.g. `#1010` = outcome 101, Yes side), but *which* markets exist —
+and that they may currently be limited (e.g. only a BTC over/under) — is decided by the
+backend / HIP-3 deployer, not the SDK.
+
+**Symptom:** `listOutcomeMarkets` returns few/limited markets, or a `#…` coin you expect is absent.
+**Do:** Only trade markets returned by `listOutcomeMarkets` / the outcome account query. An empty
+or short list is a market-config state on the backend, not a discovery bug. HIP-3/HIP-4 markets
+may also quote in non-USDC collateral (USDH/USDE/USDT0) — use `swap_collateral` first.
+
 ## Related Skills
 
 - **gdex-authentication** — Full auth flow and encryption details
