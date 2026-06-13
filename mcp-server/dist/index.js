@@ -123533,6 +123533,89 @@ var require_hlOutcomes = __commonJS({
   }
 });
 
+// dist/actions/hlOutcomeVolume.js
+var require_hlOutcomeVolume = __commonJS({
+  "dist/actions/hlOutcomeVolume.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.outcomeSideCoin = outcomeSideCoin;
+    exports.fetchHlOutcomeVolumes = fetchHlOutcomeVolumes;
+    exports.attachOutcomeVolume = attachOutcomeVolume;
+    exports.outcomeSideCoins = outcomeSideCoins;
+    var ws_1 = require_ws();
+    var HL_WS_URL = "wss://api.hyperliquid.xyz/ws";
+    function outcomeSideCoin(outcomeId, sideIndex) {
+      return `#${outcomeId}${sideIndex}`;
+    }
+    function fetchHlOutcomeVolumes(coins, options = {}) {
+      const wanted = new Set(coins.filter((c) => typeof c === "string" && c.startsWith("#")));
+      const out = {};
+      if (wanted.size === 0)
+        return Promise.resolve(out);
+      const wsUrl = options.wsUrl ?? HL_WS_URL;
+      const timeoutMs = options.timeoutMs ?? 6e3;
+      return new Promise((resolve2) => {
+        const ws = new ws_1.WebSocket(wsUrl);
+        let settled = false;
+        const finish = () => {
+          if (settled)
+            return;
+          settled = true;
+          clearTimeout(timer);
+          try {
+            ws.close();
+          } catch {
+          }
+          resolve2(out);
+        };
+        const timer = setTimeout(finish, timeoutMs);
+        ws.on("open", () => {
+          for (const coin of wanted) {
+            ws.send(JSON.stringify({ method: "subscribe", subscription: { type: "activeAssetCtx", coin } }));
+          }
+        });
+        ws.on("message", (raw) => {
+          let msg;
+          try {
+            msg = JSON.parse(raw.toString());
+          } catch {
+            return;
+          }
+          if (msg.channel !== "activeAssetCtx" && msg.channel !== "activeSpotAssetCtx")
+            return;
+          const coin = msg.data?.coin;
+          const vol = Number(msg.data?.ctx?.dayNtlVlm);
+          if (typeof coin === "string" && wanted.has(coin) && Number.isFinite(vol)) {
+            out[coin] = vol;
+            if (Object.keys(out).length >= wanted.size)
+              finish();
+          }
+        });
+        ws.on("error", finish);
+      });
+    }
+    function attachOutcomeVolume(outcomes, coinVolumes) {
+      return outcomes.map((o) => {
+        const sides = o.sideSpecs ?? [];
+        let vol = 0;
+        for (let i = 0; i < sides.length; i++) {
+          vol += coinVolumes[outcomeSideCoin(o.outcome, i)] ?? 0;
+        }
+        return { ...o, volume24hUsd: vol > 0 ? vol : null };
+      });
+    }
+    function outcomeSideCoins(outcomes) {
+      const coins = [];
+      for (const o of outcomes) {
+        const sides = o.sideSpecs ?? [];
+        for (let i = 0; i < sides.length; i++)
+          coins.push(outcomeSideCoin(o.outcome, i));
+      }
+      return coins;
+    }
+  }
+});
+
 // dist/actions/hlReferral.js
 var require_hlReferral = __commonJS({
   "dist/actions/hlReferral.js"(exports) {
@@ -124367,8 +124450,8 @@ var require_dist5 = __commonJS({
       };
     })();
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.signHlActionMessage = exports.encodeHlActionData = exports.generateGdexNonce = exports.buildGdexManagedTradeComputedData = exports.buildGdexSignInComputedData = exports.buildEncryptedGdexPayload = exports.buildGdexUserSessionData = exports.signGdexTradeMessageWithSessionKey = exports.buildGdexTradeSignatureMessage = exports.encodeGdexTradeData = exports.encodeGdexSignInData = exports.buildGdexSignInMessage = exports.generateGdexSessionKeyPair = exports.decryptGdexComputedData = exports.encryptGdexHexData = exports.encryptGdexComputedData = exports.deriveGdexAesMaterial = exports.validateCoin = exports.validateLeverage = exports.validateSlippage = exports.validateChain = exports.validateAmount = exports.validateAddress = exports.generateEvmWallet = exports.truncateDecimals = exports.formatTimestamp = exports.shortenAddress = exports.formatPercentChange = exports.formatUsd = exports.formatTokenAmount = exports.getNativeToken = exports.getChainName = exports.GDEX_API_KEY_SECONDARY = exports.GDEX_API_KEY_PRIMARY = exports.GDEX_API_KEYS = exports.HYPERLIQUID_DEFAULT_ASSETS = exports.CHAIN_CONFIGS = exports.chainSupportsDex = exports.getSupportedChains = exports.getChainConfig = exports.Endpoints = exports.GdexApiClient = exports.GdexRateLimitError = exports.GdexNetworkError = exports.GdexApiError = exports.GdexValidationError = exports.GdexAuthError = exports.GdexError = exports.GdexErrorCode = exports.ChainId = void 0;
-    exports.GdexSkill = exports.buildImportTokenComputedData = exports.buildWatchListComputedData = exports.buildLimitOrderComputedData = exports.signLimitOrderMessage = exports.encodeLimitOrderData = exports.buildHlComputedData = void 0;
+    exports.buildGdexSignInComputedData = exports.buildEncryptedGdexPayload = exports.buildGdexUserSessionData = exports.signGdexTradeMessageWithSessionKey = exports.buildGdexTradeSignatureMessage = exports.encodeGdexTradeData = exports.encodeGdexSignInData = exports.buildGdexSignInMessage = exports.generateGdexSessionKeyPair = exports.decryptGdexComputedData = exports.encryptGdexHexData = exports.encryptGdexComputedData = exports.deriveGdexAesMaterial = exports.validateCoin = exports.validateLeverage = exports.validateSlippage = exports.validateChain = exports.validateAmount = exports.validateAddress = exports.generateEvmWallet = exports.truncateDecimals = exports.formatTimestamp = exports.shortenAddress = exports.formatPercentChange = exports.formatUsd = exports.formatTokenAmount = exports.getNativeToken = exports.getChainName = exports.GDEX_API_KEY_SECONDARY = exports.GDEX_API_KEY_PRIMARY = exports.GDEX_API_KEYS = exports.HYPERLIQUID_DEFAULT_ASSETS = exports.CHAIN_CONFIGS = exports.chainSupportsDex = exports.getSupportedChains = exports.getChainConfig = exports.Endpoints = exports.GdexApiClient = exports.GdexRateLimitError = exports.GdexNetworkError = exports.GdexApiError = exports.GdexValidationError = exports.GdexAuthError = exports.GdexError = exports.outcomeSideCoins = exports.outcomeSideCoin = exports.attachOutcomeVolume = exports.fetchHlOutcomeVolumes = exports.GdexErrorCode = exports.ChainId = void 0;
+    exports.GdexSkill = exports.buildImportTokenComputedData = exports.buildWatchListComputedData = exports.buildLimitOrderComputedData = exports.signLimitOrderMessage = exports.encodeLimitOrderData = exports.buildHlComputedData = exports.signHlActionMessage = exports.encodeHlActionData = exports.generateGdexNonce = exports.buildGdexManagedTradeComputedData = void 0;
     var walletGeneration_1 = require_walletGeneration();
     var slippage_1 = require_slippage();
     var client_1 = require_client();
@@ -124389,6 +124472,7 @@ var require_dist5 = __commonJS({
     var analytics_1 = require_analytics();
     var tokenDiscovery_1 = require_tokenDiscovery();
     var hlOutcomes_1 = require_hlOutcomes();
+    var hlOutcomeVolume_1 = require_hlOutcomeVolume();
     var hlReferral_1 = require_hlReferral();
     var trending_1 = require_trending();
     var retailer_1 = require_retailer();
@@ -124400,6 +124484,19 @@ var require_dist5 = __commonJS({
     } });
     Object.defineProperty(exports, "GdexErrorCode", { enumerable: true, get: function() {
       return common_1.GdexErrorCode;
+    } });
+    var hlOutcomeVolume_2 = require_hlOutcomeVolume();
+    Object.defineProperty(exports, "fetchHlOutcomeVolumes", { enumerable: true, get: function() {
+      return hlOutcomeVolume_2.fetchHlOutcomeVolumes;
+    } });
+    Object.defineProperty(exports, "attachOutcomeVolume", { enumerable: true, get: function() {
+      return hlOutcomeVolume_2.attachOutcomeVolume;
+    } });
+    Object.defineProperty(exports, "outcomeSideCoin", { enumerable: true, get: function() {
+      return hlOutcomeVolume_2.outcomeSideCoin;
+    } });
+    Object.defineProperty(exports, "outcomeSideCoins", { enumerable: true, get: function() {
+      return hlOutcomeVolume_2.outcomeSideCoins;
     } });
     var errors_1 = require_errors4();
     Object.defineProperty(exports, "GdexError", { enumerable: true, get: function() {
@@ -125248,6 +125345,31 @@ var require_dist5 = __commonJS({
       // ── HyperLiquid Outcomes (HIP-3 event markets) ────────────────────────────
       async getHlOutcomes(params = {}) {
         return (0, hlOutcomes_1.getHlOutcomes)(this.client, params);
+      }
+      /**
+       * 24h notional volume (USD) per outcome coin, from the HyperLiquid WS `activeAssetCtx`
+       * feed — the only source that publishes `dayNtlVlm` for `#<outcomeId><sideIndex>` coins.
+       *
+       * @param coins - Outcome coin names (e.g. `["#1010", "#1011"]`).
+       */
+      async getHlOutcomeVolumes(coins, options) {
+        return (0, hlOutcomeVolume_1.fetchHlOutcomeVolumes)(coins, options);
+      }
+      /**
+       * Outcome markets enriched with `volume24hUsd` per market (sum of its side coins'
+       * 24h volume from the HL WS feed). Same shape as {@link getHlOutcomes} with each
+       * `meta.outcomes[]` gaining `volume24hUsd`, plus a `coinVolumes` map.
+       */
+      async getHlOutcomesWithVolume(params = {}, options) {
+        const res = await this.getHlOutcomes(params);
+        const data = res.data ?? res;
+        const outcomes = data?.meta?.outcomes ?? [];
+        const coinVolumes = await (0, hlOutcomeVolume_1.fetchHlOutcomeVolumes)((0, hlOutcomeVolume_1.outcomeSideCoins)(outcomes), options);
+        const enriched = (0, hlOutcomeVolume_1.attachOutcomeVolume)(outcomes, coinVolumes);
+        return {
+          ...res,
+          data: { ...data, meta: { ...data.meta, outcomes: enriched }, coinVolumes }
+        };
       }
       async getHlOutcomeAccount(params) {
         return (0, hlOutcomes_1.getHlOutcomeAccount)(this.client, params);
@@ -141047,12 +141169,24 @@ function registerV110Tools(server2) {
   );
   server2.tool(
     "hl_outcomes",
-    "List available HyperLiquid outcome / event markets.",
+    "List available HyperLiquid outcome / event markets. Set withVolume=true to enrich each market with volume24hUsd (24h notional, from the HL WS feed) \u2014 adds a few seconds.",
     {
       dex: external_exports.string().optional(),
-      status: external_exports.string().optional()
+      status: external_exports.string().optional(),
+      withVolume: external_exports.boolean().optional().describe("Include 24h volume per market (slower)")
     },
-    async (params) => handleToolCall(async () => getSdk().getHlOutcomes(params))
+    async (params) => handleToolCall(async () => {
+      const { withVolume, ...rest } = params ?? {};
+      return withVolume ? getSdk().getHlOutcomesWithVolume(rest) : getSdk().getHlOutcomes(rest);
+    })
+  );
+  server2.tool(
+    "get_hl_outcome_volumes",
+    `Get 24h notional volume (USD) per outcome coin from the HyperLiquid WS feed. Pass coins like ["#1010","#1011"]; returns a { coin: volumeUsd } map. Sum a market's side coins for its total 24h volume.`,
+    {
+      coins: external_exports.array(external_exports.string()).describe('Outcome coin names, e.g. ["#1010","#1011"]')
+    },
+    async (params) => handleToolCall(async () => getSdk().getHlOutcomeVolumes(params.coins))
   );
   server2.tool(
     "hl_outcome_account",
@@ -141255,7 +141389,7 @@ if (args[0] === "init") {
   process.exit(0);
 }
 var server = new McpServer(
-  { name: "gdex-mcp-server", version: "4.4.0" },
+  { name: "gdex-mcp-server", version: "4.5.0" },
   { capabilities: { tools: {} } }
 );
 var skills = await loadSkills();

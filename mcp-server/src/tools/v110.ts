@@ -235,12 +235,26 @@ export function registerV110Tools(server: McpServer): void {
   // ── HyperLiquid Outcomes (HIP-3 event markets) ───────────────────────────
   server.tool(
     'hl_outcomes',
-    'List available HyperLiquid outcome / event markets.',
+    'List available HyperLiquid outcome / event markets. Set withVolume=true to enrich each market with volume24hUsd (24h notional, from the HL WS feed) — adds a few seconds.',
     {
       dex: z.string().optional(),
       status: z.string().optional(),
+      withVolume: z.boolean().optional().describe('Include 24h volume per market (slower)'),
     },
-    async (params: any) => handleToolCall(async () => getSdk().getHlOutcomes(params as any)),
+    async (params: any) =>
+      handleToolCall(async () => {
+        const { withVolume, ...rest } = params ?? {};
+        return withVolume ? getSdk().getHlOutcomesWithVolume(rest as any) : getSdk().getHlOutcomes(rest as any);
+      }),
+  );
+
+  server.tool(
+    'get_hl_outcome_volumes',
+    'Get 24h notional volume (USD) per outcome coin from the HyperLiquid WS feed. Pass coins like ["#1010","#1011"]; returns a { coin: volumeUsd } map. Sum a market\'s side coins for its total 24h volume.',
+    {
+      coins: z.array(z.string()).describe('Outcome coin names, e.g. ["#1010","#1011"]'),
+    },
+    async (params: any) => handleToolCall(async () => getSdk().getHlOutcomeVolumes(params.coins as string[])),
   );
 
   server.tool(
