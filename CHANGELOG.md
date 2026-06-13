@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.5.0] - 2026-06-13
+
+### Added
+
+- **24h volume for outcome (HIP-3 prediction) markets.** Outcome coins
+  (`#<outcomeId><sideIndex>`) carry no volume in any REST meta/ctx endpoint — their
+  `dayNtlVlm` is only published over the HyperLiquid WS `activeAssetCtx` subscription.
+  New `fetchHlOutcomeVolumes(coins)` reads it over the WS; `GdexSkill.getHlOutcomeVolumes()`
+  returns a `{ coin: volumeUsd }` map and `getHlOutcomesWithVolume()` returns the markets
+  with `volume24hUsd` per market (sum of side coins). Exposed via MCP: `hl_outcomes` gains a
+  `withVolume` flag and a new `get_hl_outcome_volumes` tool. Matches the GDEX web app's
+  figures (e.g. NBA Finals Game 5 ≈ $30.9K). Adds `ws` as a dependency.
+
 ## [4.4.0] - 2026-06-07
 
 ### Added
@@ -235,7 +248,8 @@ Minimum diff a caller needs to upgrade:
   `transfer_token`:     unchanged on the wire; structured shape now
                         available via `managed: {...}`.
 
-[Unreleased]: https://github.com/GemachDAO/gdex-skill/compare/v4.4.0...HEAD
+[Unreleased]: https://github.com/GemachDAO/gdex-skill/compare/v4.5.0...HEAD
+[4.5.0]: https://github.com/GemachDAO/gdex-skill/compare/v4.4.0...v4.5.0
 [4.4.0]: https://github.com/GemachDAO/gdex-skill/compare/v4.3.1...v4.4.0
 [4.3.1]: https://github.com/GemachDAO/gdex-skill/compare/v4.3.0...v4.3.1
 [4.3.0]: https://github.com/GemachDAO/gdex-skill/compare/v4.2.0...v4.3.0

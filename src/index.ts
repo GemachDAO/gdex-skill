@@ -162,6 +162,12 @@ import type {
   CloseOutcomeOrderParams,
 } from './actions/hlOutcomes';
 import {
+  fetchHlOutcomeVolumes,
+  attachOutcomeVolume,
+  outcomeSideCoins,
+} from './actions/hlOutcomeVolume';
+import type { OutcomeVolumeOptions } from './actions/hlOutcomeVolume';
+import {
   getHlReferralInfo,
   requestHlReferralClaim,
 } from './actions/hlReferral';
@@ -355,6 +361,13 @@ export type {
   CloseOutcomeOrderParams,
   OutcomeManagedCreds,
 } from './actions/hlOutcomes';
+export {
+  fetchHlOutcomeVolumes,
+  attachOutcomeVolume,
+  outcomeSideCoin,
+  outcomeSideCoins,
+} from './actions/hlOutcomeVolume';
+export type { OutcomeVolumeOptions } from './actions/hlOutcomeVolume';
 export type {
   HlReferralInfoParams,
   HlReferralClaimRequest,
@@ -1405,6 +1418,42 @@ export class GdexSkill {
 
   async getHlOutcomes(params: OutcomesListParams = {}): Promise<Record<string, unknown>> {
     return getHlOutcomes(this.client, params);
+  }
+
+  /**
+   * 24h notional volume (USD) per outcome coin, from the HyperLiquid WS `activeAssetCtx`
+   * feed — the only source that publishes `dayNtlVlm` for `#<outcomeId><sideIndex>` coins.
+   *
+   * @param coins - Outcome coin names (e.g. `["#1010", "#1011"]`).
+   */
+  async getHlOutcomeVolumes(
+    coins: string[],
+    options?: OutcomeVolumeOptions,
+  ): Promise<Record<string, number>> {
+    return fetchHlOutcomeVolumes(coins, options);
+  }
+
+  /**
+   * Outcome markets enriched with `volume24hUsd` per market (sum of its side coins'
+   * 24h volume from the HL WS feed). Same shape as {@link getHlOutcomes} with each
+   * `meta.outcomes[]` gaining `volume24hUsd`, plus a `coinVolumes` map.
+   */
+  async getHlOutcomesWithVolume(
+    params: OutcomesListParams = {},
+    options?: OutcomeVolumeOptions,
+  ): Promise<Record<string, unknown>> {
+    const res = await this.getHlOutcomes(params);
+    const data = ((res as { data?: unknown }).data ?? res) as {
+      meta?: { outcomes?: Array<Record<string, unknown>> };
+      mids?: Record<string, unknown>;
+    };
+    const outcomes = data?.meta?.outcomes ?? [];
+    const coinVolumes = await fetchHlOutcomeVolumes(outcomeSideCoins(outcomes), options);
+    const enriched = attachOutcomeVolume(outcomes, coinVolumes);
+    return {
+      ...res,
+      data: { ...data, meta: { ...data.meta, outcomes: enriched }, coinVolumes },
+    };
   }
 
   async getHlOutcomeAccount(params: OutcomeAccountParams): Promise<Record<string, unknown>> {
