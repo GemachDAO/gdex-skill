@@ -25,6 +25,7 @@ export function registerPerpTradeTools(server: McpServer): void {
       tpPrice: z.string().optional().default('').describe("Take-profit price in USD, '' to skip"),
       slPrice: z.string().optional().default('').describe("Stop-loss price in USD, '' to skip"),
       isMarket: z.boolean().optional().default(true).describe('True for market order, false for limit'),
+      leverage: z.number().optional().describe('Leverage 1-50 (sent top-level; HL defaults to 20x if omitted)'),
     },
     async (params) => handleToolCall(async () => {
       const sdk = getSdk();
