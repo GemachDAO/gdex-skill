@@ -21,57 +21,58 @@ Trade perpetual futures on HyperLiquid through GDEX managed-custody. Supports lo
 - Authenticated via `loginWithApiKey()` — see **gdex-authentication**
 - USDC deposited to HyperLiquid — see **gdex-perp-funding**
 
-## Open a Position
+## Open a Position (managed custody)
+
+Perp orders go through `hlCreateOrder` after a managed sign-in. There is **no**
+`openPerpPosition`/`closePerpPosition`/`setPerpLeverage` — those don't exist. The
+real flow:
 
 ```typescript
 import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+// ... do the managed sign-in (see gdex-authentication) to get sessionPrivateKey ...
+const creds = { apiKey, walletAddress: controlAddress, sessionPrivateKey };
 
-const skill = new GdexSkill();
-skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
-
-const pos = await skill.openPerpPosition({
-  coin: 'BTC',                // asset symbol
-  side: 'long',               // 'long' or 'short'
-  sizeUsd: '1000',            // collateral in USD
-  leverage: 10,               // 1–50× (default: 5)
-  takeProfitPrice: '110000',  // optional TP
-  stopLossPrice: '95000',     // optional SL
-  marginMode: 'cross',        // 'cross' or 'isolated' (default: 'cross')
+const res = await skill.hlCreateOrder({
+  coin: 'ETH',           // 'BTC'|'ETH'|'SOL'… or a builder market 'xyz:NVDA' (lowercase dex prefix)
+  isLong: true,
+  price: String(mark),   // mark price; for market orders this is the slippage bound
+  size: '0.05',          // size in CONTRACTS (coin units), not USD
+  isMarket: true,
+  tpPrice: String(tp),   // '' to skip
+  slPrice: String(sl),   // '' to skip
+  leverage: 3,           // 1–50; see below
+  ...creds,
 });
 ```
 
+**Leverage is supported** and is sent as a **top-level field** in the order
+request (the SDK forwards it for you). Verified: setting `leverage: 3` opens at
+3× (liquidation at the matching buffer) instead of HL's 20× default.
+
+> The standalone `/hl/update_leverage` endpoint (`hlUpdateLeverage`) is **404 — do
+> not use it.** Leverage is set as part of the order via the `leverage` field above.
+
 ## Close a Position
 
-```typescript
-// Close 100% (default)
-await skill.closePerpPosition({ coin: 'BTC' });
-
-// Partial close
-await skill.closePerpPosition({ coin: 'ETH', closePercent: 50 });
-```
-
-## Set / Update Leverage
-
-> **WARNING:** The `hlUpdateLeverage` / `/v1/hl/update_leverage` endpoint **is not implemented** on the backend (returns 404). Leverage is set automatically when the backend executes orders — it calls `setMaxLeverage()` internally before each trade. You can control effective leverage through position sizing relative to your account balance.
+Close with a reduce-only order (the opposite side, full size), or close everything:
 
 ```typescript
-// Simple (may not work — backend endpoint not implemented)
-await skill.setPerpLeverage({ coin: 'BTC', leverage: 20 });
+await skill.hlCreateOrder({ coin: 'ETH', isLong: false, price: String(mark),
+  size: String(positionSize), reduceOnly: true, isMarket: true, tpPrice: '', slPrice: '', ...creds });
 
-// Via HL managed-custody (ENDPOINT NOT IMPLEMENTED — returns 404)
-// await skill.hlUpdateLeverage({
-//   coin: 'BTC',
-//   leverage: 40,
-//   isCross: true,
-//   apiKey,
-//   walletAddress,  // control address, not managed
-//   sessionPrivateKey,
-// });
-
-// ✅ Leverage is set automatically by the backend before each order.
-// Control effective leverage via position sizing:
-//   10 USDC balance, 0.001 BTC @ $67k = ~$67 notional → ~6.7x effective leverage
+await skill.hlCloseAll({ ...creds }); // close all positions
 ```
+
+Note HL's **$11 minimum order value** applies to closes too — you can't reduce a
+sub-$11 remainder; add to it first or let the stop close it.
+
+## Builder / HIP-3 markets (stocks, commodities)
+
+Builder-dex assets are named `dex:ASSET` with a **lowercase** dex prefix
+(`xyz:NVDA`, `flx:OIL`). Pass the coin in that exact form. Each builder dex uses
+its own collateral token (e.g. HYNA → USDE), so swap collateral to that token
+(`hlSwapCollateral`) before trading it. The account must be a **unified account**
+(`hlEnableTrading`) to use shared margin across dexes.
 
 ## Query Positions & Account State
 
