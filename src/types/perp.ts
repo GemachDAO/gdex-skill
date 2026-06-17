@@ -124,6 +124,10 @@ export interface HlCreateOrderParams extends HlManagedCredentials {
   slPrice?: string;
   /** True for market order, false for limit order */
   isMarket?: boolean;
+  /** Margin mode. Use 'isolated' to set per-position leverage. */
+  marginMode?: 'cross' | 'isolated';
+  /** Leverage for the position (1–50). Honored on isolated-margin orders. */
+  leverage?: number;
 }
 
 /**
