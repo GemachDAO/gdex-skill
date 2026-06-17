@@ -1084,8 +1084,16 @@ export class GdexSkill {
     return getHlAllAssets(this.client);
   }
 
-  /** Clearinghouse state for a user on a DEX (no auth). */
-  async getHlClearinghouseState(userAddress: string): Promise<unknown> {
+  /**
+   * Clearinghouse state for a user on a DEX (no auth).
+   *
+   * Pass a plain address for the default dex, or `{ userAddress, dex }` to read a
+   * builder/HIP-3 dex (e.g. `dex: 'xyz'`) — builder positions are not visible on
+   * the default query.
+   */
+  async getHlClearinghouseState(
+    userAddress: string | { userAddress: string; dex?: string },
+  ): Promise<unknown> {
     return getHlClearinghouseState(this.client, userAddress);
   }
 

@@ -61,13 +61,14 @@ export function registerHlCopyTradeTools(server: McpServer): void {
 
   server.tool(
     'get_hl_clearinghouse_state',
-    'Get account state (positions, margin) on a specific HyperLiquid DEX. No auth.',
+    'Get account state (positions, margin) on a HyperLiquid DEX. No auth. Builder/HIP-3 positions (e.g. xyz:NVDA) live under their own dex — pass `dex` ("xyz") to see them. The default query does NOT show builder positions; an open builder position will look empty without `dex`.',
     {
       userAddress: z.string().describe('EVM wallet address'),
+      dex: z.string().optional().describe('Builder/HIP-3 dex prefix, e.g. "xyz". Omit for the default USDC dex.'),
     },
-    async ({ userAddress }) => handleToolCall(async () => {
+    async ({ userAddress, dex }) => handleToolCall(async () => {
       const sdk = getSdk();
-      return sdk.getHlClearinghouseState(userAddress);
+      return sdk.getHlClearinghouseState(dex ? { userAddress, dex } : userAddress);
     }),
   );
 
