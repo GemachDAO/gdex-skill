@@ -69,10 +69,22 @@ sub-$11 remainder; add to it first or let the stop close it.
 ## Builder / HIP-3 markets (stocks, commodities)
 
 Builder-dex assets are named `dex:ASSET` with a **lowercase** dex prefix
-(`xyz:NVDA`, `flx:OIL`). Pass the coin in that exact form. Each builder dex uses
-its own collateral token (e.g. HYNA → USDE), so swap collateral to that token
-(`hlSwapCollateral`) before trading it. The account must be a **unified account**
-(`hlEnableTrading`) to use shared margin across dexes.
+(`xyz:NVDA`, `xyz:SPCX`, `flx:OIL`). Pass the coin in that exact form (the SDK
+normalizes casing). They trade through the same `hlCreateOrder` flow as default
+markets and honor the `leverage` you pass (live-confirmed: `xyz` stock perps open
+at **3× isolated**, not 20×).
+
+**Collateral depends on the dex.** The `xyz` stock/commodity perps are
+**USDC-collateralized and 24-hour** — no collateral swap needed; trade them with
+your existing HL USDC. Only dexes that settle in a different token (e.g. HYNA →
+USDE) need `hlSwapCollateral` first. The account must be a **unified account**
+(`hlEnableTrading`) to share margin across dexes.
+
+**Reading builder positions is dex-scoped.** A `xyz:NVDA` position lives under the
+`xyz` dex's isolated account, **not** the default clearinghouse — query
+`getHlClearinghouseState({ userAddress, dex: 'xyz' })`. The default query (and
+`getHlClearinghouseStateAll`, which omits `xyz`) returns it empty, which looks
+like "the order never filled" when it actually did.
 
 ## Query Positions & Account State
 
