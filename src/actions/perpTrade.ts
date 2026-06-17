@@ -27,6 +27,21 @@ import {
 import { validateAmount, validateCoin, validateRequired } from '../utils/validation';
 import { buildHlComputedData } from '../utils/gdexManagedCrypto';
 
+/**
+ * Normalize a coin symbol for HyperLiquid.
+ *
+ * Builder-DEX (HIP-3) assets are named `dex:ASSET` where the DEX prefix is
+ * LOWERCASE (e.g. `xyz:NVDA`, `flx:OIL`). Uppercasing the whole symbol
+ * (`XYZ:NVDA`) makes HL reject the order — the asset isn't found. So for
+ * `dex:ASSET` symbols we lowercase the DEX and uppercase only the asset; plain
+ * coins are uppercased as before.
+ */
+export function normalizeCoin(coin: string): string {
+  const i = coin.indexOf(':');
+  if (i === -1) return coin.toUpperCase();
+  return coin.slice(0, i).toLowerCase() + ':' + coin.slice(i + 1).toUpperCase();
+}
+
 // Lazy-load @gdexsdk/hyper-liquid-trader to avoid CJS/ESM incompatibility
 // with @noble/hashes v2 (ESM-only) on Node < 22.
 // In production: dynamic import() preserves ESM semantics in CJS output.
@@ -135,7 +150,7 @@ export async function getPerpPositions(params: GetPositionsParams): Promise<Perp
 export async function getHlMarkPrice(coin: string): Promise<number> {
   validateCoin(coin);
   const trader = await getHlTrader();
-  const price = await trader.getMidPrice(coin.toUpperCase());
+  const price = await trader.getMidPrice(normalizeCoin(coin));
   return price ?? 0;
 }
 
@@ -182,7 +197,7 @@ export async function getHlTraderLeverageContext(traderWallet: string, coin: str
   validateRequired(traderWallet, 'traderWallet');
   validateCoin(coin);
   const trader = await getHlTrader();
-  return trader.getTraderLeverageContext(traderWallet, coin.toUpperCase());
+  return trader.getTraderLeverageContext(traderWallet, normalizeCoin(coin));
 }
 
 /**
@@ -227,7 +242,7 @@ export async function hlExecuteCrossPerp(
   const trader = await getHlTrader();
   return trader.executeCrossPerp(privateKey, {
     ...params,
-    coin: params.coin.toUpperCase(),
+    coin: normalizeCoin(params.coin),
   }, isMarket);
 }
 
@@ -262,7 +277,7 @@ export async function hlExecuteIsolatedPerp(
   const trader = await getHlTrader();
   return trader.executeIsolatedPerp(privateKey, {
     ...params,
-    coin: params.coin.toUpperCase(),
+    coin: normalizeCoin(params.coin),
   }, isMarket);
 }
 
@@ -292,7 +307,7 @@ export async function hlExecuteSpot(
   const trader = await getHlTrader();
   return trader.executeSpot(privateKey, {
     ...params,
-    coin: params.coin.toUpperCase(),
+    coin: normalizeCoin(params.coin),
   }, isMarket);
 }
 
@@ -312,7 +327,7 @@ export async function hlDirectCancelOrder(
   validateRequired(privateKey, 'privateKey');
 
   const trader = await getHlTrader();
-  return trader.cancelOrder(privateKey, coin.toUpperCase(), oid);
+  return trader.cancelOrder(privateKey, normalizeCoin(coin), oid);
 }
 
 /**
@@ -410,7 +425,7 @@ export async function hlCreateOrder(client: GdexApiClient, params: HlCreateOrder
     walletAddress: params.walletAddress,
     sessionPrivateKey: params.sessionPrivateKey,
     actionParams: {
-      coin: params.coin.toUpperCase(),
+      coin: normalizeCoin(params.coin),
       isLong: params.isLong,
       price,
       size: params.size,
@@ -421,7 +436,12 @@ export async function hlCreateOrder(client: GdexApiClient, params: HlCreateOrder
     },
   });
 
-  return client.post<HlOrderResult>(Endpoints.HL_CREATE_ORDER, { computedData });
+  // Leverage is a TOP-LEVEL field in the request body (sibling of computedData),
+  // NOT inside the encrypted actionParams — this is how the backend reads it.
+  return client.post<HlOrderResult>(Endpoints.HL_CREATE_ORDER, {
+    computedData,
+    ...(params.leverage != null ? { leverage: params.leverage } : {}),
+  });
 }
 
 /**
@@ -439,7 +459,7 @@ export async function hlPlaceOrder(client: GdexApiClient, params: HlPlaceOrderPa
     walletAddress: params.walletAddress,
     sessionPrivateKey: params.sessionPrivateKey,
     actionParams: {
-      coin: params.coin.toUpperCase(),
+      coin: normalizeCoin(params.coin),
       isLong: params.isLong,
       price: params.price,
       size: params.size,
@@ -481,7 +501,7 @@ export async function hlCancelOrder(client: GdexApiClient, params: HlCancelOrder
     walletAddress: params.walletAddress,
     sessionPrivateKey: params.sessionPrivateKey,
     actionParams: {
-      coin: params.coin.toUpperCase(),
+      coin: normalizeCoin(params.coin),
       orderId: params.orderId,
     },
   });
@@ -521,7 +541,7 @@ export async function hlUpdateLeverage(client: GdexApiClient, params: HlUpdateLe
     walletAddress: params.walletAddress,
     sessionPrivateKey: params.sessionPrivateKey,
     actionParams: {
-      coin: params.coin.toUpperCase(),
+      coin: normalizeCoin(params.coin),
       leverage: params.leverage,
       isCross: params.isCross ?? true,
     },
