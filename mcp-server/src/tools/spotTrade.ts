@@ -16,6 +16,8 @@ export function registerSpotTradeTools(server: McpServer): void {
       referrer: z.string().optional().describe('Referral address'),
       priorityFee: z.number().optional().describe('Solana priority fee in SOL'),
       inputToken: z.string().optional().describe('Override input token address (default: native)'),
+      sessionPrivateKey: z.string().optional().describe('Managed-custody session private key (from sign-in). Required for EVM managed swaps — routes through the session-signed purchase_v2 flow.'),
+      apiKey: z.string().optional().describe('GDEX API key for managed-custody buys (with sessionPrivateKey).'),
     },
     async (params) => handleToolCall(async () => {
       const sdk = getSdk();

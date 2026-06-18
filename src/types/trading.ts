@@ -45,6 +45,15 @@ export interface BuyTokenParams {
    * Input token address. Defaults to native token of the chain.
    */
   inputToken?: string;
+  /**
+   * Managed-custody session private key (from sign-in). When present on an EVM
+   * chain, the buy is routed through the session-signed `purchase_v2` flow
+   * instead of the plain-param path (which the backend rejects for custody).
+   * `amount` is then the decimal native token to spend (e.g. "0.05" ETH).
+   */
+  sessionPrivateKey?: string;
+  /** GDEX API key — required (with `sessionPrivateKey`) for managed-custody buys. */
+  apiKey?: string;
 }
 
 /**
