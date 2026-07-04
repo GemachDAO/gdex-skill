@@ -15,7 +15,7 @@
     {
       "title": "Data & Discovery",
       "description": "Portfolio, balances, token details, trending, OHLCV, and livestream discovery.",
-      "skills": ["gdex-portfolio", "gdex-token-discovery", "gdex-livestream-discovery"]
+      "skills": ["gdex-portfolio", "gdex-token-discovery", "gdex-livestream-discovery", "gdex-wallet-forensics"]
     },
     {
       "title": "Copy Trading & Bridge",

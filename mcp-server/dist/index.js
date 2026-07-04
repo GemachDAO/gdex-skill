@@ -16,6 +16,7 @@ import { registerPortfolioTools } from './tools/portfolio.js';
 import { registerBridgeTools } from './tools/bridge.js';
 import { registerManagedTools } from './tools/managed.js';
 import { registerV110Tools } from './tools/v110.js';
+import { registerForensicsTools } from './tools/forensics.js';
 // Handle init command before starting server.
 // `npx -y github:GemachDAO/gdex-skill gdex-mcp-server init --client <c>` auto-selects
 // the single bin and forwards the bin name as the first arg, so look past a leading
@@ -294,6 +295,7 @@ registerPortfolioTools(server);
 registerBridgeTools(server);
 registerManagedTools(server);
 registerV110Tools(server);
+registerForensicsTools(server);
 // --- Start server ---
 const transport = new StdioServerTransport();
 await server.connect(transport);

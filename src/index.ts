@@ -92,6 +92,7 @@ import {
 import { getPortfolio, getBalances, getTradeHistory } from './actions/portfolio';
 import { getTokenDetails, getTrendingTokens, getOHLCV } from './actions/tokenInfo';
 import { getTopTraders } from './actions/topTraders';
+import { reverseEngineerWinners } from './actions/forensics';
 import { estimateBridge, requestBridge, getBridgeOrders } from './actions/bridge';
 import { getWalletInfo } from './actions/wallet';
 
@@ -315,6 +316,14 @@ export type {
 } from './types/bridge';
 export type { TopTrader, TopTradersParams, WalletInfo, WalletInfoParams } from './types/index';
 export type {
+  WinnerIntel,
+  WinnerScorecard,
+  WinnerUniverse,
+  AggregateFeature,
+  SkillComponents,
+  ReverseEngineerParams,
+} from './types/forensics';
+export type {
   GdexManagedSignInParams,
   GdexManagedUserQuery,
   GdexManagedSessionKeyPair,
@@ -517,6 +526,7 @@ import type {
   BridgeOrdersResponse,
 } from './types/bridge';
 import type { TopTrader, TopTradersParams, WalletInfo, WalletInfoParams } from './types/index';
+import type { ReverseEngineerParams, WinnerIntel } from './types/forensics';
 import type {
   GdexManagedSignInParams,
   GdexManagedUserQuery,
@@ -1100,6 +1110,20 @@ export class GdexSkill {
   /** Clearinghouse state across all DEXes (no auth). */
   async getHlClearinghouseStateAll(userAddress: string): Promise<unknown> {
     return getHlClearinghouseStateAll(this.client, userAddress);
+  }
+
+  /**
+   * Reverse-engineer skill-proven HyperLiquid wallets into forensic patterns.
+   *
+   * Reads the month PnL leaderboard (plus any curated watchlist), pulls each
+   * wallet's fills, filters uncopyable market-makers, and returns skill-vs-luck
+   * scorecards, hold-time/sizing asymmetry, and prevalence-gated aggregate edges.
+   * READ-ONLY — never trades, settles, or moves funds.
+   *
+   * @param params - optional `watchlist` of wallet addresses and `max` pull cap.
+   */
+  async reverseEngineerWinners(params?: ReverseEngineerParams): Promise<WinnerIntel> {
+    return reverseEngineerWinners(this.client, params);
   }
 
   /** Open orders on a DEX (no auth). */
