@@ -20,6 +20,7 @@ import {
 } from '../types';
 
 const DEFAULT_MAX = 12;
+const PULL_PACE_MS = 400;
 const AV_MIN = 50_000;
 const AV_MAX = 50_000_000;
 const TURNOVER_MAX = 20;
@@ -684,6 +685,11 @@ export function preFilter(month: BoardEntry[]): { survivors: BoardEntry[]; count
   return { survivors, counts };
 }
 
+/** Pause between per-wallet reads so HL's /info endpoint does not rate-limit (429) the burst. */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /** Normalize a candidate watchlist address (lowercased) or null. */
 function normalizeWatchAddr(value: unknown): string | null {
   if (typeof value !== 'string') return null;
@@ -787,7 +793,12 @@ export async function reverseEngineerWinners(
   counts.pulled_n = picked.length;
 
   const records: WalletRecord[] = [];
-  for (const entry of picked) records.push(await pullWallet(client, entry));
+  let first = true;
+  for (const entry of picked) {
+    if (!first) await sleep(PULL_PACE_MS);
+    first = false;
+    records.push(await pullWallet(client, entry));
+  }
 
   return decompose(records, counts);
 }
