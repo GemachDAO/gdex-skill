@@ -13,6 +13,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.9.0] - 2026-07-07
+
+### Added
+
+- **`get_hl_trade_history` `limit` param** (default 20, most recent first). The tool
+  previously returned the entire lifetime fill history — tens of thousands of low-signal
+  fields (~90KB in practice) that overflowed an agent's context. Now bounded.
+- **`get_hl_meta_and_asset_ctxs` `coins` filter.** Pass `coins: ["BTC","ETH"]` to return
+  only those assets instead of all ~231; each unfiltered call was a large context cost.
+
+### Changed
+
+- **MCP tool results serialize compact** (no 2-space indent). The pretty-print tax was
+  paid on every call and compounded with already-large payloads against the agent's
+  context budget.
+- **Tool failures now set `isError: true`** with a structured `{ error }` payload, so a
+  caller can branch on success/failure instead of string-matching; the stack trace is
+  logged server-side rather than shipped into the agent's context.
+
+### Fixed
+
+- **`close_perp_position` could not close short positions.** It hardcoded `isLong: false`
+  (with a false "reduce-only determines direction" comment), so closing a short submitted
+  a sell that could not reduce it — the primary risk-management tool silently failed for
+  half of all positions. Direction and size are now resolved from the live position.
+
 ## [4.5.0] - 2026-06-13
 
 ### Added
