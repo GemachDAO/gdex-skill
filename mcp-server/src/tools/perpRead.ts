@@ -78,13 +78,18 @@ export function registerPerpReadTools(server: McpServer): void {
 
   server.tool(
     'get_hl_trade_history',
-    'Get trade history on HyperLiquid for a wallet. No auth required.',
+    'Get recent trade history (fills) on HyperLiquid for a wallet, most recent first. '
+      + 'Bounded by `limit` (default 20) — full lifetime history can be tens of thousands '
+      + 'of fills. No auth required.',
     {
       walletAddress: z.string().describe('Wallet address to query'),
+      limit: z.number().int().positive().max(1000).optional()
+        .describe('Max fills to return, most recent first. Default 20.'),
     },
-    async ({ walletAddress }) => handleToolCall(async () => {
+    async ({ walletAddress, limit }) => handleToolCall(async () => {
       const sdk = getSdk();
-      return sdk.getHlTradeHistory(walletAddress);
+      const fills = await sdk.getHlTradeHistory(walletAddress);
+      return Array.isArray(fills) ? fills.slice(0, limit ?? 20) : fills;
     }),
   );
 

@@ -55,11 +55,12 @@ export async function expectMcpSuccess(
   expect(result.content[0]).toHaveProperty('type', 'text');
   expect(result.content[0]).toHaveProperty('text');
   // Should NOT be an error
-  expect(result.content[0].text).not.toMatch(/^❌ Error:/);
+  expect(result.isError).not.toBe(true);
   return JSON.parse(result.content[0].text);
 }
 
-/** Assert that the tool handler wraps errors in the MCP error format */
+/** Assert that the tool handler wraps errors in the MCP error format
+ * (isError:true + a structured JSON `{ error }` payload). */
 export async function expectMcpError(
   handler: (params: any) => Promise<any>,
   params: Record<string, unknown>,
@@ -67,10 +68,12 @@ export async function expectMcpError(
 ): Promise<string> {
   const result = await handler(params);
   expect(result).toHaveProperty('content');
+  expect(result.isError).toBe(true);
   expect(result.content[0]).toHaveProperty('type', 'text');
-  expect(result.content[0].text).toMatch(/^❌ Error:/);
+  const parsed = JSON.parse(result.content[0].text) as { error: string };
+  expect(parsed).toHaveProperty('error');
   if (errorMessageSubstr) {
-    expect(result.content[0].text).toContain(errorMessageSubstr);
+    expect(parsed.error).toContain(errorMessageSubstr);
   }
-  return result.content[0].text;
+  return parsed.error;
 }

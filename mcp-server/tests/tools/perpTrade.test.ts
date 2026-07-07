@@ -12,11 +12,11 @@ jest.unstable_mockModule('../../src/sdk.js', () => ({
   handleToolCall: jest.fn(async (fn: () => Promise<any>) => {
     try {
       const result = await fn();
-      const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+      const text = typeof result === 'string' ? result : JSON.stringify(result);
       return { content: [{ type: 'text' as const, text }] };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      return { content: [{ type: 'text' as const, text: `❌ Error: ${message}` }] };
+      return { isError: true, content: [{ type: 'text' as const, text: JSON.stringify({ error: message }) }] };
     }
   }),
 }));
@@ -115,19 +115,31 @@ describe('Perp Trade Tools', () => {
   });
 
   describe('close_perp_position', () => {
-    it('should call hlCreateOrder with reduceOnly=true and isLong=false', async () => {
+    it('closes a LONG with a reduce-only SELL (isLong=false), defaulting size to the position', async () => {
+      mockSdk.getPerpPositions.mockResolvedValue([{ coin: 'BTC', side: 'long', size: '0.1' }]);
       mockSdk.hlCreateOrder.mockResolvedValue({ status: 'closed' });
       const tool = getTools().get('close_perp_position')!;
-      const params = { ...hlCreds, coin: 'BTC', size: '0.1', price: '50000' };
-      await expectMcpSuccess(tool.handler, params);
+      await expectMcpSuccess(tool.handler, { ...hlCreds, coin: 'BTC' });
       expect(mockSdk.hlCreateOrder).toHaveBeenCalledWith(expect.objectContaining({
-        coin: 'BTC',
-        isLong: false,
-        reduceOnly: true,
-        isMarket: true,
-        tpPrice: '',
-        slPrice: '',
+        coin: 'BTC', isLong: false, size: '0.1', reduceOnly: true, isMarket: true,
       }));
+    });
+
+    it('closes a SHORT with a reduce-only BUY (isLong=true) — the bug that silently failed', async () => {
+      mockSdk.getPerpPositions.mockResolvedValue([{ coin: 'ETH', side: 'short', size: '2' }]);
+      mockSdk.hlCreateOrder.mockResolvedValue({ status: 'closed' });
+      const tool = getTools().get('close_perp_position')!;
+      await expectMcpSuccess(tool.handler, { ...hlCreds, coin: 'ETH' });
+      expect(mockSdk.hlCreateOrder).toHaveBeenCalledWith(expect.objectContaining({
+        coin: 'ETH', isLong: true, size: '2', reduceOnly: true, isMarket: true,
+      }));
+    });
+
+    it('returns a clean error when there is no open position for the coin', async () => {
+      mockSdk.getPerpPositions.mockResolvedValue([]);
+      const tool = getTools().get('close_perp_position')!;
+      await expectMcpError(tool.handler, { ...hlCreds, coin: 'SOL' }, 'no open SOL position');
+      expect(mockSdk.hlCreateOrder).not.toHaveBeenCalled();
     });
   });
 

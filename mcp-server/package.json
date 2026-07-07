@@ -1,7 +1,7 @@
 {
   "name": "@gdexsdk/mcp-server",
-  "version": "4.8.0",
-  "description": "MCP server for GDEX Trading SDK — full trading execution + documentation tools for AI agents on HyperLiquid, Solana, and 15+ chains",
+  "version": "4.9.0",
+  "description": "MCP server for GDEX Trading SDK \u2014 full trading execution + documentation tools for AI agents on HyperLiquid, Solana, and 15+ chains",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

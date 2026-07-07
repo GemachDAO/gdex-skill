@@ -14,11 +14,11 @@ jest.unstable_mockModule('../../src/sdk.js', () => ({
   handleToolCall: jest.fn(async (fn: () => Promise<any>) => {
     try {
       const result = await fn();
-      const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+      const text = typeof result === 'string' ? result : JSON.stringify(result);
       return { content: [{ type: 'text' as const, text }] };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      return { content: [{ type: 'text' as const, text: `❌ Error: ${message}` }] };
+      return { isError: true, content: [{ type: 'text' as const, text: JSON.stringify({ error: message }) }] };
     }
   }),
 }));
@@ -120,6 +120,25 @@ describe('HL Copy Trade Tools', () => {
       mockSdk.getHlMetaAndAssetCtxs.mockResolvedValue({ meta: {}, assetCtxs: [] });
       const tool = getTools().get('get_hl_meta_and_asset_ctxs')!;
       await expectMcpSuccess(tool.handler, {});
+    });
+
+    it('filters the universe + ctxs to the requested coins, index-aligned', async () => {
+      mockSdk.getHlMetaAndAssetCtxs.mockResolvedValue([
+        { universe: [{ name: 'BTC' }, { name: 'ETH' }, { name: 'SOL' }] },
+        [{ markPx: '1' }, { markPx: '2' }, { markPx: '3' }],
+      ]);
+      const tool = getTools().get('get_hl_meta_and_asset_ctxs')!;
+      const [meta, ctxs] = await expectMcpSuccess(tool.handler, { coins: ['btc', 'SOL'] });
+      expect(meta.universe.map((u: { name: string }) => u.name)).toEqual(['BTC', 'SOL']);
+      expect(ctxs).toEqual([{ markPx: '1' }, { markPx: '3' }]); // ETH's ctx dropped with ETH
+    });
+
+    it('returns the full result unchanged when no coins are given', async () => {
+      const full = [{ universe: [{ name: 'BTC' }] }, [{ markPx: '1' }]];
+      mockSdk.getHlMetaAndAssetCtxs.mockResolvedValue(full);
+      const tool = getTools().get('get_hl_meta_and_asset_ctxs')!;
+      const res = await expectMcpSuccess(tool.handler, {});
+      expect(res).toEqual(full);
     });
   });
 

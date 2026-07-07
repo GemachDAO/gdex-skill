@@ -53,18 +53,35 @@ export function registerPerpTradeTools(server: McpServer): void {
 
   server.tool(
     'close_perp_position',
-    'Close a specific perp position using a reduce-only market order.',
+    'Close a specific perp position with a reduce-only market order. Direction and size '
+      + 'are resolved from the open position, so closing a SHORT correctly submits a buy.',
     {
       ...hlCredentials,
       coin: z.string().describe('Asset symbol to close'),
-      size: z.string().describe('Size to close (use full position size for 100% close)'),
-      price: z.string().describe('Price for the close order'),
+      size: z.string().optional().describe('Size to close; defaults to the full open position'),
+      price: z.string().optional().describe('Limit price; omit for a market close'),
     },
     async (params) => handleToolCall(async () => {
       const sdk = getSdk();
+      // Resolve the live position: a reduce-only order to close a LONG is a SELL (isLong
+      // false) and to close a SHORT is a BUY (isLong true). Hardcoding isLong:false made
+      // close_perp_position silently fail for every short position.
+      const positions = await sdk.getPerpPositions({
+        walletAddress: params.walletAddress,
+        coin: params.coin,
+      });
+      const pos = positions.find((p) => p.coin.toUpperCase() === params.coin.toUpperCase());
+      if (!pos) {
+        throw new Error(`no open ${params.coin} position to close`);
+      }
       return sdk.hlCreateOrder({
-        ...params,
-        isLong: false, // direction is determined by reduceOnly
+        apiKey: params.apiKey,
+        walletAddress: params.walletAddress,
+        sessionPrivateKey: params.sessionPrivateKey,
+        coin: params.coin,
+        size: params.size ?? pos.size,
+        price: params.price ?? '',
+        isLong: pos.side === 'short',
         reduceOnly: true,
         isMarket: true,
         tpPrice: '',
