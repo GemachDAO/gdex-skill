@@ -74,11 +74,29 @@ export function registerHlCopyTradeTools(server: McpServer): void {
 
   server.tool(
     'get_hl_meta_and_asset_ctxs',
-    'Get market metadata and asset contexts from HyperLiquid. No auth.',
-    {},
-    async () => handleToolCall(async () => {
+    'Get market metadata and asset contexts from HyperLiquid. Pass `coins` to return only '
+      + 'those assets instead of all ~231 (each unfiltered call is a large context cost). No auth.',
+    {
+      coins: z.array(z.string()).optional()
+        .describe('Optional: only these assets, e.g. ["BTC","ETH","SOL"]. Omit for all.'),
+    },
+    async ({ coins }) => handleToolCall(async () => {
       const sdk = getSdk();
-      return sdk.getHlMetaAndAssetCtxs();
+      const result = await sdk.getHlMetaAndAssetCtxs();
+      if (!coins?.length || !Array.isArray(result) || result.length < 2) {
+        return result;
+      }
+      const [meta, ctxs] = result as [{ universe: Array<{ name: string }> }, unknown[]];
+      const want = new Set(coins.map((c) => c.toUpperCase()));
+      const universe: Array<{ name: string }> = [];
+      const keptCtxs: unknown[] = [];
+      meta.universe.forEach((u, i) => {
+        if (want.has(u.name.toUpperCase())) {
+          universe.push(u);
+          keptCtxs.push(ctxs[i]);
+        }
+      });
+      return [{ ...meta, universe }, keptCtxs];
     }),
   );
 
