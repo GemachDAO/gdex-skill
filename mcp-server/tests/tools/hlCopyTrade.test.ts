@@ -14,11 +14,11 @@ jest.unstable_mockModule('../../src/sdk.js', () => ({
   handleToolCall: jest.fn(async (fn: () => Promise<any>) => {
     try {
       const result = await fn();
-      const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+      const text = typeof result === 'string' ? result : JSON.stringify(result);
       return { content: [{ type: 'text' as const, text }] };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      return { content: [{ type: 'text' as const, text: `❌ Error: ${message}` }] };
+      return { isError: true, content: [{ type: 'text' as const, text: JSON.stringify({ error: message }) }] };
     }
   }),
 }));
