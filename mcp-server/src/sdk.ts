@@ -20,22 +20,29 @@ export function getSdk(): GdexSkill {
   return _sdk;
 }
 
-/** Wraps an async handler to normalize errors into MCP text responses */
+/** Wraps an async handler to normalize results and errors into MCP responses.
+ *
+ * Results are serialized COMPACT (no 2-space indent) — the pretty-print tax was paid on
+ * every call, compounding with already-large payloads against the model's context budget.
+ * Failures set `isError: true` (so a caller can branch on success/failure instead of
+ * string-matching) and return a structured `{ error }` payload; the stack is logged
+ * server-side, never shipped into the model's context.
+ */
 export async function handleToolCall<T>(
   fn: () => Promise<T>,
-): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
+): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
   try {
     const result = await fn();
-    const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+    const text = typeof result === 'string' ? result : JSON.stringify(result);
     return { content: [{ type: 'text' as const, text }] };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack : undefined;
+    if (err instanceof Error && err.stack) {
+      console.error(err.stack);
+    }
     return {
-      content: [{
-        type: 'text' as const,
-        text: `❌ Error: ${message}${stack ? `\n\nStack: ${stack}` : ''}`,
-      }],
+      isError: true,
+      content: [{ type: 'text' as const, text: JSON.stringify({ error: message }) }],
     };
   }
 }

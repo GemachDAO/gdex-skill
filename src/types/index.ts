@@ -11,6 +11,7 @@ export * from './copyTrade';
 export * from './hlCopyTrade';
 export * from './bridge';
 export * from './managed';
+export * from './forensics';
 
 /**
  * Top trader information (as returned by /v1/copy_trade/top_traders).
