@@ -223,7 +223,7 @@ traders.forEach(t => console.log(`  ${t.name || t.wallet_address}: $${t.realized
 
 ### Chain Parameter Must Be Numeric
 
-All token discovery endpoints (`getOHLCV`, `getTopTraders`, `getTrendingTokens`, `getTokenDetails`) require **numeric** `chainId`, not string `chain`. Use `622112261` for Solana, `8453` for Base, etc.
+All token discovery endpoints (`getOHLCV`, `getTopTraders`, `getTrendingTokens`, `getTokenDetails`) require **numeric** `chainId`, not string `chain`. Use `622112261` for Solana, `8453` for Base, `4663` for Robinhood Chain, etc.
 
 ```typescript
 // ✅ Correct

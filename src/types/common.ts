@@ -24,6 +24,8 @@ export enum ChainId {
   FRAXTAL = 252,
   /** zkSync Era */
   ZKSYNC = 324,
+  /** Robinhood Chain (Arbitrum Orbit) */
+  ROBINHOOD = 4663,
   /** Nibiru */
   NIBIRU = 6900,
   /** Linea */
@@ -56,6 +58,7 @@ export type SupportedDex =
   | 'cetus'
   | 'bluefin'
   | 'odos'
+  | 'kyberswap'
   | 'arcadia'
   | 'pancakeswap';
 

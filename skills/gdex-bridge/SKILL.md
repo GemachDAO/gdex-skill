@@ -183,6 +183,8 @@ Controlled by backend `config.bridgeSupportedChainIds`. Known supported:
 | Base | `8453` |
 | Arbitrum | `42161` |
 | Berachain | `80094` |
+
+> Robinhood Chain (`4663`) is tradeable but **not bridgeable** — fund it externally.
 | Solana | `622112261` |
 | Sui | `1313131213` |
 

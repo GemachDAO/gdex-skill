@@ -41,7 +41,7 @@ const trade = await skill.buyToken({
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `chain` | `string \| ChainId` | Yes | `'solana'`, `'sui'`, or ChainId number (1=Ethereum, 8453=Base, 42161=Arbitrum, 56=BSC, **622112261=Solana**) |
+| `chain` | `string \| ChainId` | Yes | `'solana'`, `'sui'`, or ChainId number (1=Ethereum, 8453=Base, 42161=Arbitrum, 56=BSC, 4663=Robinhood Chain, **622112261=Solana**) |
 
 > **Critical:** The Solana numeric chainId is `622112261` (`ChainId.SOLANA`), NOT `900`. Using `900` returns the EVM managed address with `balance: null`. The `/v1/user` endpoint returns a different managed wallet per chainId (e.g. `CFSi4Y...` for Solana, `0x9967...` for EVM). |
 | `tokenAddress` | `string` | Yes | Contract address of the token to buy |
@@ -144,6 +144,7 @@ if (result.requestId) {
 | Sui | Cetus, Bluefin |
 | Ethereum | Uniswap v2, Uniswap v3, Odos |
 | Base | Uniswap v3, Odos, Arcadia |
+| Robinhood Chain | Uniswap v2, KyberSwap aggregator |
 | Arbitrum | Uniswap v3, Odos |
 | BSC | PancakeSwap, Odos |
 | Optimism | Uniswap v3, Odos |
