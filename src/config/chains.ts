@@ -243,6 +243,20 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     blockTime: 2,
   },
 
+  // ── Robinhood Chain ───────────────────────────────────────────────────────
+  [ChainId.ROBINHOOD]: {
+    id: ChainId.ROBINHOOD,
+    name: 'Robinhood Chain',
+    nativeToken: 'ETH',
+    nativeDecimals: 18,
+    nativeTokenAddress: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
+    supportedDexes: ['uniswap-v2', 'kyberswap'],
+    supportsPerpTrading: false,
+    supportsBridging: false,
+    explorerUrl: 'https://robinhoodchain.blockscout.com',
+    blockTime: 1,
+  },
+
   // ── Scroll ────────────────────────────────────────────────────────────────
   [ChainId.SCROLL]: {
     id: ChainId.SCROLL,

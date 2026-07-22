@@ -62,6 +62,7 @@ const trade = await skill.buyToken({
 | BSC | `56` | PancakeSwap, Odos | — | Yes |
 | Sonic | `146` | — | — | Yes |
 | Fraxtal | `252` | Uniswap v3 | — | Yes |
+| Robinhood Chain | `4663` | Uniswap v2, KyberSwap | — | No |
 | Nibiru | `6900` | — | — | Yes |
 | Base | `8453` | Uniswap v3, Odos, Arcadia | — | Yes |
 | Arbitrum | `42161` | Uniswap v3, Odos | — | Yes |
