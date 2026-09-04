@@ -32,7 +32,7 @@ You're welcome.
 | E2E live tests | 39/42 (3 failures = backend's problem, not ours) |
 | Supported chains | 11 spot + HyperLiquid perps |
 | Skills | 27 |
-| MCP tools | 116 |
+| MCP tools | 116 (108 execution + 8 documentation) |
 | Time to build | 48 hours |
 | Coffees consumed | classified |
 
@@ -112,7 +112,7 @@ Cross-chain balances, trade history, positions — your agent sees everything. A
 
 **3. Built for autonomous agents.** Every SKILL.md file has an "Autonomous Agent Playbook" section. Error recovery. Backend quirk documentation. Your agent knows that `hlCloseAll` is unreliable and to use reduce-only orders instead. It knows Meteora swaps are broken and to route through Raydium. This isn't a tutorial — it's battle intelligence.
 
-**4. MCP Server included.** Claude Desktop, Cursor, VS Code — one command and your agent has all 116 GDEX tools available.
+**4. MCP Server included.** Claude Desktop, Cursor, VS Code — one command and your agent has all 116 GDEX tools available (108 execution + 8 documentation).
 
 ```bash
 npx @gdexsdk/mcp-server init --client claude
@@ -233,7 +233,7 @@ For MCP-compatible agents (Claude, Cursor, VS Code):
 npx @gdexsdk/mcp-server init --client claude
 ```
 
-That's it. Your agent now has access to 116 trading tools.
+That's it. Your agent now has access to 116 tools (108 execution + 8 documentation).
 
 ---
 
