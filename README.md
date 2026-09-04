@@ -1,1 +1,1 @@
-PLACEHOLDER_WILL_FAIL
+file:///workspace/gdex-growth/canonical/gdex-skill-README.md
