@@ -1,6 +1,6 @@
 # We Gave an AI Agent a Crypto Wallet. It Didn't Lose the Seed Phrase.
 
-### *Introducing GDEX Skill — the SDK that lets your AI agent trade crypto across 17 chains while you touch grass*
+### *Introducing GDEX Skill — the agent SDK for [GDEX Pro](https://gdex.pro). Your AI agent trades crypto across 11 chains (and HyperLiquid perps) while you touch grass*
 
 ---
 
@@ -14,9 +14,9 @@ Let's be real. Most "AI crypto" projects are just a ChatGPT wrapper that tells y
 
 We woke up and chose violence.
 
-**GDEX Skill** is a production-grade TypeScript SDK that gives AI agents — Claude, GPT, Cursor, your custom homebrew frankenstein — the ability to actually *trade*. Not "here's what I think you should do." Not "I recommend diversifying." We mean **execute the trade, manage the position, check the P&L, and close when it's time.**
+**GDEX Skill** is the production-grade agent SDK for [GDEX Pro](https://gdex.pro). It gives AI agents — Claude, GPT, Cursor, your custom homebrew frankenstein — the ability to actually *trade*. Not "here's what I think you should do." Not "I recommend diversifying." We mean **execute the trade, manage the position, check the P&L, and close when it's time.**
 
-And we did it in 48 hours. 32,537 lines of code. 91 passing tests. 19 skills. From an empty README to a full autonomous trading brain.
+And we did it in 48 hours. 32,537 lines of code. 103 passing tests. 27 skills. From an empty README to a full autonomous trading brain.
 
 You're welcome.
 
@@ -28,11 +28,11 @@ You're welcome.
 |------|-------|
 | Lines of code | 32,537 |
 | Test suites | 7 |
-| Passing tests | 91/91 |
+| Passing tests | 103/103 |
 | E2E live tests | 39/42 (3 failures = backend's problem, not ours) |
-| Supported chains | 17 |
-| Trading skills | 19 |
-| MCP tools | 8 |
+| Supported chains | 11 spot + HyperLiquid perps |
+| Skills | 27 |
+| MCP tools | 116 |
 | Time to build | 48 hours |
 | Coffees consumed | classified |
 
@@ -40,9 +40,9 @@ You're welcome.
 
 ## What Can Your Agent Actually Do?
 
-### 🔥 Spot Trade Across 17 Chains
+### 🔥 Spot Trade Across 11 Chains
 
-Solana, Ethereum, Arbitrum, Base, BSC, Polygon, Avalanche, Optimism, zkSync, Linea, Scroll, Blast, Sonic, Fraxtal, Nibiru, Berachain, Sui. Your agent can buy and sell tokens on all of them. With DEX routing. Automatically.
+Ethereum, Optimism, BSC, Sonic, Fraxtal, Nibiru, Base, Arbitrum, Berachain, Solana, Sui. Your agent can buy and sell tokens on all of them. With DEX routing. Automatically. Perps live on HyperLiquid — because of course they do.
 
 ```typescript
 const sdk = new GdexSkill();
@@ -100,7 +100,7 @@ Move tokens between chains. Your agent doesn't care about bridges being "scary" 
 
 ### 💼 Portfolio Management
 
-Cross-chain balances, trade history, positions — your agent sees everything. Across all 17 chains. In one call.
+Cross-chain balances, trade history, positions — your agent sees everything. Across all 11 spot chains. In one call.
 
 ---
 
@@ -112,14 +112,14 @@ Cross-chain balances, trade history, positions — your agent sees everything. A
 
 **3. Built for autonomous agents.** Every SKILL.md file has an "Autonomous Agent Playbook" section. Error recovery. Backend quirk documentation. Your agent knows that `hlCloseAll` is unreliable and to use reduce-only orders instead. It knows Meteora swaps are broken and to route through Raydium. This isn't a tutorial — it's battle intelligence.
 
-**4. MCP Server included.** Claude Desktop, Cursor, VS Code — one command and your agent has all 8 GDEX tools available.
+**4. MCP Server included.** Claude Desktop, Cursor, VS Code — one command and your agent has all 116 GDEX tools available.
 
 ```bash
 npx @gdexsdk/mcp-server init --client claude
 # Done. Your Claude can now trade crypto. Sleep tight.
 ```
 
-**5. 19 modular skills.** Agent only needs spot trading? Load one skill. Need the full arsenal? Load them all. No bloat.
+**5. 27 modular skills.** Agent only needs spot trading? Load one skill. Need the full arsenal? Load them all. No bloat.
 
 ---
 
@@ -145,7 +145,7 @@ An agent that uses `getCopyTradeWallets()` to find top Solana traders, analyzes 
 
 ### 3. 📊 The Cross-Chain Arbitrage Scanner
 
-17 chains. Same tokens, different prices. Your agent bridges assets when spreads appear, catches the arb, and bridges back. It uses `estimateBridge()` to check if the arb is even worth the gas.
+11 spot chains. Same tokens, different prices. Your agent bridges assets when spreads appear, catches the arb, and bridges back. It uses `estimateBridge()` to check if the arb is even worth the gas.
 
 **Stack:** GDEX Skill + price feed + bridge module
 **Difficulty:** Hard (but satisfying)
@@ -179,15 +179,23 @@ For the engineers who want to know how the sausage is made:
 - **Dynamic ESM import** — works on Node 18, 20, and 22 without the ESM/CJS hell that plagues every other crypto SDK
 - **CI/CD on GitHub Actions** — build matrix across 3 Node versions, lint, test, skill validation, MCP server build
 - **Automated releases** — one click in GitHub: pick patch/minor/major, version bumps everywhere, git tag, GitHub Release with artifacts
-- **91 unit tests** — every action function, crypto helper, and wallet generator is tested
+- **103 unit tests** — every action function, crypto helper, and wallet generator is tested
 - **39/42 live E2E** — tested against production endpoints with real transactions
 
 ---
 
 ## Getting Started Takes 30 Seconds
 
+Install the agent skills (Claude, Cursor, Codex, and 40+ others):
+
 ```bash
-npm install @gdexsdk/gdex-skill
+npx skills add GemachDAO/gdex-skill --all --agent '*' -g
+```
+
+Need the TypeScript SDK in a project?
+
+```bash
+npm install github:GemachDAO/gdex-skill
 ```
 
 ```typescript
@@ -225,7 +233,7 @@ For MCP-compatible agents (Claude, Cursor, VS Code):
 npx @gdexsdk/mcp-server init --client claude
 ```
 
-That's it. Your agent now has access to 8 trading tools.
+That's it. Your agent now has access to 116 trading tools.
 
 ---
 
@@ -235,9 +243,9 @@ DeFi tooling for AI agents has been either nonexistent or so janky you'd rather 
 
 We built the SDK. We tested it live. We documented every quirk, bug, and workaround. We gave your agent an autonomous trading playbook. We set up CI/CD. We automated releases.
 
-Your agent can now trade across 17 chains, manage a perpetual futures book on HyperLiquid, copy whale wallets, set limit orders with take-profit and stop-loss, bridge tokens cross-chain, and monitor its entire portfolio — all without you touching a keyboard.
+Your agent can now trade across 11 spot chains, manage a perpetual futures book on HyperLiquid, copy whale wallets, set limit orders with take-profit and stop-loss, bridge tokens cross-chain, and monitor its entire portfolio — all without you touching a keyboard.
 
-**The future of trading isn't human. It's the agent you build with GDEX Skill.**
+**The future of trading isn't human. It's the agent you build with GDEX Skill — plugged into [GDEX Pro](https://gdex.pro).**
 
 ---
 
