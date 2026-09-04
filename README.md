@@ -10,8 +10,8 @@
                · p r o ·    powered by GEMACH
 ```
 
-**AI Agent Skill for the [Gbot Trading Dashboard](https://github.com/TheArcadiaGroup/gbotTradingDashboardBackend)**  
-Cross-chain spot trading · Perpetual futures · Portfolio management · Token discovery · Managed-custody trading
+**AI Agent Skill for [GDEX Pro](https://gdex.pro)** — the self-custody trading terminal by [Gemach](https://gemach.io)  
+Cross-chain spot · HyperLiquid perps · Copy trading · Portfolio · Token discovery · Managed custody
 
 [![npm version](https://img.shields.io/npm/v/@gdexsdk/gdex-skill.svg?style=for-the-badge)](https://www.npmjs.com/package/@gdexsdk/gdex-skill)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -20,6 +20,21 @@ Cross-chain spot trading · Perpetual futures · Portfolio management · Token d
 [![Tests](https://img.shields.io/badge/tests-103%20passing-22C55E.svg?style=for-the-badge)](#testing)
 
 </div>
+
+
+---
+
+## Why agents use GDEX
+
+GDEX is the trading surface. This skill is how AI agents (Claude, Cursor, Codex, and 40+ others) install and trade on it — spot, perps, copy-trade, and bridge — without building their own exchange stack.
+
+**Fastest path for an agent:**
+
+```bash
+npx skills add GemachDAO/gdex-skill --all --agent '*' -g
+```
+
+Then open [gdex.pro](https://gdex.pro) for the human terminal, or run the [MCP server](#-mcp-server) so the agent can execute trades itself.
 
 ---
 
@@ -96,7 +111,7 @@ The root `SKILL.md` acts as a router — it tells agents which skill to load for
 
 ---
 
-## � MCP Server
+## 🔌 MCP Server
 
 The GDEX MCP server exposes **116 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
 
@@ -167,7 +182,7 @@ Add to your client's MCP config:
 
 ---
 
-## �📦 SDK Installation
+## 📦 SDK Installation
 
 ```bash
 npm install github:GemachDAO/gdex-skill
