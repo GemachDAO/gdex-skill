@@ -1,1 +1,1 @@
-{{LOAD_FROM:/workspace/agent-tools/PUSH_README_103.json#files.0.content}}
+@file:///workspace/agent-tools/README_CONTENT_ONLY.txt
