@@ -1105,10 +1105,10 @@ import {
 
 ## 🧪 Testing
 
-All 91 tests run with **mocked HTTP** — no real API key or network connection required:
+All 103 tests run with **mocked HTTP** — no real API key or network connection required:
 
 ```bash
-npm test              # run all 91 tests
+npm test              # run all 103 tests
 npm run test:coverage # with coverage report
 npm run verify        # offline SDK smoke-test (20 checks)
 npm run verify:managed # managed-custody payload validation (dry-run)
