@@ -1,1 +1,1 @@
-PLACEHOLDER_WILL_REPLACE
+file:///workspace/agent-tools/README_FULL.md
