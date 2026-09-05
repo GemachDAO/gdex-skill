@@ -1,1 +1,1 @@
-@file:/workspace/gdex-growth/canonical/gdex-skill-README.md
+LOADING_FROM_FILE_FAILED_IF_YOU_SEE_THIS
