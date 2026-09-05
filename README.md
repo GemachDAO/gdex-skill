@@ -1,1 +1,1 @@
-PLACEHOLDER_LOAD_FROM_FILE
+{{LOAD_FROM:/workspace/agent-tools/PUSH_README_103.json#files.0.content}}
