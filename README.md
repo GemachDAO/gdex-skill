@@ -1,1 +1,1 @@
-@file:///workspace/agent-tools/README_CONTENT_ONLY.txt
+SIZE_TEST_PADDING_START
