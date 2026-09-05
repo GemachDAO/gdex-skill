@@ -1,1 +1,1 @@
-PLACEHOLDER
+@/workspace/agent-tools/README_FULL.md
