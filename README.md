@@ -95,6 +95,8 @@ GDEX uses a **multi-skill architecture** — agents load only the skills they ne
 | `gdex-limit-orders` | Create, cancel, and list limit orders |
 | `gdex-portfolio` | Cross-chain portfolio, balances, trade history |
 | `gdex-token-discovery` | Token details, trending tokens, OHLCV charts (no auth) |
+| `gdex-xstocks` | Tokenised equities (xStocks) listing |
+| `gdex-content-coins` | Zora content coins and creator coins on Base |
 | `gdex-copy-trading` | Copy trade create/delete, leaderboards, tx history, DEX list (Solana only for writes) |
 | `gdex-perp-copy-trading` | HL perp copy trading — top traders, create/manage configs, market data |
 | `gdex-bridge` | Cross-chain bridging with quotes |
@@ -113,7 +115,7 @@ The root `SKILL.md` acts as a router — it tells agents which skill to load for
 
 ## 🔌 MCP Server
 
-The GDEX MCP server exposes **116 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
+The GDEX MCP server exposes **117 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
 
 ### Quick Setup
 
@@ -1026,6 +1028,11 @@ const message = buildGdexSignInMessage(wallet.address, String(Date.now()), sessi
 | **Solana** | `622112261` | SOL | Raydium, Raydium V2, Orca |
 | **Sui** | `1313131213` | SUI | Cetus, Bluefin |
 | **HyperLiquid** | perps only | USDC | Native perp engine |
+
+> **The `ChainId` enum is wider than this table.** It also defines Avalanche (43114), Polygon
+> (137), zkSync Era (324), Linea (59144), Blast (81457) and Scroll (534352). The backend's
+> `supportedChainIds` does **not** include them, so calls against those ids will not route. Trade
+> only the chains listed above.
 
 ```typescript
 import { ChainId } from '@gdexsdk/gdex-skill';
