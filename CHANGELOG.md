@@ -9,7 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`gdex-xstocks` skill.** Documents `getXstocks()`, the tokenised-equities listing. The method
+  shipped with no skill, no tests and no typed response.
+- **`gdex-content-coins` skill.** Documents `getZoraTokens()`, the Zora content-coin and
+  creator-coin listing on Base. Same gap as above.
+- **Chain warning in the README.** The `ChainId` enum defines Avalanche, Polygon, zkSync Era,
+  Linea, Blast and Scroll, none of which are in the backend's `supportedChainIds`. Calls against
+  those ids do not route.
+
 ### Changed
+
+- **MCP tool count corrected from 116 to 117** (109 execution + 8 documentation) in the README,
+  ARTICLE, and `gdex-onboarding`. Counted from `mcp-server/src/tools/*.ts` plus the eight
+  documentation tools registered in `mcp-server/src/index.ts`.
+- **`skill.json` chain claim corrected** from "12+ EVM chains" to "9 EVM chains" — the count that
+  the backend actually supports and that the README table has always listed.
 
 ### Fixed
 
