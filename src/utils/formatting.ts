@@ -26,6 +26,7 @@ export function getChainName(chain: SupportedChain): string {
     [ChainId.SCROLL]: 'Scroll',
     [ChainId.BLAST]: 'Blast',
     [ChainId.ZKSYNC]: 'zkSync Era',
+    [ChainId.ROBINHOOD]: 'Robinhood Chain',
     [ChainId.SOLANA]: 'Solana',
     [ChainId.SUI]: 'Sui',
   };
