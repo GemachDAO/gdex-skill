@@ -38,6 +38,11 @@
       "skills": ["gdex-trending-promotion", "gdex-retailer-onboarding"]
     },
     {
+      "title": "Risk & Market Data",
+      "description": "Deterministic NDJSON feeds: HyperLiquid market risk, token security screen, and GVault accounting.",
+      "skills": ["gdex-hl-market-risk", "gdex-token-risk", "gvault"]
+    },
+    {
       "title": "Frontend (React / Next.js)",
       "description": "UI building blocks — setup, trading components, dashboards, wallet connection, theming, and full page layouts.",
       "skills": [
