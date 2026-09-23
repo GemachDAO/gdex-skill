@@ -1,6 +1,6 @@
 ---
 name: gdex-hl-market-risk
-description: HyperLiquid core-perpetual risk snapshot via GDEX — funding, open interest, mark-vs-oracle premium, leverage caps and delisting for all ~234 core markets, as NDJSON from a deterministic script. Use for market-risk monitoring, not trading.
+description: HyperLiquid core-perp risk via GDEX: funding, open interest, oracle premium, leverage caps, delisting for ~234 markets, as NDJSON from a deterministic script.
 ---
 
 # GDEX: HyperLiquid Market Risk

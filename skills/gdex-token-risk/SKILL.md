@@ -1,6 +1,6 @@
 ---
 name: gdex-token-risk
-description: GDEX token market and security screen across 12 chains — price, liquidity, volume, plus GDEX's own honeypot, buy/sell tax, LP lock, holder concentration and mint/freeze authority, as NDJSON from a deterministic script. Missing security data is never reported as safe.
+description: GDEX token screen on 12 chains: price, liquidity, volume plus honeypot, taxes, LP lock, holder concentration. Deterministic NDJSON; missing security data never means safe.
 ---
 
 # GDEX: Token Risk Screen
