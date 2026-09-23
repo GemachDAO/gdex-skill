@@ -54,7 +54,7 @@ enum but are not produced by this skill (they need on-chain or token-security so
 
 ## Coverage record — read this before trusting an empty result
 
-Every run states `window_start`, `window_end`, `markets_scored` and `markets_not_scored`
+Every run states `detector_window_start`, `detector_window_end`, `markets_scored` and `markets_not_scored`
 (too little history, delisted, or no data). **No event for a scored market means nothing
 crossed a threshold in that window; it does not mean the market was normal.** Markets in
 `markets_not_scored` were not evaluated at all.

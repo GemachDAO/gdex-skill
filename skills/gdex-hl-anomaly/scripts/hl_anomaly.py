@@ -238,7 +238,7 @@ def run(coins: list[str], start: datetime, end: datetime, interval: str = "1h") 
         (covered if (s1 or s2) else unscored).append(coin)
     events.sort(key=lambda x: (x["detected_at"], x["entity_id"], x["anomaly_category"]))
     coverage = {"signal_type": "anomaly_coverage", "source": "gemach", "model_version": MODEL_VERSION,
-                "window_start": _iso(s_ms), "window_end": _iso(e_ms), "bar_interval_h": interval_h,
+                "detector_window_start": _iso(s_ms), "detector_window_end": _iso(e_ms), "bar_interval_h": interval_h,
                 "markets_scored": len(covered), "markets_not_scored": sorted(unscored),
                 "events": len(events),
                 "note": "Only markets in markets_scored were evaluated. No event for a scored market means "
