@@ -121,12 +121,13 @@ Each skill's `description` tells the agent when to load it. **No API key setup r
 
 ### Risk & Market Data Skills
 
-Deterministic data feeds for risk and research. Each ships a **standard-library Python script** that
+Deterministic data feeds and events for risk and research. Each ships a **standard-library Python script** that
 prints NDJSON: no API key, no install, and every number comes from the script, not a model.
 
 | Skill | Output |
 |-------|--------|
 | `gdex-hl-market-risk` | ~234 HyperLiquid core perps: funding, open interest, oracle premium, leverage caps, delisting |
+| `gdex-hl-anomaly` | Scored, time-stamped HyperLiquid anomaly events (oracle divergence, funding extremity, liquidity shock) against per-market learned baselines, plus a coverage record per run. [Backtest](skills/gdex-hl-anomaly/backtest/RESULTS.md) |
 | `gdex-token-risk` | GDEX token screen on 12 chains: price, liquidity, volume, honeypot, taxes, LP lock, holder concentration (missing security data is never "safe") |
 | `gvault` | GVault (GMACL, Enzyme on Ethereum): NAV, share price, holdings, cumulative and annualised return |
 
