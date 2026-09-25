@@ -7,8 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.10.0] - 2026-09-25
+
+Released from `main`. **4.8.0 and 4.9.0 were cut from a side branch that never merged into
+`main`**, so their changes (wallet-forensics `reverseEngineerWinners`, the `close_perp_position`
+short fix, bounded trade history, the `coins` filter on `get_hl_meta_and_asset_ctxs`) are **not in
+this release**. Package versions were also out of step (4.5.0 / 4.6.0 / 4.7.0 across the SDK, MCP
+server and lockfiles); all are 4.10.0 now.
+
 ### Added
 
+- **Risk & market data skills** (#42). Each is a standard-library Python script that prints NDJSON: no API
+  key, and every figure is read by the script, never produced by a model.
+  - `gdex-hl-market-risk`: funding, open interest, oracle premium and leverage caps for ~234
+    HyperLiquid core perps.
+  - `gdex-token-risk`: a token screen on 12 chains; missing security data is emitted as `null`,
+    never as "safe".
+  - `gvault`: GVault NAV, share price, holdings and returns, from Enzyme's accounting.
+- **`gdex-hl-anomaly`** (#44). Scored, time-stamped HyperLiquid anomaly events: `oracle_divergence`,
+  `funding_extremity` (always emitted with the premium) and `liquidity_shock`, each measured against
+  per-market learned baselines. Every run ends with a coverage record (`detector_window_start` /
+  `_end`, the markets scored and not scored). It ships with `APPROACH.md`, a backtest over three real
+  events, a calibration script, offline tests and a sample payload.
+- **`harness/`** (#42): runs the skills with Claude on the caller's own Anthropic API key. `export` runs
+  with no model and fails closed; `ask` can only quote script output. Every script run is audited
+  with a sha256 of its output.
+- **Robinhood Chain (4663)** across the SDK and skills (#41).
 - **`gdex-xstocks` skill.** Documents `getXstocks()`, the tokenised-equities listing. The method
   shipped with no skill, no tests and no typed response.
 - **`gdex-content-coins` skill.** Documents `getZoraTokens()`, the Zora content-coin and
@@ -26,6 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the backend actually supports and that the README table has always listed.
 
 ### Fixed
+
+- **MCP server bundle rebuilt** (#43). The committed `mcp-server/dist/index.js` was plain `tsc` output
+  that failed at start with `ERR_MODULE_NOT_FOUND`; it is the esbuild bundle again (117 tools).
+- **README**: lists every skill and all 109 MCP execution tools; drops the removed root router
+  skill; core HyperLiquid leverage is 40x (50x is only on builder-DEX FX pairs).
 
 ## [4.5.0] - 2026-06-13
 
