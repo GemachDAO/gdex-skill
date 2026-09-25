@@ -183,13 +183,13 @@ Add to your client's MCP config:
 | `GDEX_API_KEY` | GDEX API key — auto-authenticates on startup | Optional |
 | `GDEX_API_URL` | Override API base URL (default: `https://trade-api.gemach.io/v1`) | Optional |
 
-### MCP Execution Tools (108 tools)
+### MCP Execution Tools (109 tools)
 
 | Category | Tools | Description |
 |----------|-------|-------------|
 | **Auth** | `auth_login`, `generate_session_keypair`, `managed_sign_in`, `build_sign_in_payload` | API key login, session keys, managed custody sign-in |
 | **Spot Trading** | `buy_token`, `sell_token` | Buy/sell on Solana, Sui, Ethereum, Base, Arbitrum, BSC, and 10+ chains |
-| **Perp Trading** | `open_perp_position`, `place_perp_order`, `close_perp_position`, `close_all_positions`, `cancel_perp_order`, `cancel_all_perp_orders`, `set_leverage`, `perp_deposit`, `perp_withdraw` | Full HyperLiquid perpetual futures — long/short, leverage 1-50x, TP/SL |
+| **Perp Trading** | `open_perp_position`, `place_perp_order`, `close_perp_position`, `close_all_positions`, `cancel_perp_order`, `cancel_all_perp_orders`, `set_leverage`, `perp_deposit`, `perp_withdraw` | Full HyperLiquid perpetual futures — long/short, TP/SL; leverage up to each market's cap (40x on core BTC) |
 | **Perp Data** | `get_account_state`, `get_perp_positions`, `get_mark_price`, `get_all_mid_prices`, `get_usdc_balance`, `get_hl_open_orders`, `get_hl_trade_history`, `get_hl_spot_state`, `get_trader_leverage` | Real-time HyperLiquid account, positions, prices |
 | **Direct Execution** | `execute_cross_perp`, `execute_isolated_perp`, `execute_spot`, `direct_cancel_order` | Private-key execution — cross/isolated margin, spot, cancel |
 | **Limit Orders** | `limit_buy`, `limit_sell`, `update_order`, `get_limit_orders` | Limit buy/sell with TP/SL, order management |
@@ -198,6 +198,15 @@ Add to your client's MCP config:
 | **Portfolio & Data** | `get_portfolio`, `get_balances`, `get_trade_history`, `get_token_details`, `get_trending_tokens`, `get_ohlcv`, `get_top_traders`, `get_wallet_info`, `generate_evm_wallet` | Cross-chain portfolio, market data, OHLCV candles |
 | **Bridge** | `estimate_bridge`, `execute_bridge`, `get_bridge_orders` | Cross-chain native token bridging |
 | **Managed Custody** | `managed_purchase`, `managed_sell`, `managed_trade_status`, `build_trade_payload` | Low-level encrypted trade submission |
+| **Transfers** | `transfer_native`, `transfer_token` | Send native and ERC20/SPL tokens via managed custody |
+| **Social & Watchlist** | `add_comment`, `get_comments`, `vote_sentiment`, `get_watchlist`, `change_watchlist` | Token comments, sentiment votes, watchlists |
+| **Token Import** | `import_token` | Add a custom token so it appears in details, balances and portfolio |
+| **Market Discovery & Analytics** | `get_newest_tokens`, `get_top_tokens`, `get_token_trades`, `get_token_image`, `get_native_prices`, `get_xstocks`, `get_zora_tokens`, `get_wallet_performance`, `get_nof1_analytics`, `generate_pnl` | New and top tokens, trades, prices, xStocks, Zora coins, wallet performance, NoF1 analytics, PnL generation |
+| **Livestream** | `get_currently_live`, `get_live_status`, `get_bigbuys` | Solana livestream tokens and big-buy alerts |
+| **HL Outcome Markets** | `hl_outcomes`, `get_hl_outcome_volumes`, `hl_outcome_account`, `hl_create_outcome_order`, `hl_cancel_outcome_order`, `hl_close_outcome_order` | HyperLiquid outcome (event) markets |
+| **HL Account & Referral** | `hl_enable_trading`, `hl_swap_collateral`, `hl_tx_list`, `hl_list_user_copy_pnl`, `hl_ref_info`, `hl_ref_claim`, `hl_builder_referral` | One-time HL enablement, HIP-3 collateral swaps, fills/orders, copy-trade PnL, referral rewards |
+| **Promotion & Partners** | `trending_list`, `trending_options`, `trending_register`, `trending_booking_status`, `get_retailers` | Paid trending slots and retailer partners |
+| **Account** | `oauth_login`, `associate_email` | Google sign-in and linking an email to a wallet |
 
 ### MCP Documentation Tools (8 tools)
 
