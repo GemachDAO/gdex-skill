@@ -74,7 +74,7 @@ Install directly into Claude Code, Cursor, Codex, Windsurf, and [40+ other agent
 # Install all skills (recommended)
 npx skills add GemachDAO/gdex-skill --all --agent '*' -g
 
-# Install just the root routing skill
+# Pick skills interactively
 npx skills add GemachDAO/gdex-skill
 
 # Install a specific skill
@@ -88,6 +88,7 @@ GDEX uses a **multi-skill architecture** — agents load only the skills they ne
 | Skill | Description |
 |-------|-------------|
 | `gdex-onboarding` | Platform overview, architecture, supported chains, quickstart |
+| `gdex-retailer-onboarding` | Retailer partner integrations — branded onboarding partners on the GDEX stack |
 | `gdex-authentication` | Managed-custody auth, encryption, session keys, API key login |
 | `gdex-spot-trading` | Buy/sell tokens on any chain with DEX routing |
 | `gdex-perp-trading` | HyperLiquid perpetual futures — positions, orders, leverage |
@@ -95,11 +96,18 @@ GDEX uses a **multi-skill architecture** — agents load only the skills they ne
 | `gdex-limit-orders` | Create, cancel, and list limit orders |
 | `gdex-portfolio` | Cross-chain portfolio, balances, trade history |
 | `gdex-token-discovery` | Token details, trending tokens, OHLCV charts (no auth) |
+| `gdex-token-import` | Import custom tokens into details, balances and portfolio |
+| `gdex-livestream-discovery` | Solana livestream tokens, live status, big-buy alerts |
+| `gdex-watchlist-social` | Watchlists, token comments, sentiment voting |
+| `gdex-trending-promotion` | Book paid trending slots and check booking status |
 | `gdex-xstocks` | Tokenised equities (xStocks) listing |
 | `gdex-content-coins` | Zora content coins and creator coins on Base |
 | `gdex-copy-trading` | Copy trade create/delete, leaderboards, tx history, DEX list (Solana only for writes) |
 | `gdex-perp-copy-trading` | HL perp copy trading — top traders, create/manage configs, market data |
+| `gdex-hl-outcomes` | HyperLiquid outcome (event) markets — list, order, manage positions |
+| `gdex-hl-referral` | HyperLiquid referral info and reward claims |
 | `gdex-bridge` | Cross-chain bridging with quotes |
+| `gdex-transfers` | Native and ERC20/SPL transfers via managed custody |
 | `gdex-wallet-setup` | Generate EVM wallets, session keys, wallet info (no auth) |
 | `gdex-ui-install-setup` | React/Next.js project setup, SDK context providers, environment variables |
 | `gdex-ui-trading-components` | React component patterns for order forms, position tables, copy trade panels |
@@ -109,7 +117,28 @@ GDEX uses a **multi-skill architecture** — agents load only the skills they ne
 | `gdex-ui-page-layouts` | Full page compositions — trading, portfolio, copy trading, bridge pages |
 | `gdex-sdk-debugging` | Troubleshoot errors — error codes, encryption debugging, chain quirks, HL gotchas |
 
-The root `SKILL.md` acts as a router — it tells agents which skill to load for any given task. **No API key setup required** (shared keys are built in).
+Each skill's `description` tells the agent when to load it. **No API key setup required** for trading skills (shared keys are built in).
+
+### Risk & Market Data Skills
+
+Deterministic data feeds for risk and research. Each ships a **standard-library Python script** that
+prints NDJSON: no API key, no install, and every number comes from the script, not a model.
+
+| Skill | Output |
+|-------|--------|
+| `gdex-hl-market-risk` | ~234 HyperLiquid core perps: funding, open interest, oracle premium, leverage caps, delisting |
+| `gdex-token-risk` | GDEX token screen on 12 chains: price, liquidity, volume, honeypot, taxes, LP lock, holder concentration (missing security data is never "safe") |
+| `gvault` | GVault (GMACL, Enzyme on Ethereum): NAV, share price, holdings, cumulative and annualised return |
+
+```bash
+python3 skills/gdex-hl-market-risk/scripts/hl_market_risk.py > hl.ndjson
+```
+
+### Skills Harness (bring your own key)
+
+[`harness/`](harness/README.md) runs these skills with Claude on **your own** Anthropic API key.
+`export` produces every feed with no model; `ask` answers questions with an agent that can only
+cite figures that skill scripts printed. Every script run is logged with a sha256 of its output.
 
 ---
 
