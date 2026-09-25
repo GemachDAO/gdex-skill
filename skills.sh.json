@@ -39,8 +39,8 @@
     },
     {
       "title": "Risk & Market Data",
-      "description": "Deterministic NDJSON feeds: HyperLiquid market risk, token security screen, and GVault accounting.",
-      "skills": ["gdex-hl-market-risk", "gdex-token-risk", "gvault"]
+      "description": "Deterministic NDJSON feeds: HyperLiquid market risk and anomaly events, token security screen, and GVault accounting.",
+      "skills": ["gdex-hl-market-risk", "gdex-hl-anomaly", "gdex-token-risk", "gvault"]
     },
     {
       "title": "Frontend (React / Next.js)",
