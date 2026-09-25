@@ -30,7 +30,7 @@ if (args[0] === 'init') {
 }
 
 const server = new McpServer(
-  { name: 'gdex-mcp-server', version: '4.5.0' },
+  { name: 'gdex-mcp-server', version: '4.10.0' },
   { capabilities: { tools: {} } },
 );
 
