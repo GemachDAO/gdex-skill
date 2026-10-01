@@ -14,7 +14,7 @@ Standard library only — no API key, no Gemach infrastructure. Reads the public
 
 ## When to Use
 
-- Building a risk feed that needs market anomalies with a timestamp and a score
+- Building a risk feed that needs market anomalies with an event time and a score
 - Screening HyperLiquid markets for manipulation, oracle stress or liquidity shocks
 - Backfilling anomaly history for a window (1h bars reach ~7 months back, 4h ~2 years)
 
@@ -42,15 +42,26 @@ enum but are not produced by this skill (they need on-chain or token-security so
 
 ## Event record
 
+Each event carries the 15-column anomaly contract shape, plus the model's own features.
+
 | Field | Meaning |
 |---|---|
+| `anomaly_id` | stable id: sha256 of entity, category, event time and data source (first 32 hex). Re-running the same window gives the same id |
 | `entity_id` | `hl-<coin>`, same key as the `hl_markets` feed |
-| `detected_at` | when the anomaly **happened** (funding hour, or bar close) — not when the job ran |
-| `z`, `z_threshold` | robust z against the learned baseline, and the threshold it crossed |
-| `score` | 0 at the threshold, rising monotonically toward 1. A ranking, not a probability |
+| `entity_type` | `market` (a perpetual market) |
+| `chain` | `hyperliquid` |
+| `anomaly_category` | `oracle_divergence`, `funding_extremity` or `liquidity_shock` |
+| `anomaly_score` | 0–100. It is 0 at the calibrated threshold and rises monotonically above it. A ranking, **not a probability** |
+| `confidence` | **not emitted.** Nothing in the model is a calibrated probability, and the field is left out rather than faked |
+| `detection_method` | `statistical`: robust z against a learned per-market baseline |
 | `model_version` | changes whenever thresholds or features change |
-| `evidence_ref` | public endpoint + coin + time + sha256 of the exact baseline used |
-| feature fields | premium/funding and their baselines, or volume/range and their baselines |
+| `baseline_window` | `7d` |
+| `observed_metric` | the quantity that fired: `premium_pct`, `funding_8h_mean_hourly_pct`, `volume_base` or `bar_range_pct` |
+| `observed_value`, `expected_value` | that quantity, and its baseline median (the model's expectation) |
+| `detected_at` | epoch seconds when the anomaly **happened** (the funding hour, or the bar close), not when the job ran. `detected_at_utc` gives the same instant in ISO-8601 |
+| `evidence_ref` | the public endpoint, coin, time, and a sha256 of the exact baseline used |
+| `summary` | one-line description |
+| `z`, `z_threshold`, feature fields | the robust z and the threshold it crossed; premium/funding or volume/range values and their baselines |
 
 ## Coverage record — read this before trusting an empty result
 

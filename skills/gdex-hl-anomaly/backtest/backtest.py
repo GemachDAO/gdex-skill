@@ -55,24 +55,24 @@ def evaluate(ev, interval="4h"):
     markets = ([ev["market"]] if ev["market"] else []) + ev["controls"]
     events, cov = scan(markets, start, ev["window_end"], interval)
     on, end = ev["onset"].strftime("%Y-%m-%dT%H:%M:%SZ"), ev["window_end"].strftime("%Y-%m-%dT%H:%M:%SZ")
-    in_win = [e for e in events if on <= e["detected_at"] <= end]
-    pre = [e for e in events if e["detected_at"] < on]
+    in_win = [e for e in events if on <= e["detected_at_utc"] <= end]
+    pre = [e for e in events if e["detected_at_utc"] < on]
     scored = cov["markets_scored"]
     out = {"event": ev["name"], "interval": interval, "scan_start": start.isoformat(),
            "onset": on, "window_end": end, "markets_scored": scored,
            "markets_not_scored": cov["markets_not_scored"]}
     if ev["kind"] == "single":
         m = f"hl-{ev['market']}"
-        hits = sorted((e for e in in_win if e["entity_id"] == m), key=lambda e: e["detected_at"])
+        hits = sorted((e for e in in_win if e["entity_id"] == m), key=lambda e: e["detected_at_utc"])
         out["hit"] = bool(hits)
         if hits:
             first = hits[0]
-            lag = (T(first["detected_at"][:16]) - ev["onset"]).total_seconds() / 3600
-            out["first_detection"] = {"at": first["detected_at"], "hours_after_onset": lag,
-                                      "category": first["anomaly_category"], "score": first["score"]}
+            lag = (T(first["detected_at_utc"][:16]) - ev["onset"]).total_seconds() / 3600
+            out["first_detection"] = {"at": first["detected_at_utc"], "hours_after_onset": lag,
+                                      "category": first["anomaly_category"], "anomaly_score": first["anomaly_score"]}
             out["categories_in_window"] = sorted({e["anomaly_category"] for e in hits})
         out["runup_events_on_market"] = [
-            {"at": e["detected_at"], "category": e["anomaly_category"], "z": e["z"]}
+            {"at": e["detected_at_utc"], "category": e["anomaly_category"], "z": e["z"]}
             for e in pre if e["entity_id"] == m]
         controls_pre = [e for e in pre if e["entity_id"] != m]
         n_controls = scored - (1 if m.split("-", 1)[1] not in cov["markets_not_scored"] else 0)
@@ -90,11 +90,11 @@ def evaluate(ev, interval="4h"):
     out["false_alarms_total"] = len(controls_pre)
     out["market_days_observed"] = days
     out["in_window_events"] = [
-        {k: e[k] for k in ("detected_at", "symbol", "anomaly_category", "z", "score")} for e in in_win]
+        {k: e[k] for k in ("detected_at_utc", "symbol", "anomaly_category", "z", "anomaly_score")} for e in in_win]
     if ev["kind"] == "market":
         first = {}
-        for e in sorted(in_win, key=lambda e: e["detected_at"]):
-            first.setdefault(e["symbol"], e["detected_at"])
+        for e in sorted(in_win, key=lambda e: e["detected_at_utc"]):
+            first.setdefault(e["symbol"], e["detected_at_utc"])
         out["first_detection_by_market"] = first
     return out, in_win
 

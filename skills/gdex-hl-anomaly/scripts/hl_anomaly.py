@@ -176,10 +176,12 @@ def detect_premium_funding(coin: str, rows: list[dict], scan_from_ms: int) -> tu
         outside_clamp = not (CLAMP_BAND[0] <= p <= CLAMP_BAND[1])
         if abs(zp) >= Z_THRESHOLD["oracle_divergence"]:
             events.append(_event(coin, "oracle_divergence", r["time"], zp, feats,
-                                 _evidence("fundingHistory", coin, r["time"], hp)))
+                                 _evidence("fundingHistory", coin, r["time"], hp),
+                                 metric="premium_pct", source_kind="fundingHistory"))
         if abs(zf) >= Z_THRESHOLD["funding_extremity"] and outside_clamp:
             events.append(_event(coin, "funding_extremity", r["time"], zf, feats,
-                                 _evidence("fundingHistory", coin, r["time"], hf)))
+                                 _evidence("fundingHistory", coin, r["time"], hf),
+                                 metric="funding_8h_mean_hourly_pct", source_kind="fundingHistory"))
     return events, scored
 
 
@@ -198,9 +200,10 @@ def liquidity_z(coin: str, bars: list[dict], interval_h: int, scan_from_ms: int)
         hv = [math.log1p(float(x["v"])) for x in hist]
         hr = [math.log1p(math.log(max(float(x["h"]), 1e-18) / max(float(x["l"]), 1e-18))) for x in hist]
         zv, mv, _ = robust_z(lv, hv, FLOOR["log_volume"])
-        zr, _, _ = robust_z(math.log1p(lr), hr, FLOOR["log_range"])
+        zr, mr, _ = robust_z(math.log1p(lr), hr, FLOOR["log_range"])
         feats = {"volume_base": float(b["v"]), "volume_z": round(zv, 2),
                  "volume_baseline_base": math.expm1(mv), "bar_range_pct": lr * 100,
+                 "bar_range_baseline_pct": math.expm1(mr) * 100,
                  "range_z": round(zr, 2), "bar_interval_h": interval_h, "bar_start": _iso(b["t"])}
         yield b, close_ms, zv, zr, feats, hv
 
@@ -214,15 +217,43 @@ def detect_liquidity(coin: str, bars: list[dict], interval_h: int, scan_from_ms:
         if max(zv, zr) >= thr:
             events.append(_event(coin, "liquidity_shock", close_ms, max(zv, zr), feats,
                                  _evidence(f"candleSnapshot/{interval_h}h", coin, b["t"], hv),
-                                 threshold=thr))
+                                 threshold=thr, metric="volume_base" if zv >= zr else "bar_range_pct",
+                                 source_kind=f"candleSnapshot/{interval_h}h"))
     return events, scored
 
 
-def _event(coin, category, t_ms, z, features, evidence, threshold=None):
+# observed metric -> the feature holding its learned baseline (the model's expectation)
+EXPECTED = {"premium_pct": "premium_baseline_pct",
+            "funding_8h_mean_hourly_pct": "funding_baseline_pct",
+            "volume_base": "volume_baseline_base",
+            "bar_range_pct": "bar_range_baseline_pct"}
+
+
+def _event(coin, category, t_ms, z, features, evidence, metric, source_kind, threshold=None):
+    """One event in the downstream contract's anomaly shape (15 columns), plus model features.
+
+    `confidence` is deliberately absent: the score ranks events against a calibrated threshold
+    and is not a probability, so there is no honest 0-1 confidence to report.
+    """
     threshold = Z_THRESHOLD[category] if threshold is None else threshold
-    return {"signal_type": "anomaly", "source": "gemach", "entity_id": f"hl-{coin}", "symbol": coin,
-            "anomaly_category": category, "detected_at": _iso(t_ms), "score": score(z, threshold),
-            "z": round(z, 2), "z_threshold": threshold, "model_version": MODEL_VERSION, "evidence_ref": evidence, **features}
+    t_s = t_ms // 1000
+    entity = f"hl-{coin}"
+    observed, expected = features[metric], features[EXPECTED[metric]]
+    return {
+        "signal_type": "anomaly", "source": "gemach",
+        "anomaly_id": hashlib.sha256(f"{entity}|{category}|{t_s}|{source_kind}".encode()).hexdigest()[:32],
+        "entity_id": entity, "entity_type": "market", "chain": "hyperliquid", "symbol": coin,
+        "anomaly_category": category,
+        "anomaly_score": round(100 * score(z, threshold), 2),
+        "detection_method": "statistical",
+        "model_version": MODEL_VERSION,
+        "baseline_window": f"{BASELINE_HOURS // 24}d",
+        "observed_metric": metric, "observed_value": observed, "expected_value": expected,
+        "detected_at": t_s, "detected_at_utc": _iso(t_ms),
+        "evidence_ref": evidence,
+        "summary": (f"{coin} {category.replace('_', ' ')}: {metric} {observed:.4g} vs baseline "
+                    f"{expected:.4g} (robust z {z:+.1f}, threshold {threshold})"),
+        "z": round(z, 2), "z_threshold": threshold, **features}
 
 
 def run(coins: list[str], start: datetime, end: datetime, interval: str = "1h") -> list[dict]:
@@ -234,9 +265,9 @@ def run(coins: list[str], start: datetime, end: datetime, interval: str = "1h") 
         pf, s1 = detect_premium_funding(coin, [r for r in funding_history(coin, fetch_from, e_ms)], s_ms)
         lq, s2 = detect_liquidity(coin, [b for b in candles(coin, interval, fetch_from, e_ms) if b["t"] < e_ms],
                                   interval_h, s_ms)
-        events += [x for x in pf + lq if x["detected_at"] <= _iso(e_ms)]
+        events += [x for x in pf + lq if x["detected_at"] <= e_ms // 1000]
         (covered if (s1 or s2) else unscored).append(coin)
-    events.sort(key=lambda x: (x["detected_at"], x["entity_id"], x["anomaly_category"]))
+    events.sort(key=lambda x: (x["detected_at"], x["entity_id"], x["anomaly_category"], x["anomaly_id"]))
     coverage = {"signal_type": "anomaly_coverage", "source": "gemach", "model_version": MODEL_VERSION,
                 "detector_window_start": _iso(s_ms), "detector_window_end": _iso(e_ms), "bar_interval_h": interval_h,
                 "markets_scored": len(covered), "markets_not_scored": sorted(unscored),

@@ -12,7 +12,7 @@
    "at": "2025-03-26T16:00:00Z",
    "hours_after_onset": 4.0,
    "category": "liquidity_shock",
-   "score": 0.6716
+   "anomaly_score": 67.16
   },
   "categories_in_window": [
    "liquidity_shock",
@@ -421,46 +421,46 @@
   "market_days_observed": 280,
   "in_window_events": [
    {
-    "detected_at": "2025-03-26T15:00:00Z",
+    "detected_at_utc": "2025-03-26T15:00:00Z",
     "symbol": "HYPE",
     "anomaly_category": "oracle_divergence",
     "z": 20.02,
-    "score": 0.8042
+    "anomaly_score": 80.42
    },
    {
-    "detected_at": "2025-03-26T16:00:00Z",
+    "detected_at_utc": "2025-03-26T16:00:00Z",
     "symbol": "HYPE",
     "anomaly_category": "funding_extremity",
     "z": 12.95,
-    "score": 0.3708
+    "anomaly_score": 37.08
    },
    {
-    "detected_at": "2025-03-26T16:00:00Z",
+    "detected_at_utc": "2025-03-26T16:00:00Z",
     "symbol": "HYPE",
     "anomaly_category": "liquidity_shock",
     "z": 7.85,
-    "score": 0.2652
+    "anomaly_score": 26.52
    },
    {
-    "detected_at": "2025-03-26T16:00:00Z",
+    "detected_at_utc": "2025-03-26T16:00:00Z",
     "symbol": "HYPE",
     "anomaly_category": "oracle_divergence",
     "z": 16.44,
-    "score": 0.644
+    "anomaly_score": 64.4
    },
    {
-    "detected_at": "2025-03-26T16:00:00Z",
+    "detected_at_utc": "2025-03-26T16:00:00Z",
     "symbol": "JELLY",
     "anomaly_category": "liquidity_shock",
     "z": 12.68,
-    "score": 0.6716
+    "anomaly_score": 67.16
    },
    {
-    "detected_at": "2025-03-26T16:00:00Z",
+    "detected_at_utc": "2025-03-26T16:00:00Z",
     "symbol": "JELLY",
     "anomaly_category": "oracle_divergence",
     "z": -13.45,
-    "score": 0.4139
+    "anomaly_score": 41.39
    }
   ]
  },
@@ -477,7 +477,7 @@
    "at": "2025-11-12T16:00:00Z",
    "hours_after_onset": 4.0,
    "category": "funding_extremity",
-   "score": 0.9201
+   "anomaly_score": 92.01
   },
   "categories_in_window": [
    "funding_extremity",
@@ -496,116 +496,116 @@
   "market_days_observed": 280,
   "in_window_events": [
    {
-    "detected_at": "2025-11-12T16:00:00Z",
+    "detected_at_utc": "2025-11-12T16:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "funding_extremity",
     "z": 25.33,
-    "score": 0.9201
+    "anomaly_score": 92.01
    },
    {
-    "detected_at": "2025-11-12T16:00:00Z",
+    "detected_at_utc": "2025-11-12T16:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "liquidity_shock",
     "z": 9.27,
-    "score": 0.4201
+    "anomaly_score": 42.01
    },
    {
-    "detected_at": "2025-11-12T16:00:00Z",
+    "detected_at_utc": "2025-11-12T16:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "oracle_divergence",
     "z": 108.33,
-    "score": 1.0
+    "anomaly_score": 100.0
    },
    {
-    "detected_at": "2025-11-12T18:00:00Z",
+    "detected_at_utc": "2025-11-12T18:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "funding_extremity",
     "z": 24.49,
-    "score": 0.9081
+    "anomaly_score": 90.81
    },
    {
-    "detected_at": "2025-11-12T19:00:00Z",
+    "detected_at_utc": "2025-11-12T19:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "funding_extremity",
     "z": 23.93,
-    "score": 0.8991
+    "anomaly_score": 89.91
    },
    {
-    "detected_at": "2025-11-12T20:00:00Z",
+    "detected_at_utc": "2025-11-12T20:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "funding_extremity",
     "z": 22.92,
-    "score": 0.8805
+    "anomaly_score": 88.05
    },
    {
-    "detected_at": "2025-11-12T20:00:00Z",
+    "detected_at_utc": "2025-11-12T20:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "liquidity_shock",
     "z": 11.31,
-    "score": 0.5875
+    "anomaly_score": 58.75
    },
    {
-    "detected_at": "2025-11-12T21:00:00Z",
+    "detected_at_utc": "2025-11-12T21:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "funding_extremity",
     "z": 21.57,
-    "score": 0.8505
+    "anomaly_score": 85.05
    },
    {
-    "detected_at": "2025-11-12T22:00:00Z",
+    "detected_at_utc": "2025-11-12T22:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "funding_extremity",
     "z": 20.76,
-    "score": 0.8289
+    "anomaly_score": 82.89
    },
    {
-    "detected_at": "2025-11-12T23:00:00Z",
+    "detected_at_utc": "2025-11-12T23:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "funding_extremity",
     "z": 19.29,
-    "score": 0.7813
+    "anomaly_score": 78.13
    },
    {
-    "detected_at": "2025-11-13T00:00:00Z",
+    "detected_at_utc": "2025-11-13T00:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "oracle_divergence",
     "z": -10.61,
-    "score": 0.0592
+    "anomaly_score": 5.92
    },
    {
-    "detected_at": "2025-11-13T01:00:00Z",
+    "detected_at_utc": "2025-11-13T01:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "oracle_divergence",
     "z": -10.66,
-    "score": 0.0677
+    "anomaly_score": 6.77
    },
    {
-    "detected_at": "2025-11-13T02:00:00Z",
+    "detected_at_utc": "2025-11-13T02:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "funding_extremity",
     "z": -10.68,
-    "score": 0.0814
+    "anomaly_score": 8.14
    },
    {
-    "detected_at": "2025-11-13T03:00:00Z",
+    "detected_at_utc": "2025-11-13T03:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "funding_extremity",
     "z": -13.0,
-    "score": 0.3764
+    "anomaly_score": 37.64
    },
    {
-    "detected_at": "2025-11-13T03:00:00Z",
+    "detected_at_utc": "2025-11-13T03:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "oracle_divergence",
     "z": -13.53,
-    "score": 0.422
+    "anomaly_score": 42.2
    },
    {
-    "detected_at": "2025-11-13T04:00:00Z",
+    "detected_at_utc": "2025-11-13T04:00:00Z",
     "symbol": "POPCAT",
     "anomaly_category": "funding_extremity",
     "z": -13.11,
-    "score": 0.3877
+    "anomaly_score": 38.77
    }
   ]
  },
@@ -648,739 +648,739 @@
   "market_days_observed": 280,
   "in_window_events": [
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "ADA",
     "anomaly_category": "oracle_divergence",
     "z": 14.38,
-    "score": 0.4983
+    "anomaly_score": 49.83
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "APT",
     "anomaly_category": "oracle_divergence",
     "z": -10.98,
-    "score": 0.116
+    "anomaly_score": 11.6
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "AVAX",
     "anomaly_category": "oracle_divergence",
     "z": -29.82,
-    "score": 0.9618
+    "anomaly_score": 96.18
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "ETH",
     "anomaly_category": "oracle_divergence",
     "z": -11.28,
-    "score": 0.1593
+    "anomaly_score": 15.93
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "HYPE",
     "anomaly_category": "funding_extremity",
     "z": -18.59,
-    "score": 0.7542
+    "anomaly_score": 75.42
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "HYPE",
     "anomaly_category": "oracle_divergence",
     "z": -62.25,
-    "score": 0.9998
+    "anomaly_score": 99.98
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "LINK",
     "anomaly_category": "funding_extremity",
     "z": 16.41,
-    "score": 0.6468
+    "anomaly_score": 64.68
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "LINK",
     "anomaly_category": "oracle_divergence",
     "z": 75.62,
-    "score": 1.0
+    "anomaly_score": 100.0
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "LTC",
     "anomaly_category": "funding_extremity",
     "z": -10.73,
-    "score": 0.0888
+    "anomaly_score": 8.88
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "LTC",
     "anomaly_category": "oracle_divergence",
     "z": -42.75,
-    "score": 0.9956
+    "anomaly_score": 99.56
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "SOL",
     "anomaly_category": "funding_extremity",
     "z": -20.64,
-    "score": 0.8253
+    "anomaly_score": 82.53
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "SOL",
     "anomaly_category": "oracle_divergence",
     "z": -76.61,
-    "score": 1.0
+    "anomaly_score": 100.0
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "SUI",
     "anomaly_category": "oracle_divergence",
     "z": 13.02,
-    "score": 0.371
+    "anomaly_score": 37.1
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "TRUMP",
     "anomaly_category": "funding_extremity",
     "z": -32.48,
-    "score": 0.9757
+    "anomaly_score": 97.57
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "TRUMP",
     "anomaly_category": "oracle_divergence",
     "z": -76.82,
-    "score": 1.0
+    "anomaly_score": 100.0
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "WIF",
     "anomaly_category": "oracle_divergence",
     "z": -38.8,
-    "score": 0.9914
+    "anomaly_score": 99.14
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "XRP",
     "anomaly_category": "funding_extremity",
     "z": -13.08,
-    "score": 0.3843
+    "anomaly_score": 38.43
    },
    {
-    "detected_at": "2025-10-10T22:00:00Z",
+    "detected_at_utc": "2025-10-10T22:00:00Z",
     "symbol": "XRP",
     "anomaly_category": "oracle_divergence",
     "z": -80.18,
-    "score": 1.0
+    "anomaly_score": 100.0
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "ADA",
     "anomaly_category": "oracle_divergence",
     "z": -12.48,
-    "score": 0.3111
+    "anomaly_score": 31.11
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "APT",
     "anomaly_category": "oracle_divergence",
     "z": -22.51,
-    "score": 0.8706
+    "anomaly_score": 87.06
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "AVAX",
     "anomaly_category": "funding_extremity",
     "z": -13.97,
-    "score": 0.4693
+    "anomaly_score": 46.93
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "AVAX",
     "anomaly_category": "oracle_divergence",
     "z": -16.63,
-    "score": 0.6552
+    "anomaly_score": 65.52
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "DOGE",
     "anomaly_category": "funding_extremity",
     "z": -14.39,
-    "score": 0.5049
+    "anomaly_score": 50.49
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "DOGE",
     "anomaly_category": "oracle_divergence",
     "z": -33.68,
-    "score": 0.9799
+    "anomaly_score": 97.99
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "HYPE",
     "anomaly_category": "funding_extremity",
     "z": -20.16,
-    "score": 0.8109
+    "anomaly_score": 81.09
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "INJ",
     "anomaly_category": "oracle_divergence",
     "z": -17.42,
-    "score": 0.698
+    "anomaly_score": 69.8
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "LTC",
     "anomaly_category": "funding_extremity",
     "z": -14.92,
-    "score": 0.5472
+    "anomaly_score": 54.72
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "LTC",
     "anomaly_category": "oracle_divergence",
     "z": -20.81,
-    "score": 0.8282
+    "anomaly_score": 82.82
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "SOL",
     "anomaly_category": "funding_extremity",
     "z": -33.92,
-    "score": 0.9809
+    "anomaly_score": 98.09
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "SOL",
     "anomaly_category": "oracle_divergence",
     "z": -50.42,
-    "score": 0.9988
+    "anomaly_score": 99.88
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "TRUMP",
     "anomaly_category": "funding_extremity",
     "z": -66.6,
-    "score": 0.9999
+    "anomaly_score": 99.99
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "TRUMP",
     "anomaly_category": "oracle_divergence",
     "z": -84.88,
-    "score": 1.0
+    "anomaly_score": 100.0
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "WIF",
     "anomaly_category": "funding_extremity",
     "z": -21.69,
-    "score": 0.8534
+    "anomaly_score": 85.34
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "WIF",
     "anomaly_category": "oracle_divergence",
     "z": -52.55,
-    "score": 0.9991
+    "anomaly_score": 99.91
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "XRP",
     "anomaly_category": "funding_extremity",
     "z": -16.93,
-    "score": 0.6761
+    "anomaly_score": 67.61
    },
    {
-    "detected_at": "2025-10-10T23:00:00Z",
+    "detected_at_utc": "2025-10-10T23:00:00Z",
     "symbol": "XRP",
     "anomaly_category": "oracle_divergence",
     "z": -29.53,
-    "score": 0.9598
+    "anomaly_score": 95.98
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "ADA",
     "anomaly_category": "liquidity_shock",
     "z": 28.15,
-    "score": 0.9751
+    "anomaly_score": 97.51
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "ADA",
     "anomaly_category": "oracle_divergence",
     "z": -23.48,
-    "score": 0.8899
+    "anomaly_score": 88.99
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "APT",
     "anomaly_category": "funding_extremity",
     "z": -11.44,
-    "score": 0.1906
+    "anomaly_score": 19.06
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "APT",
     "anomaly_category": "liquidity_shock",
     "z": 28.34,
-    "score": 0.9759
+    "anomaly_score": 97.59
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "APT",
     "anomaly_category": "oracle_divergence",
     "z": -32.04,
-    "score": 0.9736
+    "anomaly_score": 97.36
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "ARB",
     "anomaly_category": "liquidity_shock",
     "z": 33.34,
-    "score": 0.9895
+    "anomaly_score": 98.95
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "AVAX",
     "anomaly_category": "funding_extremity",
     "z": -15.88,
-    "score": 0.6139
+    "anomaly_score": 61.39
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "AVAX",
     "anomaly_category": "liquidity_shock",
     "z": 31.75,
-    "score": 0.9863
+    "anomaly_score": 98.63
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "BNB",
     "anomaly_category": "liquidity_shock",
     "z": 13.41,
-    "score": 0.709
+    "anomaly_score": 70.9
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "DOGE",
     "anomaly_category": "funding_extremity",
     "z": -15.8,
-    "score": 0.6086
+    "anomaly_score": 60.86
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "DOGE",
     "anomaly_category": "liquidity_shock",
     "z": 27.07,
-    "score": 0.9701
+    "anomaly_score": 97.01
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "ETH",
     "anomaly_category": "liquidity_shock",
     "z": 7.24,
-    "score": 0.1868
+    "anomaly_score": 18.68
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "HYPE",
     "anomaly_category": "liquidity_shock",
     "z": 9.89,
-    "score": 0.4771
+    "anomaly_score": 47.71
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "INJ",
     "anomaly_category": "liquidity_shock",
     "z": 34.75,
-    "score": 0.9917
+    "anomaly_score": 99.17
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "INJ",
     "anomaly_category": "oracle_divergence",
     "z": -14.82,
-    "score": 0.5338
+    "anomaly_score": 53.38
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "LINK",
     "anomaly_category": "liquidity_shock",
     "z": 26.92,
-    "score": 0.9694
+    "anomaly_score": 96.94
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "LTC",
     "anomaly_category": "funding_extremity",
     "z": -13.6,
-    "score": 0.4353
+    "anomaly_score": 43.53
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "LTC",
     "anomaly_category": "liquidity_shock",
     "z": 26.31,
-    "score": 0.9661
+    "anomaly_score": 96.61
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "OP",
     "anomaly_category": "liquidity_shock",
     "z": 29.36,
-    "score": 0.9796
+    "anomaly_score": 97.96
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "OP",
     "anomaly_category": "oracle_divergence",
     "z": -38.2,
-    "score": 0.9905
+    "anomaly_score": 99.05
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "SOL",
     "anomaly_category": "funding_extremity",
     "z": -40.94,
-    "score": 0.9941
+    "anomaly_score": 99.41
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "SOL",
     "anomaly_category": "liquidity_shock",
     "z": 13.03,
-    "score": 0.69
+    "anomaly_score": 69.0
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "SOL",
     "anomaly_category": "oracle_divergence",
     "z": -28.05,
-    "score": 0.9486
+    "anomaly_score": 94.86
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "SUI",
     "anomaly_category": "liquidity_shock",
     "z": 39.38,
-    "score": 0.9962
+    "anomaly_score": 99.62
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "SUI",
     "anomaly_category": "oracle_divergence",
     "z": -10.43,
-    "score": 0.0306
+    "anomaly_score": 3.06
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "TIA",
     "anomaly_category": "liquidity_shock",
     "z": 39.53,
-    "score": 0.9963
+    "anomaly_score": 99.63
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "TIA",
     "anomaly_category": "oracle_divergence",
     "z": -17.52,
-    "score": 0.7027
+    "anomaly_score": 70.27
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "TRUMP",
     "anomaly_category": "funding_extremity",
     "z": -78.59,
-    "score": 1.0
+    "anomaly_score": 100.0
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "TRUMP",
     "anomaly_category": "liquidity_shock",
     "z": 38.95,
-    "score": 0.9959
+    "anomaly_score": 99.59
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "TRUMP",
     "anomaly_category": "oracle_divergence",
     "z": -31.83,
-    "score": 0.9726
+    "anomaly_score": 97.26
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "WIF",
     "anomaly_category": "funding_extremity",
     "z": -26.8,
-    "score": 0.9374
+    "anomaly_score": 93.74
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "WIF",
     "anomaly_category": "liquidity_shock",
     "z": 37.22,
-    "score": 0.9945
+    "anomaly_score": 99.45
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "WIF",
     "anomaly_category": "oracle_divergence",
     "z": -22.95,
-    "score": 0.8799
+    "anomaly_score": 87.99
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "XRP",
     "anomaly_category": "funding_extremity",
     "z": -18.07,
-    "score": 0.732
+    "anomaly_score": 73.2
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "XRP",
     "anomaly_category": "liquidity_shock",
     "z": 23.66,
-    "score": 0.9473
+    "anomaly_score": 94.73
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "XRP",
     "anomaly_category": "oracle_divergence",
     "z": -13.92,
-    "score": 0.4587
+    "anomaly_score": 45.87
    },
    {
-    "detected_at": "2025-10-11T00:00:00Z",
+    "detected_at_utc": "2025-10-11T00:00:00Z",
     "symbol": "kPEPE",
     "anomaly_category": "liquidity_shock",
     "z": 29.21,
-    "score": 0.9791
+    "anomaly_score": 97.91
    },
    {
-    "detected_at": "2025-10-11T01:00:00Z",
+    "detected_at_utc": "2025-10-11T01:00:00Z",
     "symbol": "APT",
     "anomaly_category": "funding_extremity",
     "z": -13.98,
-    "score": 0.4704
+    "anomaly_score": 47.04
    },
    {
-    "detected_at": "2025-10-11T01:00:00Z",
+    "detected_at_utc": "2025-10-11T01:00:00Z",
     "symbol": "APT",
     "anomaly_category": "oracle_divergence",
     "z": -15.22,
-    "score": 0.5643
+    "anomaly_score": 56.43
    },
    {
-    "detected_at": "2025-10-11T01:00:00Z",
+    "detected_at_utc": "2025-10-11T01:00:00Z",
     "symbol": "AVAX",
     "anomaly_category": "funding_extremity",
     "z": -18.04,
-    "score": 0.7305
+    "anomaly_score": 73.05
    },
    {
-    "detected_at": "2025-10-11T01:00:00Z",
+    "detected_at_utc": "2025-10-11T01:00:00Z",
     "symbol": "DOGE",
     "anomaly_category": "funding_extremity",
     "z": -15.85,
-    "score": 0.6121
+    "anomaly_score": 61.21
    },
    {
-    "detected_at": "2025-10-11T01:00:00Z",
+    "detected_at_utc": "2025-10-11T01:00:00Z",
     "symbol": "HYPE",
     "anomaly_category": "funding_extremity",
     "z": -21.13,
-    "score": 0.8389
+    "anomaly_score": 83.89
    },
    {
-    "detected_at": "2025-10-11T01:00:00Z",
+    "detected_at_utc": "2025-10-11T01:00:00Z",
     "symbol": "LTC",
     "anomaly_category": "oracle_divergence",
     "z": 16.35,
-    "score": 0.6387
+    "anomaly_score": 63.87
    },
    {
-    "detected_at": "2025-10-11T01:00:00Z",
+    "detected_at_utc": "2025-10-11T01:00:00Z",
     "symbol": "SOL",
     "anomaly_category": "funding_extremity",
     "z": -42.89,
-    "score": 0.9957
+    "anomaly_score": 99.57
    },
    {
-    "detected_at": "2025-10-11T01:00:00Z",
+    "detected_at_utc": "2025-10-11T01:00:00Z",
     "symbol": "TRUMP",
     "anomaly_category": "funding_extremity",
     "z": -82.99,
-    "score": 1.0
+    "anomaly_score": 100.0
    },
    {
-    "detected_at": "2025-10-11T01:00:00Z",
+    "detected_at_utc": "2025-10-11T01:00:00Z",
     "symbol": "TRUMP",
     "anomaly_category": "oracle_divergence",
     "z": -13.19,
-    "score": 0.3888
+    "anomaly_score": 38.88
    },
    {
-    "detected_at": "2025-10-11T01:00:00Z",
+    "detected_at_utc": "2025-10-11T01:00:00Z",
     "symbol": "WIF",
     "anomaly_category": "funding_extremity",
     "z": -27.24,
-    "score": 0.9418
+    "anomaly_score": 94.18
    },
    {
-    "detected_at": "2025-10-11T01:00:00Z",
+    "detected_at_utc": "2025-10-11T01:00:00Z",
     "symbol": "XRP",
     "anomaly_category": "funding_extremity",
     "z": -18.29,
-    "score": 0.7414
+    "anomaly_score": 74.14
    },
    {
-    "detected_at": "2025-10-11T01:00:00Z",
+    "detected_at_utc": "2025-10-11T01:00:00Z",
     "symbol": "kPEPE",
     "anomaly_category": "funding_extremity",
     "z": -11.3,
-    "score": 0.1712
+    "anomaly_score": 17.12
    },
    {
-    "detected_at": "2025-10-11T02:00:00Z",
+    "detected_at_utc": "2025-10-11T02:00:00Z",
     "symbol": "APT",
     "anomaly_category": "funding_extremity",
     "z": -14.24,
-    "score": 0.4927
+    "anomaly_score": 49.27
    },
    {
-    "detected_at": "2025-10-11T02:00:00Z",
+    "detected_at_utc": "2025-10-11T02:00:00Z",
     "symbol": "AVAX",
     "anomaly_category": "funding_extremity",
     "z": -18.48,
-    "score": 0.7498
+    "anomaly_score": 74.98
    },
    {
-    "detected_at": "2025-10-11T02:00:00Z",
+    "detected_at_utc": "2025-10-11T02:00:00Z",
     "symbol": "DOGE",
     "anomaly_category": "funding_extremity",
     "z": -16.28,
-    "score": 0.6386
+    "anomaly_score": 63.86
    },
    {
-    "detected_at": "2025-10-11T02:00:00Z",
+    "detected_at_utc": "2025-10-11T02:00:00Z",
     "symbol": "HYPE",
     "anomaly_category": "funding_extremity",
     "z": -21.53,
-    "score": 0.8493
+    "anomaly_score": 84.93
    },
    {
-    "detected_at": "2025-10-11T02:00:00Z",
+    "detected_at_utc": "2025-10-11T02:00:00Z",
     "symbol": "SOL",
     "anomaly_category": "funding_extremity",
     "z": -45.21,
-    "score": 0.9971
+    "anomaly_score": 99.71
    },
    {
-    "detected_at": "2025-10-11T02:00:00Z",
+    "detected_at_utc": "2025-10-11T02:00:00Z",
     "symbol": "SOL",
     "anomaly_category": "oracle_divergence",
     "z": -11.25,
-    "score": 0.155
+    "anomaly_score": 15.5
    },
    {
-    "detected_at": "2025-10-11T02:00:00Z",
+    "detected_at_utc": "2025-10-11T02:00:00Z",
     "symbol": "TIA",
     "anomaly_category": "funding_extremity",
     "z": -10.81,
-    "score": 0.1005
+    "anomaly_score": 10.05
    },
    {
-    "detected_at": "2025-10-11T02:00:00Z",
+    "detected_at_utc": "2025-10-11T02:00:00Z",
     "symbol": "TRUMP",
     "anomaly_category": "funding_extremity",
     "z": -86.57,
-    "score": 1.0
+    "anomaly_score": 100.0
    },
    {
-    "detected_at": "2025-10-11T02:00:00Z",
+    "detected_at_utc": "2025-10-11T02:00:00Z",
     "symbol": "TRUMP",
     "anomaly_category": "oracle_divergence",
     "z": -11.74,
-    "score": 0.2215
+    "anomaly_score": 22.15
    },
    {
-    "detected_at": "2025-10-11T02:00:00Z",
+    "detected_at_utc": "2025-10-11T02:00:00Z",
     "symbol": "WIF",
     "anomaly_category": "funding_extremity",
     "z": -27.28,
-    "score": 0.9423
+    "anomaly_score": 94.23
    },
    {
-    "detected_at": "2025-10-11T02:00:00Z",
+    "detected_at_utc": "2025-10-11T02:00:00Z",
     "symbol": "XRP",
     "anomaly_category": "funding_extremity",
     "z": -18.66,
-    "score": 0.757
+    "anomaly_score": 75.7
    },
    {
-    "detected_at": "2025-10-11T02:00:00Z",
+    "detected_at_utc": "2025-10-11T02:00:00Z",
     "symbol": "kPEPE",
     "anomaly_category": "funding_extremity",
     "z": -11.11,
-    "score": 0.1448
+    "anomaly_score": 14.48
    },
    {
-    "detected_at": "2025-10-11T03:00:00Z",
+    "detected_at_utc": "2025-10-11T03:00:00Z",
     "symbol": "APT",
     "anomaly_category": "funding_extremity",
     "z": -14.41,
-    "score": 0.5069
+    "anomaly_score": 50.69
    },
    {
-    "detected_at": "2025-10-11T03:00:00Z",
+    "detected_at_utc": "2025-10-11T03:00:00Z",
     "symbol": "AVAX",
     "anomaly_category": "funding_extremity",
     "z": -19.45,
-    "score": 0.7872
+    "anomaly_score": 78.72
    },
    {
-    "detected_at": "2025-10-11T03:00:00Z",
+    "detected_at_utc": "2025-10-11T03:00:00Z",
     "symbol": "DOGE",
     "anomaly_category": "funding_extremity",
     "z": -16.33,
-    "score": 0.6416
+    "anomaly_score": 64.16
    },
    {
-    "detected_at": "2025-10-11T03:00:00Z",
+    "detected_at_utc": "2025-10-11T03:00:00Z",
     "symbol": "HYPE",
     "anomaly_category": "funding_extremity",
     "z": -22.1,
-    "score": 0.8631
+    "anomaly_score": 86.31
    },
    {
-    "detected_at": "2025-10-11T03:00:00Z",
+    "detected_at_utc": "2025-10-11T03:00:00Z",
     "symbol": "SOL",
     "anomaly_category": "funding_extremity",
     "z": -47.02,
-    "score": 0.9978
+    "anomaly_score": 99.78
    },
    {
-    "detected_at": "2025-10-11T03:00:00Z",
+    "detected_at_utc": "2025-10-11T03:00:00Z",
     "symbol": "TIA",
     "anomaly_category": "funding_extremity",
     "z": -12.45,
-    "score": 0.3166
+    "anomaly_score": 31.66
    },
    {
-    "detected_at": "2025-10-11T03:00:00Z",
+    "detected_at_utc": "2025-10-11T03:00:00Z",
     "symbol": "TRUMP",
     "anomaly_category": "funding_extremity",
     "z": -88.87,
-    "score": 1.0
+    "anomaly_score": 100.0
    },
    {
-    "detected_at": "2025-10-11T03:00:00Z",
+    "detected_at_utc": "2025-10-11T03:00:00Z",
     "symbol": "XRP",
     "anomaly_category": "funding_extremity",
     "z": -18.89,
-    "score": 0.7664
+    "anomaly_score": 76.64
    }
   ],
   "first_detection_by_market": {
@@ -1418,7 +1418,7 @@
    "at": "2025-03-26T13:00:00Z",
    "hours_after_onset": 1.0,
    "category": "liquidity_shock",
-   "score": 0.1854
+   "anomaly_score": 18.54
   },
   "categories_in_window": [
    "liquidity_shock",
@@ -1853,32 +1853,32 @@
   "market_days_observed": 14,
   "in_window_events": [
    {
-    "detected_at": "2025-03-26T13:00:00Z",
+    "detected_at_utc": "2025-03-26T13:00:00Z",
     "symbol": "JELLY",
     "anomaly_category": "liquidity_shock",
     "z": 7.41,
-    "score": 0.1854
+    "anomaly_score": 18.54
    },
    {
-    "detected_at": "2025-03-26T14:00:00Z",
+    "detected_at_utc": "2025-03-26T14:00:00Z",
     "symbol": "JELLY",
     "anomaly_category": "liquidity_shock",
     "z": 28.11,
-    "score": 0.9741
+    "anomaly_score": 97.41
    },
    {
-    "detected_at": "2025-03-26T15:00:00Z",
+    "detected_at_utc": "2025-03-26T15:00:00Z",
     "symbol": "JELLY",
     "anomaly_category": "liquidity_shock",
     "z": 14.51,
-    "score": 0.7504
+    "anomaly_score": 75.04
    },
    {
-    "detected_at": "2025-03-26T16:00:00Z",
+    "detected_at_utc": "2025-03-26T16:00:00Z",
     "symbol": "JELLY",
     "anomaly_category": "oracle_divergence",
     "z": -13.45,
-    "score": 0.4139
+    "anomaly_score": 41.39
    }
   ]
  }
