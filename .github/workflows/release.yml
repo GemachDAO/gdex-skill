@@ -33,6 +33,9 @@ jobs:
     needs: ci
     # Only run on manual dispatch or tag push — not on every CI run
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+      id-token: write # npm provenance + MCP Registry GitHub OIDC login
 
     steps:
       - name: Checkout
@@ -46,6 +49,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
         run: npm ci
@@ -72,10 +76,14 @@ jobs:
           # Also bump mcp-server version to match
           cd mcp-server
           npm version ${{ inputs.bump }} --no-git-tag-version
+          # Keep the MCP Registry metadata in lockstep with the npm package
+          V="${NEW_VERSION#v}"
+          jq --arg v "$V" '.version = $v | .packages[0].version = $v' server.json > server.json.tmp
+          mv server.json.tmp server.json
           cd ..
 
           # Commit and tag
-          git add package.json package-lock.json mcp-server/package.json mcp-server/package-lock.json
+          git add package.json package-lock.json mcp-server/package.json mcp-server/package-lock.json mcp-server/server.json
           git commit -m "chore: release $NEW_VERSION"
           git tag "$NEW_VERSION"
           git push origin main --tags
@@ -115,3 +123,43 @@ jobs:
             mcp-server/*.tgz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Publish MCP server to npm + MCP Registry ────────────────────────
+      - name: Check MCP server versions are in sync
+        working-directory: mcp-server
+        run: |
+          PKG=$(jq -r .version package.json)
+          for v in "$(jq -r .version server.json)" "$(jq -r '.packages[0].version' server.json)"; do
+            if [ "$v" != "$PKG" ]; then
+              echo "::error::mcp-server/server.json version ($v) != package.json version ($PKG)"
+              exit 1
+            fi
+          done
+          if [ "$(jq -r .mcpName package.json)" != "$(jq -r .name server.json)" ]; then
+            echo "::error::package.json mcpName must equal server.json name"
+            exit 1
+          fi
+
+      - name: Publish MCP server to npm
+        working-directory: mcp-server
+        run: |
+          NAME=$(jq -r .name package.json)
+          VERSION=$(jq -r .version package.json)
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION is already on npm, skipping"
+          else
+            npm publish --access public --provenance
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Authenticate to MCP Registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish server to MCP Registry
+        working-directory: mcp-server
+        run: ../mcp-publisher publish
