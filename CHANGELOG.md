@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.11.0] - 2026-10-01
+
+### Changed
+
+- **`gdex-hl-anomaly` events now carry the 15-column anomaly contract shape.** The model, thresholds and
+  backtest results are unchanged (`model_version` stays `gemach-hl-anomaly/robust-baseline-v2`).
+  - **Added:** `anomaly_id` (stable), `entity_type` (`market`), `chain` (`hyperliquid`),
+    `detection_method` (`statistical`), `baseline_window` (`7d`), `observed_metric`, `observed_value`,
+    `expected_value`, `summary` and `detected_at_utc`.
+  - **Breaking:** `detected_at` is now **epoch seconds** (was an ISO string; the ISO form moves to
+    `detected_at_utc`). `score` (0–1) is replaced by **`anomaly_score` (0–100)**, the same mapping ×100.
+  - `confidence` is deliberately not emitted. The score is a ranking, not a calibrated probability.
+  - Vendored script affected: `skills/gdex-hl-anomaly/scripts/hl_anomaly.py`. The other vendored
+    scripts are unchanged.
+
 ## [4.10.0] - 2026-09-25
 
 Released from `main`. **4.8.0 and 4.9.0 were cut from a side branch that never merged into

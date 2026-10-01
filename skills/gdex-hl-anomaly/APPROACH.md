@@ -68,15 +68,19 @@ used to set a threshold.
 
 ## Scores
 
-`score = 1 − exp(−(|z| − threshold) / 6)`.
+`anomaly_score = 100 · (1 − exp(−(|z| − threshold) / 6))`.
 
 - 0 exactly at the threshold.
-- 0.63 at 6 z past it, 0.86 at 12 z past it.
+- 63 at 6 z past it, 86 at 12 z past it.
 - Monotonic, so it ranks events. It is **not a probability**, and it is not calibrated to one.
+
+That is why the record has no `confidence` field. A 0–1 confidence would need a calibrated
+probability that an event is real. With three labelled events there is nothing to calibrate
+against, so the field is left out rather than filled with a number that looks like one.
 
 ## Events, not alerts
 
-- Every threshold crossing is emitted as an event with its z and score. The consumer decides
+- Every threshold crossing is emitted as an event with its z and `anomaly_score`. The consumer decides
   what to alert on.
 - `detected_at` is when the anomaly happened: the funding hour, or the close of the bar,
   because a bar is only observable once closed. It is never the time the job ran.
