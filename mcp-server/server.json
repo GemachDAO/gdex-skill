@@ -1,0 +1,39 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.GemachDAO/gdex-mcp-server",
+  "title": "GDEX Trading",
+  "description": "GDEX (gdex.pro) trading for AI agents: spot, perps and HyperLiquid on Solana, EVM and more chains",
+  "websiteUrl": "https://gdex.pro",
+  "repository": {
+    "url": "https://github.com/GemachDAO/gdex-skill",
+    "source": "github",
+    "subfolder": "mcp-server"
+  },
+  "version": "4.11.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@gemachdao/gdex-mcp-server",
+      "version": "4.11.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "GDEX_API_KEY",
+          "description": "GDEX API key; the server auto-authenticates with it on startup",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "GDEX_API_URL",
+          "description": "Override the GDEX API base URL (default: https://trade-api.gemach.io/v1)",
+          "isRequired": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

@@ -115,7 +115,7 @@ Cross-chain balances, trade history, positions — your agent sees everything. A
 **4. MCP Server included.** Claude Desktop, Cursor, VS Code — one command and your agent has all 117 GDEX tools available (109 execution + 8 documentation).
 
 ```bash
-npx @gdexsdk/mcp-server init --client claude
+npx @gemachdao/gdex-mcp-server init --client claude
 # Done. Your Claude can now trade crypto. Sleep tight.
 ```
 
@@ -230,7 +230,7 @@ await sdk.hlCreateOrder({
 For MCP-compatible agents (Claude, Cursor, VS Code):
 
 ```bash
-npx @gdexsdk/mcp-server init --client claude
+npx @gemachdao/gdex-mcp-server init --client claude
 ```
 
 That's it. Your agent now has access to 117 tools (109 execution + 8 documentation).
