@@ -1,0 +1,32 @@
+{
+  "name": "gdex",
+  "displayName": "GDEX",
+  "version": "4.11.2",
+  "description": "Agent skills and an MCP server for GDEX (gdex.pro), Gemach DAO's multi-chain trading terminal: spot swaps on Solana, Sui and EVM chains, HyperLiquid perpetuals, copy trading, limit orders, bridging and portfolio reads.",
+  "author": {
+    "name": "Gemach DAO",
+    "url": "https://github.com/GemachDAO"
+  },
+  "homepage": "https://gdex.pro",
+  "repository": "https://github.com/GemachDAO/gdex-skill",
+  "license": "MIT",
+  "keywords": ["gdex", "gemach", "trading", "defi", "crypto", "hyperliquid", "solana", "sui", "evm", "mcp"],
+  "mcpServers": {
+    "gdex": {
+      "command": "npx",
+      "args": ["-y", "@gemachdao/gdex-mcp-server@4.11.2"],
+      "env": {
+        "GDEX_API_KEY": "${user_config.gdex_api_key}"
+      }
+    }
+  },
+  "userConfig": {
+    "gdex_api_key": {
+      "type": "string",
+      "title": "GDEX API key (optional)",
+      "description": "If set, the GDEX MCP server signs in with this key on startup. Leave empty to use the server's defaults.",
+      "required": false,
+      "sensitive": true
+    }
+  }
+}

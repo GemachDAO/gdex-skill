@@ -2,7 +2,7 @@
   "name": "@gemachdao/gdex-mcp-server",
   "version": "4.11.2",
   "mcpName": "io.github.GemachDAO/gdex-mcp-server",
-  "description": "MCP server for GDEX Trading SDK — full trading execution + documentation tools for AI agents on HyperLiquid, Solana, and 15+ chains",
+  "description": "MCP server for GDEX (gdex.pro): trading execution and documentation tools for AI agents on Hyperliquid, Solana, Sui and 10 EVM chains",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

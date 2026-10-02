@@ -82,8 +82,15 @@ jobs:
           mv server.json.tmp server.json
           cd ..
 
+          # Claude Code plugin, Gemini extension and .mcp.json pin the npm version; keep them in lockstep
+          for f in plugins/gdex/.claude-plugin/plugin.json gemini-extension.json; do
+            jq --arg v "$V" '.version = $v' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+          done
+          sed -i -E "s#@gemachdao/gdex-mcp-server@[0-9]+\.[0-9]+\.[0-9]+#@gemachdao/gdex-mcp-server@$V#g" \
+            plugins/gdex/.claude-plugin/plugin.json gemini-extension.json .mcp.json plugins/gdex/.mcp.json
+
           # Commit and tag
-          git add package.json package-lock.json mcp-server/package.json mcp-server/package-lock.json mcp-server/server.json
+          git add package.json package-lock.json mcp-server/package.json mcp-server/package-lock.json mcp-server/server.json plugins/gdex/.claude-plugin/plugin.json gemini-extension.json .mcp.json plugins/gdex/.mcp.json
           git commit -m "chore: release $NEW_VERSION"
           git tag "$NEW_VERSION"
           git push origin main --tags
@@ -135,6 +142,16 @@ jobs:
               exit 1
             fi
           done
+          for f in ../plugins/gdex/.claude-plugin/plugin.json ../gemini-extension.json; do
+            if [ "$(jq -r .version "$f")" != "$PKG" ]; then
+              echo "::error::$f version != package.json version ($PKG)"
+              exit 1
+            fi
+          done
+          if grep -hoE '@gemachdao/gdex-mcp-server@[0-9.]+' ../plugins/gdex/.claude-plugin/plugin.json ../gemini-extension.json ../.mcp.json ../plugins/gdex/.mcp.json | grep -v "@$PKG\$"; then
+            echo "::error::an npx pin above does not match package.json version ($PKG)"
+            exit 1
+          fi
           if [ "$(jq -r .mcpName package.json)" != "$(jq -r .name server.json)" ]; then
             echo "::error::package.json mcpName must equal server.json name"
             exit 1

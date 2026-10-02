@@ -160,6 +160,21 @@ npx @gemachdao/gdex-mcp-server init --client codex    # → .codex/config.toml
 npx @gemachdao/gdex-mcp-server init --client opencode  # → .opencode/mcp.json
 ```
 
+### Claude Code plugin
+
+```
+/plugin marketplace add GemachDAO/gdex-skill
+/plugin install gdex@gemachdao
+```
+
+Installs every GDEX skill plus the MCP server (`npx -y @gemachdao/gdex-mcp-server`). The optional GDEX API key is kept in your system credential store.
+
+### Gemini CLI extension
+
+```bash
+gemini extensions install https://github.com/GemachDAO/gdex-skill
+```
+
 ### Manual Config
 
 Add to your client's MCP config:
