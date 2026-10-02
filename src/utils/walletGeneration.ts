@@ -54,7 +54,7 @@ export interface GeneratedEvmWallet {
  *
  * @example
  * ```typescript
- * import { GdexSkill, generateEvmWallet, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+ * import { GdexSkill, generateEvmWallet, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
  *
  * // Step 1: generate your EVM control wallet (one-time setup)
  * const wallet = generateEvmWallet();

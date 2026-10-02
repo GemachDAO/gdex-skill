@@ -21,7 +21,7 @@ Automatically mirror perpetual futures positions (long/short) from top-performin
 
 ## Prerequisites
 
-- `@gdexsdk/gdex-skill` installed
+- `@gemachdao/gdex-skill` installed
 - For discovery: `loginWithApiKey()` only
 - For read (list/tx_list): Full sign-in with session key (`chainId: 1`)
 - For write (create/update): Full sign-in + computedData
@@ -154,7 +154,7 @@ Require `userId` and `data` (AES-encrypted session key from `buildGdexUserSessio
 ### List User's HL Copy Trades
 
 ```typescript
-import { buildGdexUserSessionData } from '@gdexsdk/gdex-skill';
+import { buildGdexUserSessionData } from '@gemachdao/gdex-skill';
 
 const data = buildGdexUserSessionData(sessionKey, apiKey);
 const list = await skill.getHlCopyTradeList({ userId, data });
@@ -348,7 +348,7 @@ import {
   generateGdexSessionKeyPair,
   buildGdexSignInMessage,
   buildGdexSignInComputedData,
-} from '@gdexsdk/gdex-skill';
+} from '@gemachdao/gdex-skill';
 import { ethers } from 'ethers';
 
 const skill = new GdexSkill();

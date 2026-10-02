@@ -18,7 +18,7 @@ flow under `/v1/hl/top_traders_by_pnl` and from the builder referral under
 
 ## Prerequisites
 
-- `@gdexsdk/gdex-skill` installed
+- `@gemachdao/gdex-skill` installed
 - Authenticated via managed custody — see **gdex-authentication**
 - For claim: a pre-built `computedData` payload built by the caller using
   the standard managed-custody encrypted-payload contract (claim ABI lives
@@ -34,7 +34,7 @@ flow under `/v1/hl/top_traders_by_pnl` and from the builder referral under
 ## SDK Usage
 
 ```typescript
-import { GdexSkill } from '@gdexsdk/gdex-skill';
+import { GdexSkill } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(process.env.GDEX_API_KEY!);

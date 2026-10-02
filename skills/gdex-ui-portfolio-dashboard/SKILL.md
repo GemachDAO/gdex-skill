@@ -305,7 +305,7 @@ export function useTradeHistoryQuery(page: number, limit = 20) {
 // hooks/usePortfolioQuery.ts — CORRECT for managed custody
 import { useQuery } from '@tanstack/react-query';
 import { useGdex } from '@/providers/GdexProvider';
-import { buildGdexUserSessionData } from '@gdexsdk/gdex-skill';
+import { buildGdexUserSessionData } from '@gemachdao/gdex-skill';
 
 export function usePortfolioQuery(userId: string, sessionKey: string, apiKey: string, chainId: number) {
   const { skill, isReady } = useGdex();

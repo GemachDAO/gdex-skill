@@ -15,7 +15,7 @@ Query cross-chain portfolio summaries, chain-specific balances, and trade histor
 
 ## Prerequisites
 
-- `@gdexsdk/gdex-skill` installed
+- `@gemachdao/gdex-skill` installed
 - Authenticated via `loginWithApiKey()` — see **gdex-authentication**
 
 ## Cross-Chain Portfolio
@@ -25,7 +25,7 @@ Query cross-chain portfolio summaries, chain-specific balances, and trade histor
 ### Correct Way — Raw Client (Live-Tested, Works)
 
 ```typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY, buildGdexUserSessionData } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY, buildGdexUserSessionData } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
@@ -142,7 +142,7 @@ interface TradeRecord {
 ## Example: Portfolio Dashboard (Autonomous Agent — Live-Tested)
 
 ```typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY, buildGdexUserSessionData } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY, buildGdexUserSessionData } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);

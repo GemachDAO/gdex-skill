@@ -247,7 +247,7 @@ npm install github:GemachDAO/gdex-skill
 ```
 
 > Installs the SDK straight from GitHub (it builds on install). Imports stay
-> `from '@gdexsdk/gdex-skill'`. Pin a release with
+> `from '@gemachdao/gdex-skill'`. Pin a release with
 > `npm install github:GemachDAO/gdex-skill#v4.1.1`.
 
 > The install script displays a quick-start banner in your terminal. Optional peer dependencies for wallet signing (only needed for user-specific wallet auth):
@@ -261,7 +261,7 @@ npm install github:GemachDAO/gdex-skill
 ## 🚀 Quick Start
 
 ```typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
 
 // 1. Create skill instance
 const skill = new GdexSkill();
@@ -343,7 +343,7 @@ import {
   GDEX_API_KEY_PRIMARY,
   GDEX_API_KEY_SECONDARY,
   GDEX_API_KEYS,
-} from '@gdexsdk/gdex-skill';
+} from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);  // use primary
@@ -470,7 +470,7 @@ import {
   buildGdexSignInComputedData,
   buildGdexManagedTradeComputedData,
   buildGdexUserSessionData,
-} from '@gdexsdk/gdex-skill';
+} from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
@@ -751,7 +751,7 @@ const dexes = await skill.getCopyTradeDexes(622112261);
 #### Read (session-key auth)
 
 ```typescript
-import { buildGdexUserSessionData } from '@gdexsdk/gdex-skill';
+import { buildGdexUserSessionData } from '@gemachdao/gdex-skill';
 
 const data = buildGdexUserSessionData(sessionKey, apiKey);
 
@@ -772,7 +772,7 @@ import {
   generateGdexSessionKeyPair,
   buildGdexSignInMessage,
   buildGdexSignInComputedData,
-} from '@gdexsdk/gdex-skill';
+} from '@gemachdao/gdex-skill';
 
 // Sign-in MUST use chainId: 622112261 for copy trade operations
 const result = await skill.createCopyTrade({
@@ -863,7 +863,7 @@ const balance = await skill.getHlUsdcBalanceForCopy('0xAddress');
 #### Read (session-key auth)
 
 ```typescript
-import { buildGdexUserSessionData } from '@gdexsdk/gdex-skill';
+import { buildGdexUserSessionData } from '@gemachdao/gdex-skill';
 
 const data = buildGdexUserSessionData(sessionKey, apiKey);
 
@@ -1048,7 +1048,7 @@ import {
   generateGdexSessionKeyPair,
   buildGdexSignInMessage,
   GDEX_API_KEY_PRIMARY,
-} from '@gdexsdk/gdex-skill';
+} from '@gemachdao/gdex-skill';
 
 // Step 1: generate your EVM control wallet (one-time setup)
 const wallet = generateEvmWallet();
@@ -1091,7 +1091,7 @@ const message = buildGdexSignInMessage(wallet.address, String(Date.now()), sessi
 > only the chains listed above.
 
 ```typescript
-import { ChainId } from '@gdexsdk/gdex-skill';
+import { ChainId } from '@gemachdao/gdex-skill';
 
 ChainId.ETHEREUM   // 1
 ChainId.OPTIMISM   // 10
@@ -1117,7 +1117,7 @@ import {
   GdexApiError,        // 4xx/5xx backend errors
   GdexNetworkError,    // connection failures, timeouts
   GdexRateLimitError,  // 429 — check err.retryAfter
-} from '@gdexsdk/gdex-skill';
+} from '@gemachdao/gdex-skill';
 
 try {
   await skill.buyToken({ ... });
@@ -1161,7 +1161,7 @@ import {
   validateAddress,      // throws GdexValidationError if invalid
   validateAmount,       // throws GdexValidationError if invalid
   validateChain,        // throws GdexValidationError if unsupported
-} from '@gdexsdk/gdex-skill';
+} from '@gemachdao/gdex-skill';
 ```
 
 ---
@@ -1198,7 +1198,7 @@ AI Agent (Claude Code / Cursor / Codex / ...)
    │  SKILL.md → agent skill directory
    │
    ▼
-@gdexsdk/gdex-skill  (this package)
+@gemachdao/gdex-skill  (this package)
    │  TypeScript methods with full type safety
    │  @gdexsdk/hyper-liquid-trader for HyperLiquid L1 queries & direct execution
    │  Managed-custody: AES-256-CBC encryption + secp256k1 session signing
@@ -1321,7 +1321,7 @@ import {
   buildGdexSignInMessage,
   buildGdexSignInComputedData,
   buildHlComputedData,
-} from '@gdexsdk/gdex-skill';
+} from '@gemachdao/gdex-skill';
 import { ethers } from 'ethers';
 
 const apiKey = GDEX_API_KEY_PRIMARY;

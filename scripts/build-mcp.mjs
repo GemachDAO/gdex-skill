@@ -18,7 +18,7 @@ await build({
   format: 'esm',
   target: 'node18',
   outfile: OUT,
-  alias: { '@gdexsdk/gdex-skill': './dist/index.js' },
+  alias: { '@gemachdao/gdex-skill': './dist/index.js' },
   banner: {
     js: [
       '#!/usr/bin/env node',

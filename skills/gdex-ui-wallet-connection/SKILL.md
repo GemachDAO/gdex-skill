@@ -104,7 +104,7 @@ export function useAuth() {
 
 import { useState } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
-import { GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+import { GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
 
 export function ConnectButton() {
   const { isAuthenticated, authMethod, walletAddress, loginWithApiKey, logout } = useAuth();

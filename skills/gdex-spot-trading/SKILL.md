@@ -15,14 +15,14 @@ Buy and sell tokens across Solana, Sui, and 12+ EVM chains. The SDK routes throu
 
 ## Prerequisites
 
-- `@gdexsdk/gdex-skill` installed
+- `@gemachdao/gdex-skill` installed
 - Authenticated via `loginWithApiKey()` or managed-custody sign-in
 - See **gdex-authentication** for auth setup
 
 ## Buy a Token
 
 ```typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
@@ -89,7 +89,7 @@ import {
   GdexSkill,
   GDEX_API_KEY_PRIMARY,
   buildGdexManagedTradeComputedData,
-} from '@gdexsdk/gdex-skill';
+} from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
@@ -153,7 +153,7 @@ if (result.requestId) {
 ## Error Handling
 
 ```typescript
-import { GdexValidationError, GdexApiError, GdexRateLimitError } from '@gdexsdk/gdex-skill';
+import { GdexValidationError, GdexApiError, GdexRateLimitError } from '@gemachdao/gdex-skill';
 
 try {
   await skill.buyToken({ chain: 'solana', tokenAddress: '...', amount: '0.1' });

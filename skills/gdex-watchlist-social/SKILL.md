@@ -16,7 +16,7 @@ token (comments and bullish/bearish sentiment votes).
 
 ## Prerequisites
 
-- `@gdexsdk/gdex-skill` installed
+- `@gemachdao/gdex-skill` installed
 - Authenticated via shared API key or wallet sign-in — see
   **gdex-authentication**
 - For write operations: a session-key authentication context (`userId` and
@@ -36,7 +36,7 @@ token (comments and bullish/bearish sentiment votes).
 ## SDK Usage
 
 ```typescript
-import { GdexSkill, buildWatchListComputedData } from '@gdexsdk/gdex-skill';
+import { GdexSkill, buildWatchListComputedData } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(process.env.GDEX_API_KEY!);

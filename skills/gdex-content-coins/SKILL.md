@@ -25,7 +25,7 @@ Both are ordinary ERC-20s once minted, so you discover them here and trade them 
 ## Prerequisites
 
 ```typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY, ChainId } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY, ChainId } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);

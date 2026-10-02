@@ -2,7 +2,7 @@
  * SDK initialization and shared utilities for MCP tools.
  * Creates a GdexSkill instance configured from environment variables.
  */
-import { GdexSkill } from '@gdexsdk/gdex-skill';
+import { GdexSkill } from '@gemachdao/gdex-skill';
 
 let _sdk: GdexSkill | null = null;
 

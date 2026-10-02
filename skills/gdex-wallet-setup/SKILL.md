@@ -17,7 +17,7 @@ Generate EVM control wallets for new users and session keypairs for managed-cust
 ## Prerequisites
 
 ```bash
-npm install @gdexsdk/gdex-skill
+npm install @gemachdao/gdex-skill
 ```
 
 No authentication needed for wallet generation.
@@ -25,7 +25,7 @@ No authentication needed for wallet generation.
 ## Generate an EVM Control Wallet
 
 ```typescript
-import { generateEvmWallet } from '@gdexsdk/gdex-skill';
+import { generateEvmWallet } from '@gemachdao/gdex-skill';
 
 const wallet = generateEvmWallet();
 console.log('Address:', wallet.address);        // public — safe to display
@@ -47,7 +47,7 @@ console.log('Mnemonic:', wallet.mnemonic);       // SECRET — 12-word backup ph
 Session keypairs (secp256k1) are used to sign trades after the initial control-wallet sign-in:
 
 ```typescript
-import { generateGdexSessionKeyPair } from '@gdexsdk/gdex-skill';
+import { generateGdexSessionKeyPair } from '@gemachdao/gdex-skill';
 
 const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
 // sessionPrivateKey: hex string (store securely, reuse across requests)
@@ -59,7 +59,7 @@ const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
 Query native balance and token count on a specific chain (requires auth):
 
 ```typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
@@ -93,7 +93,7 @@ import {
   buildGdexSignInComputedData,
   GdexSkill,
   GDEX_API_KEY_PRIMARY,
-} from '@gdexsdk/gdex-skill';
+} from '@gemachdao/gdex-skill';
 
 // Step 1: Generate a control wallet (offline)
 const wallet = generateEvmWallet();

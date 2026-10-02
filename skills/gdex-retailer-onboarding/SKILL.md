@@ -17,7 +17,7 @@ experience.
 
 ## Prerequisites
 
-- `@gdexsdk/gdex-skill` installed
+- `@gemachdao/gdex-skill` installed
 - No authentication required (public retailer registry)
 
 ## Backend Endpoints
@@ -29,7 +29,7 @@ experience.
 ## SDK Usage
 
 ```typescript
-import { GdexSkill } from '@gdexsdk/gdex-skill';
+import { GdexSkill } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 const retailers = await skill.getRetailers();
