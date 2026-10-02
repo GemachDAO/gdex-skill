@@ -153,13 +153,12 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Install mcp-publisher
-        run: |
-          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
-
-      - name: Authenticate to MCP Registry
-        run: ./mcp-publisher login github-oidc
-
-      - name: Publish server to MCP Registry
-        working-directory: mcp-server
-        run: ../mcp-publisher publish
+  # Registry publishing lives in its own workflow so it can wait for npm to serve the new version
+  # (npm can take minutes) and can be re-run on its own without bumping the version again.
+  mcp-registry:
+    name: Publish to MCP Registry
+    needs: release
+    uses: ./.github/workflows/mcp-registry.yml
+    permissions:
+      contents: read
+      id-token: write # MCP Registry GitHub OIDC login

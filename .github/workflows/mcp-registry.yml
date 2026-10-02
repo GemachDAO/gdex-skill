@@ -1,0 +1,52 @@
+name: Publish to MCP Registry
+
+# Publishes mcp-server/server.json to registry.modelcontextprotocol.io as io.github.GemachDAO/*.
+# Called by release.yml after the npm publish, and runnable by hand to (re)publish the current version.
+# GitHub OIDC grants io.github.<repository_owner>/*, so no secret or public org membership is needed.
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish server.json
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # A dispatched release pushes its version-bump commit to main after this run's SHA was taken,
+          # so read main; a tag-triggered release already points at the bumped commit.
+          ref: ${{ startsWith(github.ref, 'refs/tags/') && github.ref || 'main' }}
+
+      - name: Wait for the npm package to be served
+        working-directory: mcp-server
+        run: |
+          NAME=$(jq -r .name package.json)
+          VERSION=$(jq -r .version package.json)
+          for i in $(seq 1 60); do
+            if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+              echo "$NAME@$VERSION is available on npm"
+              exit 0
+            fi
+            echo "waiting for $NAME@$VERSION on npm ($i/60)"
+            sleep 15
+          done
+          echo "::error::$NAME@$VERSION did not appear on npm within 15 minutes"
+          exit 1
+
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Authenticate to MCP Registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish server to MCP Registry
+        working-directory: mcp-server
+        run: ../mcp-publisher publish
