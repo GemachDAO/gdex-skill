@@ -14,7 +14,7 @@
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
-      "identifier": "@gdexsdk/mcp-server",
+      "identifier": "@gemachdao/gdex-mcp-server",
       "version": "4.11.0",
       "transport": {
         "type": "stdio"

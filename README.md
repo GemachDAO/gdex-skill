@@ -151,11 +151,11 @@ The GDEX MCP server exposes **117 tools** — full trading execution + SDK docum
 
 ```bash
 # Auto-generate config for your AI client
-npx @gdexsdk/mcp-server init --client claude   # → .mcp.json
-npx @gdexsdk/mcp-server init --client cursor   # → .cursor/mcp.json
-npx @gdexsdk/mcp-server init --client vscode   # → .vscode/mcp.json
-npx @gdexsdk/mcp-server init --client codex    # → .codex/config.toml
-npx @gdexsdk/mcp-server init --client opencode  # → .opencode/mcp.json
+npx @gemachdao/gdex-mcp-server init --client claude   # → .mcp.json
+npx @gemachdao/gdex-mcp-server init --client cursor   # → .cursor/mcp.json
+npx @gemachdao/gdex-mcp-server init --client vscode   # → .vscode/mcp.json
+npx @gemachdao/gdex-mcp-server init --client codex    # → .codex/config.toml
+npx @gemachdao/gdex-mcp-server init --client opencode  # → .opencode/mcp.json
 ```
 
 ### Manual Config
@@ -167,7 +167,7 @@ Add to your client's MCP config:
   "mcpServers": {
     "gdex-mcp-server": {
       "command": "npx",
-      "args": ["@gdexsdk/mcp-server"],
+      "args": ["@gemachdao/gdex-mcp-server"],
       "env": {
         "GDEX_API_KEY": "your-api-key"
       }
