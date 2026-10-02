@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "gemachdao",
+  "description": "GDEX (gdex.pro) agent skills and MCP server from Gemach DAO",
+  "owner": {
+    "name": "Gemach DAO",
+    "url": "https://github.com/GemachDAO"
+  },
+  "plugins": [
+    {
+      "name": "gdex",
+      "source": "./plugins/gdex",
+      "description": "Agent skills and an MCP server for GDEX, Gemach DAO's multi-chain trading terminal: spot swaps on Solana, Sui and EVM chains, HyperLiquid perps, copy trading, limit orders, bridging and portfolio reads.",
+      "category": "finance",
+      "tags": ["trading", "defi", "crypto", "hyperliquid", "solana", "mcp"]
+    }
+  ]
+}
