@@ -13,7 +13,7 @@
 **AI Agent Skill for [GDEX Pro](https://gdex.pro)** — the self-custody trading terminal by [Gemach](https://gemach.io)  
 Cross-chain spot · HyperLiquid perps · Copy trading · Portfolio · Token discovery · Managed custody
 
-[![npm version](https://img.shields.io/npm/v/@gdexsdk/gdex-skill.svg?style=for-the-badge)](https://www.npmjs.com/package/@gdexsdk/gdex-skill)
+[![npm version](https://img.shields.io/npm/v/@gemachdao/gdex-mcp-server.svg?style=for-the-badge&label=mcp-server)](https://www.npmjs.com/package/@gemachdao/gdex-mcp-server)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F7DF1E.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![skills.sh](https://img.shields.io/badge/skills.sh-compatible-8B5CF6.svg?style=for-the-badge)](https://skills.sh)
@@ -205,7 +205,7 @@ Add to your client's MCP config:
 | Category | Tools | Description |
 |----------|-------|-------------|
 | **Auth** | `auth_login`, `generate_session_keypair`, `managed_sign_in`, `build_sign_in_payload` | API key login, session keys, managed custody sign-in |
-| **Spot Trading** | `buy_token`, `sell_token` | Buy/sell on Solana, Sui, Ethereum, Base, Arbitrum, BSC, and 10+ chains |
+| **Spot Trading** | `buy_token`, `sell_token` | Buy/sell on Solana, Sui and 10 EVM chains (Ethereum, Base, Arbitrum, BSC and more) |
 | **Perp Trading** | `open_perp_position`, `place_perp_order`, `close_perp_position`, `close_all_positions`, `cancel_perp_order`, `cancel_all_perp_orders`, `set_leverage`, `perp_deposit`, `perp_withdraw` | Full HyperLiquid perpetual futures — long/short, TP/SL; leverage up to each market's cap (40x on core BTC) |
 | **Perp Data** | `get_account_state`, `get_perp_positions`, `get_mark_price`, `get_all_mid_prices`, `get_usdc_balance`, `get_hl_open_orders`, `get_hl_trade_history`, `get_hl_spot_state`, `get_trader_leverage` | Real-time HyperLiquid account, positions, prices |
 | **Direct Execution** | `execute_cross_perp`, `execute_isolated_perp`, `execute_spot`, `direct_cancel_order` | Private-key execution — cross/isolated margin, spot, cancel |
