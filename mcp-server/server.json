@@ -9,13 +9,13 @@
     "source": "github",
     "subfolder": "mcp-server"
   },
-  "version": "4.11.2",
+  "version": "4.11.3",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@gemachdao/gdex-mcp-server",
-      "version": "4.11.2",
+      "version": "4.11.3",
       "transport": {
         "type": "stdio"
       },

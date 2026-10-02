@@ -2,7 +2,7 @@
   "mcpServers": {
     "gdex": {
       "command": "npx",
-      "args": ["-y", "@gemachdao/gdex-mcp-server@4.11.2"]
+      "args": ["-y", "@gemachdao/gdex-mcp-server@4.11.3"]
     }
   }
 }
