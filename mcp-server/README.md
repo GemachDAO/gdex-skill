@@ -2,7 +2,7 @@
 
 The official [Model Context Protocol](https://modelcontextprotocol.io) server for [GDEX](https://gdex.pro), Gemach DAO's multi-chain trading terminal. It gives AI agents **117 tools**: 109 that execute trades and read account state, plus 8 documentation tools.
 
-- Spot swaps on Solana, Sui and 10+ EVM chains (`buy_token`, `sell_token`, `limit_buy`, `limit_sell`)
+- Spot swaps on Solana, Sui and 10 EVM chains (`buy_token`, `sell_token`, `limit_buy`, `limit_sell`)
 - Hyperliquid perpetuals, including tokenized equities, FX and commodities (`open_perp_position`, `place_perp_order`, `close_perp_position`, `get_perp_positions`)
 - Copy trading, cross-chain bridging, portfolio and token discovery
 
