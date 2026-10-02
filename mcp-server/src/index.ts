@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import { readFileSync } from 'node:fs';
 import { loadSkills, searchSkills, getSkillContent, listSkills } from './knowledge.js';
 import { handleInit } from './init.js';
 
@@ -29,8 +30,20 @@ if (args[0] === 'init') {
   process.exit(0);
 }
 
+// Report the version of the package actually installed. package.json sits one level above both
+// src/index.ts and the bundled dist/index.js, and npm always ships it, so this never drifts
+// from releases the way a hardcoded string did.
+function packageVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+    return typeof pkg.version === 'string' ? pkg.version : '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
+
 const server = new McpServer(
-  { name: 'gdex-mcp-server', version: '4.11.0' },
+  { name: 'gdex-mcp-server', version: packageVersion() },
   { capabilities: { tools: {} } },
 );
 

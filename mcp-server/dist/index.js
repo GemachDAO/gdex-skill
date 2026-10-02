@@ -139718,6 +139718,9 @@ var StdioServerTransport = class {
   }
 };
 
+// mcp-server/src/index.ts
+import { readFileSync } from "node:fs";
+
 // mcp-server/src/knowledge.ts
 import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -141444,8 +141447,16 @@ if (args[0] === "init") {
   await handleInit(args);
   process.exit(0);
 }
+function packageVersion() {
+  try {
+    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    return typeof pkg.version === "string" ? pkg.version : "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
 var server = new McpServer(
-  { name: "gdex-mcp-server", version: "4.11.0" },
+  { name: "gdex-mcp-server", version: packageVersion() },
   { capabilities: { tools: {} } }
 );
 var skills = await loadSkills();
