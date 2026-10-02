@@ -26,7 +26,7 @@ Set up a React or Next.js project to build trading UIs with the GDEX SDK. This s
 ```bash
 npx create-next-app@latest my-gdex-app --typescript --tailwind --app
 cd my-gdex-app
-npm install @gdexsdk/gdex-skill ethers
+npm install @gemachdao/gdex-skill ethers
 ```
 
 ### Vite + React
@@ -34,7 +34,7 @@ npm install @gdexsdk/gdex-skill ethers
 ```bash
 npm create vite@latest my-gdex-app -- --template react-ts
 cd my-gdex-app
-npm install @gdexsdk/gdex-skill ethers
+npm install @gemachdao/gdex-skill ethers
 ```
 
 ## Environment Variables
@@ -57,7 +57,7 @@ Create a React context that initializes and shares the `GdexSkill` instance acro
 'use client'; // Next.js App Router
 
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { GdexSkill } from '@gdexsdk/gdex-skill';
+import { GdexSkill } from '@gemachdao/gdex-skill';
 
 interface GdexContextValue {
   skill: GdexSkill;

@@ -16,7 +16,7 @@ Uses ChangeNow as the bridge provider (StarGate support exists but is currently 
 
 ## Prerequisites
 
-- `@gdexsdk/gdex-skill` installed
+- `@gemachdao/gdex-skill` installed
 - Authenticated via managed-custody sign-in — see **gdex-authentication**
 - Session keypair (sessionPrivateKey + sessionKey) from sign-in flow
 
@@ -31,7 +31,7 @@ Uses ChangeNow as the bridge provider (StarGate support exists but is currently 
 ## 1. Get a Bridge Estimate (Quote)
 
 ```typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
@@ -83,7 +83,7 @@ import {
   generateGdexSessionKeyPair,
   buildGdexSignInMessage,
   buildGdexSignInComputedData,
-} from '@gdexsdk/gdex-skill';
+} from '@gemachdao/gdex-skill';
 import { ethers } from 'ethers';
 
 // After sign-in (you have sessionPrivateKey from the auth flow):
@@ -136,7 +136,7 @@ interface BridgeResult {
 ## 3. Get Bridge Order History
 
 ```typescript
-import { buildGdexUserSessionData, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+import { buildGdexUserSessionData, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
 
 const data = buildGdexUserSessionData(sessionKey, GDEX_API_KEY_PRIMARY);
 const orders = await skill.getBridgeOrders({

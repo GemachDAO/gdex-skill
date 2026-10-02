@@ -1,5 +1,5 @@
 /**
- * @gdexsdk/gdex-skill
+ * @gemachdao/gdex-skill
  *
  * AI Agent Skill SDK for the Gbot Trading Dashboard.
  * Exposes cross-chain spot/perp trading, portfolio management,
@@ -7,7 +7,7 @@
  *
  * @example
  * ```typescript
- * import { GdexSkill, ChainId } from '@gdexsdk/gdex-skill';
+ * import { GdexSkill, ChainId } from '@gemachdao/gdex-skill';
  *
  * const skill = new GdexSkill({ apiUrl: 'https://api.gdex.pro' });
  *
@@ -581,7 +581,7 @@ export class GdexSkill {
    *
    * @example
    * ```typescript
-   * import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+   * import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
    *
    * const skill = new GdexSkill();
    * skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);

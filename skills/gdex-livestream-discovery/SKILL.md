@@ -17,7 +17,7 @@ and the "big buy" alert feed.
 
 ## Prerequisites
 
-- `@gdexsdk/gdex-skill` installed
+- `@gemachdao/gdex-skill` installed
 - No authentication required for these read endpoints (whitelisted)
 
 ## Backend Endpoints
@@ -31,7 +31,7 @@ and the "big buy" alert feed.
 ## SDK Usage
 
 ```typescript
-import { GdexSkill } from '@gdexsdk/gdex-skill';
+import { GdexSkill } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 

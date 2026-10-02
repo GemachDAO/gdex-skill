@@ -16,7 +16,7 @@ GDEX is a cross-chain DeFi trading infrastructure for AI agents. It provides spo
 ## Architecture
 
 ```
-Agent → @gdexsdk/gdex-skill SDK → GDEX Backend (trade-api.gemach.io/v1) → On-chain Execution
+Agent → @gemachdao/gdex-skill SDK → GDEX Backend (trade-api.gemach.io/v1) → On-chain Execution
 ```
 
 **Key concepts:**
@@ -28,11 +28,11 @@ Agent → @gdexsdk/gdex-skill SDK → GDEX Backend (trade-api.gemach.io/v1) → 
 ## Quick Start
 
 ```bash
-npm install @gdexsdk/gdex-skill
+npm install @gemachdao/gdex-skill
 ```
 
 ```typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
@@ -136,7 +136,7 @@ const trade = await skill.buyToken({
 
 | Resource | URL |
 |----------|-----|
-| SDK (npm) | https://www.npmjs.com/package/@gdexsdk/gdex-skill |
+| SDK (npm) | https://www.npmjs.com/package/@gemachdao/gdex-skill |
 | Repository | https://github.com/GemachDAO/gdex-skill |
 | Trading Dashboard | https://gdex.pro |
 | Backend API | https://trade-api.gemach.io/v1 |
@@ -151,7 +151,7 @@ npx skills add GemachDAO/gdex-skill --all --agent '*' -g
 npx skills add GemachDAO/gdex-skill --skill gdex-spot-trading
 
 # Install SDK
-npm install @gdexsdk/gdex-skill
+npm install @gemachdao/gdex-skill
 ```
 
 ## MCP Server
@@ -195,7 +195,7 @@ If you're an AI agent operating autonomously (no human to ask), here's the minim
 
 ### 1. Initialize
 ```typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
 ```
@@ -221,7 +221,7 @@ import { ethers } from 'ethers';
 import {
   generateGdexSessionKeyPair, buildGdexSignInMessage,
   buildGdexSignInComputedData, buildGdexUserSessionData,
-} from '@gdexsdk/gdex-skill';
+} from '@gemachdao/gdex-skill';
 
 const wallet = ethers.Wallet.fromPhrase('your mnemonic...');
 const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
@@ -293,7 +293,7 @@ _Consolidated reference (migrated from the umbrella skill). Critical notes and a
 The high-level `getPortfolio()` and `getBalances()` methods send `walletAddress` + `chain`, but the backend expects `userId` + `chainId` + `data` (encrypted session key). **Workaround — use the raw client directly:**
 
 ```typescript
-import { buildGdexUserSessionData } from '@gdexsdk/gdex-skill';
+import { buildGdexUserSessionData } from '@gemachdao/gdex-skill';
 const data = buildGdexUserSessionData(sessionKey, apiKey);
 
 // Portfolio (balances embedded under portfolio.balances[])
@@ -376,7 +376,7 @@ The `limit_buy` and `update_order` ABI schemas use `uint256` for `profitPercent`
 ## Quick Start
 
 ```typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
@@ -401,7 +401,7 @@ const trade = await skill.buyToken({
 # Install all skills
 npx skills add GemachDAO/gdex-skill --all --agent '*' -g
 
-# Install SDK (from GitHub — builds on install; imports stay '@gdexsdk/gdex-skill')
+# Install SDK (from GitHub — builds on install; imports stay '@gemachdao/gdex-skill')
 npm install github:GemachDAO/gdex-skill
 ```
 | userId | Control wallet address (from sign-in), NOT managed wallet |

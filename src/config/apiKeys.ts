@@ -6,7 +6,7 @@
  *
  * @example
  * ```typescript
- * import { GdexSkill, GDEX_API_KEYS } from '@gdexsdk/gdex-skill';
+ * import { GdexSkill, GDEX_API_KEYS } from '@gemachdao/gdex-skill';
  *
  * const skill = new GdexSkill();
  * skill.loginWithApiKey(GDEX_API_KEYS[0]);

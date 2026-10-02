@@ -124732,7 +124732,7 @@ var require_dist5 = __commonJS({
        *
        * @example
        * ```typescript
-       * import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+       * import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
        *
        * const skill = new GdexSkill();
        * skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
@@ -141574,10 +141574,10 @@ server.tool(
     const workflowGuides = {
       "spot-trade": `# Spot Trading Workflow
 
-1. **Install SDK:** \`npm install @gdexsdk/gdex-skill\`
+1. **Install SDK:** \`npm install @gemachdao/gdex-skill\`
 2. **Initialize & authenticate:**
 \`\`\`typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
 \`\`\`
@@ -141631,7 +141631,7 @@ await skill.closePerpPosition({ coin: 'BTC' }); // close 100%
 
 **Option A: Shared API Key (recommended for agents)**
 \`\`\`typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
 // Ready to trade immediately

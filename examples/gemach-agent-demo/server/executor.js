@@ -14,7 +14,7 @@ const {
   GdexSkill, GDEX_API_KEY_PRIMARY,
   generateGdexSessionKeyPair, generateGdexNonce,
   buildGdexSignInMessage, buildGdexSignInComputedData,
-} = require('@gdexsdk/gdex-skill');
+} = require('@gemachdao/gdex-skill');
 
 const WALLET_PATH = process.env.GDEX_WALLET || path.join(os.homedir(), 'gdex-test-wallet.json');
 const WALLET = JSON.parse(fs.readFileSync(WALLET_PATH, 'utf8'));

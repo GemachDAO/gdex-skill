@@ -1,7 +1,7 @@
 # Gemach Agent Demo (GDEX)
 
 A reference UI that drives a full agent trading flow on HyperLiquid through the shipped
-`@gdexsdk/gdex-skill` SDK, in full **Gemach branding** (see `assets/brand` and the
+`@gemachdao/gdex-skill` SDK, in full **Gemach branding** (see `assets/brand` and the
 `gdex-ui-theming` skill). Built to be screen-recorded.
 
 **The flow (all live):** open leverage position → close → place limit leverage order →

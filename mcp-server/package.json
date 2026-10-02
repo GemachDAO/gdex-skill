@@ -36,7 +36,7 @@
     "directory": "mcp-server"
   },
   "devDependencies": {
-    "@gdexsdk/gdex-skill": "file:..",
+    "@gemachdao/gdex-skill": "file:..",
     "@jest/globals": "^30.3.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "@types/jest": "^30.0.0",

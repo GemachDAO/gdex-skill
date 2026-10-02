@@ -215,7 +215,7 @@ These are **critical for autonomous agents** — the high-level SDK methods have
 - All three require the encrypted session key from `buildGdexUserSessionData()`
 
 ```typescript
-import { buildGdexUserSessionData } from '@gdexsdk/gdex-skill';
+import { buildGdexUserSessionData } from '@gemachdao/gdex-skill';
 const data = buildGdexUserSessionData(sessionKey, apiKey);
 
 // Correct portfolio call (balances are inside portfolio.balances[])

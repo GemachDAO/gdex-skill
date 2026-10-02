@@ -17,7 +17,7 @@ All GDEX trading uses **managed-custody wallets** with encrypted `computedData` 
 ## Prerequisites
 
 ```bash
-npm install @gdexsdk/gdex-skill
+npm install @gemachdao/gdex-skill
 ```
 
 ## 1. Shared API Key Login (Simple)
@@ -25,7 +25,7 @@ npm install @gdexsdk/gdex-skill
 For agents that need quick access — no wallet signing required:
 
 ```typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
@@ -58,7 +58,7 @@ import {
   buildGdexSignInComputedData,
   buildGdexManagedTradeComputedData,
   buildGdexUserSessionData,
-} from '@gdexsdk/gdex-skill';
+} from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
@@ -116,7 +116,7 @@ All payloads use **deterministic** AES-256-CBC — no random IV:
 | **IV** | First 16 bytes of `SHA256(SHA256(apiKey))` hex |
 
 ```typescript
-import { encryptGdexComputedData, decryptGdexComputedData, deriveGdexAesMaterial } from '@gdexsdk/gdex-skill';
+import { encryptGdexComputedData, decryptGdexComputedData, deriveGdexAesMaterial } from '@gemachdao/gdex-skill';
 
 // Encrypt a JSON payload
 const cipherHex = encryptGdexComputedData(JSON.stringify({ userId, data, signature, apiKey }), apiKey);
@@ -139,7 +139,7 @@ const { key, iv } = deriveGdexAesMaterial(apiKey);
 **Spot trade signatures** use raw keccak256 + secp256k1 (no EIP-191 prefix):
 
 ```typescript
-import { signGdexTradeMessageWithSessionKey } from '@gdexsdk/gdex-skill';
+import { signGdexTradeMessageWithSessionKey } from '@gemachdao/gdex-skill';
 
 const signature = signGdexTradeMessageWithSessionKey(
   'purchase',       // action: 'purchase' or 'sell'
@@ -163,7 +163,7 @@ const signature = signGdexTradeMessageWithSessionKey(
 ## 5. Building Trade Payloads
 
 ```typescript
-import { buildGdexManagedTradeComputedData } from '@gdexsdk/gdex-skill';
+import { buildGdexManagedTradeComputedData } from '@gemachdao/gdex-skill';
 
 const trade = buildGdexManagedTradeComputedData({
   apiKey,
@@ -283,7 +283,7 @@ import {
   GdexSkill, GDEX_API_KEY_PRIMARY,
   generateGdexSessionKeyPair, buildGdexSignInMessage,
   buildGdexSignInComputedData, buildGdexUserSessionData,
-} from '@gdexsdk/gdex-skill';
+} from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);

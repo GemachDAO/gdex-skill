@@ -23,7 +23,7 @@ Use `gdex-spot-trading` to actually execute. This skill is discovery only.
 ## Prerequisites
 
 ```typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY, ChainId } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY, ChainId } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);

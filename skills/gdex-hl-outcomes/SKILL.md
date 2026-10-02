@@ -17,7 +17,7 @@ resolves to a discrete outcome rather than a continuous price.
 
 ## Prerequisites
 
-- `@gdexsdk/gdex-skill` installed
+- `@gemachdao/gdex-skill` installed
 - Authenticated via managed custody — see **gdex-authentication**
 - Trading enabled on HL (one-time `/v1/hl/enable_trading`) — see
   **gdex-perp-trading** for the HIP-3 setup flow
@@ -47,7 +47,7 @@ address from sign-in, `sessionPrivateKey`). A pre-built `computedData` is
 still accepted for advanced callers.
 
 ```typescript
-import { GdexSkill } from '@gdexsdk/gdex-skill';
+import { GdexSkill } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(process.env.GDEX_API_KEY!);

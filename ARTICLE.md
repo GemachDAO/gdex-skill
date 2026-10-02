@@ -199,7 +199,7 @@ npm install github:GemachDAO/gdex-skill
 ```
 
 ```typescript
-import { GdexSkill } from '@gdexsdk/gdex-skill';
+import { GdexSkill } from '@gemachdao/gdex-skill';
 
 const sdk = new GdexSkill();
 sdk.loginWithApiKey('your-api-key');

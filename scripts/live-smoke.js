@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * Live smoke test for @gdexsdk/gdex-skill.
+ * Live smoke test for @gemachdao/gdex-skill.
  *
  * This script hits production API endpoints with safe, non-destructive calls.
  * It is intended for release gating before publishing the skill for autonomous agents.

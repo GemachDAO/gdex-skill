@@ -17,7 +17,7 @@ Trade perpetual futures on HyperLiquid through GDEX managed-custody. Supports lo
 
 ## Prerequisites
 
-- `@gdexsdk/gdex-skill` installed
+- `@gemachdao/gdex-skill` installed
 - Authenticated via `loginWithApiKey()` — see **gdex-authentication**
 - USDC deposited to HyperLiquid — see **gdex-perp-funding**
 
@@ -28,7 +28,7 @@ Perp orders go through `hlCreateOrder` after a managed sign-in. There is **no**
 real flow:
 
 ```typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
 // ... do the managed sign-in (see gdex-authentication) to get sessionPrivateKey ...
 const creds = { apiKey, walletAddress: controlAddress, sessionPrivateKey };
 

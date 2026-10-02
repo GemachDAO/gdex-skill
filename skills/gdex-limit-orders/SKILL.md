@@ -30,14 +30,14 @@ Limit orders use **separate endpoints for buy vs sell** (NOT a single create end
 
 ## Prerequisites
 
-- `@gdexsdk/gdex-skill` installed
+- `@gemachdao/gdex-skill` installed
 - Authenticated via `loginWithApiKey()` — see **gdex-authentication**
 - Minimum order: `config.chains[chainId].minLimitOrder` (typically 0.01 native token)
 
 ## Limit Buy — Buy Token When Price Drops
 
 ```typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gdexsdk/gdex-skill';
+import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);

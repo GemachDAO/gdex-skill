@@ -16,7 +16,7 @@ managed-custody wallet to any recipient.
 
 ## Prerequisites
 
-- `@gdexsdk/gdex-skill` installed
+- `@gemachdao/gdex-skill` installed
 - Authenticated via managed-custody sign-in — see **gdex-authentication**
 - Session keypair (`sessionPrivateKey` + `sessionKey`) from sign-in
 - Pre-built `computedData` payload (encrypted via the standard AES-256-CBC
@@ -39,7 +39,7 @@ Both endpoints accept:
 ## SDK Usage
 
 ```typescript
-import { GdexSkill } from '@gdexsdk/gdex-skill';
+import { GdexSkill } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 skill.loginWithApiKey(process.env.GDEX_API_KEY!);
