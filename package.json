@@ -42,7 +42,8 @@
     "clean": "rm -rf dist",
     "build:mcp": "npm run build && node scripts/build-mcp.mjs",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run clean && npm run build"
+    "prepublishOnly": "npm run clean && npm run build",
+    "sync:plugin-skills": "node scripts/sync-plugin-skills.mjs"
   },
   "keywords": [
     "ai-agent",
