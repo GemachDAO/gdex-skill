@@ -139958,11 +139958,16 @@ GDEX MCP server configured! Available tools:`);
 // mcp-server/src/sdk.ts
 var import_gdex_skill = __toESM(require_dist5(), 1);
 var _sdk = null;
+function readEnv(name) {
+  const value = process.env[name]?.trim();
+  if (!value || /^\$\{[^}]*\}$/.test(value)) return void 0;
+  return value;
+}
 function getSdk() {
   if (!_sdk) {
-    const apiUrl = process.env.GDEX_API_URL || "https://trade-api.gemach.io/v1";
+    const apiUrl = readEnv("GDEX_API_URL") || "https://trade-api.gemach.io/v1";
     _sdk = new import_gdex_skill.GdexSkill({ apiUrl });
-    const apiKey = process.env.GDEX_API_KEY;
+    const apiKey = readEnv("GDEX_API_KEY");
     if (apiKey) {
       _sdk.loginWithApiKey(apiKey);
     }
