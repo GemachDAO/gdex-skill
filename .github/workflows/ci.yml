@@ -92,6 +92,15 @@ jobs:
       - name: Validate skill definitions
         run: npm run validate
 
+      - name: Ensure plugin skills match skills/
+        run: |
+          npm run sync:plugin-skills
+          if ! git diff --quiet -- plugins/gdex/skills || [ -n "$(git status --porcelain -- plugins/gdex/skills)" ]; then
+            echo "::error::plugins/gdex/skills is out of sync with skills/. Run 'npm run sync:plugin-skills' and commit the result."
+            git status --short -- plugins/gdex/skills
+            exit 1
+          fi
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
