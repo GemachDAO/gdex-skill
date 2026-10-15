@@ -169,6 +169,15 @@ npx @gemachdao/gdex-mcp-server init --client opencode  # → .opencode/mcp.json
 
 Installs every GDEX skill plus the MCP server (`npx -y @gemachdao/gdex-mcp-server`). The optional GDEX API key is kept in your system credential store.
 
+### Codex (OpenAI)
+
+```bash
+codex plugin marketplace add GemachDAO/gdex-skill
+codex plugin add gdex@gemachdao
+```
+
+Installs every GDEX skill plus the MCP server. For the MCP server only: `codex mcp add gdex -- npx -y @gemachdao/gdex-mcp-server`.
+
 ### Gemini CLI extension
 
 ```bash
