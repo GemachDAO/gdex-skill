@@ -10,6 +10,8 @@
 import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';
 import {
+  ClosePerpPositionParams,
+  ClosePerpPositionResult,
   GetPositionsParams,
   HlAccountState,
   HlCancelAllOrdersParams,
@@ -20,12 +22,15 @@ import {
   HlResponse,
   HlOrderResult,
   HlUpdateLeverageParams,
+  PerpClosePlan,
   PerpDepositParams,
   PerpPosition,
   PerpWithdrawParams,
 } from '../types/perp';
 import { validateAmount, validateCoin, validateRequired } from '../utils/validation';
+import { GdexValidationError } from '../utils/errors';
 import { buildHlComputedData } from '../utils/gdexManagedCrypto';
+import { getHlClearinghouseState, getHlClearinghouseStateAll } from './hlCopyTrade';
 
 /**
  * Normalize a coin symbol for HyperLiquid.
@@ -448,6 +453,14 @@ export async function hlCreateOrder(client: GdexApiClient, params: HlCreateOrder
  * Place a simple order (no TP/SL) on HyperLiquid.
  */
 export async function hlPlaceOrder(client: GdexApiClient, params: HlPlaceOrderParams): Promise<HlOrderResult> {
+  // hl_place_order's ABI has no isMarket field, so a market flag would be
+  // silently dropped and the order sent as a limit at `price`. Refuse it.
+  if ((params as { isMarket?: unknown }).isMarket === true) {
+    throw new GdexValidationError(
+      'hlPlaceOrder cannot place market orders (hl_place_order has no isMarket field); use hlCreateOrder with isMarket: true',
+      'isMarket',
+    );
+  }
   validateCoin(params.coin);
   validateRequired(params.price, 'price');
   validateRequired(params.size, 'size');
@@ -468,6 +481,212 @@ export async function hlPlaceOrder(client: GdexApiClient, params: HlPlaceOrderPa
   });
 
   return client.post<HlOrderResult>(Endpoints.HL_PLACE_ORDER, { computedData });
+}
+
+// ── Close one position (side + size resolved from live HL state) ────────────
+
+/** An exact decimal: value = units / 10^scale. No float math on sizes. */
+interface ExactDecimal {
+  units: bigint;
+  scale: number;
+}
+
+function parseExactDecimal(value: string, field: string, allowNegative = false): ExactDecimal {
+  const s = String(value).trim();
+  const re = allowNegative ? /^-?\d+(\.\d+)?$/ : /^\d+(\.\d+)?$/;
+  if (!re.test(s)) {
+    throw new GdexValidationError(`${field} must be a decimal string, got "${value}"`, field);
+  }
+  const negative = s.startsWith('-');
+  const [whole, frac = ''] = s.replace('-', '').split('.');
+  const units = BigInt(whole + frac);
+  return { units: negative ? -units : units, scale: frac.length };
+}
+
+function rescale(d: ExactDecimal, scale: number): bigint {
+  return d.units * 10n ** BigInt(scale - d.scale);
+}
+
+function formatExactDecimal(units: bigint, scale: number): string {
+  const negative = units < 0n;
+  const digits = (negative ? -units : units).toString().padStart(scale + 1, '0');
+  let out = scale > 0 ? `${digits.slice(0, -scale)}.${digits.slice(-scale)}` : digits;
+  if (out.includes('.')) out = out.replace(/0+$/, '').replace(/\.$/, '');
+  return negative ? `-${out}` : out;
+}
+
+/** Unwrap `/hl/clearinghouse_state` (`{ isSuccess, state }`) to its assetPositions. */
+function extractAssetPositions(res: unknown, source: string): Array<{ coin: string; szi: string }> {
+  const body = (res ?? {}) as Record<string, any>;
+  if (body.isSuccess === false) {
+    throw new Error(`${source} failed: ${body.error ?? 'unknown error'}`);
+  }
+  const state = body.state !== undefined ? body.state : body;
+  const list = state?.assetPositions;
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((ap: any) => ap?.position)
+    .filter((p: any) => p && typeof p.coin === 'string' && p.szi !== undefined)
+    .map((p: any) => ({ coin: p.coin, szi: String(p.szi) }));
+}
+
+/** Asset part of a coin symbol, uppercased (`xyz:tsla` → `TSLA`). */
+function assetOf(coin: string): string {
+  const i = coin.indexOf(':');
+  return (i === -1 ? coin : coin.slice(i + 1)).toUpperCase();
+}
+
+/**
+ * Resolve the reduce-only order that closes (part of) an open perp position,
+ * without submitting it.
+ *
+ * Reads the position from HyperLiquid clearinghouse state via the backend
+ * (`getHlClearinghouseState`, dex-scoped for builder DEXes). The position's
+ * signed `szi` decides direction: positive = long → close with a sell,
+ * negative = short → close with a buy. A bare coin missing from the default
+ * dex is looked up across builder DEXes (`getHlClearinghouseStateAll`);
+ * more than one match is rejected as ambiguous.
+ *
+ * @throws {GdexValidationError} when flat, ambiguous, or `size` exceeds the position
+ */
+export async function resolvePerpClose(
+  client: GdexApiClient,
+  params: ClosePerpPositionParams,
+): Promise<PerpClosePlan> {
+  validateCoin(params.coin);
+  validateRequired(params.walletAddress, 'walletAddress');
+  const address = params.positionAddress || params.walletAddress;
+
+  let coin = normalizeCoin(params.coin.trim());
+  const prefix = coin.includes(':') ? coin.slice(0, coin.indexOf(':')) : '';
+  const dexParam = (params.dex ?? '').trim().toLowerCase();
+  if (dexParam && prefix && dexParam !== prefix) {
+    throw new GdexValidationError(`dex "${params.dex}" does not match coin prefix "${prefix}"`, 'dex');
+  }
+  let dex = prefix || dexParam;
+  if (dex && !prefix) coin = `${dex}:${coin}`;
+
+  let matches: Array<{ coin: string; szi: string; dex: string }>;
+  if (dex) {
+    const res = await getHlClearinghouseState(client, { userAddress: address, dex });
+    // HL names builder positions `dex:ASSET`; accept a bare asset name too.
+    matches = extractAssetPositions(res, 'clearinghouse_state')
+      .filter((p) => normalizeCoin(p.coin.includes(':') ? p.coin : `${dex}:${p.coin}`) === coin)
+      .map((p) => ({ ...p, dex }));
+  } else {
+    const res = await getHlClearinghouseState(client, { userAddress: address });
+    matches = extractAssetPositions(res, 'clearinghouse_state')
+      .filter((p) => normalizeCoin(p.coin) === coin)
+      .map((p) => ({ ...p, dex: '' }));
+    if (!matches.some((p) => parseExactDecimal(p.szi, 'szi', true).units !== 0n)) {
+      // Not on the default dex — the bare symbol may be a builder-dex asset.
+      const all = (await getHlClearinghouseStateAll(client, address)) as Record<string, any>;
+      if (all?.isSuccess === false) {
+        throw new Error(`clearinghouse_state_all failed: ${all.error ?? 'unknown error'}`);
+      }
+      const rows: any[] = Array.isArray(all?.allPositions) ? all.allPositions : [];
+      matches = rows
+        .filter((r) => r?.dex && r?.position && typeof r.position.coin === 'string')
+        .filter((r) => assetOf(r.position.coin) === coin)
+        .map((r) => ({
+          coin: normalizeCoin(r.position.coin.includes(':') ? r.position.coin : `${r.dex}:${r.position.coin}`),
+          szi: String(r.position.szi),
+          dex: String(r.dex).toLowerCase(),
+        }));
+    }
+  }
+
+  const open = matches.filter((p) => parseExactDecimal(p.szi, 'szi', true).units !== 0n);
+  if (open.length === 0) {
+    throw new GdexValidationError(
+      `No open ${coin} position found for ${address}` +
+        (dex ? ` on dex "${dex}"` : '') +
+        '. HL positions live on the MANAGED wallet — pass positionAddress if walletAddress is the control wallet.',
+      'coin',
+    );
+  }
+  if (open.length > 1) {
+    const where = open.map((p) => p.coin).join(', ');
+    throw new GdexValidationError(
+      `Ambiguous close: ${coin} has open positions on several DEXes (${where}). Pass the dex-prefixed coin or dex.`,
+      'coin',
+    );
+  }
+
+  const position = open[0];
+  coin = normalizeCoin(position.coin.includes(':') ? position.coin : coin);
+  dex = position.dex;
+  const szi = parseExactDecimal(position.szi, 'szi', true);
+  const isShort = szi.units < 0n;
+  const absPosition: ExactDecimal = { units: isShort ? -szi.units : szi.units, scale: szi.scale };
+  const positionSize = formatExactDecimal(absPosition.units, absPosition.scale);
+
+  let size = positionSize;
+  let remaining = '0';
+  if (params.size !== undefined && params.size !== '') {
+    const req = parseExactDecimal(params.size, 'size');
+    if (req.units === 0n) {
+      throw new GdexValidationError('size must be greater than 0', 'size');
+    }
+    size = formatExactDecimal(req.units, req.scale);
+    // Count significant decimals only — "0.50" is fine at szDecimals 1.
+    const decimals = size.includes('.') ? size.split('.')[1].length : 0;
+    if (params.szDecimals !== undefined && decimals > params.szDecimals) {
+      throw new GdexValidationError(
+        `size ${params.size} has more than ${params.szDecimals} decimals allowed for ${coin}`,
+        'size',
+      );
+    }
+    const scale = Math.max(req.scale, absPosition.scale);
+    const diff = rescale(absPosition, scale) - rescale(req, scale);
+    if (diff < 0n) {
+      throw new GdexValidationError(
+        `size ${params.size} exceeds the open ${coin} position (${positionSize})`,
+        'size',
+      );
+    }
+    remaining = formatExactDecimal(diff, scale);
+  }
+
+  return {
+    coin,
+    dex,
+    positionSide: isShort ? 'short' : 'long',
+    closeSide: isShort ? 'buy' : 'sell',
+    isLong: isShort,
+    positionSize,
+    size,
+    remainingSize: remaining,
+    isFullClose: remaining === '0',
+  };
+}
+
+/**
+ * Close (fully or partially) one perp position with a reduce-only market order.
+ *
+ * Direction and size come from the live position (see `resolvePerpClose`) —
+ * a long is closed with a sell, a short with a buy. Omit `size` for a full
+ * close. HL's $11 minimum order value still applies.
+ */
+export async function closePerpPosition(
+  client: GdexApiClient,
+  params: ClosePerpPositionParams,
+): Promise<ClosePerpPositionResult> {
+  const plan = await resolvePerpClose(client, params);
+  const order = await hlCreateOrder(client, {
+    apiKey: params.apiKey,
+    walletAddress: params.walletAddress,
+    sessionPrivateKey: params.sessionPrivateKey,
+    coin: plan.coin,
+    isLong: plan.isLong,
+    price: params.price || '0',
+    size: plan.size,
+    reduceOnly: true,
+    isMarket: true,
+    tpPrice: '',
+    slPrice: '',
+  });
+  return { ...plan, order };
 }
 
 /**
