@@ -22,6 +22,7 @@
  * chain and never auto-fund, as on gdex.pro. `watchUsdcTrade` follows a
  * pending trade's funding steps the way gdex.pro's progress note does.
  */
+import { randomUUID } from 'crypto';
 import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';
 import { buildGdexReadSessionData, buildUsdcComputedData } from '../utils/gdexManagedCrypto';
@@ -341,43 +342,71 @@ export async function buyWithNative(
   return client.post<UsdcTradeResult>(Endpoints.USDC_TRADE_PURCHASE_NATIVE, { computedData, chainId: params.chainId });
 }
 
-export interface UsdcRetrySellParams extends UsdcCredentials {
+/** The `retry` capability `getUsdcFundingStatus` returns for a stuck direct sell. */
+export interface UsdcSellRetryCapability {
+  available: boolean;
+  reason: string;
   chainId: number;
-  /** The original sell's requestId. */
-  requestId: string;
-  /** `retry.retryId` from `getUsdcFundingStatus`. */
-  retryId: string;
   tokenAddress: string;
   tokenAmountRaw: string;
-  minUsdcOutRaw: string;
-  /** `retry.transactionNonce` from `getUsdcFundingStatus` (EVM nonce to reuse). */
   transactionNonce: number;
+  originalHash: string;
+  retryId?: string;
+}
+
+export interface UsdcRetrySellParams extends UsdcCredentials {
+  /** The original sell's requestId. */
+  requestId: string;
+  /** Minimum USDC out (raw) for the retry; re-quote with `getUsdcTradeQuote` side `sell`. */
+  minUsdcOutRaw: string;
+  /** Client-chosen retry id (UUID), as gdex.pro generates it. Default: a fresh UUID. */
+  retryId?: string;
+  /**
+   * The rest default to the backend's `retry` capability from `getUsdcFundingStatus`
+   * (read automatically when any is omitted).
+   */
+  chainId?: number;
+  tokenAddress?: string;
+  tokenAmountRaw?: string;
+  transactionNonce?: number;
 }
 
 /**
  * Retry a stuck USDC sell in place, reusing its transaction nonce so it can't
- * execute twice. Only valid when `getUsdcFundingStatus` returns a `retry` capability.
+ * execute twice. Only valid while `getUsdcFundingStatus` reports
+ * `retry.available` (e.g. `SAME_NONCE_RETRY_AVAILABLE` after a dropped broadcast).
  */
 export async function retryUsdcSell(
   client: GdexApiClient,
   params: UsdcRetrySellParams,
 ): Promise<UsdcTradeResult> {
   validateRequired(params.requestId, 'requestId');
-  validateRequired(params.retryId, 'retryId');
+  let { chainId, tokenAddress, tokenAmountRaw, transactionNonce } = params;
+  if (chainId === undefined || !tokenAddress || !tokenAmountRaw || transactionNonce === undefined) {
+    const status = await getUsdcFundingStatus(client, params);
+    const retry = status.retry as UsdcSellRetryCapability | undefined;
+    if (!retry || retry.available !== true) {
+      throw new Error(`No sell retry available for ${params.requestId}${retry?.reason ? ` (${retry.reason})` : ''}`);
+    }
+    chainId ??= retry.chainId;
+    tokenAddress ||= retry.tokenAddress;
+    tokenAmountRaw ||= retry.tokenAmountRaw;
+    transactionNonce ??= retry.transactionNonce;
+  }
   const computedData = buildUsdcComputedData({
     action: 'retry_sell_usdc',
     ...params,
     values: [
-      params.chainId,
+      chainId,
       params.requestId,
-      params.retryId,
-      params.tokenAddress,
-      requireRaw(params.tokenAmountRaw, 'tokenAmountRaw'),
+      params.retryId ?? randomUUID(),
+      tokenAddress,
+      requireRaw(tokenAmountRaw, 'tokenAmountRaw'),
       requireRaw(params.minUsdcOutRaw, 'minUsdcOutRaw'),
-      params.transactionNonce,
+      transactionNonce,
     ],
   });
-  return client.post<UsdcTradeResult>(Endpoints.USDC_TRADE_RETRY_SELL, { computedData, chainId: params.chainId });
+  return client.post<UsdcTradeResult>(Endpoints.USDC_TRADE_RETRY_SELL, { computedData, chainId });
 }
 
 export interface UsdcConvertParams extends UsdcCredentials {
@@ -501,8 +530,13 @@ export interface UsdcFundingStep extends Record<string, unknown> {
 
 /** Final outcome of `watchUsdcTrade`. */
 export interface UsdcTradeWatchResult {
-  /** `success`, `failed`, or `pending` if `timeoutMs` ran out first. */
-  outcome: 'success' | 'failed' | 'pending';
+  /**
+   * `success`; `failed`; `needs_retry` when a direct sell's broadcast is unconfirmed and the backend
+   * offers an in-place retry (see `retry`, use `retryUsdcSell`); or `pending` if `timeoutMs` ran out.
+   */
+  outcome: 'success' | 'failed' | 'needs_retry' | 'pending';
+  /** The backend's sell-retry capability, with `needs_retry`. */
+  retry?: UsdcSellRetryCapability;
   status?: string;
   errorCode?: string;
   hash?: string;
@@ -554,11 +588,19 @@ export async function watchUsdcTrade(
     }
     const base = { status, steps, funding, errorCode: funding.errorCode as string | undefined, hash: funding.hash as string | undefined };
     if (FUNDING_FAILURE.includes(status)) return { outcome: 'failed', ...base };
+    const retry = funding.retry as UsdcSellRetryCapability | undefined;
+    if (retry?.available === true && funding.finalized !== true) return { outcome: 'needs_retry', ...base, retry };
     if (FUNDING_SUCCESS.includes(status)) {
-      const trade = funding.requestType === 'direct'
-        ? undefined
-        : await client.get<UsdcResponse>(Endpoints.tradeStatusPath(params.requestId)).catch(() => undefined);
-      return { outcome: 'success', ...base, trade, hash: base.hash ?? (trade?.hash as string | undefined) ?? (trade?.txHash as string | undefined) };
+      if (funding.requestType === 'direct') return { outcome: 'success', ...base };
+      // Funding can report done while the swap is still running: wait for the trade result.
+      const trade = await client.get<UsdcResponse>(Endpoints.tradeStatusPath(params.requestId)).catch(() => undefined);
+      const tradeStatus = String(trade?.status ?? '').toLowerCase();
+      if (trade?.isSuccess === true || tradeStatus === 'success') {
+        return { outcome: 'success', ...base, trade, hash: (trade?.hash as string | undefined) ?? base.hash };
+      }
+      if (trade?.isSuccess === false || FUNDING_FAILURE.includes(tradeStatus)) {
+        return { outcome: 'failed', ...base, trade, errorCode: (trade?.errorCode as string | undefined) ?? base.errorCode };
+      }
     }
     if (Date.now() + intervalMs > deadline) return { outcome: 'pending', ...base };
     await new Promise((r) => setTimeout(r, intervalMs));

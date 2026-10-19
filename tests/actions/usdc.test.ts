@@ -162,6 +162,23 @@ describe('unified USDC actions', () => {
     ).rejects.toThrow(/gasTopUpAmountUsd/);
   });
 
+  it('retryUsdcSell fills token, amount, chain and nonce from the retry capability and makes a UUID retry id', async () => {
+    client.get = jest.fn().mockResolvedValue({ status: 'processing', retry: { available: true, reason: 'SAME_NONCE_RETRY_AVAILABLE', chainId: 56, tokenAddress: TOKEN, tokenAmountRaw: '4565', transactionNonce: 3, originalHash: '0x' + '1'.repeat(64) } });
+    await retryUsdcSell(client, { ...creds, requestId: 'req', minUsdcOutRaw: '900' });
+    const body = (client.post as jest.Mock).mock.calls[0][1];
+    expect(body.chainId).toBe(56);
+    const d = decodeSigned('retry_sell_usdc', body, ['uint64', 'string', 'string', 'string', 'string', 'uint256', 'uint64', 'string']);
+    expect(d[0]).toBe('56');
+    expect(d[2]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect([d[3], d[4], d[5], d[6]]).toEqual([TOKEN, '4565', '900', '3']);
+  });
+
+  it('retryUsdcSell refuses when no retry is available', async () => {
+    client.get = jest.fn().mockResolvedValue({ status: 'processing', retry: { available: false, reason: 'RETRY_LIMIT_REACHED' } });
+    await expect(retryUsdcSell(client, { ...creds, requestId: 'req', minUsdcOutRaw: '900' })).rejects.toThrow(/RETRY_LIMIT_REACHED/);
+    expect(client.post).not.toHaveBeenCalled();
+  });
+
   it('retryUsdcSell signs the 8-field retry tuple', async () => {
     await retryUsdcSell(client, { ...creds, chainId: 8453, requestId: 'req', retryId: 'rt', tokenAddress: TOKEN, tokenAmountRaw: '1000', minUsdcOutRaw: '900', transactionNonce: 17 });
     const [path, body] = (client.post as jest.Mock).mock.calls[0];
@@ -214,6 +231,23 @@ describe('unified USDC actions', () => {
     expect(r.hash).toBe('0xabc');
     expect((client.get as jest.Mock).mock.calls.at(-1)[0]).toBe('/v1/trade-status/r1');
     expect(r.steps.map(describeUsdcFundingStep)).toEqual(['bridge USDC Arbitrum -> Base: done', 'swap: done']);
+  });
+
+  it('watchUsdcTrade waits for the swap when funding reports done first', async () => {
+    const trades = [{ status: 'pending' }, { status: 'success', isSuccess: true, hash: '0xswap' }];
+    client.get = jest.fn().mockImplementation(async (path: string) =>
+      path.startsWith('/v1/trade-status/') ? trades.shift() : { status: 'done', steps: [{ key: 'swap', status: 'active' }] });
+    const r = await watchUsdcTrade(client, { ...creds, requestId: 'r1', intervalMs: 1 });
+    expect(r.outcome).toBe('success');
+    expect(r.hash).toBe('0xswap');
+  });
+
+  it('watchUsdcTrade returns needs_retry with the capability for a dropped sell', async () => {
+    const retry = { available: true, reason: 'SAME_NONCE_RETRY_AVAILABLE', chainId: 56, tokenAddress: TOKEN, tokenAmountRaw: '1', transactionNonce: 3, originalHash: '0x' };
+    client.get = jest.fn().mockResolvedValue({ requestType: 'direct', status: 'processing', finalized: false, retry });
+    const r = await watchUsdcTrade(client, { ...creds, requestId: 'r1' });
+    expect(r.outcome).toBe('needs_retry');
+    expect(r.retry).toEqual(retry);
   });
 
   it('watchUsdcTrade returns failed with the error code, and pending on timeout', async () => {

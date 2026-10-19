@@ -471,7 +471,7 @@ export {
 export type {
   UsdcCredentials, UsdcResponse, UsdcChainBalance, UsdcBalancesResponse, UsdcTradeResult, UsdcTradeQuoteParams,
   UsdcBuyParams, UsdcSellParams, UsdcNativeBuyParams, UsdcRetrySellParams, UsdcConvertParams, UsdcBridgeParams,
-  UsdcBridgeExecuteParams, UsdcFundingStep, UsdcTradeWatchResult, UsdcTradeWatchParams,
+  UsdcBridgeExecuteParams, UsdcFundingStep, UsdcTradeWatchResult, UsdcTradeWatchParams, UsdcSellRetryCapability,
 } from './actions/usdc';
 
 // Import parameter types for the GdexSkill class methods

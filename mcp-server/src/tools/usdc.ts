@@ -49,7 +49,7 @@ export function registerUsdcTools(server: McpServer): void {
 
   server.tool(
     'usdc_wait_for_trade',
-    'Follow a pending USDC trade (requestId from usdc_buy, usdc_buy_with_native or usdc_sell) to its result, like gdex.pro\'s live progress note: polls every 3s and returns each step as it happened (bridge legs, gas top-up, approve, swap), the outcome and the tx hash. outcome "pending" after the timeout means still settling: never resubmit.',
+    'Follow a pending USDC trade (requestId from usdc_buy, usdc_buy_with_native or usdc_sell) to its result, like gdex.pro\'s live progress note: polls every 3s and returns each step as it happened (bridge legs, gas top-up, approve, swap), the outcome and the tx hash. outcome "needs_retry" means a sell broadcast was dropped and can be retried in place with usdc_retry_sell; "pending" after the timeout means still settling: never resubmit.',
     {
       ...usdcCredentials,
       requestId: z.string().describe('requestId returned by the trade'),
@@ -69,6 +69,7 @@ export function registerUsdcTools(server: McpServer): void {
       });
       return {
         outcome: result.outcome,
+        ...(result.retry ? { retry: result.retry } : {}),
         hash: result.hash,
         errorCode: result.errorCode,
         steps: result.steps.map((st: any) => describeUsdcFundingStep(st)),
@@ -162,16 +163,11 @@ export function registerUsdcTools(server: McpServer): void {
 
   server.tool(
     'usdc_retry_sell',
-    'Retry a stuck USDC sell in place, reusing its transaction nonce so it cannot execute twice. Only when usdc_get_funding_status returned a retry capability; take retryId and transactionNonce from it.',
+    'Retry a stuck USDC sell in place, reusing its transaction nonce so it cannot execute twice. Use when usdc_wait_for_trade returns needs_retry (or funding status shows retry.available). Token, amount, chain and nonce are read from the backend\'s retry capability; re-quote the sell for minUsdcOutRaw.',
     {
       ...usdcCredentials,
-      chainId: usdcChainId,
       requestId: z.string().describe('Original sell requestId'),
-      retryId: z.string().describe('retry.retryId from funding status'),
-      tokenAddress: z.string(),
-      tokenAmountRaw: usdcRaw('Token amount'),
-      minUsdcOutRaw: usdcRaw('Minimum USDC out'),
-      transactionNonce: z.number().describe('retry.transactionNonce from funding status'),
+      minUsdcOutRaw: usdcRaw('Minimum USDC out (re-quote with usdc_get_trade_quote side sell)'),
     },
     async (params) => handleToolCall(async () => getSdk().retryUsdcSell(params as any)),
   );

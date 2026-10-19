@@ -97,7 +97,7 @@ const r = await skill.watchUsdcTrade({
   onUpdate: (funding, steps) => console.log(funding.status, steps.map(describeUsdcFundingStep)),
 });
 // planning [] -> bridging ['bridge USDC Arbitrum -> Base: active'] -> done ['bridge USDC Arbitrum -> Base: done', 'swap: done']
-// r.outcome: 'success' | 'failed' (r.errorCode) | 'pending' (timed out: still settling, never resubmit)
+// r.outcome: 'success' | 'failed' (r.errorCode) | 'needs_retry' (dropped sell, see below) | 'pending' (still settling: never resubmit)
 ```
 
 It polls `/v1/usdc/funding/status` every 3 s and, once funding succeeds, reads the trade result from
@@ -122,9 +122,15 @@ await skill.sellToUsdc({
 });
 ```
 
-If a sell gets stuck, `getUsdcFundingStatus` may return a `retry` capability. Only then call
-`retryUsdcSell` with its `retryId` and `transactionNonce`; it reuses the same transaction nonce, so the
-sell cannot execute twice.
+If a sell's broadcast is dropped, `watchUsdcTrade` returns `outcome: 'needs_retry'` with the backend's
+`retry` capability (`SAME_NONCE_RETRY_AVAILABLE`). Retry it in place: the SDK reads chain, token, amount and
+nonce from that capability and generates the retry id (a UUID, as gdex.pro does). It reuses the same
+transaction nonce, so the sell cannot execute twice. The backend allows two retries.
+
+```typescript
+const q2 = await skill.getUsdcTradeQuote({ ...creds, chainId, tokenAddress, payAsset: 'usdc', amountInRaw: tokenAmountRaw, side: 'sell' });
+await skill.retryUsdcSell({ ...creds, requestId, minUsdcOutRaw: (BigInt(q2.amountOutRaw as string) * 97n / 100n).toString() });
+```
 
 ## Buy With Native
 

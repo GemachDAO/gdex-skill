@@ -123197,6 +123197,7 @@ var require_usdc = __commonJS({
     exports.executeUsdcBridge = executeUsdcBridge;
     exports.watchUsdcTrade = watchUsdcTrade;
     exports.describeUsdcFundingStep = describeUsdcFundingStep2;
+    var crypto_1 = __require("crypto");
     var Endpoints = __importStar2(require_endpoints());
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
     var validation_1 = require_validation4();
@@ -123344,21 +123345,32 @@ var require_usdc = __commonJS({
     }
     async function retryUsdcSell(client, params) {
       (0, validation_1.validateRequired)(params.requestId, "requestId");
-      (0, validation_1.validateRequired)(params.retryId, "retryId");
+      let { chainId, tokenAddress, tokenAmountRaw, transactionNonce } = params;
+      if (chainId === void 0 || !tokenAddress || !tokenAmountRaw || transactionNonce === void 0) {
+        const status = await getUsdcFundingStatus(client, params);
+        const retry = status.retry;
+        if (!retry || retry.available !== true) {
+          throw new Error(`No sell retry available for ${params.requestId}${retry?.reason ? ` (${retry.reason})` : ""}`);
+        }
+        chainId ?? (chainId = retry.chainId);
+        tokenAddress || (tokenAddress = retry.tokenAddress);
+        tokenAmountRaw || (tokenAmountRaw = retry.tokenAmountRaw);
+        transactionNonce ?? (transactionNonce = retry.transactionNonce);
+      }
       const computedData = (0, gdexManagedCrypto_1.buildUsdcComputedData)({
         action: "retry_sell_usdc",
         ...params,
         values: [
-          params.chainId,
+          chainId,
           params.requestId,
-          params.retryId,
-          params.tokenAddress,
-          requireRaw(params.tokenAmountRaw, "tokenAmountRaw"),
+          params.retryId ?? (0, crypto_1.randomUUID)(),
+          tokenAddress,
+          requireRaw(tokenAmountRaw, "tokenAmountRaw"),
           requireRaw(params.minUsdcOutRaw, "minUsdcOutRaw"),
-          params.transactionNonce
+          transactionNonce
         ]
       });
-      return client.post(Endpoints.USDC_TRADE_RETRY_SELL, { computedData, chainId: params.chainId });
+      return client.post(Endpoints.USDC_TRADE_RETRY_SELL, { computedData, chainId });
     }
     async function convertNativeToUsdc(client, params) {
       const computedData = (0, gdexManagedCrypto_1.buildUsdcComputedData)({
@@ -123432,9 +123444,20 @@ var require_usdc = __commonJS({
         const base = { status, steps, funding, errorCode: funding.errorCode, hash: funding.hash };
         if (FUNDING_FAILURE.includes(status))
           return { outcome: "failed", ...base };
+        const retry = funding.retry;
+        if (retry?.available === true && funding.finalized !== true)
+          return { outcome: "needs_retry", ...base, retry };
         if (FUNDING_SUCCESS.includes(status)) {
-          const trade = funding.requestType === "direct" ? void 0 : await client.get(Endpoints.tradeStatusPath(params.requestId)).catch(() => void 0);
-          return { outcome: "success", ...base, trade, hash: base.hash ?? trade?.hash ?? trade?.txHash };
+          if (funding.requestType === "direct")
+            return { outcome: "success", ...base };
+          const trade = await client.get(Endpoints.tradeStatusPath(params.requestId)).catch(() => void 0);
+          const tradeStatus = String(trade?.status ?? "").toLowerCase();
+          if (trade?.isSuccess === true || tradeStatus === "success") {
+            return { outcome: "success", ...base, trade, hash: trade?.hash ?? base.hash };
+          }
+          if (trade?.isSuccess === false || FUNDING_FAILURE.includes(tradeStatus)) {
+            return { outcome: "failed", ...base, trade, errorCode: trade?.errorCode ?? base.errorCode };
+          }
         }
         if (Date.now() + intervalMs > deadline)
           return { outcome: "pending", ...base };
@@ -141990,7 +142013,7 @@ function registerUsdcTools(server2) {
   );
   server2.tool(
     "usdc_wait_for_trade",
-    `Follow a pending USDC trade (requestId from usdc_buy, usdc_buy_with_native or usdc_sell) to its result, like gdex.pro's live progress note: polls every 3s and returns each step as it happened (bridge legs, gas top-up, approve, swap), the outcome and the tx hash. outcome "pending" after the timeout means still settling: never resubmit.`,
+    `Follow a pending USDC trade (requestId from usdc_buy, usdc_buy_with_native or usdc_sell) to its result, like gdex.pro's live progress note: polls every 3s and returns each step as it happened (bridge legs, gas top-up, approve, swap), the outcome and the tx hash. outcome "needs_retry" means a sell broadcast was dropped and can be retried in place with usdc_retry_sell; "pending" after the timeout means still settling: never resubmit.`,
     {
       ...usdcCredentials,
       requestId: external_exports.string().describe("requestId returned by the trade"),
@@ -142010,6 +142033,7 @@ function registerUsdcTools(server2) {
       });
       return {
         outcome: result.outcome,
+        ...result.retry ? { retry: result.retry } : {},
         hash: result.hash,
         errorCode: result.errorCode,
         steps: result.steps.map((st) => (0, import_gdex_skill2.describeUsdcFundingStep)(st)),
@@ -142092,16 +142116,11 @@ function registerUsdcTools(server2) {
   );
   server2.tool(
     "usdc_retry_sell",
-    "Retry a stuck USDC sell in place, reusing its transaction nonce so it cannot execute twice. Only when usdc_get_funding_status returned a retry capability; take retryId and transactionNonce from it.",
+    "Retry a stuck USDC sell in place, reusing its transaction nonce so it cannot execute twice. Use when usdc_wait_for_trade returns needs_retry (or funding status shows retry.available). Token, amount, chain and nonce are read from the backend's retry capability; re-quote the sell for minUsdcOutRaw.",
     {
       ...usdcCredentials,
-      chainId: usdcChainId,
       requestId: external_exports.string().describe("Original sell requestId"),
-      retryId: external_exports.string().describe("retry.retryId from funding status"),
-      tokenAddress: external_exports.string(),
-      tokenAmountRaw: usdcRaw("Token amount"),
-      minUsdcOutRaw: usdcRaw("Minimum USDC out"),
-      transactionNonce: external_exports.number().describe("retry.transactionNonce from funding status")
+      minUsdcOutRaw: usdcRaw("Minimum USDC out (re-quote with usdc_get_trade_quote side sell)")
     },
     async (params) => handleToolCall(async () => getSdk().retryUsdcSell(params))
   );
