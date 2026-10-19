@@ -83,14 +83,14 @@ jobs:
           cd ..
 
           # Claude Code plugin, Gemini extension and .mcp.json pin the npm version; keep them in lockstep
-          for f in plugins/gdex/.claude-plugin/plugin.json gemini-extension.json; do
+          for f in plugins/gdex/.claude-plugin/plugin.json gemini-extension.json skill.json; do
             jq --arg v "$V" '.version = $v' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
           done
           sed -i -E "s#@gemachdao/gdex-mcp-server@[0-9]+\.[0-9]+\.[0-9]+#@gemachdao/gdex-mcp-server@$V#g" \
             plugins/gdex/.claude-plugin/plugin.json gemini-extension.json .mcp.json plugins/gdex/.mcp.json
 
           # Commit and tag
-          git add package.json package-lock.json mcp-server/package.json mcp-server/package-lock.json mcp-server/server.json plugins/gdex/.claude-plugin/plugin.json gemini-extension.json .mcp.json plugins/gdex/.mcp.json
+          git add package.json package-lock.json mcp-server/package.json mcp-server/package-lock.json mcp-server/server.json plugins/gdex/.claude-plugin/plugin.json gemini-extension.json skill.json .mcp.json plugins/gdex/.mcp.json
           git commit -m "chore: release $NEW_VERSION"
           git tag "$NEW_VERSION"
           git push origin main --tags

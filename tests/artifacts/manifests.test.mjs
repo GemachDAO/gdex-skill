@@ -244,7 +244,7 @@ describe('plugin skills', () => {
 
 describe('known release-metadata drift', () => {
   // skill.json ships in the npm tarball (package.json "files") but release.yml never bumps it.
-  it('skill.json version equals package.json version', { todo: process.env.GDEX_STRICT_ARTIFACTS !== '1' && json('skill.json').version !== VERSION ? `skill.json is ${json('skill.json').version}, package is ${VERSION}` : false }, () => {
+  it('skill.json version equals package.json version', () => {
     assert.equal(json('skill.json').version, VERSION);
   });
 });

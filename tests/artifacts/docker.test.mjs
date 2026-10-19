@@ -52,9 +52,8 @@ describe(`docker image (${IMAGE})`, () => {
   });
 
   it('can load the HyperLiquid trader for perp reads', {
-    // The image ships only the esbuild bundle; @gdexsdk/hyper-liquid-trader is loaded with a
-    // runtime import() that esbuild cannot see, so it is neither bundled nor installed.
-    todo: STRICT ? false : 'known defect: bundle leaves @gdexsdk/hyper-liquid-trader as a runtime import (ERR_MODULE_NOT_FOUND)',
+    // @gdexsdk/hyper-liquid-trader is a runtime import esbuild cannot bundle; the image installs it
+    // from mcp-server/package.json dependencies. This was broken in 5.0.0.
   }, async () => {
     // With --network none a working build fails on DNS, not on module resolution.
     const r = await client.call('get_mark_price', { coin: 'BTC' });
