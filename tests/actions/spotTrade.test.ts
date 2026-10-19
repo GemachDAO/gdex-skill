@@ -185,4 +185,90 @@ describe('spotTrade', () => {
       ).rejects.toThrow(GdexValidationError);
     });
   });
+  // ── chain identity & exact amounts (GDX-07 / GDX-08) ─────────────────────
+
+  describe('chain normalization', () => {
+    const managed = {
+      apiKey: 'test-api-key-00000000',
+      walletAddress: '0x1234567890123456789012345678901234567890',
+      sessionPrivateKey: 'a'.repeat(64),
+    };
+
+    it('accepts wSOL-quoted buy under numeric Solana id 622112261', async () => {
+      client.post = jest.fn().mockResolvedValue({});
+      await buyToken(client, {
+        chain: ChainId.SOLANA,
+        tokenAddress: 'So11111111111111111111111111111111111111112',
+        amount: '0.1',
+      });
+      expect(client.post).toHaveBeenCalledWith('/v1/purchase_v2', expect.objectContaining({
+        chain: ChainId.SOLANA,
+        chainId: ChainId.SOLANA,
+      }));
+    });
+
+    it('does not route numeric Solana through the managed EVM (18-decimal) path', async () => {
+      client.post = jest.fn().mockResolvedValue({});
+      await buyToken(client, {
+        chain: ChainId.SOLANA,
+        tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        amount: '0.1',
+        ...managed,
+      });
+      const body = (client.post as jest.Mock).mock.calls[0][1];
+      expect(body.computedData).toBeUndefined();
+      expect(body.amount).toBe('0.1');
+    });
+
+    it('sends the numeric id for a named EVM chain', async () => {
+      client.post = jest.fn().mockResolvedValue({});
+      await sellToken(client, {
+        chain: 'base' as unknown as ChainId,
+        tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+        amount: '50%',
+      });
+      expect(client.post).toHaveBeenCalledWith('/v1/sell_v2', expect.objectContaining({ chain: 8453, chainId: 8453 }));
+    });
+
+    it('rejects an unknown chain name before posting', async () => {
+      client.post = jest.fn();
+      await expect(buyToken(client, {
+        chain: 'basechain' as unknown as ChainId,
+        tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+        amount: '1',
+        ...managed,
+      })).rejects.toThrow(/Unsupported chain/);
+      expect(client.post).not.toHaveBeenCalled();
+    });
+
+    it('rejects managed EVM buys with more than 18 decimals instead of rounding', async () => {
+      client.post = jest.fn();
+      await expect(buyToken(client, {
+        chain: ChainId.BASE,
+        tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+        amount: '0.0000000000000000001',
+        ...managed,
+      })).rejects.toThrow(GdexValidationError);
+      expect(client.post).not.toHaveBeenCalled();
+    });
+
+    it.each(['1abc', 'Infinity', '1e3', '-1', '0'])('rejects malformed buy amount %p', async (amount) => {
+      client.post = jest.fn();
+      await expect(buyToken(client, {
+        chain: 'solana',
+        tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        amount,
+      })).rejects.toThrow(GdexValidationError);
+      expect(client.post).not.toHaveBeenCalled();
+    });
+
+    it('rejects a malformed percentage sell amount', async () => {
+      client.post = jest.fn();
+      await expect(sellToken(client, {
+        chain: 'solana',
+        tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        amount: '50oops%',
+      })).rejects.toThrow(GdexValidationError);
+    });
+  });
 });

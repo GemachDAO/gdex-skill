@@ -1,14 +1,16 @@
 /**
  * Input validation utilities.
  */
-import { SupportedChain, ChainId } from '../types/common';
+import { parseUnits } from 'ethers';
+import { SupportedChain } from '../types/common';
+import { normalizeChain } from '../config/chains';
 import { GdexValidationError } from './errors';
 
 /** EVM address regex */
 const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
-/** Solana address regex (base58, 32–44 chars) */
-const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+/** Base58 alphabet (Bitcoin/Solana) */
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
 /** Sui wallet address regex (0x + 64 hex chars) */
 const SUI_ADDRESS_RE = /^0x[0-9a-fA-F]{64}$/;
@@ -24,21 +26,52 @@ const SUI_ADDRESS_RE = /^0x[0-9a-fA-F]{64}$/;
  */
 const SUI_COIN_TYPE_RE = /^0x[0-9a-fA-F]+::[a-zA-Z_][a-zA-Z0-9_]*::[a-zA-Z_][a-zA-Z0-9_]*$/;
 
-/** All supported EVM chain IDs */
-const SUPPORTED_EVM_CHAIN_IDS = new Set(Object.values(ChainId).filter((v): v is number => typeof v === 'number'));
+/** Solana wrapped-SOL mint (native placeholder) */
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
+
+/**
+ * Strict base58 decode. Returns the decoded byte length, or -1 if the string
+ * contains a non-base58 character.
+ */
+function base58DecodedLength(value: string): number {
+  let n = 0n;
+  for (const ch of value) {
+    const digit = BASE58_ALPHABET.indexOf(ch);
+    if (digit < 0) return -1;
+    n = n * 58n + BigInt(digit);
+  }
+  let bytes = 0;
+  while (n > 0n) {
+    n >>= 8n;
+    bytes++;
+  }
+  // Each leading '1' encodes a leading zero byte.
+  let leadingZeros = 0;
+  while (leadingZeros < value.length && value[leadingZeros] === '1') leadingZeros++;
+  return bytes + leadingZeros;
+}
+
+/** True when `value` is a base58 string that decodes to exactly 32 bytes (a Solana public key). */
+function isSolanaPublicKey(value: string): boolean {
+  if (value.length < 32 || value.length > 44) return false;
+  return base58DecodedLength(value) === 32;
+}
 
 /**
  * Validate a token or wallet address for the given chain.
+ * The chain may be a ChainId number or name; 'solana' and 622112261 behave the same.
  *
- * @throws {GdexValidationError} if the address format is invalid
+ * @throws {GdexValidationError} if the chain is unknown or the address format is invalid
  */
 export function validateAddress(address: string, chain: SupportedChain, fieldName = 'address'): void {
   if (!address || typeof address !== 'string') {
     throw new GdexValidationError(`${fieldName} must be a non-empty string`, fieldName);
   }
 
-  if (chain === 'solana') {
-    if (!SOLANA_ADDRESS_RE.test(address)) {
+  const { family } = normalizeChain(chain);
+
+  if (family === 'solana') {
+    if (!isSolanaPublicKey(address)) {
       throw new GdexValidationError(
         `Invalid Solana address format for ${fieldName}: "${address}"`,
         fieldName
@@ -47,7 +80,7 @@ export function validateAddress(address: string, chain: SupportedChain, fieldNam
     return;
   }
 
-  if (chain === 'sui') {
+  if (family === 'sui') {
     if (!SUI_ADDRESS_RE.test(address)) {
       throw new GdexValidationError(
         `Invalid Sui address format for ${fieldName}: "${address}"`,
@@ -78,9 +111,11 @@ export function validateTokenAddress(address: string, chain: SupportedChain, fie
     throw new GdexValidationError(`${fieldName} must be a non-empty string`, fieldName);
   }
 
+  const { family } = normalizeChain(chain);
+
   // Sui accepts both full wallet addresses (0x + 64 hex) AND Move coin type strings
   // (e.g. "0x2::sui::SUI", "0xabc::module::COIN")
-  if (chain === 'sui') {
+  if (family === 'sui') {
     if (SUI_ADDRESS_RE.test(address) || SUI_COIN_TYPE_RE.test(address)) return;
     throw new GdexValidationError(
       `Invalid Sui token address for ${fieldName}: "${address}". ` +
@@ -90,17 +125,23 @@ export function validateTokenAddress(address: string, chain: SupportedChain, fie
   }
 
   // Allow Solana native wSOL mint
-  if (chain === 'solana' && address === 'So11111111111111111111111111111111111111112') return;
+  if (family === 'solana' && address === WSOL_MINT) return;
 
   validateAddress(address, chain, fieldName);
 }
+
+/** Plain decimal string: digits with an optional fractional part ("1", "0.5", "100.25"). */
+const DECIMAL_RE = /^\d+(\.\d+)?$/;
 
 /**
  * Validate a numeric amount string.
  *
  * Accepts:
  * - Positive decimal strings like "1.5", "100", "0.001"
- * - Percentage strings like "50%" (for sell amounts)
+ * - Percentage strings like "50%" (for sell amounts), only when `allowPercent` is set;
+ *   the value must be in (0, 100]
+ *
+ * Rejects signs, exponents ("1e3"), "Infinity", trailing garbage ("1abc"), and zero.
  *
  * @throws {GdexValidationError} if the amount is invalid
  */
@@ -111,23 +152,51 @@ export function validateAmount(amount: string, fieldName = 'amount', allowPercen
 
   // Allow percentage strings
   if (allowPercent && amount.endsWith('%')) {
-    const pct = parseFloat(amount.slice(0, -1));
-    if (isNaN(pct) || pct <= 0 || pct > 100) {
+    const body = amount.slice(0, -1);
+    if (!DECIMAL_RE.test(body)) {
       throw new GdexValidationError(
-        `${fieldName} percentage must be between 0 and 100 (exclusive/inclusive), got "${amount}"`,
+        `${fieldName} percentage must be a plain decimal followed by "%", got "${amount}"`,
+        fieldName
+      );
+    }
+    const [intPart, fracPart = ''] = body.split('.');
+    const intValue = BigInt(intPart);
+    const fracNonZero = /[1-9]/.test(fracPart);
+    if ((intValue === 0n && !fracNonZero) || intValue > 100n || (intValue === 100n && fracNonZero)) {
+      throw new GdexValidationError(
+        `${fieldName} percentage must be greater than 0 and at most 100, got "${amount}"`,
         fieldName
       );
     }
     return;
   }
 
-  const num = parseFloat(amount);
-  if (isNaN(num) || num <= 0) {
+  if (!DECIMAL_RE.test(amount) || !/[1-9]/.test(amount) || !Number.isFinite(Number(amount))) {
     throw new GdexValidationError(
-      `${fieldName} must be a positive number, got "${amount}"`,
+      `${fieldName} must be a positive decimal number (e.g. "1.5"), got "${amount}"`,
       fieldName
     );
   }
+}
+
+/**
+ * Convert a human-readable decimal amount to an integer in the token's smallest
+ * unit, exactly (no floating point). Validates with {@link validateAmount} first.
+ *
+ * @example parseAmountUnits('1.5', 6) // 1500000n
+ * @throws {GdexValidationError} if the amount is invalid or has more decimal
+ *   places than `decimals` (it is never rounded)
+ */
+export function parseAmountUnits(amount: string, decimals: number, fieldName = 'amount'): bigint {
+  validateAmount(amount, fieldName);
+  const fraction = amount.split('.')[1] ?? '';
+  if (fraction.replace(/0+$/, '').length > decimals) {
+    throw new GdexValidationError(
+      `${fieldName} has more than ${decimals} decimal places, got "${amount}"`,
+      fieldName
+    );
+  }
+  return parseUnits(amount, decimals);
 }
 
 /**
@@ -136,14 +205,7 @@ export function validateAmount(amount: string, fieldName = 'amount', allowPercen
  * @throws {GdexValidationError} if the chain is not supported
  */
 export function validateChain(chain: SupportedChain): void {
-  if (chain === 'solana' || chain === 'sui') return;
-
-  if (typeof chain === 'number' && SUPPORTED_EVM_CHAIN_IDS.has(chain)) return;
-
-  throw new GdexValidationError(
-    `Unsupported chain: "${chain}". Use a ChainId enum value or 'solana' / 'sui'.`,
-    'chain'
-  );
+  normalizeChain(chain);
 }
 
 /**

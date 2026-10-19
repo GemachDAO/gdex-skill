@@ -27,7 +27,7 @@ import {
   PerpPosition,
   PerpWithdrawParams,
 } from '../types/perp';
-import { validateAmount, validateCoin, validateRequired } from '../utils/validation';
+import { validateAmount, validateCoin, validateRequired, parseAmountUnits } from '../utils/validation';
 import { GdexValidationError } from '../utils/errors';
 import { buildHlComputedData } from '../utils/gdexManagedCrypto';
 import { getHlClearinghouseState, getHlClearinghouseStateAll } from './hlCopyTrade';
@@ -361,8 +361,8 @@ export async function perpDeposit(client: GdexApiClient, params: PerpDepositPara
   validateRequired(params.tokenAddress, 'tokenAddress');
   validateRequired(params.chainId, 'chainId');
 
-  // Convert human-readable USDC to smallest unit (6 decimals)
-  const amountSmallestUnit = BigInt(Math.round(parseFloat(params.amount) * 1e6)).toString();
+  // Convert human-readable USDC to smallest unit (6 decimals), exactly; excess precision throws
+  const amountSmallestUnit = parseAmountUnits(params.amount, 6, 'amount').toString();
 
   const computedData = buildHlComputedData({
     action: 'hl_deposit',
@@ -383,7 +383,8 @@ export async function perpDeposit(client: GdexApiClient, params: PerpDepositPara
  * Withdraw USDC from HyperLiquid via managed custody.
  */
 export async function perpWithdraw(client: GdexApiClient, params: PerpWithdrawParams): Promise<HlResponse> {
-  validateAmount(params.amount, 'amount');
+  // Sent as a human USD string; the backend applies toFixed(1), so reject finer precision instead of rounding
+  parseAmountUnits(params.amount, 1, 'amount');
   validateRequired(params.walletAddress, 'walletAddress');
 
   const computedData = buildHlComputedData({

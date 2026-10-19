@@ -2,6 +2,7 @@
  * Chain configuration — defines supported chains with metadata.
  */
 import { ChainId, SupportedChain, SupportedDex } from '../types/common';
+import { GdexValidationError } from '../utils/errors';
 
 /**
  * Configuration metadata for a supported chain.
@@ -326,6 +327,66 @@ export function getChainConfig(chain: SupportedChain): ChainConfig {
     throw new Error(`Unsupported chain: ${chain}`);
   }
   return config;
+}
+
+/** Address/signing family of a chain. */
+export type ChainFamily = 'evm' | 'solana' | 'sui';
+
+/** Canonical identity of a chain, independent of how the caller spelled it. */
+export interface NormalizedChain {
+  /** Numeric chain ID from the {@link ChainId} enum */
+  id: ChainId;
+  /** Address/signing family */
+  family: ChainFamily;
+  /** Native token decimals */
+  nativeDecimals: number;
+}
+
+/** Numeric IDs of every {@link ChainId} member. */
+const CHAIN_ID_VALUES = new Set<number>(
+  Object.values(ChainId).filter((v): v is number => typeof v === 'number')
+);
+
+/**
+ * Lower-cased {@link ChainId} member names (e.g. "base", "arbitrum", "solana")
+ * mapped to their numeric ID. The enum is the only source of names.
+ */
+const CHAIN_IDS_BY_NAME: Record<string, ChainId> = Object.fromEntries(
+  Object.entries(ChainId)
+    .filter(([, v]) => typeof v === 'number')
+    .map(([k, v]) => [k.toLowerCase(), v as ChainId])
+);
+
+/**
+ * Normalize a chain given as a {@link ChainId} number, a decimal-string chain ID
+ * ("8453"), or a {@link ChainId} member name in any case ("solana", "sui",
+ * "base", "arbitrum") into its canonical record. The string and numeric forms
+ * of the same chain always return the same record.
+ *
+ * @throws {GdexValidationError} if the chain is unknown
+ */
+export function normalizeChain(chain: SupportedChain | string | number): NormalizedChain {
+  let id: number | undefined;
+  if (typeof chain === 'number') {
+    id = CHAIN_ID_VALUES.has(chain) ? chain : undefined;
+  } else if (typeof chain === 'string') {
+    const key = chain.trim().toLowerCase();
+    if (/^\d+$/.test(key)) {
+      const n = Number(key);
+      id = CHAIN_ID_VALUES.has(n) ? n : undefined;
+    } else {
+      id = Object.prototype.hasOwnProperty.call(CHAIN_IDS_BY_NAME, key) ? CHAIN_IDS_BY_NAME[key] : undefined;
+    }
+  }
+  if (id === undefined) {
+    throw new GdexValidationError(
+      `Unsupported chain: "${String(chain)}". Use a ChainId enum value or a chain name such as 'solana', 'sui', 'base', 'arbitrum'.`,
+      'chain'
+    );
+  }
+  const family: ChainFamily = id === ChainId.SOLANA ? 'solana' : id === ChainId.SUI ? 'sui' : 'evm';
+  const nativeDecimals = CHAIN_CONFIGS[String(id)]?.nativeDecimals ?? 18;
+  return { id: id as ChainId, family, nativeDecimals };
 }
 
 /**
