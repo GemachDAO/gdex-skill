@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (agent-trading work order, pass 1)
+
+- **GDX-01** `close_perp_position` read no position and always sent a sell, so "closing" a short added to it. It now resolves the live position (signed `szi`, builder-dex aware), sends the opposite reduce-only side, supports exact partial closes, and rejects flat, ambiguous or oversized closes. SDK: `closePerpPosition` / `resolvePerpClose`.
+- **GDX-02** The client retried 429/503 for POSTs, so one signed order could be sent twice. Only GET/HEAD/OPTIONS are retried now. An ambiguous write raises `GdexSubmissionUnknownError` (`SUBMISSION_UNKNOWN`).
+- **GDX-03** `init --client` overwrote the whole client config. It now merges only the GDEX entry (JSON, JSONC, TOML), keeps a `.bak`, writes atomically, is idempotent, refuses invalid files, and needs `--force` to replace a different GDEX entry.
+- **GDX-04** Secrets out of the conversation: `gdex_connect`, `gdex_accounts` and `gdex_disconnect` keep keys under `~/.gdex/accounts`, and every credential-taking tool accepts `accountRef`. `generate_session_keypair` and `generate_evm_wallet` no longer return private keys unless asked. The published dev-wallet mnemonic was removed from the scripts (read from `GDEX_TEST_MNEMONIC`), and `scripts/` is no longer in the npm package. **That wallet must be treated as compromised.**
+- **GDX-07** One chain normalizer (`normalizeChain`): numeric and string Solana/Sui validate the same, wSOL under `622112261` is accepted, and Solana addresses must base58-decode to 32 bytes.
+- **GDX-08** Strict amounts: no `1abc`, `Infinity`, `1e3` or `50oops%`. `parseAmountUnits` rejects excess precision instead of rounding. `perpDeposit` uses exact integer conversion. The priority-fee unit is documented as lamports.
+- **GDX-11** MCP failures return `isError: true` with a JSON envelope (`code`, `submission`, `retryable`, `next`), with no stacks (unless `GDEX_DEBUG=1`) and key-like hex redacted.
+- **GDX-12** `place_perp_order` no longer drops `isMarket`; market orders go through `hlCreateOrder`. The `close_all_positions` and `set_leverage` descriptions now state their backend limits.
+- CI runs the MCP server type-check and test suite.
+
 ### Added
 
 - **Unified USDC wallet** (backend `feat-unified-usdc`). A user's USDC on Ethereum, Optimism, BSC, Sonic,

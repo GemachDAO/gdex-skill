@@ -146,7 +146,7 @@ cite figures that skill scripts printed. Every script run is logged with a sha25
 
 ## 🔌 MCP Server
 
-The GDEX MCP server exposes **133 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
+The GDEX MCP server exposes **136 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
 
 **Source code:** the server is implemented in this repository, in [`mcp-server/`](mcp-server). The entry point is [`mcp-server/src/index.ts`](mcp-server/src/index.ts) and the tool handlers are in [`mcp-server/src/tools/`](mcp-server/src/tools). The npm package `@gemachdao/gdex-mcp-server` is built from that directory by the release workflow. See [`mcp-server/README.md`](mcp-server/README.md) to run it from source or with the repo's `Dockerfile`.
 
@@ -171,6 +171,10 @@ npx @gemachdao/gdex-mcp-server init --client opencode  # → .opencode/mcp.json
 ```
 
 Installs every GDEX skill plus the MCP server (`npx -y @gemachdao/gdex-mcp-server`). The optional GDEX API key is kept in your system credential store.
+
+### Connect an account (no secrets in chat)
+
+Ask your agent to run `gdex_connect` with a key file on your machine, e.g. `gdex_connect { keyFile: "~/my-gdex-wallet.json" }` (JSON with `privateKey`), or `gdex_connect { create: true }` for a new wallet. The server signs in, stores the keys under `~/.gdex/accounts` (mode 0600) and returns an `accountRef`. Pass `accountRef` to any trading tool instead of `sessionPrivateKey`/`privateKey`. Never paste a private key or seed phrase into the chat. `gdex_accounts` lists connected accounts; `gdex_disconnect` forgets one.
 
 ### Codex (OpenAI)
 
@@ -212,11 +216,11 @@ Add to your client's MCP config:
 | `GDEX_API_KEY` | GDEX API key — auto-authenticates on startup | Optional |
 | `GDEX_API_URL` | Override API base URL (default: `https://trade-api.gemach.io/v1`) | Optional |
 
-### MCP Execution Tools (125 tools)
+### MCP Execution Tools (128 tools)
 
 | Category | Tools | Description |
 |----------|-------|-------------|
-| **Auth** | `auth_login`, `generate_session_keypair`, `managed_sign_in`, `build_sign_in_payload` | API key login, session keys, managed custody sign-in |
+| **Auth** | `gdex_connect`, `gdex_accounts`, `gdex_disconnect`, `auth_login`, `generate_session_keypair`, `managed_sign_in`, `build_sign_in_payload` | API key login, session keys, managed custody sign-in |
 | **Spot Trading** | `buy_token`, `sell_token` | Buy/sell on Solana, Sui and 10 EVM chains (Ethereum, Base, Arbitrum, BSC and more) |
 | **Perp Trading** | `open_perp_position`, `place_perp_order`, `close_perp_position`, `close_all_positions`, `cancel_perp_order`, `cancel_all_perp_orders`, `set_leverage`, `perp_deposit`, `perp_withdraw` | Full HyperLiquid perpetual futures — long/short, TP/SL; leverage up to each market's cap (40x on core BTC) |
 | **Perp Data** | `get_account_state`, `get_perp_positions`, `get_mark_price`, `get_all_mid_prices`, `get_usdc_balance`, `get_hl_open_orders`, `get_hl_trade_history`, `get_hl_spot_state`, `get_trader_leverage` | Real-time HyperLiquid account, positions, prices |
