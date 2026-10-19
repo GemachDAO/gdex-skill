@@ -199,6 +199,135 @@ export function parseAmountUnits(amount: string, decimals: number, fieldName = '
   return parseUnits(amount, decimals);
 }
 
+/** Plain non-negative integer string ("0", "1000000"). */
+const INTEGER_RE = /^\d+$/;
+
+/**
+ * Validate an amount already in the token's smallest unit (wei, lamports,
+ * micro-USDC) and return it as a bigint. Only a plain positive integer string
+ * is accepted: no decimal point, sign, exponent, whitespace or trailing
+ * characters, and not zero.
+ *
+ * @example parseRawAmount('1500000') // 1500000n
+ * @throws {GdexValidationError} if the amount is not a positive integer string
+ */
+export function parseRawAmount(amount: string, fieldName = 'amount'): bigint {
+  if (typeof amount !== 'string' || !INTEGER_RE.test(amount)) {
+    throw new GdexValidationError(
+      `${fieldName} must be a positive integer in raw base units (e.g. "1000000"), got ${JSON.stringify(amount)}`,
+      fieldName
+    );
+  }
+  const raw = BigInt(amount);
+  if (raw === 0n) {
+    throw new GdexValidationError(`${fieldName} must be greater than 0, got "${amount}"`, fieldName);
+  }
+  return raw;
+}
+
+/**
+ * Validate a whole-number percentage (an ABI `uint64` slot) and return it as a
+ * canonical decimal string. `max` is inclusive unless `maxExclusive` is set.
+ *
+ * @throws {GdexValidationError} if the value is not an integer in range
+ */
+export function parseIntegerPercent(
+  value: string | number,
+  fieldName: string,
+  opts: { min?: number; max?: number; maxExclusive?: boolean } = {}
+): string {
+  const str = typeof value === 'number' && Number.isSafeInteger(value) ? String(value) : value;
+  if (typeof str !== 'string' || !INTEGER_RE.test(str)) {
+    throw new GdexValidationError(
+      `${fieldName} must be a whole-number percentage (e.g. "25"), got ${JSON.stringify(value)}`,
+      fieldName
+    );
+  }
+  const n = BigInt(str);
+  const min = BigInt(opts.min ?? 0);
+  if (n < min) {
+    throw new GdexValidationError(`${fieldName} must be at least ${min}, got "${str}"`, fieldName);
+  }
+  if (opts.max !== undefined) {
+    const max = BigInt(opts.max);
+    if (opts.maxExclusive ? n >= max : n > max) {
+      throw new GdexValidationError(
+        `${fieldName} must be ${opts.maxExclusive ? 'below' : 'at most'} ${max}, got "${str}"`,
+        fieldName
+      );
+    }
+  }
+  return n.toString();
+}
+
+/** Hyperliquid MAX_DECIMALS for prices: 6 on perps, 8 on spot. */
+const HL_MAX_PRICE_DECIMALS = { perp: 6, spot: 8 } as const;
+
+/** Count of fractional digits, ignoring trailing zeros ("0.50" -> 1). */
+function significantDecimals(value: string): number {
+  return (value.split('.')[1] ?? '').replace(/0+$/, '').length;
+}
+
+function checkSzDecimals(szDecimals: number | undefined): void {
+  if (szDecimals !== undefined && (!Number.isInteger(szDecimals) || szDecimals < 0 || szDecimals > 8)) {
+    throw new GdexValidationError(`szDecimals must be an integer from 0 to 8, got ${szDecimals}`, 'szDecimals');
+  }
+}
+
+/**
+ * Validate a Hyperliquid order price. Always: a positive plain decimal (no sign,
+ * exponent or trailing characters). With `szDecimals` (the market's HL meta
+ * value) it also applies Hyperliquid's tick rule: at most 5 significant
+ * figures and at most `MAX_DECIMALS - szDecimals` decimals (6 on perps, 8 on
+ * spot); integer prices are always allowed. Nothing is rounded.
+ *
+ * @throws {GdexValidationError} if the price is malformed or too precise
+ */
+export function validateHlPrice(
+  price: string,
+  fieldName = 'price',
+  szDecimals?: number,
+  market: 'perp' | 'spot' = 'perp'
+): void {
+  validateAmount(price, fieldName);
+  checkSzDecimals(szDecimals);
+  if (szDecimals === undefined) return;
+  const decimals = significantDecimals(price);
+  if (decimals === 0) return;
+  const maxDecimals = HL_MAX_PRICE_DECIMALS[market] - szDecimals;
+  if (decimals > maxDecimals) {
+    throw new GdexValidationError(
+      `${fieldName} ${price} has ${decimals} decimals; this market allows at most ${maxDecimals} (${HL_MAX_PRICE_DECIMALS[market]} - szDecimals ${szDecimals})`,
+      fieldName
+    );
+  }
+  const [whole, frac = ''] = price.split('.');
+  const sigFigs = (whole + frac.replace(/0+$/, '')).replace(/^0+/, '').length;
+  if (sigFigs > 5) {
+    throw new GdexValidationError(
+      `${fieldName} ${price} has ${sigFigs} significant figures; Hyperliquid allows at most 5 for a non-integer price`,
+      fieldName
+    );
+  }
+}
+
+/**
+ * Validate a Hyperliquid order size: a positive plain decimal, and with
+ * `szDecimals` no more than that many decimals (never rounded).
+ *
+ * @throws {GdexValidationError} if the size is malformed or too precise
+ */
+export function validateHlSize(size: string, fieldName = 'size', szDecimals?: number): void {
+  validateAmount(size, fieldName);
+  checkSzDecimals(szDecimals);
+  if (szDecimals !== undefined && significantDecimals(size) > szDecimals) {
+    throw new GdexValidationError(
+      `${fieldName} ${size} has more than the ${szDecimals} decimals this market allows (szDecimals)`,
+      fieldName
+    );
+  }
+}
+
 /**
  * Validate a chain ID or chain name.
  *

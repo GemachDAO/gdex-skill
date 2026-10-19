@@ -496,17 +496,19 @@ export function buildAssociateEmailComputedData(params: {
 // ── Transfer managed-custody helper ──────────────────────────────────────────
 
 /**
- * Build encrypted computedData for `POST /v1/transfer` and `POST /v1/transfer_token`.
+ * Build encrypted computedData for `POST /v1/transfer` (native) or, with
+ * `tokenAddress`, `POST /v1/transfer_token`.
  *
- * Backend (`ServiceMain.transfer`, v1.1.0) decodes the payload with:
- *   ABI:        ['transfer', [recipient, amount, nonce]]
- *   sig msg:    `transfer-${userId}-${data}`
+ * Typed exactly as the backend decodes it (gbotTradingDashboardBackend
+ * src/shared/parser/evm/decoder.ts:47-72; ServiceMain.ts:2796 and :2961):
+ *   transfer:       ['string','uint256','string']          = [recipient, amount, nonce],
+ *                   signed `transfer-${userId}-${data}`
+ *   transfer_token: ['string','string','uint256','string'] = [tokenAddress, recipient, amount, nonce],
+ *                   signed `transfer_token-${userId}-${data}`
  *
- * `amount` is a decimal string already scaled to token decimals (e.g. "1000000"
- * for 1 USDC at 6 decimals, or "1000000000000000000" for 1 ETH at 18 decimals).
- * The action label (`transfer`) is the sign-message prefix only — the ABI
- * values are just `[recipient, amount, nonce]` (matching the `hl_withdraw` /
- * `associate_email` style used elsewhere in this file).
+ * `amount` is raw base units, a non-negative integer string: native decimals
+ * for `transfer` (ServiceMain.ts:2822), the token's decimals for
+ * `transfer_token` (compared with the raw balance, ServiceMain.ts:2998).
  */
 export function buildTransferComputedData(params: {
   apiKey: string;
@@ -515,20 +517,23 @@ export function buildTransferComputedData(params: {
   userId: string;
   recipient: string;
   amount: string;
+  /** Token to send; omit for a native transfer. */
+  tokenAddress?: string;
   nonce?: string;
 }): string {
   const nonce = params.nonce ?? generateGdexNonce().toString();
+  const amount = toAbiUint(params.amount, 'amount');
   const abi = AbiCoder.defaultAbiCoder();
-  const encoded = abi.encode(
-    ['string', 'string', 'string'],
-    [params.recipient, params.amount, nonce],
-  );
+  const action = params.tokenAddress ? 'transfer_token' : 'transfer';
+  const encoded = params.tokenAddress
+    ? abi.encode(['string', 'string', 'uint256', 'string'], [params.tokenAddress, params.recipient, amount, nonce])
+    : abi.encode(['string', 'uint256', 'string'], [params.recipient, amount, nonce]);
   const data = encoded.startsWith('0x') ? encoded.slice(2) : encoded;
 
   const normalizedUserId = params.userId.startsWith('0x')
     ? params.userId.toLowerCase()
     : params.userId;
-  const msg = `transfer-${normalizedUserId}-${data}`;
+  const msg = `${action}-${normalizedUserId}-${data}`;
   const digest = keccak256(toUtf8Bytes(msg));
   const sig = new SigningKey(params.sessionPrivateKey).sign(digest);
   const r = sig.r.replace(/^0x/, '');
@@ -709,25 +714,29 @@ export type LimitOrderActionType = 'limit_buy' | 'limit_sell' | 'update_order';
 /**
  * ABI-encode data for a limit order action.
  *
- * Schemas (all fields are strings):
- *   limit_buy:    [tokenAddress, amount, triggerPrice, profitPercent, lossPercent, nonce]
+ * Typed exactly as the backend decodes it (gbotTradingDashboardBackend
+ * src/shared/parser/evm/decoder.ts:168-210) and as gdex.pro encodes it
+ * (UI src/utils/crypto.ts:400-438):
+ *   limit_buy:    [tokenAddress, amount, triggerPrice, profitPercent(uint64), lossPercent(uint64), nonce]
  *   limit_sell:   [tokenAddress, amount, triggerPrice, nonce]
- *   update_order: [orderId, amount, triggerPrice, profitPercent, lossPercent, nonce, isDelete]
+ *   update_order: [orderId, amount, triggerPrice, profitPercent(uint64), lossPercent(uint64), nonce, isDelete(bool)]
+ *
+ * `isDelete` must be a real ABI bool: encoded as a string, its offset word
+ * decodes as `true` and every update deletes the order.
  */
 export function encodeLimitOrderData(
   action: LimitOrderActionType,
-  params: Record<string, string>,
+  params: Record<string, string | boolean>,
 ): string {
   const abi = AbiCoder.defaultAbiCoder();
   let encoded: string;
 
   switch (action) {
     case 'limit_buy':
-      // Backend decodes profitPercent/lossPercent as uint256 (0-100 range)
       encoded = abi.encode(
-        ['string', 'string', 'string', 'uint256', 'uint256', 'string'],
+        ['string', 'string', 'string', 'uint64', 'uint64', 'string'],
         [params.tokenAddress, params.amount, params.triggerPrice,
-         params.profitPercent, params.lossPercent, params.nonce],
+         toAbiUint(params.profitPercent, 'profitPercent'), toAbiUint(params.lossPercent, 'lossPercent'), params.nonce],
       );
       break;
     case 'limit_sell':
@@ -737,11 +746,11 @@ export function encodeLimitOrderData(
       );
       break;
     case 'update_order':
-      // Backend decodes profitPercent/lossPercent as uint256
       encoded = abi.encode(
-        ['string', 'string', 'string', 'uint256', 'uint256', 'string', 'string'],
+        ['string', 'string', 'string', 'uint64', 'uint64', 'string', 'bool'],
         [params.orderId, params.amount, params.triggerPrice,
-         params.profitPercent, params.lossPercent, params.nonce, params.isDelete],
+         toAbiUint(params.profitPercent, 'profitPercent'), toAbiUint(params.lossPercent, 'lossPercent'),
+         params.nonce, toAbiBool(params.isDelete)],
       );
       break;
     default:
@@ -780,7 +789,7 @@ export function buildLimitOrderComputedData(params: {
   apiKey: string;
   userId: string;
   sessionPrivateKey: string;
-  actionParams: Record<string, string>;
+  actionParams: Record<string, string | boolean>;
 }): string {
   const nonce = generateGdexNonce().toString();
   const fullParams = { ...params.actionParams, nonce };

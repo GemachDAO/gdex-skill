@@ -1,5 +1,13 @@
 /**
- * Bridge action — cross-chain asset bridging via ChangeNow.
+ * Bridge action — cross-chain native-asset bridging (ChangeNow / LI.FI).
+ *
+ * Backend contract (gbotTradingDashboardBackend src/api/services/ServiceBridge.ts):
+ * `amount` is the SOURCE chain's native asset in raw base units (wei, lamports,
+ * MIST): estimate and request both read it with
+ * `toUserTokenAmount(amount, getNativeDecimals(fromChainId))` (:145-148, :356-358),
+ * and the request forwards the same string to the bridge (:378-388). The signed
+ * payload is `['string','uint64','uint64','string']` = [amount, fromChainId,
+ * toChainId, nonce] (decoder.ts:211-220).
  */
 import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';
@@ -11,7 +19,8 @@ import {
   BridgeOrdersParams,
   BridgeOrdersResponse,
 } from '../types/bridge';
-import { validateAmount } from '../utils/validation';
+import { parseRawAmount } from '../utils/validation';
+import { GdexValidationError } from '../utils/errors';
 import {
   buildEncryptedGdexPayload,
   generateGdexNonce,
@@ -37,6 +46,25 @@ function encodeBridgeData(
 }
 
 /**
+ * Check the amount and chain ids before anything is quoted or signed. Returns
+ * the canonical raw amount string (no leading zeros).
+ */
+function checkBridgeParams(params: { amount: string; fromChainId: number; toChainId: number }): string {
+  const raw = parseRawAmount(params.amount, 'amount');
+  for (const f of ['fromChainId', 'toChainId'] as const) {
+    const id = params[f];
+    // uint64 slots in the signed payload; the backend parseInt()s them.
+    if (typeof id !== 'number' || !Number.isSafeInteger(id) || id <= 0) {
+      throw new GdexValidationError(`${f} must be a positive integer chain id, got ${JSON.stringify(id)}`, f);
+    }
+  }
+  if (params.fromChainId === params.toChainId) {
+    throw new GdexValidationError('fromChainId and toChainId must be different', 'toChainId');
+  }
+  return raw.toString();
+}
+
+/**
  * Sign the bridge request message with the session private key.
  * Message format: "request_bridge-{userId}-{dataHex}"
  */
@@ -59,21 +87,19 @@ function signBridgeMessage(
  * Get a bridge estimate (quote) for bridging native tokens between chains.
  *
  * @param client - Authenticated API client
- * @param params - Estimate parameters (fromChainId, toChainId, amount in raw units)
+ * @param params - Estimate parameters (fromChainId, toChainId, amount in raw source-native units)
+ * @throws {GdexValidationError} if amount is not a positive raw integer or the chains are invalid
  */
 export async function estimateBridge(
   client: GdexApiClient,
   params: BridgeEstimateParams,
 ): Promise<BridgeEstimate> {
-  validateAmount(params.amount, 'amount');
-  if (params.fromChainId === params.toChainId) {
-    throw new Error('fromChainId and toChainId must be different');
-  }
+  const amount = checkBridgeParams(params);
 
   return client.get<BridgeEstimate>(Endpoints.BRIDGE_ESTIMATE, {
     fromChainId: params.fromChainId,
     toChainId: params.toChainId,
-    amount: params.amount,
+    amount,
   });
 }
 
@@ -84,19 +110,17 @@ export async function estimateBridge(
  * matching the backend's `serverDecryptData()` → `decodeInputData('request_bridge')` flow.
  *
  * @param client - Authenticated API client
- * @param params - Bridge request parameters
+ * @param params - Bridge request parameters (amount in raw source-native units)
+ * @throws {GdexValidationError} if amount is not a positive raw integer or the chains are invalid (nothing is signed)
  */
 export async function requestBridge(
   client: GdexApiClient,
   params: BridgeRequestParams,
 ): Promise<BridgeResult> {
-  validateAmount(params.amount, 'amount');
-  if (params.fromChainId === params.toChainId) {
-    throw new Error('fromChainId and toChainId must be different');
-  }
+  const amount = checkBridgeParams(params);
 
   const nonce = generateGdexNonce().toString();
-  const data = encodeBridgeData(params.amount, params.fromChainId, params.toChainId, nonce);
+  const data = encodeBridgeData(amount, params.fromChainId, params.toChainId, nonce);
   const signature = signBridgeMessage(params.userId, data, params.sessionPrivateKey);
   const computedData = buildEncryptedGdexPayload({
     apiKey: params.apiKey,

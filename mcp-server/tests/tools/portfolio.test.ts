@@ -172,11 +172,15 @@ describe('Portfolio Tools', () => {
       const info = { address: '0xW', nativeBalance: '10.5' };
       mockSdk.getWalletInfo.mockResolvedValue(info);
       const tool = getTools().get('get_wallet_info')!;
-      const result = await expectMcpSuccess(tool.handler, {
-        walletAddress: '0xW',
-        chain: 8453,
-      });
+      const params = { walletAddress: '0xW', data: 'enc', chain: 8453 };
+      const result = await expectMcpSuccess(tool.handler, params);
       expect(result).toEqual(info);
+      expect(mockSdk.getWalletInfo).toHaveBeenCalledWith(params);
+    });
+
+    it('takes the managed-read credential fields, so accountRef applies', () => {
+      const schema = getTools().get('get_wallet_info')!.schema as Record<string, unknown>;
+      for (const f of ['walletAddress', 'sessionPrivateKey', 'apiKey', 'data', 'chain']) expect(schema).toHaveProperty(f);
     });
   });
 

@@ -12,10 +12,10 @@ export function registerLimitOrderTools(server: McpServer): void {
       sessionPrivateKey: z.string().describe('Session private key from sign-in'),
       chainId: z.number().describe('Numeric chain ID (e.g. 622112261 for Solana)'),
       tokenAddress: z.string().describe('Token address to buy'),
-      amount: z.string().describe('Native token to spend in raw units (wei/lamports)'),
-      triggerPrice: z.string().describe('USD price at which to trigger the buy'),
-      profitPercent: z.string().optional().default('0').describe("Take-profit % above trigger (e.g. '50'), '0' to skip"),
-      lossPercent: z.string().optional().default('0').describe("Stop-loss % below trigger (e.g. '25'), '0' to skip"),
+      amount: z.string().describe('Native token to spend in raw units (wei/lamports), a positive integer string'),
+      triggerPrice: z.string().describe('USD price at which to trigger the buy (plain decimal)'),
+      profitPercent: z.string().optional().default('0').describe("Take-profit % above trigger, whole number (e.g. '50'), '0' to skip"),
+      lossPercent: z.string().optional().default('0').describe("Stop-loss % below trigger, whole number under 100 (e.g. '25'), '0' to skip"),
     },
     async (params) => handleToolCall(async () => {
       const sdk = getSdk();
@@ -32,8 +32,8 @@ export function registerLimitOrderTools(server: McpServer): void {
       sessionPrivateKey: z.string().describe('Session private key from sign-in'),
       chainId: z.number().describe('Numeric chain ID'),
       tokenAddress: z.string().describe('Token address to sell'),
-      amount: z.string().describe('Token amount in raw units'),
-      triggerPrice: z.string().describe('USD price at which to trigger the sell'),
+      amount: z.string().describe('Token amount in raw units (token decimals), a positive integer string'),
+      triggerPrice: z.string().describe('USD price at which to trigger the sell (plain decimal)'),
     },
     async (params) => handleToolCall(async () => {
       const sdk = getSdk();
@@ -43,17 +43,17 @@ export function registerLimitOrderTools(server: McpServer): void {
 
   server.tool(
     'update_order',
-    'Update or delete an existing limit order. Set isDelete=true to cancel.',
+    'Update or delete an existing limit order. Set isDelete=true to cancel (no other fields needed). An update replaces amount, triggerPrice and TP/SL together, so all four are required.',
     {
       apiKey: z.string().describe('API key for AES encryption'),
       userId: z.string().describe('Control wallet address'),
       sessionPrivateKey: z.string().describe('Session private key from sign-in'),
       chainId: z.number().describe('Numeric chain ID'),
       orderId: z.string().describe('64-char hex order ID from get_limit_orders'),
-      amount: z.string().optional().describe('New amount in raw units'),
-      triggerPrice: z.string().optional().describe('New trigger price in USD'),
-      profitPercent: z.string().optional().describe('New TP % (buy orders only)'),
-      lossPercent: z.string().optional().describe('New SL % (buy orders only)'),
+      amount: z.string().optional().describe('New amount in raw units (required unless isDelete)'),
+      triggerPrice: z.string().optional().describe('New trigger price in USD (required unless isDelete)'),
+      profitPercent: z.string().optional().describe("New TP %, whole number, '0' = none; buy orders only, sell orders ignore it (required unless isDelete)"),
+      lossPercent: z.string().optional().describe("New SL %, whole number under 100, '0' = none (required unless isDelete)"),
       isDelete: z.boolean().optional().default(false).describe('Set true to cancel the order'),
     },
     async (params) => handleToolCall(async () => {

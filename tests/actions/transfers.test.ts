@@ -66,11 +66,12 @@ describe('transfers', () => {
       nonce: 'n-1',
     };
 
-    it('transferNative builds computedData internally and posts only {computedData} on the wire', async () => {
+    it('transferNative builds computedData internally and posts only {computedData, chainId} on the wire', async () => {
       await transferNative(client, {
         recipient: '0xRecipient',
         amount: '1000000',
         managed,
+        chainId: 8453,
       });
 
       expect(client.post).toHaveBeenCalledTimes(1);
@@ -78,7 +79,8 @@ describe('transfers', () => {
       expect(path).toBe('/v1/transfer');
 
       const bodyObj = body as Record<string, unknown>;
-      expect(Object.keys(bodyObj).sort()).toEqual(['computedData']);
+      expect(Object.keys(bodyObj).sort()).toEqual(['chainId', 'computedData']);
+      expect(bodyObj.chainId).toBe(8453);
       expect(typeof bodyObj.computedData).toBe('string');
       expect(bodyObj.computedData).toMatch(/^[0-9a-f]+$/);
 
@@ -87,18 +89,20 @@ describe('transfers', () => {
         decryptGdexComputedData(bodyObj.computedData as string, apiKey),
       ) as { userId: string; data: string; signature: string };
       expect(parsed.userId).toBe('0xAbCd');
+      // Backend decoder.ts:47-58 reads the amount as uint256.
       const [recipient, amount, nonce] = AbiCoder.defaultAbiCoder().decode(
-        ['string', 'string', 'string'],
+        ['string', 'uint256', 'string'],
         '0x' + parsed.data,
       );
       expect(recipient).toBe('0xRecipient');
-      expect(amount).toBe('1000000');
+      expect(amount).toBe(1000000n);
       expect(nonce).toBe('n-1');
     });
 
     it('transferToken structured form passes chainId through but does not leak recipient/amount/managed', async () => {
       await transferToken(client, {
         recipient: '0xRecipient',
+        tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         amount: '42',
         managed,
         chainId: '622112261',
@@ -113,6 +117,40 @@ describe('transfers', () => {
       expect(bodyObj).not.toHaveProperty('recipient');
       expect(bodyObj).not.toHaveProperty('amount');
       expect(bodyObj).not.toHaveProperty('managed');
+      const parsed = JSON.parse(decryptGdexComputedData(bodyObj.computedData as string, apiKey)) as { data: string };
+      const decoded = AbiCoder.defaultAbiCoder().decode(['string', 'string', 'uint256', 'string'], '0x' + parsed.data);
+      expect(decoded.toArray()).toEqual(['EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', '0xRecipient', 42n, 'n-1']);
+    });
+
+    it.each([
+      ['decimal', '1.5'],
+      ['exponent', '1e18'],
+      ['zero', '0'],
+      ['negative', '-1'],
+      ['trailing junk', '100abc'],
+      ['whitespace', ' 100'],
+    ])('rejects a %s amount before signing or posting', async (_label, amount) => {
+      await expect(
+        transferNative(client, { recipient: '0xRecipient', amount, managed, chainId: 1 }),
+      ).rejects.toBeInstanceOf(GdexValidationError);
+      expect(client.post).not.toHaveBeenCalled();
+    });
+
+    it('requires chainId on a structured transfer', async () => {
+      await expect(
+        transferNative(client, { recipient: '0xRecipient', amount: '1', managed }),
+      ).rejects.toThrow(/chainId/);
+      expect(client.post).not.toHaveBeenCalled();
+    });
+
+    it('requires tokenAddress for transferToken and refuses it on transferNative', async () => {
+      await expect(
+        transferToken(client, { recipient: '0xRecipient', amount: '1', managed, chainId: 1 }),
+      ).rejects.toThrow(/tokenAddress/);
+      await expect(
+        transferNative(client, { recipient: '0xRecipient', amount: '1', managed, chainId: 1, tokenAddress: '0xT' }),
+      ).rejects.toThrow(/transferToken/);
+      expect(client.post).not.toHaveBeenCalled();
     });
 
     it('validates required managed fields', async () => {
