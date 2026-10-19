@@ -29,8 +29,7 @@ import { enableAccountRefs } from './credentials.js';
 const rawArgs = process.argv.slice(2);
 const args = rawArgs[0] === 'gdex-mcp-server' ? rawArgs.slice(1) : rawArgs;
 if (args[0] === 'init') {
-  await handleInit(args);
-  process.exit(0);
+  process.exit(await handleInit(args));
 }
 
 // Report the version of the package actually installed. package.json sits one level above both

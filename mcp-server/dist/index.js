@@ -15539,8 +15539,8 @@ var require_uuid = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.uuidV4 = void 0;
     var data_js_1 = require_data3();
-    function uuidV4(randomBytes2) {
-      const bytes = (0, data_js_1.getBytes)(randomBytes2, "randomBytes");
+    function uuidV4(randomBytes3) {
+      const bytes = (0, data_js_1.getBytes)(randomBytes3, "randomBytes");
       bytes[6] = bytes[6] & 15 | 64;
       bytes[8] = bytes[8] & 63 | 128;
       const value = (0, data_js_1.hexlify)(bytes);
@@ -16514,13 +16514,13 @@ var require_utils3 = __commonJS({
       return hashC;
     }
     exports.wrapXOFConstructorWithOpts = wrapXOFConstructorWithOpts;
-    function randomBytes2(bytesLength = 32) {
+    function randomBytes3(bytesLength = 32) {
       if (crypto_1.crypto && typeof crypto_1.crypto.getRandomValues === "function") {
         return crypto_1.crypto.getRandomValues(new Uint8Array(bytesLength));
       }
       throw new Error("crypto.getRandomValues must be defined");
     }
-    exports.randomBytes = randomBytes2;
+    exports.randomBytes = randomBytes3;
   }
 });
 
@@ -17042,21 +17042,21 @@ var require_random = __commonJS({
       return new Uint8Array((0, crypto_js_1.randomBytes)(length));
     };
     var __randomBytes = _randomBytes;
-    function randomBytes2(length) {
+    function randomBytes3(length) {
       return __randomBytes(length);
     }
-    exports.randomBytes = randomBytes2;
-    randomBytes2._ = _randomBytes;
-    randomBytes2.lock = function() {
+    exports.randomBytes = randomBytes3;
+    randomBytes3._ = _randomBytes;
+    randomBytes3.lock = function() {
       locked = true;
     };
-    randomBytes2.register = function(func) {
+    randomBytes3.register = function(func) {
       if (locked) {
         throw new Error("randomBytes is locked");
       }
       __randomBytes = func;
     };
-    Object.freeze(randomBytes2);
+    Object.freeze(randomBytes3);
   }
 });
 
@@ -19057,7 +19057,7 @@ var require_weierstrass = __commonJS({
       function prepSig(msgHash, privateKey, opts = defaultSigOpts) {
         if (["recovered", "canonical"].some((k) => k in opts))
           throw new Error("sign() legacy options not supported");
-        const { hash, randomBytes: randomBytes2 } = CURVE;
+        const { hash, randomBytes: randomBytes3 } = CURVE;
         let { lowS, prehash, extraEntropy: ent } = opts;
         if (lowS == null)
           lowS = true;
@@ -19068,7 +19068,7 @@ var require_weierstrass = __commonJS({
         const d = normPrivateKeyToScalar(privateKey);
         const seedArgs = [int2octets(d), int2octets(h1int)];
         if (ent != null) {
-          const e = ent === true ? randomBytes2(Fp.BYTES) : ent;
+          const e = ent === true ? randomBytes3(Fp.BYTES) : ent;
           seedArgs.push((0, utils_js_1.ensureBytes)("extraEntropy", e));
         }
         const seed = ut.concatBytes(...seedArgs);
@@ -37123,7 +37123,7 @@ var require_websocket = __commonJS({
     var http = __require("http");
     var net = __require("net");
     var tls = __require("tls");
-    var { randomBytes: randomBytes2, createHash } = __require("crypto");
+    var { randomBytes: randomBytes3, createHash } = __require("crypto");
     var { Duplex, Readable } = __require("stream");
     var { URL: URL2 } = __require("url");
     var PerMessageDeflate = require_permessage_deflate();
@@ -37649,7 +37649,7 @@ var require_websocket = __commonJS({
         }
       }
       const defaultPort = isSecure ? 443 : 80;
-      const key = randomBytes2(16).toString("base64");
+      const key = randomBytes3(16).toString("base64");
       const request = isSecure ? https.request : http.request;
       const protocolSet = /* @__PURE__ */ new Set();
       let perMessageDeflate;
@@ -53999,12 +53999,12 @@ var require_form_data = __commonJS({
         if (value.end != void 0 && value.end != Infinity && value.start != void 0) {
           callback(null, value.end + 1 - (value.start ? value.start : 0));
         } else {
-          fs.stat(value.path, function(err, stat) {
+          fs.stat(value.path, function(err, stat2) {
             if (err) {
               callback(err);
               return;
             }
-            var fileSize = stat.size - (value.start ? value.start : 0);
+            var fileSize = stat2.size - (value.start ? value.start : 0);
             callback(null, fileSize);
           });
         }
@@ -56048,7 +56048,7 @@ var require_axios = __commonJS({
     var isNumber = typeOfTest("number");
     var isObject2 = (thing) => thing !== null && typeof thing === "object";
     var isBoolean = (thing) => thing === true || thing === false;
-    var isPlainObject3 = (val) => {
+    var isPlainObject4 = (val) => {
       if (kindOf(val) !== "object") {
         return false;
       }
@@ -56159,9 +56159,9 @@ var require_axios = __commonJS({
         }
         const targetKey = caseless && typeof key === "string" && findKey(result, key) || key;
         const existing = hasOwnProperty(result, targetKey) ? result[targetKey] : void 0;
-        if (isPlainObject3(existing) && isPlainObject3(val)) {
+        if (isPlainObject4(existing) && isPlainObject4(val)) {
           result[targetKey] = merge2(existing, val);
-        } else if (isPlainObject3(val)) {
+        } else if (isPlainObject4(val)) {
           result[targetKey] = merge2({}, val);
         } else if (isArray(val)) {
           result[targetKey] = val.slice();
@@ -56419,7 +56419,7 @@ var require_axios = __commonJS({
       isNumber,
       isBoolean,
       isObject: isObject2,
-      isPlainObject: isPlainObject3,
+      isPlainObject: isPlainObject4,
       isEmptyObject,
       isReadableStream,
       isRequest,
@@ -69542,7 +69542,7 @@ __export(utils_exports, {
   kdfInputToBytes: () => kdfInputToBytes,
   nextTick: () => nextTick,
   oidNist: () => oidNist,
-  randomBytes: () => randomBytes,
+  randomBytes: () => randomBytes2,
   rotl: () => rotl,
   rotr: () => rotr,
   swap32IfBE: () => swap32IfBE,
@@ -69711,7 +69711,7 @@ function createHasher(hashCons, info = {}) {
   Object.assign(hashC, info);
   return Object.freeze(hashC);
 }
-function randomBytes(bytesLength = 32) {
+function randomBytes2(bytesLength = 32) {
   const cr = typeof globalThis === "object" ? globalThis.crypto : null;
   if (typeof cr?.getRandomValues !== "function")
     throw new Error("crypto.getRandomValues must be defined");
@@ -87170,7 +87170,7 @@ var require_utils6 = __commonJS({
     exports.createHasher = createHasher2;
     exports.createOptHasher = createOptHasher;
     exports.createXOFer = createXOFer;
-    exports.randomBytes = randomBytes2;
+    exports.randomBytes = randomBytes3;
     var crypto_1 = require_cryptoNode2();
     function isBytes2(a) {
       return a instanceof Uint8Array || ArrayBuffer.isView(a) && a.constructor.name === "Uint8Array";
@@ -87368,7 +87368,7 @@ var require_utils6 = __commonJS({
     exports.wrapConstructor = createHasher2;
     exports.wrapConstructorWithOpts = createOptHasher;
     exports.wrapXOFConstructorWithOpts = createXOFer;
-    function randomBytes2(bytesLength = 32) {
+    function randomBytes3(bytesLength = 32) {
       if (crypto_1.crypto && typeof crypto_1.crypto.getRandomValues === "function") {
         return crypto_1.crypto.getRandomValues(new Uint8Array(bytesLength));
       }
@@ -90059,7 +90059,7 @@ var require_weierstrass2 = __commonJS({
         bits2int: "function",
         bits2int_modN: "function"
       });
-      const randomBytes2 = ecdsaOpts.randomBytes || utils_ts_1.randomBytes;
+      const randomBytes3 = ecdsaOpts.randomBytes || utils_ts_1.randomBytes;
       const hmac = ecdsaOpts.hmac || ((key, ...msgs) => (0, hmac_js_1.hmac)(hash, key, (0, utils_ts_1.concatBytes)(...msgs)));
       const { Fp, Fn } = Point;
       const { ORDER: CURVE_ORDER, BITS: fnBits } = Fn;
@@ -90214,7 +90214,7 @@ var require_weierstrass2 = __commonJS({
         const d = _normFnElement(Fn, privateKey);
         const seedArgs = [int2octets(d), int2octets(h1int)];
         if (extraEntropy != null && extraEntropy !== false) {
-          const e = extraEntropy === true ? randomBytes2(lengths.secretKey) : extraEntropy;
+          const e = extraEntropy === true ? randomBytes3(lengths.secretKey) : extraEntropy;
           seedArgs.push((0, utils_ts_1.ensureBytes)("extraEntropy", e));
         }
         const seed = (0, utils_ts_1.concatBytes)(...seedArgs);
@@ -92614,7 +92614,7 @@ var require_utils8 = __commonJS({
     exports.createHasher = createHasher2;
     exports.createOptHasher = createOptHasher;
     exports.createXOFer = createXOFer;
-    exports.randomBytes = randomBytes2;
+    exports.randomBytes = randomBytes3;
     var crypto_1 = require_cryptoNode3();
     function isBytes2(a) {
       return a instanceof Uint8Array || ArrayBuffer.isView(a) && a.constructor.name === "Uint8Array";
@@ -92812,7 +92812,7 @@ var require_utils8 = __commonJS({
     exports.wrapConstructor = createHasher2;
     exports.wrapConstructorWithOpts = createOptHasher;
     exports.wrapXOFConstructorWithOpts = createXOFer;
-    function randomBytes2(bytesLength = 32) {
+    function randomBytes3(bytesLength = 32) {
       if (crypto_1.crypto && typeof crypto_1.crypto.getRandomValues === "function") {
         return crypto_1.crypto.getRandomValues(new Uint8Array(bytesLength));
       }
@@ -95331,7 +95331,7 @@ var require_weierstrass3 = __commonJS({
       function prepSig(msgHash, privateKey, opts = defaultSigOpts) {
         if (["recovered", "canonical"].some((k) => k in opts))
           throw new Error("sign() legacy options not supported");
-        const { hash, randomBytes: randomBytes2 } = CURVE;
+        const { hash, randomBytes: randomBytes3 } = CURVE;
         let { lowS, prehash, extraEntropy: ent } = opts;
         if (lowS == null)
           lowS = true;
@@ -95343,7 +95343,7 @@ var require_weierstrass3 = __commonJS({
         const d = normPrivateKeyToScalar(privateKey);
         const seedArgs = [int2octets(d), int2octets(h1int)];
         if (ent != null && ent !== false) {
-          const e = ent === true ? randomBytes2(Fp.BYTES) : ent;
+          const e = ent === true ? randomBytes3(Fp.BYTES) : ent;
           seedArgs.push((0, utils_ts_1.ensureBytes)("extraEntropy", e));
         }
         const seed = (0, utils_ts_1.concatBytes)(...seedArgs);
@@ -96022,7 +96022,7 @@ var require_utils10 = __commonJS({
     exports.createHasher = createHasher2;
     exports.createOptHasher = createOptHasher;
     exports.createXOFer = createXOFer;
-    exports.randomBytes = randomBytes2;
+    exports.randomBytes = randomBytes3;
     var crypto_1 = require_cryptoNode4();
     function isBytes2(a) {
       return a instanceof Uint8Array || ArrayBuffer.isView(a) && a.constructor.name === "Uint8Array";
@@ -96220,7 +96220,7 @@ var require_utils10 = __commonJS({
     exports.wrapConstructor = createHasher2;
     exports.wrapConstructorWithOpts = createOptHasher;
     exports.wrapXOFConstructorWithOpts = createXOFer;
-    function randomBytes2(bytesLength = 32) {
+    function randomBytes3(bytesLength = 32) {
       if (crypto_1.crypto && typeof crypto_1.crypto.getRandomValues === "function") {
         return crypto_1.crypto.getRandomValues(new Uint8Array(bytesLength));
       }
@@ -140386,92 +140386,711 @@ function listSkills(skills2) {
 }
 
 // mcp-server/src/init.ts
-import { writeFile, mkdir } from "node:fs/promises";
-import { join as join2 } from "node:path";
+import { mkdir, readFile as readFile2, writeFile, rename, copyFile, stat, realpath, unlink } from "node:fs/promises";
+import { dirname, join as join2 } from "node:path";
 import { existsSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+
+// mcp-server/src/jsonc.ts
+var ConfigParseError = class extends Error {
+};
+function skipTrivia(t, i, comments) {
+  for (; ; ) {
+    while (i < t.length && (t[i] === " " || t[i] === "	" || t[i] === "\n" || t[i] === "\r")) i++;
+    if (comments && t.startsWith("//", i)) {
+      const nl = t.indexOf("\n", i);
+      i = nl === -1 ? t.length : nl + 1;
+      continue;
+    }
+    if (comments && t.startsWith("/*", i)) {
+      const end = t.indexOf("*/", i + 2);
+      if (end === -1) throw new ConfigParseError("unterminated /* comment");
+      i = end + 2;
+      continue;
+    }
+    return i;
+  }
+}
+function scanString(t, i) {
+  for (let j = i + 1; j < t.length; j++) {
+    if (t[j] === "\\") j++;
+    else if (t[j] === '"') return j + 1;
+  }
+  throw new ConfigParseError("unterminated string");
+}
+function stripJsonc(t) {
+  let out = "";
+  let i = 0;
+  while (i < t.length) {
+    const ch = t[i];
+    if (ch === '"') {
+      const end = scanString(t, i);
+      out += t.slice(i, end);
+      i = end;
+    } else if (t.startsWith("//", i) || t.startsWith("/*", i)) {
+      i = skipTrivia(t, i, true);
+      out += " ";
+    } else if (ch === ",") {
+      const next = skipTrivia(t, i + 1, true);
+      if (t[next] !== "}" && t[next] !== "]") out += ",";
+      i++;
+    } else {
+      out += ch;
+      i++;
+    }
+  }
+  return out;
+}
+function parseJsonConfig(t, comments) {
+  try {
+    return JSON.parse(comments ? stripJsonc(t) : t);
+  } catch (err) {
+    throw new ConfigParseError(err instanceof Error ? err.message : String(err));
+  }
+}
+function scanValue(t, i, comments) {
+  const ch = t[i];
+  if (ch === '"') return scanString(t, i);
+  if (ch === "{") return objectMembers(t, i, comments).close + 1;
+  if (ch === "[") {
+    let j = skipTrivia(t, i + 1, comments);
+    while (t[j] !== "]") {
+      if (j >= t.length) throw new ConfigParseError("unterminated array");
+      j = skipTrivia(t, scanValue(t, j, comments), comments);
+      if (t[j] === ",") j = skipTrivia(t, j + 1, comments);
+    }
+    return j + 1;
+  }
+  const m = /^[^\s,\]}/]+/.exec(t.slice(i));
+  if (!m) throw new ConfigParseError(`unexpected character at offset ${i}`);
+  return i + m[0].length;
+}
+function objectMembers(t, open, comments) {
+  const members = [];
+  let i = skipTrivia(t, open + 1, comments);
+  while (t[i] !== "}") {
+    if (t[i] !== '"') throw new ConfigParseError(`expected a key at offset ${i}`);
+    const keyEnd = scanString(t, i);
+    const key = JSON.parse(t.slice(i, keyEnd));
+    i = skipTrivia(t, keyEnd, comments);
+    if (t[i] !== ":") throw new ConfigParseError(`expected ':' at offset ${i}`);
+    const valueStart = skipTrivia(t, i + 1, comments);
+    const valueEnd = scanValue(t, valueStart, comments);
+    members.push({ key, valueStart, valueEnd });
+    i = skipTrivia(t, valueEnd, comments);
+    if (t[i] === ",") i = skipTrivia(t, i + 1, comments);
+  }
+  return { members, close: i };
+}
+function lineIndent(t, pos) {
+  const lineStart = t.lastIndexOf("\n", pos - 1) + 1;
+  return /^[ \t]*/.exec(t.slice(lineStart))[0];
+}
+function detectIndentUnit(t) {
+  const m = /\n([ \t]+)\S/.exec(t);
+  return m ? m[1] : "  ";
+}
+function setJsonMember(t, containerKey, name, value, comments, eol) {
+  const unit = detectIndentUnit(t);
+  const render = (v, indent2) => JSON.stringify(v, null, unit).replace(/\n/g, eol + indent2);
+  const insertMember = (text, open, key, v) => {
+    const { members } = objectMembers(text, open, comments);
+    const outer = lineIndent(text, open);
+    const inner = outer + unit;
+    const member = `${JSON.stringify(key)}: ${render(v, inner)}`;
+    if (members.length > 0) {
+      const at = members[members.length - 1].valueEnd;
+      return `${text.slice(0, at)},${eol}${inner}${member}${text.slice(at)}`;
+    }
+    const { close } = objectMembers(text, open, comments);
+    const body = text.slice(open + 1, close);
+    const keep = body.trim() === "" ? "" : body.replace(/\s+$/, "");
+    return `${text.slice(0, open + 1)}${keep}${eol}${inner}${member}${eol}${outer}${text.slice(close)}`;
+  };
+  const top = skipTrivia(t, 0, comments);
+  if (t[top] !== "{") throw new ConfigParseError("top level is not an object");
+  const container = objectMembers(t, top, comments).members.filter((m) => m.key === containerKey).pop();
+  if (!container) return insertMember(t, top, containerKey, { [name]: value });
+  if (t[container.valueStart] !== "{") throw new ConfigParseError(`"${containerKey}" is not an object`);
+  const existing = objectMembers(t, container.valueStart, comments).members.filter((m) => m.key === name).pop();
+  if (!existing) return insertMember(t, container.valueStart, name, value);
+  const indent = lineIndent(t, existing.valueStart);
+  return `${t.slice(0, existing.valueStart)}${render(value, indent)}${t.slice(existing.valueEnd)}`;
+}
+
+// mcp-server/src/tomlLite.ts
+var BARE_KEY = /^[A-Za-z0-9_-]+/;
+var DATETIME = /^(\d{4}-\d{2}-\d{2}([Tt ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?([Zz]|[+-]\d{2}:\d{2})?)?|\d{2}:\d{2}:\d{2}(\.\d+)?)/;
+var NUMBER = /^([+-]?(inf|nan)|0x[0-9A-Fa-f](_?[0-9A-Fa-f])*|0o[0-7](_?[0-7])*|0b[01](_?[01])*|[+-]?(0|[1-9](_?\d)*)(\.\d(_?\d)*)?([eE][+-]?\d(_?\d)*)?)/;
+var isTable = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+function parseToml(t) {
+  let i = 0;
+  const fail = (msg) => {
+    const line = t.slice(0, i).split("\n").length;
+    throw new ConfigParseError(`line ${line}: ${msg}`);
+  };
+  const skipWs = () => {
+    while (t[i] === " " || t[i] === "	") i++;
+  };
+  const skipComment = () => {
+    if (t[i] === "#") while (i < t.length && t[i] !== "\n") i++;
+  };
+  const skipBlank = () => {
+    for (; ; ) {
+      skipWs();
+      skipComment();
+      if (t[i] === "\n") i++;
+      else if (t[i] === "\r" && t[i + 1] === "\n") i += 2;
+      else return;
+    }
+  };
+  const endOfLine = () => {
+    skipWs();
+    skipComment();
+    if (i >= t.length) return;
+    if (t[i] === "\n") i++;
+    else if (t[i] === "\r" && t[i + 1] === "\n") i += 2;
+    else fail(`unexpected "${t[i]}"`);
+  };
+  const basicString = (multi) => {
+    let out = "";
+    for (; ; ) {
+      if (i >= t.length) fail("unterminated string");
+      const ch = t[i];
+      if (multi && t.startsWith('"""', i)) {
+        let run = 0;
+        while (t[i + run] === '"') run++;
+        if (run > 5) fail("too many quotes");
+        i += run;
+        return out + '"'.repeat(run - 3);
+      }
+      if (!multi && ch === '"') {
+        i++;
+        return out;
+      }
+      if (!multi && ch === "\n") fail("newline in string");
+      if (ch === "\\") {
+        const e = t[i + 1];
+        const simple = { b: "\b", t: "	", n: "\n", f: "\f", r: "\r", e: "\x1B", '"': '"', "\\": "\\" };
+        if (e in simple) {
+          out += simple[e];
+          i += 2;
+        } else if (e === "u" || e === "U") {
+          const len = e === "u" ? 4 : 8;
+          const hex = t.slice(i + 2, i + 2 + len);
+          if (!new RegExp(`^[0-9A-Fa-f]{${len}}$`).test(hex)) fail("bad unicode escape");
+          out += String.fromCodePoint(parseInt(hex, 16));
+          i += 2 + len;
+        } else if (multi && /^\\[ \t]*\r?\n/.test(t.slice(i))) {
+          i++;
+          while (/[ \t\r\n]/.test(t[i] ?? "")) i++;
+        } else {
+          fail("bad escape");
+        }
+        continue;
+      }
+      out += ch;
+      i++;
+    }
+  };
+  const literalString = (multi) => {
+    const close = multi ? "'''" : "'";
+    const end = t.indexOf(close, i);
+    if (end === -1) fail("unterminated string");
+    let s = t.slice(i, end);
+    if (!multi && s.includes("\n")) fail("newline in string");
+    i = end;
+    if (multi) {
+      let run = 0;
+      while (t[i + run] === "'") run++;
+      if (run > 5) fail("too many quotes");
+      s += "'".repeat(run - 3);
+      i += run;
+    } else {
+      i++;
+    }
+    return s;
+  };
+  const string3 = () => {
+    if (t.startsWith('"""', i)) {
+      i += 3;
+      if (t[i] === "\n") i++;
+      else if (t.startsWith("\r\n", i)) i += 2;
+      return basicString(true);
+    }
+    if (t.startsWith("'''", i)) {
+      i += 3;
+      if (t[i] === "\n") i++;
+      else if (t.startsWith("\r\n", i)) i += 2;
+      return literalString(true);
+    }
+    if (t[i] === '"') {
+      i++;
+      return basicString(false);
+    }
+    i++;
+    return literalString(false);
+  };
+  const keyPart = () => {
+    skipWs();
+    if (t[i] === '"' || t[i] === "'") {
+      if (t.startsWith('"""', i) || t.startsWith("'''", i)) fail("multi-line key");
+      return string3();
+    }
+    const m = BARE_KEY.exec(t.slice(i));
+    if (!m) fail("expected a key");
+    i += m[0].length;
+    return m[0];
+  };
+  const dottedKey = () => {
+    const parts = [keyPart()];
+    skipWs();
+    while (t[i] === ".") {
+      i++;
+      parts.push(keyPart());
+      skipWs();
+    }
+    return parts;
+  };
+  const assign = (table, key, value2) => {
+    let cur = table;
+    for (const part of key.slice(0, -1)) {
+      if (!(part in cur)) cur[part] = {};
+      const next = cur[part];
+      if (!isTable(next)) fail(`key "${part}" is already a value`);
+      cur = next;
+    }
+    const last = key[key.length - 1];
+    if (last in cur) fail(`duplicate key "${key.join(".")}"`);
+    cur[last] = value2;
+  };
+  const value = () => {
+    const ch = t[i];
+    if (ch === '"' || ch === "'") return string3();
+    if (ch === "[") {
+      i++;
+      const arr = [];
+      for (; ; ) {
+        skipBlank();
+        if (t[i] === "]") {
+          i++;
+          return arr;
+        }
+        arr.push(value());
+        skipBlank();
+        if (t[i] === ",") i++;
+        else if (t[i] !== "]") fail('expected "," or "]" in array');
+      }
+    }
+    if (ch === "{") {
+      i++;
+      const obj = {};
+      skipWs();
+      if (t[i] === "}") {
+        i++;
+        return obj;
+      }
+      for (; ; ) {
+        const key = dottedKey();
+        if (t[i] !== "=") fail('expected "=" in inline table');
+        i++;
+        skipWs();
+        assign(obj, key, value());
+        skipWs();
+        if (t[i] === ",") {
+          i++;
+          skipWs();
+        } else if (t[i] === "}") {
+          i++;
+          return obj;
+        } else fail('expected "," or "}" in inline table');
+      }
+    }
+    const rest = t.slice(i, i + 64);
+    if (rest.startsWith("true")) {
+      i += 4;
+      return true;
+    }
+    if (rest.startsWith("false")) {
+      i += 5;
+      return false;
+    }
+    const dt = DATETIME.exec(rest);
+    if (dt && (dt[0].length > 4 || dt[0].includes(":"))) {
+      i += dt[0].length;
+      return dt[0];
+    }
+    const num = NUMBER.exec(rest);
+    if (num) {
+      i += num[0].length;
+      const raw = num[0].replace(/_/g, "");
+      return /^0[xob]/.test(raw) ? Number(raw) : Number(raw.replace(/^\+/, "").replace(/inf$/, "Infinity").replace(/^-?nan$/, "NaN"));
+    }
+    return fail("invalid value");
+  };
+  const data = {};
+  const headers = [];
+  const statements = [];
+  const definedTables = /* @__PURE__ */ new Set();
+  let current = data;
+  let currentPath = [];
+  if (t.charCodeAt(0) === 65279) i = 1;
+  for (; ; ) {
+    skipBlank();
+    if (i >= t.length) break;
+    if (t[i] === "[") {
+      const start = i;
+      const array2 = t[i + 1] === "[";
+      i += array2 ? 2 : 1;
+      const path = dottedKey();
+      if (array2 ? !t.startsWith("]]", i) : t[i] !== "]") fail("unterminated table header");
+      i += array2 ? 2 : 1;
+      endOfLine();
+      let cur = data;
+      for (const [n, part] of path.entries()) {
+        const isLast = n === path.length - 1;
+        if (isLast && array2) {
+          if (!(part in cur)) cur[part] = [];
+          const arr = cur[part];
+          if (!Array.isArray(arr)) fail(`"${path.join(".")}" is not an array of tables`);
+          const tbl = {};
+          arr.push(tbl);
+          cur = tbl;
+          break;
+        }
+        if (!(part in cur)) cur[part] = {};
+        let next = cur[part];
+        if (Array.isArray(next)) next = next[next.length - 1];
+        if (!isTable(next)) fail(`"${path.join(".")}" collides with a value`);
+        cur = next;
+      }
+      if (!array2) {
+        const id = JSON.stringify(path);
+        if (definedTables.has(id)) fail(`table [${path.join(".")}] defined twice`);
+        definedTables.add(id);
+      }
+      headers.push({ path, array: array2, start });
+      current = cur;
+      currentPath = path;
+      continue;
+    }
+    const key = dottedKey();
+    if (t[i] !== "=") fail('expected "="');
+    i++;
+    skipWs();
+    assign(current, key, value());
+    endOfLine();
+    statements.push({ table: currentPath, key, headerIndex: headers.length - 1, end: i });
+  }
+  return { data, headers, statements };
+}
+function renderTomlTable(path, entry, eol) {
+  const key = (k) => /^[A-Za-z0-9_-]+$/.test(k) ? k : JSON.stringify(k);
+  const val = (v) => {
+    if (typeof v === "string") return JSON.stringify(v);
+    if (typeof v === "number" || typeof v === "boolean") return String(v);
+    if (Array.isArray(v)) return `[${v.map(val).join(", ")}]`;
+    if (isTable(v)) return `{ ${Object.entries(v).map(([k, x]) => `${key(k)} = ${val(x)}`).join(", ")} }`;
+    throw new Error(`cannot render ${typeof v} as TOML`);
+  };
+  const lines = [`[${path.map(key).join(".")}]`, ...Object.entries(entry).map(([k, v]) => `${key(k)} = ${val(v)}`)];
+  return lines.join(eol) + eol;
+}
+
+// mcp-server/src/init.ts
 var SUPPORTED_CLIENTS = ["claude", "cursor", "vscode", "codex", "opencode"];
 var GH_SOURCE = "github:GemachDAO/gdex-skill";
 var SHARED_API_KEY = "9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54";
-function getConfig(client) {
-  const mcpEntry = {
+var SERVER_NAME = "gdex-mcp-server";
+function mcpEntry() {
+  return {
     command: "npx",
     args: ["-y", GH_SOURCE, "gdex-mcp-server"],
     env: { GDEX_API_KEY: SHARED_API_KEY }
   };
+}
+function getTarget(client) {
   switch (client) {
     case "claude":
-      return {
-        path: ".mcp.json",
-        content: JSON.stringify({
-          mcpServers: { "gdex-mcp-server": mcpEntry }
-        }, null, 2)
-      };
+      return { format: "json", path: ".mcp.json", containerKey: "mcpServers", comments: false, entry: mcpEntry() };
     case "cursor":
-      return {
-        path: ".cursor/mcp.json",
-        content: JSON.stringify({
-          mcpServers: { "gdex-mcp-server": mcpEntry }
-        }, null, 2)
-      };
+      return { format: "json", path: ".cursor/mcp.json", containerKey: "mcpServers", comments: false, entry: mcpEntry() };
     case "vscode":
       return {
+        format: "json",
         path: ".vscode/mcp.json",
-        content: JSON.stringify({
-          servers: {
-            "gdex-mcp-server": {
-              type: "stdio",
-              command: "npx",
-              args: ["-y", GH_SOURCE, "gdex-mcp-server"],
-              env: { GDEX_API_KEY: SHARED_API_KEY }
-            }
-          }
-        }, null, 2)
+        containerKey: "servers",
+        comments: true,
+        entry: { type: "stdio", ...mcpEntry() }
       };
     case "codex":
-      return {
-        path: ".codex/config.toml",
-        content: `[mcp_servers.gdex-mcp-server]
-command = "npx"
-args = ["-y", "${GH_SOURCE}", "gdex-mcp-server"]
-env = { GDEX_API_KEY = "${SHARED_API_KEY}" }
-`
-      };
+      return { format: "toml", path: ".codex/config.toml", tablePath: ["mcp_servers", SERVER_NAME], entry: mcpEntry() };
     case "opencode":
-      return {
-        path: ".opencode/mcp.json",
-        content: JSON.stringify({
-          mcpServers: { "gdex-mcp-server": mcpEntry }
-        }, null, 2)
-      };
+      return { format: "json", path: ".opencode/mcp.json", containerKey: "mcpServers", comments: false, entry: mcpEntry() };
   }
 }
-async function handleInit(args2) {
+function isPlainObject3(v) {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+function deepEqual(a, b) {
+  if (a === b) return true;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((x, i) => deepEqual(x, b[i]));
+  }
+  if (isPlainObject3(a) && isPlainObject3(b)) {
+    const ka = Object.keys(a);
+    return ka.length === Object.keys(b).length && ka.every((k) => k in b && deepEqual(a[k], b[k]));
+  }
+  return false;
+}
+function withoutEntry(doc, containerKey) {
+  const copy = { ...doc };
+  if (isPlainObject3(copy[containerKey])) {
+    const servers = { ...copy[containerKey] };
+    delete servers[SERVER_NAME];
+    if (Object.keys(servers).length === 0) delete copy[containerKey];
+    else copy[containerKey] = servers;
+  }
+  return copy;
+}
+async function atomicWrite(fullPath, content, backup) {
+  const target = existsSync(fullPath) ? await realpath(fullPath) : fullPath;
+  await mkdir(dirname(target), { recursive: true });
+  let mode;
+  let backupPath;
+  if (backup && existsSync(target)) {
+    mode = (await stat(target)).mode & 511;
+    backupPath = `${fullPath}.bak`;
+    await copyFile(target, backupPath);
+  }
+  const tmp = join2(dirname(target), `.${SERVER_NAME}-init-${process.pid}-${randomBytes(4).toString("hex")}.tmp`);
+  try {
+    await writeFile(tmp, content, { encoding: "utf-8", mode: mode ?? 420, flag: "wx" });
+    await rename(tmp, target);
+  } catch (err) {
+    await unlink(tmp).catch(() => void 0);
+    throw err;
+  }
+  return backupPath;
+}
+var eolOf = (text) => text.includes("\r\n") ? "\r\n" : "\n";
+function planJson(target, original) {
+  const fresh = () => JSON.stringify({ [target.containerKey]: { [SERVER_NAME]: target.entry } }, null, 2) + "\n";
+  if (original === void 0 || original.trim() === "") {
+    return { build: fresh, verify: () => true };
+  }
+  const bom = original.startsWith("\uFEFF") ? "\uFEFF" : "";
+  const text = original.slice(bom.length);
+  const doc = parseJsonConfig(text, target.comments);
+  if (!isPlainObject3(doc)) throw new ConfigParseError("top level is not a JSON object");
+  const servers = doc[target.containerKey];
+  if (servers !== void 0 && !isPlainObject3(servers)) {
+    throw new ConfigParseError(`"${target.containerKey}" is not an object`);
+  }
+  const existing = servers && Object.prototype.hasOwnProperty.call(servers, SERVER_NAME) ? servers[SERVER_NAME] : void 0;
+  return {
+    existing,
+    existingText: existing === void 0 ? void 0 : JSON.stringify(existing, null, 2),
+    build: () => {
+      if (!target.comments && !text.trim().includes("\n")) {
+        const merged = { ...doc, [target.containerKey]: { ...servers ?? {}, [SERVER_NAME]: target.entry } };
+        return bom + JSON.stringify(merged, null, 2) + "\n";
+      }
+      return bom + setJsonMember(text, target.containerKey, SERVER_NAME, target.entry, target.comments, eolOf(text));
+    },
+    verify: (newText) => {
+      const after = parseJsonConfig(newText.slice(bom.length), target.comments);
+      const afterServers = after[target.containerKey];
+      return isPlainObject3(afterServers) && deepEqual(afterServers[SERVER_NAME], target.entry) && deepEqual(withoutEntry(after, target.containerKey), withoutEntry(doc, target.containerKey));
+    }
+  };
+}
+function tomlEntry(doc, path) {
+  let cur = doc.data;
+  for (const part of path) {
+    if (!isPlainObject3(cur) || !(part in cur)) return void 0;
+    cur = cur[part];
+  }
+  return cur;
+}
+function tomlWithout(data, path) {
+  const copy = structuredClone(data);
+  const parent = copy[path[0]];
+  if (isPlainObject3(parent)) {
+    delete parent[path[1]];
+    if (Object.keys(parent).length === 0) delete copy[path[0]];
+  }
+  return copy;
+}
+var startsWithPath = (p, prefix) => prefix.every((part, i) => p[i] === part);
+function planToml(target, original) {
+  const eol = original ? eolOf(original) : "\n";
+  const block = renderTomlTable(target.tablePath, target.entry, eol);
+  if (original === void 0 || original.trim() === "") {
+    return { build: () => block, verify: () => true };
+  }
+  const doc = parseToml(original);
+  const existing = tomlEntry(doc, target.tablePath);
+  if (existing !== void 0 && !isPlainObject3(existing)) {
+    throw new ConfigParseError(`[${target.tablePath.join(".")}] is not a table`);
+  }
+  const spans = [];
+  doc.headers.forEach((h, idx) => {
+    if (!startsWithPath(h.path, target.tablePath)) return;
+    if (h.array) throw new ConfigParseError(`[[${h.path.join(".")}]] is an array of tables`);
+    const headerLineEnd = original.indexOf("\n", h.start);
+    let end = headerLineEnd === -1 ? original.length : headerLineEnd + 1;
+    for (const s of doc.statements) if (s.headerIndex === idx) end = Math.max(end, s.end);
+    spans.push([h.start, end]);
+  });
+  const elsewhere = doc.statements.some(
+    (s) => !startsWithPath(s.table, target.tablePath) && startsWithPath([...s.table, ...s.key], target.tablePath)
+  );
+  const existingText = existing === void 0 ? void 0 : spans.length > 0 && !elsewhere ? spans.map(([a, b]) => original.slice(a, b)).join("").trimEnd() : JSON.stringify(existing, null, 2);
+  return {
+    existing,
+    existingText,
+    build: () => {
+      if (elsewhere) {
+        throw new ConfigParseError(
+          `${target.tablePath.join(".")} is defined with dotted keys or an inline table; convert it to a [${target.tablePath.join(".")}] table (or remove it) and rerun`
+        );
+      }
+      if (spans.length === 0) {
+        const base = original.endsWith("\n") ? original : original + eol;
+        return base + eol + block;
+      }
+      let out = "";
+      let pos = 0;
+      spans.forEach(([a, b], n) => {
+        out += original.slice(pos, a) + (n === 0 ? block : "");
+        pos = b;
+      });
+      return out + original.slice(pos);
+    },
+    verify: (newText) => {
+      const after = parseToml(newText);
+      return deepEqual(tomlEntry(after, target.tablePath), target.entry) && deepEqual(tomlWithout(after.data, target.tablePath), tomlWithout(doc.data, target.tablePath));
+    }
+  };
+}
+async function initClientConfig(opts) {
+  const cwd = opts.cwd ?? process.cwd();
+  const target = getTarget(opts.client);
+  const fullPath = join2(cwd, target.path);
+  const base = { path: target.path, fullPath };
+  const original = existsSync(fullPath) ? await readFile2(fullPath, "utf-8") : void 0;
+  const newEntry = target.format === "json" ? JSON.stringify(target.entry, null, 2) : renderTomlTable(target.tablePath, target.entry, "\n").trimEnd();
+  const invalid = (reason) => ({
+    ...base,
+    status: "invalid",
+    message: `${target.path} could not be updated safely: ${reason}
+The file was left untouched. Fix it (or move it aside) and rerun init, or add this entry by hand:
+${newEntry}`
+  });
+  let plan;
+  try {
+    plan = target.format === "json" ? planJson(target, original) : planToml(target, original);
+  } catch (err) {
+    if (err instanceof ConfigParseError) return invalid(`it is not valid ${target.format === "json" ? target.comments ? "JSON/JSONC" : "JSON" : "TOML"} (${err.message})`);
+    throw err;
+  }
+  if (plan.existing !== void 0) {
+    if (deepEqual(plan.existing, target.entry)) {
+      return { ...base, status: "unchanged", message: `${target.path} already has an identical ${SERVER_NAME} entry; nothing to do.` };
+    }
+    if (!opts.force) {
+      return {
+        ...base,
+        status: "conflict",
+        existingEntry: plan.existingText,
+        newEntry,
+        message: `${target.path} already has a different ${SERVER_NAME} entry. Rerun with --force to replace it (a .bak backup is kept).`
+      };
+    }
+  }
+  let content;
+  try {
+    content = plan.build();
+    if (!plan.verify(content)) return invalid("the merged result did not round-trip (please report this)");
+  } catch (err) {
+    if (err instanceof ConfigParseError) return invalid(err.message);
+    throw err;
+  }
+  const backupPath = await atomicWrite(fullPath, content, original !== void 0);
+  if (original === void 0) {
+    return { ...base, status: "created", message: `Created ${target.path} for ${opts.client}` };
+  }
+  if (plan.existing !== void 0) {
+    return {
+      ...base,
+      status: "updated",
+      backupPath,
+      existingEntry: plan.existingText,
+      newEntry,
+      message: `Replaced the ${SERVER_NAME} entry in ${target.path} (backup: ${target.path}.bak)`
+    };
+  }
+  return { ...base, status: "merged", backupPath, message: `Added ${SERVER_NAME} to ${target.path} (backup: ${target.path}.bak)` };
+}
+function printUsage(log) {
+  log(`Usage: gdex-mcp-server init --client <${SUPPORTED_CLIENTS.join("|")}> [--force]`);
+  log("\nAdds the GDEX server to the client's project config. An existing config is merged,");
+  log("not replaced: other servers and settings are kept and the previous file is saved as");
+  log("<file>.bak. Rerunning is safe; an identical GDEX entry is left as is.");
+  log("\nSupported clients:");
+  log("  claude    - Claude Code (.mcp.json)");
+  log("  cursor    - Cursor (.cursor/mcp.json)");
+  log("  vscode    - VS Code (.vscode/mcp.json)");
+  log("  codex     - Codex (.codex/config.toml)");
+  log("  opencode  - OpenCode (.opencode/mcp.json)");
+  log("\nOptions:");
+  log(`  --force   Replace an existing ${SERVER_NAME} entry that differs from the default`);
+}
+async function handleInit(args2, cwd = process.cwd()) {
+  if (args2.includes("--help") || args2.includes("-h")) {
+    printUsage(console.log);
+    return 0;
+  }
   const clientIdx = args2.indexOf("--client");
-  if (clientIdx === -1 || !args2[clientIdx + 1]) {
-    console.log(`Usage: gdex-mcp-server init --client <${SUPPORTED_CLIENTS.join("|")}>`);
-    console.log("\nSupported clients:");
-    console.log("  claude    - Claude Code (.mcp.json)");
-    console.log("  cursor    - Cursor (.cursor/mcp.json)");
-    console.log("  vscode    - VS Code (.vscode/mcp.json)");
-    console.log("  codex     - Codex (.codex/config.toml)");
-    console.log("  opencode  - OpenCode (.opencode/mcp.json)");
-    process.exit(1);
+  if (clientIdx === -1 || !args2[clientIdx + 1] || args2[clientIdx + 1].startsWith("--")) {
+    printUsage(console.log);
+    return 1;
   }
   const client = args2[clientIdx + 1];
   if (!SUPPORTED_CLIENTS.includes(client)) {
     console.error(`Unknown client "${client}". Supported: ${SUPPORTED_CLIENTS.join(", ")}`);
-    process.exit(1);
+    return 1;
   }
-  const config2 = getConfig(client);
-  const fullPath = join2(process.cwd(), config2.path);
-  const dir = join2(process.cwd(), config2.path.split("/").slice(0, -1).join("/"));
-  if (dir && dir !== process.cwd()) {
-    if (!existsSync(dir)) {
-      await mkdir(dir, { recursive: true });
-    }
+  const result = await initClientConfig({ client, cwd, force: args2.includes("--force") });
+  switch (result.status) {
+    case "invalid":
+      console.error(`\u274C ${result.message}`);
+      return 1;
+    case "conflict":
+      console.error(`\u26A0\uFE0F  ${result.message}`);
+      console.error(`
+Current entry:
+${result.existingEntry}
+
+New entry:
+${result.newEntry}`);
+      return 1;
+    case "unchanged":
+      console.log(`\u2705 ${result.message}`);
+      return 0;
+    case "updated":
+      console.log(`\u2705 ${result.message}`);
+      console.log(`
+Previous entry:
+${result.existingEntry}
+
+New entry:
+${result.newEntry}`);
+      break;
+    default:
+      console.log(`\u2705 ${result.message}`);
   }
-  await writeFile(fullPath, config2.content + "\n", "utf-8");
-  console.log(`\u2705 Created ${config2.path} for ${client}`);
   console.log(`
 GDEX MCP server configured! Available tools:`);
   console.log("  - search_gdex_docs      Search documentation by keyword");
@@ -140482,6 +141101,7 @@ GDEX MCP server configured! Available tools:`);
   console.log("  - get_trading_guide      Spot, perp, or limit trading guides");
   console.log("  - get_copy_trade_guide   Copy trading guides");
   console.log("  - get_component_guide    React UI component patterns");
+  return 0;
 }
 
 // mcp-server/src/sdk.ts
@@ -142168,8 +142788,7 @@ function registerUsdcTools(server2) {
 var rawArgs = process.argv.slice(2);
 var args = rawArgs[0] === "gdex-mcp-server" ? rawArgs.slice(1) : rawArgs;
 if (args[0] === "init") {
-  await handleInit(args);
-  process.exit(0);
+  process.exit(await handleInit(args));
 }
 function packageVersion() {
   try {
