@@ -75,6 +75,29 @@ export class GdexNetworkError extends GdexError {
 }
 
 /**
+ * Thrown when a write request (POST/PUT/PATCH/DELETE) ended without a definite
+ * answer: no response, a timeout, or a 5xx. The backend may have accepted it.
+ * The SDK never resends it automatically; check the operation's status (trade
+ * status, pending trades, funding status) before signing anything new.
+ */
+export class GdexSubmissionUnknownError extends GdexError {
+  /** HTTP method of the uncertain request. */
+  readonly method: string;
+  /** Endpoint of the uncertain request. */
+  readonly endpoint: string;
+  /** HTTP status, when the server answered with a 5xx. */
+  readonly status?: number;
+
+  constructor(message: string, method: string, endpoint: string, status?: number) {
+    super(message, GdexErrorCode.SUBMISSION_UNKNOWN);
+    this.name = 'GdexSubmissionUnknownError';
+    this.method = method;
+    this.endpoint = endpoint;
+    this.status = status;
+  }
+}
+
+/**
  * Thrown when the API rate limit is exceeded.
  */
 export class GdexRateLimitError extends GdexError {

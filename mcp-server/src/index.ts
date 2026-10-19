@@ -19,6 +19,8 @@ import { registerBridgeTools } from './tools/bridge.js';
 import { registerManagedTools } from './tools/managed.js';
 import { registerV110Tools } from './tools/v110.js';
 import { registerUsdcTools } from './tools/usdc.js';
+import { registerAccountTools } from './tools/account.js';
+import { enableAccountRefs } from './credentials.js';
 
 // Handle init command before starting server.
 // `npx -y github:GemachDAO/gdex-skill gdex-mcp-server init --client <c>` auto-selects
@@ -47,6 +49,8 @@ const server = new McpServer(
   { name: 'gdex-mcp-server', version: packageVersion() },
   { capabilities: { tools: {} } },
 );
+// Every tool taking sessionPrivateKey/privateKey/data also accepts accountRef (local secrets).
+enableAccountRefs(server);
 
 const skills = await loadSkills();
 
@@ -395,6 +399,7 @@ registerBridgeTools(server);
 registerManagedTools(server);
 registerV110Tools(server);
 registerUsdcTools(server);
+registerAccountTools(server);
 
 // --- Start server ---
 const transport = new StdioServerTransport();

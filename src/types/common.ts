@@ -173,4 +173,6 @@ export enum GdexErrorCode {
   API_ERROR = 'API_ERROR',
   INVALID_ADDRESS = 'INVALID_ADDRESS',
   SLIPPAGE_EXCEEDED = 'SLIPPAGE_EXCEEDED',
+  /** A write may or may not have been accepted; reconcile before acting again. */
+  SUBMISSION_UNKNOWN = 'SUBMISSION_UNKNOWN',
 }

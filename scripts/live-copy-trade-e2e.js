@@ -33,7 +33,7 @@ const warn = (m) => console.log(`  ${Y}⚠${R} ${m}`);
 const fail = (m) => console.log(`  ${RED}✗${R} ${m}`);
 const pp = (o) => JSON.stringify(o, null, 2).slice(0, 600);
 
-const MNEMONIC = 'airport room shoe add offer price divide sell make army say celery';
+const MNEMONIC = (process.env.GDEX_TEST_MNEMONIC || (() => { throw new Error('Set GDEX_TEST_MNEMONIC to a throwaway test wallet phrase'); })());
 const API_KEY = GDEX_API_KEY_PRIMARY;
 const SOLANA = 622112261;
 

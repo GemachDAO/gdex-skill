@@ -29,7 +29,7 @@ const fail = (m) => console.log(`  ${RED}✗${R} ${m}`);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── Constants ───────────────────────────────────────────────────────────────
-const MNEMONIC = process.env.GDEX_MNEMONIC || 'airport room shoe add offer price divide sell make army say celery';
+const MNEMONIC = process.env.GDEX_MNEMONIC || (process.env.GDEX_TEST_MNEMONIC || (() => { throw new Error('Set GDEX_TEST_MNEMONIC to a throwaway test wallet phrase'); })());
 const API_KEY = process.env.GDEX_API_KEY || GDEX_API_KEY_PRIMARY;
 
 // Chain IDs

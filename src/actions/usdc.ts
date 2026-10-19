@@ -27,6 +27,7 @@ import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';
 import { buildGdexReadSessionData, buildUsdcComputedData } from '../utils/gdexManagedCrypto';
 import { validateRequired } from '../utils/validation';
+import { GdexValidationError } from '../utils/errors';
 import type { HlManagedCredentials } from '../types/perp';
 
 const SOLANA_CHAIN_ID = 622112261;
@@ -83,7 +84,7 @@ function isPositiveRaw(raw: string | undefined): raw is string {
 }
 
 function requireRaw(raw: string | undefined, name: string): string {
-  if (!isPositiveRaw(raw)) throw new Error(`${name} must be a positive integer amount in raw units`);
+  if (!isPositiveRaw(raw)) throw new GdexValidationError(`${name} must be a positive integer amount in raw units`, name);
   return raw;
 }
 
@@ -463,7 +464,7 @@ function resolveGasTopUp(params: UsdcBridgeParams): { gasTopUp: boolean; usd?: n
   const gasTopUp = params.gasTopUp ?? params.toChainId !== SOLANA_CHAIN_ID;
   if (!gasTopUp) return { gasTopUp, microUsd: '0' };
   const usd = params.gasTopUpAmountUsd ?? DEFAULT_GAS_TOPUP_USD;
-  if (!Number.isFinite(usd) || usd <= 0 || usd > 50) throw new Error('gasTopUpAmountUsd must be in (0, 50]');
+  if (!Number.isFinite(usd) || usd <= 0 || usd > 50) throw new GdexValidationError('gasTopUpAmountUsd must be in (0, 50]', 'gasTopUpAmountUsd');
   return { gasTopUp, usd, microUsd: String(Math.round(usd * 1_000_000)) };
 }
 

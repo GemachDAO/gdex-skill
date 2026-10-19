@@ -59,7 +59,7 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
-const MNEMONIC = process.env.GDEX_MNEMONIC || 'airport room shoe add offer price divide sell make army say celery';
+const MNEMONIC = process.env.GDEX_MNEMONIC || (process.env.GDEX_TEST_MNEMONIC || (() => { throw new Error('Set GDEX_TEST_MNEMONIC to a throwaway test wallet phrase'); })());
 const API_KEY = process.env.GDEX_API_KEY || GDEX_API_KEY_PRIMARY;
 // Use a well-known trader address for testing; override with TRADER_WALLET env
 const TRADER_WALLET = process.env.TRADER_WALLET || '0x1234567890abcdef1234567890abcdef12345678';

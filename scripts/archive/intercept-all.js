@@ -56,7 +56,7 @@ async function main() {
   console.log('\n--- Calling hlDeposit ---');
   try {
     const result = await sdk.hyperLiquid.hlDeposit({
-      mnemonic: 'airport room shoe add offer price divide sell make army say celery',
+      mnemonic: (process.env.GDEX_TEST_MNEMONIC || (() => { throw new Error('Set GDEX_TEST_MNEMONIC to a throwaway test wallet phrase'); })()),
       chainId: 42161,
       tokenAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
       amount: '10',

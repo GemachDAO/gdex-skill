@@ -6,7 +6,7 @@ const { Wallet, keccak256, toUtf8Bytes, sha256 } = require('ethers');
 const { createHash } = require('crypto');
 const axios = require('axios');
 
-const mnemonic = 'airport room shoe add offer price divide sell make army say celery';
+const mnemonic = (process.env.GDEX_TEST_MNEMONIC || (() => { throw new Error('Set GDEX_TEST_MNEMONIC to a throwaway test wallet phrase'); })());
 const wallet = Wallet.fromPhrase(mnemonic);
 const apiKey = '9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54';
 const managedAddr = '0x9967179de55bd67e6b90fcc4f908556d93938c0f';

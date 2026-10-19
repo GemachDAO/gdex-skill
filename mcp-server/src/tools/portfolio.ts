@@ -123,11 +123,14 @@ export function registerPortfolioTools(server: McpServer): void {
 
   server.tool(
     'generate_evm_wallet',
-    'Generate a new EVM wallet offline (no network call). Returns address, privateKey, and mnemonic.',
-    {},
-    async () => handleToolCall(async () => {
+    'Generate a new EVM wallet offline (no network call). To trade with it, use gdex_connect { create: true } instead, which stores it locally. Returns only the address unless revealSecrets is true.',
+    { revealSecrets: z.boolean().optional().describe('Return privateKey and mnemonic too (they then appear in the conversation)') },
+    async ({ revealSecrets }) => handleToolCall(async () => {
       const sdk = getSdk();
-      return sdk.generateEvmWallet();
+      const w = sdk.generateEvmWallet();
+      return revealSecrets
+        ? w
+        : { address: w.address, note: 'Secrets withheld and not stored. Use gdex_connect { create: true } for a stored trading wallet.' };
     }),
   );
 }

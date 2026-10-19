@@ -17,6 +17,7 @@ import {
   GdexApiError,
   GdexNetworkError,
   GdexRateLimitError,
+  GdexSubmissionUnknownError,
 } from '../utils/errors';
 import { AuthCredentials, AuthSession } from './auth';
 import * as Endpoints from './endpoints';
@@ -33,6 +34,13 @@ const DEFAULT_TIMEOUT = 30_000;
 
 /** Default max retries */
 const DEFAULT_MAX_RETRIES = 3;
+
+/** Methods that are safe to resend automatically. */
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+function isSafeMethod(method: string | undefined): boolean {
+  return SAFE_METHODS.has((method ?? 'get').toUpperCase());
+}
 
 /**
  * Low-level HTTP client for the Gbot backend API.
@@ -88,11 +96,13 @@ export class GdexApiClient {
       },
     });
 
-    // Configure automatic retry on transient errors
+    // Configure automatic retry on transient errors. Only safe reads are retried:
+    // resending a signed write after a timeout or 503 could execute it twice.
     axiosRetry(this.http, {
       retries: this.config.maxRetries,
       retryDelay: axiosRetry.exponentialDelay,
       retryCondition: (err) => {
+        if (!isSafeMethod(err.config?.method)) return false;
         return (
           axiosRetry.isNetworkOrIdempotentRequestError(err) ||
           err.response?.status === 429 ||
@@ -146,6 +156,20 @@ export class GdexApiClient {
           if (status === 429) {
             const retryAfter = error.response?.headers['retry-after'];
             return Promise.reject(new GdexRateLimitError(message, retryAfter ? Number(retryAfter) : undefined));
+          }
+
+          // A write with no definite answer may already be executing.
+          const method = (error.config?.method ?? 'get').toUpperCase();
+          if (!isSafeMethod(method) && (status === undefined || status >= 500)) {
+            return Promise.reject(
+              new GdexSubmissionUnknownError(
+                `${method} ${error.config?.url ?? ''} outcome unknown (${status ?? error.code ?? 'no response'}): ${message}. ` +
+                  'It may have been accepted; check its status before retrying.',
+                method,
+                error.config?.url ?? '',
+                status
+              )
+            );
           }
 
           if (status !== undefined) {

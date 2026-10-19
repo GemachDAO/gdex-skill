@@ -413,6 +413,7 @@ export {
   GdexApiError,
   GdexNetworkError,
   GdexRateLimitError,
+  GdexSubmissionUnknownError,
 } from './utils/errors';
 
 // Client and auth utilities
