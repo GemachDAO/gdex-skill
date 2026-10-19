@@ -35,6 +35,10 @@
     "url": "https://github.com/GemachDAO/gdex-skill",
     "directory": "mcp-server"
   },
+  "dependencies": {
+    "@gdexsdk/hyper-liquid-trader": "^1.1.1",
+    "@nktkas/hyperliquid": "^0.32.1"
+  },
   "devDependencies": {
     "@gemachdao/gdex-skill": "file:..",
     "@jest/globals": "^30.3.0",
