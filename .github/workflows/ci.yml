@@ -69,6 +69,19 @@ jobs:
             exit 1
           fi
 
+      # After the stale-bundle check: installing mcp-server deps changes how the bundle resolves.
+      - name: Install MCP server dependencies
+        run: npm ci --ignore-scripts
+        working-directory: mcp-server
+
+      - name: Type-check MCP server
+        run: npx tsc --noEmit
+        working-directory: mcp-server
+
+      - name: Test MCP server
+        run: npm test
+        working-directory: mcp-server
+
   validate-skills:
     name: Validate Skills
     runs-on: ubuntu-latest

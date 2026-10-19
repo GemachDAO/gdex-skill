@@ -163,22 +163,23 @@ describe('Portfolio Tools', () => {
   });
 
   describe('generate_evm_wallet', () => {
-    it('should call generateEvmWallet and return address, pk, mnemonic', async () => {
-      const wallet = {
-        address: '0xNewWallet',
-        privateKey: '0xPk',
-        mnemonic: 'word1 word2 word3 ...',
-      };
-      mockSdk.generateEvmWallet.mockResolvedValue(wallet);
-      const tool = getTools().get('generate_evm_wallet')!;
-      const result = await expectMcpSuccess(tool.handler, {});
-      expect(result).toEqual(wallet);
+    it('returns only the address by default', async () => {
+      mockSdk.generateEvmWallet.mockReturnValue({ address: '0xNewWallet', privateKey: '0xPk', mnemonic: 'word1 word2 word3 ...' });
+      const result = await expectMcpSuccess(getTools().get('generate_evm_wallet')!.handler, {});
+      expect(result.address).toBe('0xNewWallet');
+      expect(result).not.toHaveProperty('privateKey');
+      expect(result).not.toHaveProperty('mnemonic');
+    });
+
+    it('returns secrets only with revealSecrets', async () => {
+      const wallet = { address: '0xNewWallet', privateKey: '0xPk', mnemonic: 'word1 word2 word3 ...' };
+      mockSdk.generateEvmWallet.mockReturnValue(wallet);
+      expect(await expectMcpSuccess(getTools().get('generate_evm_wallet')!.handler, { revealSecrets: true })).toEqual(wallet);
     });
 
     it('should handle errors', async () => {
-      mockSdk.generateEvmWallet.mockRejectedValue(new Error('Entropy source unavailable'));
-      const tool = getTools().get('generate_evm_wallet')!;
-      await expectMcpError(tool.handler, {}, 'Entropy source unavailable');
+      mockSdk.generateEvmWallet.mockImplementation(() => { throw new Error('Entropy source unavailable'); });
+      await expectMcpError(getTools().get('generate_evm_wallet')!.handler, {}, 'Entropy source unavailable');
     });
   });
 });

@@ -55,6 +55,7 @@ export async function expectMcpSuccess(
   expect(result.content[0]).toHaveProperty('type', 'text');
   expect(result.content[0]).toHaveProperty('text');
   // Should NOT be an error
+  expect(result.isError).not.toBe(true);
   expect(result.content[0].text).not.toMatch(/^❌ Error:/);
   return JSON.parse(result.content[0].text);
 }
@@ -68,7 +69,12 @@ export async function expectMcpError(
   const result = await handler(params);
   expect(result).toHaveProperty('content');
   expect(result.content[0]).toHaveProperty('type', 'text');
-  expect(result.content[0].text).toMatch(/^❌ Error:/);
+  // Real handleToolCall: isError + JSON envelope; per-file mocks: legacy text prefix.
+  if (result.isError === true) {
+    expect(JSON.parse(result.content[0].text).error.code).toBeTruthy();
+  } else {
+    expect(result.content[0].text).toMatch(/^❌ Error:/);
+  }
   if (errorMessageSubstr) {
     expect(result.content[0].text).toContain(errorMessageSubstr);
   }

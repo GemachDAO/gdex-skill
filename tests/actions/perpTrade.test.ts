@@ -13,6 +13,8 @@ import {
   perpWithdraw,
   hlCreateOrder,
   hlPlaceOrder,
+  resolvePerpClose,
+  closePerpPosition,
   hlCloseAll,
   hlCancelOrder,
   hlCancelAllOrders,
@@ -313,6 +315,23 @@ describe('perpTrade', () => {
         perpDeposit(client, { ...TEST_CREDS, walletAddress: '', tokenAddress: '0xUSDC', amount: '10', chainId: 42161 })
       ).rejects.toThrow(GdexValidationError);
     });
+
+    it('converts to 6-decimal units exactly (no float rounding)', async () => {
+      client.post = jest.fn().mockResolvedValue({ isSuccess: true });
+      await perpDeposit(client, { ...TEST_CREDS, tokenAddress: '0xUSDC', amount: '4.35', chainId: 42161 });
+      await perpDeposit(client, { ...TEST_CREDS, tokenAddress: '0xUSDC', amount: '10.000001', chainId: 42161 });
+      const calls = (crypto.buildHlComputedData as jest.Mock).mock.calls;
+      expect(calls[calls.length - 2][0].actionParams.amount).toBe('4350000');
+      expect(calls[calls.length - 1][0].actionParams.amount).toBe('10000001');
+    });
+
+    it.each(['10.0000001', '1e3', '10abc', 'Infinity'])('should reject amount %p', async (amount) => {
+      client.post = jest.fn();
+      await expect(
+        perpDeposit(client, { ...TEST_CREDS, tokenAddress: '0xUSDC', amount, chainId: 42161 })
+      ).rejects.toThrow(GdexValidationError);
+      expect(client.post).not.toHaveBeenCalled();
+    });
   });
 
   describe('perpWithdraw', () => {
@@ -333,6 +352,14 @@ describe('perpTrade', () => {
       await expect(
         perpWithdraw(client, { ...TEST_CREDS, amount: '0' })
       ).rejects.toThrow(GdexValidationError);
+    });
+
+    it('accepts one decimal place (backend precision) and rejects finer precision', async () => {
+      client.post = jest.fn().mockResolvedValue({ isSuccess: true });
+      await perpWithdraw(client, { ...TEST_CREDS, amount: '2.5' });
+      expect(client.post).toHaveBeenCalledTimes(1);
+      await expect(perpWithdraw(client, { ...TEST_CREDS, amount: '5.25' })).rejects.toThrow(/more than 1 decimal/);
+      expect(client.post).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -419,6 +446,160 @@ describe('perpTrade', () => {
         actionParams: expect.objectContaining({ coin: 'SOL', isLong: true }),
       }));
       expect(client.post).toHaveBeenCalledWith('/v1/hl/place_order', { computedData: 'mock-computed-data' });
+    });
+  });
+
+  describe('hlPlaceOrder isMarket guard', () => {
+    it('should reject isMarket=true instead of silently dropping it', async () => {
+      client.post = jest.fn();
+      await expect(
+        hlPlaceOrder(client, {
+          ...TEST_CREDS, coin: 'SOL', isLong: true, price: '150', size: '10', isMarket: true,
+        } as any)
+      ).rejects.toThrow(/hlCreateOrder/);
+      expect(client.post).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('closePerpPosition', () => {
+    const POS_ADDR = '0x9967179de55bd67e6b90fcc4f908556d93938c0f';
+
+    /** Stub the backend clearinghouse reads: per-dex states plus the all-dex view. */
+    function mockStates(byDex: Record<string, Array<{ coin: string; szi: string }>>) {
+      client.get = jest.fn().mockImplementation(async (path: string, query: any) => {
+        const toAssetPositions = (list: Array<{ coin: string; szi: string }>) =>
+          list.map((p) => ({ type: 'oneWay', position: { ...p, entryPx: '1', leverage: { value: 3 } } }));
+        if (path === '/v1/hl/clearinghouse_state') {
+          const dex = query?.dex ?? '';
+          return { isSuccess: true, dex: dex || 'default', state: { assetPositions: toAssetPositions(byDex[dex] ?? []) } };
+        }
+        if (path === '/v1/hl/clearinghouse_state_all') {
+          const allPositions = Object.entries(byDex).flatMap(([dex, list]) =>
+            toAssetPositions(list).map((ap) => ({ ...ap, dex })));
+          return { isSuccess: true, allPositions };
+        }
+        throw new Error(`unexpected GET ${path}`);
+      }) as any;
+      client.post = jest.fn().mockResolvedValue({ isSuccess: true, message: 'ok' });
+    }
+
+    function sentActionParams() {
+      const call = (crypto.buildHlComputedData as jest.Mock).mock.calls[0][0] as any;
+      expect(call.action).toBe('hl_create_order');
+      return call.actionParams;
+    }
+
+    it('closes a long in full with a reduce-only SELL', async () => {
+      mockStates({ '': [{ coin: 'BTC', szi: '0.0123' }] });
+      const result = await closePerpPosition(client, {
+        ...TEST_CREDS, coin: 'btc', price: '100000', positionAddress: POS_ADDR,
+      });
+
+      expect(client.get).toHaveBeenCalledWith('/v1/hl/clearinghouse_state', { address: POS_ADDR });
+      expect(sentActionParams()).toEqual(expect.objectContaining({
+        coin: 'BTC', isLong: false, size: '0.0123', reduceOnly: true, isMarket: true, tpPrice: '', slPrice: '',
+      }));
+      expect(result).toEqual(expect.objectContaining({
+        positionSide: 'long', closeSide: 'sell', size: '0.0123', remainingSize: '0', isFullClose: true,
+      }));
+    });
+
+    it('closes a short in full with a reduce-only BUY', async () => {
+      mockStates({ '': [{ coin: 'ETH', szi: '-1.5' }] });
+      const result = await closePerpPosition(client, { ...TEST_CREDS, coin: 'ETH', price: '3000' });
+
+      expect(sentActionParams()).toEqual(expect.objectContaining({
+        coin: 'ETH', isLong: true, size: '1.5', reduceOnly: true, isMarket: true,
+      }));
+      expect(result.closeSide).toBe('buy');
+      expect(result.positionSize).toBe('1.5');
+    });
+
+    it('partially closes with exact decimal remaining size', async () => {
+      mockStates({ '': [{ coin: 'SOL', szi: '-0.3' }] });
+      const result = await closePerpPosition(client, { ...TEST_CREDS, coin: 'SOL', size: '0.1', price: '150' });
+
+      expect(sentActionParams()).toEqual(expect.objectContaining({ isLong: true, size: '0.1' }));
+      expect(result.remainingSize).toBe('0.2'); // 0.3 - 0.1 in float is 0.19999999999999998
+      expect(result.isFullClose).toBe(false);
+    });
+
+    it('rejects a flat position without placing an order', async () => {
+      mockStates({ '': [{ coin: 'BTC', szi: '0.0' }] });
+      await expect(
+        closePerpPosition(client, { ...TEST_CREDS, coin: 'BTC', price: '100000' })
+      ).rejects.toThrow(/No open BTC position/);
+      expect(client.post).not.toHaveBeenCalled();
+    });
+
+    it('rejects a missing position (also checking builder DEXes)', async () => {
+      mockStates({ '': [{ coin: 'ETH', szi: '1' }] });
+      await expect(
+        closePerpPosition(client, { ...TEST_CREDS, coin: 'BTC', price: '100000' })
+      ).rejects.toThrow(GdexValidationError);
+      expect(client.get).toHaveBeenCalledWith('/v1/hl/clearinghouse_state_all', { address: TEST_CREDS.walletAddress });
+      expect(client.post).not.toHaveBeenCalled();
+    });
+
+    it('rejects size larger than the position', async () => {
+      mockStates({ '': [{ coin: 'BTC', szi: '0.01' }] });
+      await expect(
+        closePerpPosition(client, { ...TEST_CREDS, coin: 'BTC', size: '0.0100001', price: '100000' })
+      ).rejects.toThrow(/exceeds the open BTC position \(0\.01\)/);
+      expect(client.post).not.toHaveBeenCalled();
+    });
+
+    it('rejects non-decimal and zero sizes', async () => {
+      mockStates({ '': [{ coin: 'BTC', szi: '0.01' }] });
+      await expect(resolvePerpClose(client, { ...TEST_CREDS, coin: 'BTC', size: '1e-3' })).rejects.toThrow(/decimal string/);
+      await expect(resolvePerpClose(client, { ...TEST_CREDS, coin: 'BTC', size: '0' })).rejects.toThrow(/greater than 0/);
+    });
+
+    it('enforces szDecimals on a partial size when given', async () => {
+      mockStates({ '': [{ coin: 'BTC', szi: '1' }] });
+      await expect(
+        resolvePerpClose(client, { ...TEST_CREDS, coin: 'BTC', size: '0.123', szDecimals: 2 })
+      ).rejects.toThrow(/more than 2 decimals/);
+      const plan = await resolvePerpClose(client, { ...TEST_CREDS, coin: 'BTC', size: '0.120', szDecimals: 2 });
+      expect(plan.size).toBe('0.12');
+    });
+
+    it('reads a dex-prefixed builder coin from that dex only', async () => {
+      mockStates({ xyz: [{ coin: 'xyz:TSLA', szi: '-2' }] });
+      const result = await closePerpPosition(client, { ...TEST_CREDS, coin: 'XYZ:tsla', price: '250' });
+
+      expect(client.get).toHaveBeenCalledWith('/v1/hl/clearinghouse_state', { address: TEST_CREDS.walletAddress, dex: 'xyz' });
+      expect(client.get).toHaveBeenCalledTimes(1);
+      expect(sentActionParams()).toEqual(expect.objectContaining({ coin: 'xyz:TSLA', isLong: true, size: '2' }));
+      expect(result.dex).toBe('xyz');
+    });
+
+    it('resolves a bare coin to its single builder-dex position', async () => {
+      mockStates({ '': [], xyz: [{ coin: 'xyz:NVDA', szi: '3' }] });
+      const result = await closePerpPosition(client, { ...TEST_CREDS, coin: 'NVDA', price: '180' });
+      expect(sentActionParams()).toEqual(expect.objectContaining({ coin: 'xyz:NVDA', isLong: false, size: '3' }));
+      expect(result.coin).toBe('xyz:NVDA');
+    });
+
+    it('rejects a bare coin open on several builder DEXes as ambiguous', async () => {
+      mockStates({ '': [], xyz: [{ coin: 'xyz:TSLA', szi: '1' }], para: [{ coin: 'para:TSLA', szi: '-1' }] });
+      await expect(
+        closePerpPosition(client, { ...TEST_CREDS, coin: 'TSLA', price: '250' })
+      ).rejects.toThrow(/Ambiguous close.*xyz:TSLA, para:TSLA/);
+      expect(client.post).not.toHaveBeenCalled();
+    });
+
+    it('rejects a dex that contradicts the coin prefix', async () => {
+      await expect(
+        resolvePerpClose(client, { ...TEST_CREDS, coin: 'xyz:TSLA', dex: 'para' })
+      ).rejects.toThrow(/does not match/);
+    });
+
+    it('uses the mark price when no price is given', async () => {
+      mockStates({ '': [{ coin: 'BTC', szi: '0.01' }] });
+      getMockTrader().getMidPrice.mockResolvedValue(101000);
+      await closePerpPosition(client, { ...TEST_CREDS, coin: 'BTC' });
+      expect(sentActionParams()).toEqual(expect.objectContaining({ price: '101000', isLong: false }));
     });
   });
 

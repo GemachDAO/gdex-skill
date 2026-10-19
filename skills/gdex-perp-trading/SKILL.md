@@ -24,8 +24,8 @@ Trade perpetual futures on HyperLiquid through GDEX managed-custody. Supports lo
 ## Open a Position (managed custody)
 
 Perp orders go through `hlCreateOrder` after a managed sign-in. There is **no**
-`openPerpPosition`/`closePerpPosition`/`setPerpLeverage` — those don't exist. The
-real flow:
+`openPerpPosition`/`setPerpLeverage` — those don't exist (closing has
+`closePerpPosition`, below). The real flow:
 
 ```typescript
 import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
@@ -54,7 +54,19 @@ request (the SDK forwards it for you). Verified: setting `leverage: 3` opens at
 
 ## Close a Position
 
-Close with a reduce-only order (the opposite side, full size), or close everything:
+Prefer `closePerpPosition`: it reads the live position (dex-scoped
+clearinghouse state, signed `szi`) and picks the side for you — a long closes
+with a sell, a short with a buy. Omit `size` for a full close; a larger `size`,
+a flat position, or a bare coin open on several builder dexes is rejected.
+`positionAddress` is the address whose HL account holds the position (the
+managed wallet; defaults to `walletAddress`).
+
+```typescript
+const r = await skill.closePerpPosition({ ...creds, coin: 'xyz:TSLA', positionAddress: managedAddress });
+// r: { closeSide: 'buy' | 'sell', size, positionSize, remainingSize, order, ... }
+```
+
+Or by hand with a reduce-only order (the opposite side, full size), or close everything:
 
 ```typescript
 await skill.hlCreateOrder({ coin: 'ETH', isLong: false, price: String(mark),

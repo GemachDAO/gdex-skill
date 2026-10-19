@@ -15,7 +15,7 @@ const {
 } = require('../dist/index.js');
 const { ethers } = require('ethers');
 
-const MNEMONIC = process.env.GDEX_MNEMONIC || 'airport room shoe add offer price divide sell make army say celery';
+const MNEMONIC = process.env.GDEX_MNEMONIC || (process.env.GDEX_TEST_MNEMONIC || (() => { throw new Error('Set GDEX_TEST_MNEMONIC to a throwaway test wallet phrase'); })());
 const API_KEY = process.env.GDEX_API_KEY || GDEX_API_KEY_PRIMARY;
 const TRADER = '0x18c99bb72e9e2a2c13ae1a2c26e8dfaaed83b101';
 

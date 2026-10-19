@@ -46,6 +46,8 @@ import {
   perpWithdraw,
   hlCreateOrder,
   hlPlaceOrder,
+  resolvePerpClose,
+  closePerpPosition,
   hlCloseAll,
   hlCancelOrder,
   hlCancelAllOrders,
@@ -268,6 +270,9 @@ export type {
   PerpWithdrawParams,
   HlCreateOrderParams,
   HlPlaceOrderParams,
+  ClosePerpPositionParams,
+  PerpClosePlan,
+  ClosePerpPositionResult,
   HlCloseAllParams,
   HlCancelOrderParams,
   HlCancelAllOrdersParams,
@@ -413,7 +418,11 @@ export {
   GdexApiError,
   GdexNetworkError,
   GdexRateLimitError,
+  GdexSubmissionUnknownError,
 } from './utils/errors';
+
+// Perp close helpers (side/size resolved from the live HL position)
+export { resolvePerpClose, closePerpPosition } from './actions/perpTrade';
 
 // Client and auth utilities
 export { GdexApiClient } from './client';
@@ -421,7 +430,8 @@ export type { AuthCredentials, AuthSession } from './client/auth';
 export * as Endpoints from './client/endpoints';
 
 // Config utilities
-export { getChainConfig, getSupportedChains, chainSupportsDex, CHAIN_CONFIGS, HYPERLIQUID_DEFAULT_ASSETS } from './config/chains';
+export { getChainConfig, getSupportedChains, chainSupportsDex, normalizeChain, CHAIN_CONFIGS, HYPERLIQUID_DEFAULT_ASSETS } from './config/chains';
+export type { ChainFamily, NormalizedChain } from './config/chains';
 export type { ChainConfig } from './config/chains';
 export { GDEX_API_KEYS, GDEX_API_KEY_PRIMARY, GDEX_API_KEY_SECONDARY } from './config/apiKeys';
 
@@ -433,7 +443,7 @@ export { generateEvmWallet } from './utils/walletGeneration';
 export type { GeneratedEvmWallet } from './utils/walletGeneration';
 
 // Validation utilities
-export { validateAddress, validateAmount, validateChain, validateSlippage, validateLeverage, validateCoin } from './utils/validation';
+export { validateAddress, validateTokenAddress, validateAmount, parseAmountUnits, validateChain, validateSlippage, validateLeverage, validateCoin } from './utils/validation';
 export {
   deriveGdexAesMaterial,
   encryptGdexComputedData,
@@ -497,6 +507,9 @@ import type {
   PerpWithdrawParams,
   HlCreateOrderParams,
   HlPlaceOrderParams,
+  ClosePerpPositionParams,
+  PerpClosePlan,
+  ClosePerpPositionResult,
   HlCloseAllParams,
   HlCancelOrderParams,
   HlCancelAllOrdersParams,
@@ -864,7 +877,24 @@ export class GdexSkill {
   }
 
   /**
+   * Resolve the reduce-only order that would close a perp position (side and
+   * size read from the live HL position) without submitting it.
+   */
+  async resolvePerpClose(params: ClosePerpPositionParams): Promise<PerpClosePlan> {
+    return resolvePerpClose(this.client, params);
+  }
+
+  /**
+   * Close (fully or partially) one perp position. A long is closed with a
+   * sell, a short with a buy — the direction comes from the live position.
+   */
+  async closePerpPosition(params: ClosePerpPositionParams): Promise<ClosePerpPositionResult> {
+    return closePerpPosition(this.client, params);
+  }
+
+  /**
    * Close all open positions on HyperLiquid.
+   * Note: the backend endpoint is unreliable (TIMEOUT / 400); prefer closePerpPosition per coin.
    */
   async hlCloseAll(params: HlCloseAllParams): Promise<HlResponse> {
     return hlCloseAll(this.client, params);
