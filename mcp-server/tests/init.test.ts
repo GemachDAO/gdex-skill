@@ -298,3 +298,61 @@ describe('handleInit exit codes', () => {
     expect(await handleInit(['init', '--help'], cwd)).toBe(0);
   });
 });
+
+describe('init --client opencode', () => {
+  it('writes opencode.json in the project root with OpenCode\'s local-server shape', async () => {
+    const res = await initClientConfig({ client: 'opencode', cwd });
+    expect(res.status).toBe('created');
+    expect(res.path).toBe('opencode.json');
+    const doc = parseJsonConfig(await read('opencode.json'), true) as Record<string, any>;
+    expect(doc.$schema).toBe('https://opencode.ai/config.json');
+    expect(doc.mcpServers).toBeUndefined();
+    expect(doc.mcp[SERVER_NAME]).toEqual({
+      type: 'local',
+      command: ['npx', '-y', 'github:GemachDAO/gdex-skill', 'gdex-mcp-server'],
+      environment: { GDEX_API_KEY: '9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54' },
+      enabled: true,
+    });
+    expect(existsSync(join(cwd, '.opencode', 'mcp.json'))).toBe(false);
+  });
+
+  it('merges into an existing opencode.jsonc, keeping comments, other servers and settings', async () => {
+    const before = [
+      '{',
+      '  "$schema": "https://opencode.ai/config.json",',
+      '  // my model',
+      '  "model": "anthropic/claude-sonnet-4",',
+      '  "mcp": {',
+      '    "other": { "type": "remote", "url": "https://example.com/mcp", },',
+      '  },',
+      '}',
+      '',
+    ].join('\n');
+    await put('opencode.jsonc', before);
+    const res = await initClientConfig({ client: 'opencode', cwd });
+    expect(res.status).toBe('merged');
+    expect(res.path).toBe('opencode.jsonc');
+    expect(existsSync(join(cwd, 'opencode.json'))).toBe(false);
+    const after = await read('opencode.jsonc');
+    expect(after).toContain('// my model');
+    const doc = parseJsonConfig(after, true) as Record<string, any>;
+    expect(doc.model).toBe('anthropic/claude-sonnet-4');
+    expect(doc.mcp.other).toEqual({ type: 'remote', url: 'https://example.com/mcp' });
+    expect(doc.mcp[SERVER_NAME]).toEqual(getTarget('opencode', cwd).entry);
+    expect((await initClientConfig({ client: 'opencode', cwd })).status).toBe('unchanged');
+  });
+
+  it('prefers opencode.json when both files exist', async () => {
+    await put('opencode.json', '{\n  "mcp": {}\n}\n');
+    await put('opencode.jsonc', '{\n  "mcp": {}\n}\n');
+    expect((await initClientConfig({ client: 'opencode', cwd })).path).toBe('opencode.json');
+    expect(await read('opencode.jsonc')).toBe('{\n  "mcp": {}\n}\n');
+  });
+
+  it('points out the legacy .opencode/mcp.json that OpenCode never read', async () => {
+    await put('.opencode/mcp.json', '{ "mcpServers": {} }');
+    const res = await initClientConfig({ client: 'opencode', cwd });
+    expect(res.status).toBe('created');
+    expect(res.message).toMatch(/\.opencode\/mcp\.json .* not read by OpenCode/);
+  });
+});

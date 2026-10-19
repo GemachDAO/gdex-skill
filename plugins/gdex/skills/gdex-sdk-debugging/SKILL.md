@@ -57,25 +57,28 @@ Managed wallet:  0x9967179de55bd67e6b90fcc4f908556d93938c0f  ← server-side, ex
 
 The `/v1/hl/close_all_positions` endpoint frequently returns `TIMEOUT` or JSON parse errors.
 
-**Workaround:** Place a reduce-only order for the exact position size:
+**Workaround:** Close each coin with `closePerpPosition` (MCP: `close_perp_position`). It reads the live
+position and sends a reduce-only market order for the exact size on the opposite side:
 ```typescript
 // Instead of skill.hlCloseAll() — use this:
-const positions = await skill.hlGetPositions();
+const positions = await skill.getPerpPositions({ walletAddress: managedEvmAddress }); // positions live on the managed wallet
 for (const pos of positions) {
-  if (Number(pos.szi) !== 0) {
-    await skill.closePerpPosition({
-      coin: pos.coin,
-      closePercent: 100,  // close full position
-    });
-  }
+  await skill.closePerpPosition({
+    coin: pos.coin,
+    positionAddress: managedEvmAddress,
+    apiKey,
+    walletAddress: controlAddress,  // control wallet signs
+    sessionPrivateKey,
+  });
 }
 ```
 
-### Leverage Cannot Be Set via API
+### Leverage Is Set Per Order
 
-The `hlUpdateLeverage` / `/v1/hl/update_leverage` endpoint returns **404** — it's not implemented. The backend sets leverage automatically before each trade.
-
-**Implication:** You control effective leverage through position sizing relative to your account balance.
+The standalone `hlUpdateLeverage` / `/v1/hl/update_leverage` endpoint returns **404**. Set leverage on the
+order instead: `hlCreateOrder({ ..., leverage: 5 })` (MCP: `open_perp_position` with `leverage`). The SDK
+sends it as a top-level field next to `computedData`, which is where the backend reads it. Omitted, HL
+uses its default (20x on most markets).
 
 ### HL Signature Format
 

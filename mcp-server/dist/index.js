@@ -41,10 +41,906 @@ var __toESM = (mod2, isNodeMode, target) => (target = mod2 != null ? __create(__
 ));
 var __toCommonJS = (mod2) => __copyProps(__defProp({}, "__esModule", { value: true }), mod2);
 
+// <define:__GDEX_SKILL_REGISTRY__>
+var define_GDEX_SKILL_REGISTRY_default;
+var init_define_GDEX_SKILL_REGISTRY = __esm({
+  "<define:__GDEX_SKILL_REGISTRY__>"() {
+    define_GDEX_SKILL_REGISTRY_default = { version: 1, skills: [{ name: "gdex-authentication", description: "Managed-custody authentication \u2014 shared API key login, session keypair generation, encrypted computedData payloads, AES-256-CBC encryption, and secp256k1 trade signing", content: "\n# GDEX: Authentication\n\nAll GDEX trading uses **managed-custody wallets** with encrypted `computedData` payloads. This skill covers both the simple shared-API-key auth and the full managed-custody flow.\n\n## When to Use\n\n- Setting up authentication for any trading operation\n- Implementing managed-custody sign-in for a control wallet\n- Understanding the encryption and signing pipeline\n- Troubleshooting auth errors (401, 403, code 103)\n\n## Prerequisites\n\n```bash\nnpm install @gemachdao/gdex-skill\n```\n\n## 0. MCP Server: `gdex_connect` (no secrets in chat)\n\nMCP clients do not run this flow by hand. Call `gdex_connect` with a local key file\n(`{ keyFile: \"~/wallet.json\" }`) or `{ create: true }` for a new wallet; the server signs in,\nstores the keys under `~/.gdex/accounts` (0600) and returns an `accountRef`. Pass `accountRef`\nto every trading tool instead of `apiKey` / `walletAddress` / `sessionPrivateKey` / `data`.\n`gdex_accounts` lists connected accounts and `gdex_disconnect` forgets one.\n\nSDK users run the managed-custody sign-in below and pass `apiKey`, `walletAddress`\n(the control wallet) and `sessionPrivateKey` to each write call.\n\n## 1. Shared API Key Login (Simple)\n\nFor read-only access \u2014 no wallet signing required. Trading additionally needs the\nmanaged-custody session from section 2:\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n// skill.isAuthenticated() \u2192 true\n```\n\n**Shared API Keys:**\n- Primary: `9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54`\n- Secondary: `2c8f0a91-5d34-4e7b-9a62-f1c3d8e4b705`\n\n> Read-only endpoints (`getTokenDetails`, `getTrendingTokens`, `getOHLCV`, `getTopTraders`) do not require any authentication.\n\n## 2. Managed-Custody Flow (Full Trading)\n\nFor trading operations, the full managed-custody flow is:\n\n```\nGenerate Session Keypair \u2192 Build Sign-In Message \u2192 Control Wallet Signs \u2192\nEncrypt as computedData \u2192 POST /v1/sign_in \u2192 Resolve User \u2192 Trade\n```\n\n### Step-by-Step\n\n```typescript\nimport {\n  GdexSkill,\n  GDEX_API_KEY_PRIMARY,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n  buildGdexManagedTradeComputedData,\n  buildGdexUserSessionData,\n} from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\nconst apiKey = GDEX_API_KEY_PRIMARY;\n\n// Step 1: Generate a secp256k1 session keypair\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\n// sessionKey = compressed public key (0x + 66 hex chars)\n\n// Step 2: Build the sign-in message\nconst userId = '0xYourControlWalletAddress'; // EVM address or Solana pubkey\nconst nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));\nconst message = buildGdexSignInMessage(userId, nonce, sessionKey);\n// \u2192 \"By signing, you agree to GDEX Trading Terms of Use...\"\n\n// Step 3: Sign with control wallet\n//   EVM:    wallet.signMessage(message) \u2192 EIP-191 personal_sign\n//   Solana: nacl.sign.detached(Buffer.from(message)) \u2192 base58 encoded\nconst signature = '...'; // your wallet's signature\n\n// Step 4: Build encrypted computedData and POST to /v1/sign_in\nconst signInPayload = buildGdexSignInComputedData({\n  apiKey, userId, sessionKey, nonce, signature,\n});\nconst signInResult = await skill.signInWithComputedData({\n  computedData: signInPayload.computedData,\n  chainId: 1, // 1 for EVM / HyperLiquid, 622112261 for Solana (see \"ChainId for Sign-In Matters\")\n});\n\n// Step 5: Resolve user profile / check managed wallet\nconst userData = buildGdexUserSessionData(sessionKey, apiKey);\nconst user = await skill.getManagedUser({ userId, data: userData, chainId: 622112261 }); // Solana\n// \u2192 { address: \"CFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1\", chainId: \"622112261\", ... }\n```\n\n> **Critical: Solana chainId is `622112261` (`ChainId.SOLANA`), NOT `900`.** Using `900` returns the EVM managed address with `balance: null`. The `/v1/user` endpoint returns a **different managed wallet address** per `chainId`:\n> - `chainId=1` \u2192 EVM managed: `0x9967179de55bd67e6b90fcc4f908556d93938c0f`\n> - `chainId=622112261` \u2192 Solana managed: `CFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1` (base58)\n\n### Nonce Generation\n\nNonces are **client-generated** (not fetched from the server):\n\n```typescript\nconst nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));\n```\n\n## 3. Encryption Details (AES-256-CBC)\n\nAll payloads use **deterministic** AES-256-CBC \u2014 no random IV:\n\n| Property | Derivation |\n|----------|------------|\n| **Key** | First 32 bytes of `SHA256(apiKey)` hex |\n| **IV** | First 16 bytes of `SHA256(SHA256(apiKey))` hex |\n\n```typescript\nimport { encryptGdexComputedData, decryptGdexComputedData, deriveGdexAesMaterial } from '@gemachdao/gdex-skill';\n\n// Encrypt a JSON payload\nconst cipherHex = encryptGdexComputedData(JSON.stringify({ userId, data, signature, apiKey }), apiKey);\n\n// Decrypt\nconst plaintext = decryptGdexComputedData(cipherHex, apiKey);\n\n// Get raw key/IV material\nconst { key, iv } = deriveGdexAesMaterial(apiKey);\n```\n\n**Important:**\n- Trade/sign-in payloads: `JSON.stringify(...)` \u2192 UTF-8 \u2192 encrypt \u2192 hex\n- Session key for `/v1/user`: raw hex-decoded bytes \u2192 encrypt (NOT UTF-8 string; use `encryptGdexHexData`)\n- The API key is included **inside** the encrypted JSON payload, not just used for encryption\n- Do NOT use random IVs or `iv:ciphertext` format\n\n## 4. Trade Signing (secp256k1)\n\n**Spot trade signatures** use raw keccak256 + secp256k1 (no EIP-191 prefix):\n\n```typescript\nimport { signGdexTradeMessageWithSessionKey } from '@gemachdao/gdex-skill';\n\nconst signature = signGdexTradeMessageWithSessionKey(\n  'purchase',       // action: 'purchase' or 'sell'\n  userId,           // lowercase address\n  dataHex,          // ABI-encoded trade data (without 0x prefix)\n  sessionPrivateKey,\n);\n// Returns: r(64 hex) + s(64 hex) + v(2 hex) = 130 chars, no 0x prefix\n// v = raw recoveryParam (00 or 01), NOT EIP-155 (1b/1c)\n```\n\n**Sign-in** is the ONLY operation that uses EIP-191 `personal_sign` with the control wallet.\n\n### ABI Encoding Schemas\n\n| Operation | ABI Types | Fields |\n|-----------|-----------|--------|\n| **Sign-in** | `['bytes', 'string', 'string']` | `[sessionKey, nonce, refCode]` |\n| **Trade** | `['string', 'uint256', 'string']` | `[tokenAddress, amount, nonce]` |\n\n## 5. Building Trade Payloads\n\n```typescript\nimport { buildGdexManagedTradeComputedData } from '@gemachdao/gdex-skill';\n\nconst trade = buildGdexManagedTradeComputedData({\n  apiKey,\n  action: 'purchase',  // or 'sell'\n  userId: '0xYourAddress',\n  tokenAddress: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',\n  amount: '100000',     // in smallest unit\n  nonce: String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000)),\n  sessionPrivateKey,\n});\n\nconst result = await skill.submitManagedPurchase({\n  computedData: trade.computedData,\n  chainId: 622112261, // Solana (ChainId.SOLANA), NOT 900\n  slippage: 1,\n});\n\n// Poll trade status\nif (result.requestId) {\n  const status = await skill.getManagedTradeStatus(result.requestId);\n  console.log('Status:', status.status, 'Hash:', status.hash);\n}\n```\n\n## 6. Wallet-Based Auth (Advanced)\n\nFor user-owned wallets or browser extensions:\n\n```typescript\n// EVM wallet\nawait skill.authenticate({\n  type: 'evm',\n  address: '0xYourAddress',\n  privateKey: '0xPrivateKey',\n});\n\n// Solana wallet\nawait skill.authenticate({\n  type: 'solana',\n  address: 'YourSolanaAddress',\n  privateKey: 'base58EncodedPrivateKey',\n});\n\n// Custom signer (MetaMask / Phantom)\nawait skill.authenticate({\n  type: 'evm',\n  address: accounts[0],\n  signer: async (message) =>\n    window.ethereum.request({ method: 'personal_sign', params: [message, accounts[0]] }),\n});\n```\n\n## 7. SDK Configuration\n\n```typescript\nconst skill = new GdexSkill({\n  apiUrl:     'https://trade-api.gemach.io/v1', // Default backend\n  timeout:    30000,                             // Request timeout ms\n  maxRetries: 3,                                 // Retry on 429/503\n  debug:      false,                             // Log requests\n});\n```\n\nHTTP headers MUST include a browser User-Agent (e.g., Chrome/91) \u2014 non-browser UAs get 403 from Cloudflare. Use `Authorization: Bearer <apiKey>` header, NOT `X-API-Key`.\n\n## Helper Functions Reference\n\n| Function | Purpose |\n|----------|---------|\n| `generateGdexSessionKeyPair()` | Generate secp256k1 session keypair |\n| `buildGdexSignInMessage(userId, nonce, sessionKey)` | Build sign-in message for wallet signing |\n| `buildGdexSignInComputedData({...})` | Build encrypted sign-in payload |\n| `buildGdexUserSessionData(sessionKey, apiKey)` | Encrypt session key for `/v1/user` |\n| `buildGdexManagedTradeComputedData({...})` | Build encrypted trade payload |\n| `signGdexTradeMessageWithSessionKey(action, userId, data, privKey)` | Sign trade with session key |\n| `encryptGdexComputedData(plaintext, apiKey)` | AES-256-CBC encrypt UTF-8 |\n| `encryptGdexHexData(hexData, apiKey)` | AES-256-CBC encrypt raw hex bytes |\n| `decryptGdexComputedData(cipherHex, apiKey)` | AES-256-CBC decrypt |\n| `deriveGdexAesMaterial(apiKey)` | Get raw AES key/IV |\n\n## Common Issues\n\n### 401 Unauthorized\n- API key not set or expired \u2014 call `skill.loginWithApiKey(apiKey)` first\n- Session expired \u2014 re-authenticate\n\n### 403 Forbidden\n- Non-browser User-Agent header \u2014 the SDK handles this automatically\n- Using `X-API-Key` instead of `Authorization: Bearer`\n\n### 400 Unauthorized (code 103) on HL operations\n- **Most common cause:** Passing the **managed address** as `walletAddress` instead of the **control wallet address**.\n- During sign-in, the session key is registered for the control wallet address (the one that signed the sign-in message).\n- All HL write operations (`hlCreateOrder`, `perpDeposit`, `hlCloseAll`, etc.) sign the payload as `{action}-{walletAddress}-{data}` \u2014 if `walletAddress` doesn't match the sign-in `userId`, the signature verification fails.\n- **Fix:** Always set `walletAddress` to the control wallet address used during sign-in, NOT the managed address returned by `/v1/user` or `/v1/sign_in`.\n\n```typescript\n// \u274C WRONG \u2014 managed address causes code 103\nconst creds = { apiKey, walletAddress: user.address, sessionPrivateKey };\n\n// \u2705 CORRECT \u2014 use the control wallet that signed in\nconst creds = { apiKey, walletAddress: controlWallet.address, sessionPrivateKey };\n```\n\n### 400 Unauthorized (code 103) on HL operations\n- Wrong ABI encoding for the specific HL action \u2014 see **gdex-perp-trading** skill\n- Using `uint256` instead of `uint64` for chainId in `hl_deposit`\n- Wrong signature format (must be raw `v=00/01`, not EIP-155 `v=1b/1c`)\n\n## Autonomous Agent Notes (Live-Tested)\n\n### Complete Auth Flow \u2014 Verified Working\n\n```typescript\nimport { ethers } from 'ethers';\nimport {\n  GdexSkill, GDEX_API_KEY_PRIMARY,\n  generateGdexSessionKeyPair, buildGdexSignInMessage,\n  buildGdexSignInComputedData, buildGdexUserSessionData,\n} from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// 1. Generate session keypair\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\n\n// 2. Sign in with control wallet\nconst wallet = ethers.Wallet.fromPhrase('your mnemonic phrase...');\nconst userId = wallet.address;\nconst nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));\nconst message = buildGdexSignInMessage(userId, nonce, sessionKey);\nconst signature = await wallet.signMessage(message);\n\nconst signInPayload = buildGdexSignInComputedData({\n  apiKey: GDEX_API_KEY_PRIMARY, userId, sessionKey, nonce, signature,\n});\nawait skill.signInWithComputedData({\n  computedData: signInPayload.computedData,\n  chainId: 1,  // EVM for HL/perps, 622112261 for Solana spot\n});\n\n// 3. Resolve managed wallet\nconst data = buildGdexUserSessionData(sessionKey, GDEX_API_KEY_PRIMARY);\nconst user = await skill.getManagedUser({ userId, data, chainId: 622112261 });\n// user.address = managed Solana wallet (base58)\n```\n\n### ChainId for Sign-In Matters\n\n| Operation | Sign-In ChainId | Why |\n|-----------|----------------|-----|\n| Solana spot/limit/copy | `622112261` | Solana chain context |\n| HL perps, deposit, withdraw | `1` (EVM) | HL uses EVM wallets |\n| HL perp copy trading | `1` (EVM) | HL copy uses EVM |\n| Bridge | `1` (EVM) | Bridge uses EVM context |\n\n### Credentials to Keep Track Of\n\nAn autonomous agent must persist these across operations:\n- `sessionPrivateKey` \u2014 signs all trade payloads (one per sign-in session)\n- `sessionKey` \u2014 used to build encrypted `data` for read endpoints\n- `controlAddress` (=`userId`) \u2014 the wallet that signed in (used in all API calls)\n- `managedEvmAddress` \u2014 from `/v1/user?chainId=1` (needed for `user_stats` only)\n- `managedSolanaAddress` \u2014 from `/v1/user?chainId=622112261` (for on-chain queries only)\n\n## Google OAuth + Email Association Flow\n\nThe backend (`ServiceMain.oauthLogin` / `ServiceMain.associateEmail`, v1.1.0)\nsupports a Google-only OAuth onboarding path mounted at `/v1/auth/*`. **There\nis no `provider` field and no Apple/GitHub/Twitter branch** \u2014 only Google ID\ntokens are accepted, and **the client never sends a raw `email`**.\n\nFlow:\n\n1. **`associate_email` first** \u2014 links the caller's wallet to the email claim\n   carried inside the verified Google ID token. The backend extracts the\n   email server-side; the client only sends `{ computedData, idToken }`,\n   where `computedData` is a managed-custody payload built with\n   `buildAssociateEmailComputedData` (ABI `['associate_email', [nonce]]`,\n   sig msg `associate_email-${userId}-${data}`).\n2. **`oauth_login` with the same `idToken`** \u2014 body\n   `{ idToken, chainId? }`. If the wallet still has no `associatedEmail`\n   the backend responds 404 with internal code 108; re-run step 1 and retry.\n\n## Related Skills\n\n- **gdex-onboarding** \u2014 Platform overview and getting started\n- **gdex-spot-trading** \u2014 Buy/sell tokens (requires auth)\n- **gdex-perp-trading** \u2014 HyperLiquid perps (requires auth + HL-specific crypto)\n- **gdex-wallet-setup** \u2014 Generate control wallets for new users\n", files: [] }, { name: "gdex-bridge", description: "Cross-chain bridging \u2014 get estimates and execute native token transfers between EVM chains, Solana, and Sui via ChangeNow", content: "\n# GDEX: Cross-Chain Bridge\n\nBridge **native tokens** between supported chains with quote previews and time estimates.\nUses ChangeNow as the bridge provider (StarGate support exists but is currently disabled).\n\n> **Moving USDC?** The unified USDC wallet has its own capped USDC bridge (`estimateUsdcBridge` / `executeUsdcBridge`) and trades can auto-bridge USDC for you. See **gdex-usdc-wallet**.\n\n## When to Use\n\n- Moving native tokens from one chain to another (e.g., ETH on Ethereum \u2192 ETH on Base)\n- Getting a bridge estimate before executing\n- Checking bridge order history\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via managed-custody sign-in \u2014 see **gdex-authentication**\n- Session keypair (sessionPrivateKey + sessionKey) from sign-in flow\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET` | `/v1/bridge/estimate_bridge` | Get a bridge quote |\n| `POST` | `/v1/bridge/request_bridge` | Execute a bridge (encrypted) |\n| `GET` | `/v1/bridge/bridge_orders` | List bridge order history |\n\n## 1. Get a Bridge Estimate (Quote)\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\nconst estimate = await skill.estimateBridge({\n  fromChainId: 1,        // Ethereum\n  toChainId: 8453,       // Base\n  amount: '1000000000000000000',  // 1 ETH in wei\n});\n```\n\n### Query Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `fromChainId` | `number` | Yes | Source chain ID |\n| `toChainId` | `number` | Yes | Destination chain ID |\n| `amount` | `string` | Yes | Amount in **raw token units** (wei for EVM, lamports for Solana) |\n\n### Estimate Response\n\n```typescript\ninterface BridgeEstimate {\n  tool: string;              // \"ChangeNow\"\n  fromChainId: number;\n  fromAmount: string;        // input amount (raw units)\n  toChainId: number;\n  estimateAmount: string;    // estimated output (raw units)\n  minEstimateTime: number;   // seconds\n  maxEstimateTime: number;   // seconds\n}\n```\n\n### Error Codes\n| Code | Meaning |\n|------|---------|\n| 101 | Missing params / same chain / unsupported chain |\n| 106 | ChangeNow API error |\n| 107 | Unsupported chain (e.g., Fraxtal 252) or catch-all |\n\n## 2. Execute a Bridge\n\nThe bridge endpoint requires an **AES-encrypted `computedData` payload** containing ABI-encoded parameters and a secp256k1 signature \u2014 the same pattern as managed spot trades.\n\n```typescript\nimport {\n  GdexSkill,\n  GDEX_API_KEY_PRIMARY,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n} from '@gemachdao/gdex-skill';\nimport { ethers } from 'ethers';\n\n// After sign-in (you have sessionPrivateKey from the auth flow):\nconst result = await skill.requestBridge({\n  fromChainId: 1,          // Ethereum\n  toChainId: 8453,         // Base\n  amount: '1000000000000000000',  // 1 ETH in wei\n  userId: controlAddress,\n  sessionPrivateKey,\n  apiKey: GDEX_API_KEY_PRIMARY,\n});\n\nif (result.isSuccess) {\n  console.log('TX hash:', result.hash);\n  console.log(`ETA: ${result.minTime}-${result.maxTime}s`);\n}\n```\n\n### Encryption Protocol\n\nThe SDK handles this automatically, but for reference:\n\n1. **ABI-encode data**: `['string', 'uint64', 'uint64', 'string']` \u2192 `[amount, fromChainId, toChainId, nonce]`\n2. **Sign message**: `\"request_bridge-{userId.toLowerCase()}-{dataHex}\"` using secp256k1 session key\n3. **Encrypt JSON**: `{ userId, data, signature }` \u2192 AES-256-CBC with key/IV derived from SHA256(apiKey)\n4. **POST body**: `{ computedData: \"<hex>\" }`\n\n### Bridge Result\n\n```typescript\ninterface BridgeResult {\n  isSuccess: boolean;\n  hash: string | null;       // source chain tx hash\n  message: string;\n  minTime?: number;          // seconds\n  maxTime?: number;          // seconds\n  error?: string;            // on failure\n}\n```\n\n### Error Codes\n| Code | Meaning |\n|------|---------|\n| 101 | Missing params / same chain / unsupported chain |\n| 102 | Invalid or reused nonce |\n| 103 | User wallet not found on chain |\n| 104 | Unauthorized (signature verification failed) |\n| 105 | Below minimum bridge amount / insufficient balance |\n\n## 3. Get Bridge Order History\n\n```typescript\nimport { buildGdexUserSessionData, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst data = buildGdexUserSessionData(sessionKey, GDEX_API_KEY_PRIMARY);\nconst orders = await skill.getBridgeOrders({\n  userId: controlAddress,\n  data,\n});\nconsole.log(`${orders.count} bridge orders`);\norders.bridgeOrders.forEach(o => {\n  console.log(`${o.fromChainId} \u2192 ${o.toChainId}: ${o.fromAmount} (tx: ${o.txHash})`);\n});\n```\n\n### Response\n\n```typescript\ninterface BridgeOrdersResponse {\n  count: number;\n  bridgeOrders: BridgeOrder[];\n}\n\ninterface BridgeOrder {\n  userId: string;\n  fromChainId: number;\n  toChainId: number;\n  fromAmount: string;\n  estimateToAmount: string;\n  fromWallet: string;\n  toWallet: string;\n  txHash: string;\n  requestTime: number;\n}\n```\n\n## Supported Chains for Bridging\n\nControlled by backend `config.bridgeSupportedChainIds`. Known supported:\n\n| Chain | ChainId |\n|-------|---------|\n| Ethereum | `1` |\n| Optimism | `10` |\n| BSC | `56` |\n| Sonic | `146` |\n| Base | `8453` |\n| Arbitrum | `42161` |\n| Berachain | `80094` |\n\n> Robinhood Chain (`4663`) is tradeable but **not bridgeable** \u2014 fund it externally.\n| Solana | `622112261` |\n| Sui | `1313131213` |\n\n> **Fraxtal (252) is explicitly blocked** by the backend and will return error code 107.\n\n## Key Points\n\n- **Native tokens only** \u2014 the bridge transfers the chain's native token (ETH, SOL, BNB, etc.), not arbitrary ERC-20s.\n- **Amounts in raw units** \u2014 use wei for EVM (1 ETH = `\"1000000000000000000\"`), lamports for Solana (1 SOL = `\"1000000000\"`).\n- **Minimum bridge amount** \u2014 each chain has a `minBridge` config (default 1 in native decimals). Below this triggers error 105.\n- **Nonce required** \u2014 each `requestBridge` call uses a unique nonce verified server-side. The SDK generates this automatically.\n- **ChangeNow provider** \u2014 all bridges currently go through ChangeNow (StarGate code exists but is disabled).\n\n## Autonomous Agent Notes (Live-Tested)\n\n1. **`estimateBridge` works with API key only (E2E verified).** No session key or full sign-in needed for quotes.\n2. **`requestBridge` requires full managed-custody auth** (session key + ABI encoding + AES encryption).\n3. **Bridge paths are non-obvious:** `GET /v1/bridge/estimate_bridge`, `POST /v1/bridge/request_bridge`, `GET /v1/bridge/bridge_orders`. Do NOT use `/v1/bridge/estimate` or `/v1/bridge/execute`.\n4. **Fraxtal (252) is explicitly blocked** and returns error 107.\n5. **Bridge times vary:** ETH\u2192ARB is ~5-15 min, Solana\u2192EVM can take longer.\n6. **For autonomous pre-trade funding:** Use `estimateBridge` to check feasibility before committing. If `estimateAmount` is too low (high fee), consider alternative routes.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup required for bridging\n- **gdex-portfolio** \u2014 Check balances on target chain after bridging\n- **gdex-spot-trading** \u2014 Trade on the destination chain after bridging\n", files: [] }, { name: "gdex-content-coins", description: "List Zora content coins and creator coins on Base \u2014 social posts and creator tokens tradable on GDEX \u2014 requires API key auth (Bearer token)", content: "\n# GDEX: Content and Creator Coins\n\nList Zora-protocol tokens. On GDEX these appear as two related markets on **Base**:\n\n- **Content coins** \u2014 a token tied to an individual social post.\n- **Creator coins** \u2014 a token tied to the creator rather than to any single post.\n\nBoth are ordinary ERC-20s once minted, so you discover them here and trade them with\n`gdex-spot-trading`.\n\n> **Auth required:** returns 403 \"Access denied: Invalid client\" without a Bearer token. Call\n> `loginWithApiKey()` first.\n\n## When to Use\n\n- Listing coined posts or creator tokens available to trade\n- Checking price and age on a content coin before buying\n- Answering \"what Zora coins can I trade on GDEX\"\n\n## Prerequisites\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY, ChainId } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n```\n\n## List Zora tokens\n\n```typescript\nconst coins = await skill.getZoraTokens({\n  chain: ChainId.BASE,  // optional; this is a Base market\n  limit: 50,            // optional\n  page: 1,              // optional\n});\n```\n\n### Parameters\n\n`getZoraTokens` takes `TokenListParams`:\n\n```typescript\ninterface TokenListParams {\n  chain?: SupportedChain;  // chain id or alias; omit for all chains\n  limit?: number;          // page size\n  page?: number;           // 1-based page number\n}\n```\n\nThere is **no parameter that separates content coins from creator coins**. The product UI splits\nthem into two tabs, but the SDK exposes one listing method. If you need only one of the two, filter\nthe response yourself once you have confirmed which field distinguishes them.\n\n### Response\n\n```typescript\nPromise<Record<string, unknown>>\n```\n\n**The response is untyped.** There is no declared interface in the SDK, so inspect the payload:\n\n```typescript\nconst coins = await skill.getZoraTokens({ chain: ChainId.BASE, limit: 5 });\nconsole.log(JSON.stringify(coins, null, 2));\n```\n\nThe product surface at `gdex.pro/base/creator-coin` renders each card with the coined post itself \u2014\nauthor handle, post text, and any image \u2014 plus token age and current price. Expect fields covering\nat least those. Confirm the exact keys against a live call before depending on them.\n\n## Trading a content coin\n\n```typescript\nawait skill.buyToken({\n  tokenAddress: '<address from getZoraTokens>',\n  chain: ChainId.BASE,\n  amount: '0.5',   // denominated in ETH on Base\n});\n```\n\nSee `gdex-spot-trading` for the full surface.\n\n## Endpoint\n\n| Method | Endpoint |\n|---|---|\n| `getZoraTokens` | `GET /v1/zora` |\n\n## Notes\n\n- This is a **Base** market. Quick-buy amounts in the product are denominated in ETH.\n- Content coins are tied to social posts, so supply and liquidity can be extremely small and the\n  underlying \"asset\" is a post that may be deleted. Check liquidity before quoting a fill.\n- This method ships with no tests and no typed response in the SDK. Treat the shape as\n  provisional.\n", files: [] }, { name: "gdex-copy-trading", description: "Copy trade setup \u2014 discover top wallets, create/manage copy trades, view transaction history, and browse supported DEXes. Solana only for write operations.", content: "\n# GDEX: Copy Trading\n\nAutomatically mirror trades from top-performing Solana wallets. Includes wallet leaderboards, hot token gems, backed by a background process that copies buys/sells in real-time.\n\n## When to Use\n\n- Browsing the top wallet leaderboard (by PnL or net profit)\n- Discovering hot new tokens from top wallets\n- Creating a copy trade to follow a specific trader\n- Updating, toggling, or deleting a copy trade\n- Viewing copy trade transaction history with PnL\n- Listing supported DEXes for exclusion\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- For discovery: `loginWithApiKey()` only\n- For read (list/tx_list): Full sign-in with session key\n- For write (create/update): Full sign-in + computedData\n\n## Auth Tiers\n\n| Tier | Endpoints | Auth Needed |\n|------|-----------|-------------|\n| Discovery | `wallets`, `custom_wallets`, `gems`, `dexes_list`, `top_traders` | API key only |\n| Read | `list`, `tx_list` | Session-key auth (`userId` + encrypted `data`) |\n| Write | `create`, `update` | computedData (ABI-encode + sign + AES-encrypt) |\n\n> **Write operations are Solana-only.** All create/update calls reject non-Solana chain IDs.\n\n## Discovery Endpoints (No Auth)\n\n### Top Wallets by PnL\n\n```typescript\nconst wallets = await skill.getCopyTradeWallets();\n// Returns 300 wallets sorted by totalPnl, cached 2 minutes\n```\n\n### Top Wallets by Net Received\n\n```typescript\nconst custom = await skill.getCopyTradeCustomWallets();\n// Returns 300 wallets sorted by receivedMinusSpent, cached 2 minutes\n```\n\n### CopyTradeWallet Response Shape\n\n```typescript\ninterface CopyTradeWallet {\n  _id: string;\n  chainId: number;             // 622112261 for Solana\n  address: string;             // Solana wallet address\n  lastTxTimestamp: number;     // Unix timestamp\n  receivedMinusSpent: number;  // Net USD profit\n  spent: number;               // Total USD spent\n  lastCalculateUnrealizedPnl: number;\n  totalPnl: number;            // Total PnL (incl. unrealized)\n  unrealizedValue: number;     // Current unrealized USD\n  received: number;            // Total USD received\n}\n```\n\n### Hot Token Gems\n\n```typescript\nconst gems = await skill.getCopyTradeGems();\n// Tokens heavily traded by 3+ hot wallets with >$10 total value\n// Cached 20 seconds; may return empty array\n```\n\n### Supported DEXes\n\n```typescript\nconst dexes = await skill.getCopyTradeDexes(622112261); // Solana chain ID\n// { success: true, dexes: [{ chainId, dexNumber, dexName, programId }] }\n```\n\nLive DEX list (Solana):\n\n| # | DEX | Program ID |\n|---|-----|-----------|\n| 1 | pumpfun | `6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P` |\n| 2 | pumpswap | `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA` |\n| 3 | raydium | `675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8` |\n| 4 | raydiumCpmm | `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C` |\n| 5 | meteoraDlmm | `LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo` |\n\n## Read Endpoints (Session-Key Auth)\n\nRequire `userId` and `data` (AES-encrypted session key from `buildGdexUserSessionData`).\n\n### List User's Copy Trades\n\n```typescript\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\n\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\nconst list = await skill.getCopyTradeList({ userId, data });\n// { isSuccess: true, count: 2, allCopyTrades: [...], dexes: [...] }\n```\n\n### CopyTradeConfig Shape\n\n```typescript\ninterface CopyTradeConfig {\n  copyTradeId: string;\n  copyTradeName: string;\n  buyMode: number;          // 1 = fixed SOL, 2 = % of trader's amount\n  chainId: number;\n  isActive: boolean;\n  userId: string;\n  userWallet: string;\n  traderWallet: string;\n  lossPercent: number;      // stop-loss %\n  profitPercent: number;    // take-profit %\n  gasPrice: string;\n  copyBuyFixedAmount: string;\n  copyBuyPercent: number;\n  isBuyExistingToken: boolean;\n  copySell: boolean;\n  excludedProgramIds: string[];\n  excludedDexNumbers: number[];\n  txCount?: number;\n  lastTxTimestamp?: number;\n}\n```\n\n### Transaction History\n\n```typescript\nconst txList = await skill.getCopyTradeTxList({ userId, data });\n// { isSuccess: true, count: 5, txes: [...] }\n```\n\nEach `CopyTradeTx` includes:\n- `isBuy`, `priceUsd`, `boughtPrice`, `pnlPercentage`\n- `tokenInfo`: `{ address, symbol, name, decimals, dexId, marketCap, logoUrl }`\n\n## Write Endpoints (ComputedData Auth, Solana Only)\n\n### Create a Copy Trade\n\n```typescript\nawait skill.createCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  chainId: 622112261,\n  traderWallet: 'SolanaWalletAddress',\n  copyTradeName: 'My Alpha Trader',\n  buyMode: 1,               // 1 = fixed SOL amount\n  copyBuyAmount: '0.5',     // 0.5 SOL per copied trade\n  lossPercent: '50',         // 50% stop-loss\n  profitPercent: '100',      // 100% take-profit\n  copySell: true,\n  isBuyExistingToken: true,\n  excludedDexNumbers: [],    // empty = allow all DEXes\n});\n```\n\n### Update a Copy Trade\n\n```typescript\nawait skill.updateCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  chainId: 622112261,\n  copyTradeId: 'a1b2c3...',\n  traderWallet: 'SolanaWalletAddress',\n  copyTradeName: 'Updated Name',\n  buyMode: 2,                // switch to percentage mode\n  copyBuyAmount: '50',       // 50% of trader's amount\n  lossPercent: '30',\n  profitPercent: '200',\n  copySell: true,\n});\n```\n\n### Delete a Copy Trade (isChangeStatus)\n\n> **\u26A0\uFE0F WARNING: `isChangeStatus` permanently DELETES the trade. It does NOT toggle `isActive`.**\n\n```typescript\nawait skill.updateCopyTrade({\n  ...existingParams,\n  isChangeStatus: true,      // WARNING: permanently deletes (same as isDelete)\n});\n```\n\n### Delete a Copy Trade (isDelete)\n\n```typescript\nawait skill.updateCopyTrade({\n  ...existingParams,\n  isDelete: true,\n});\n```\n\n## Backend Validation Rules\n\n- **Solana only**: chainId must be the Solana chain ID (622112261)\n- **Valid wallet**: traderWallet must be a valid Solana address\n- **TP/SL**: lossPercent > 0 and < 100, profitPercent > 0\n- **buyMode 2**: percentage must be > 0 and <= 100\n- **No duplicates**: Can't copy the same wallet+chain+user twice\n- **Max limit**: Backend enforces max copy trades per user\n- **Circular dependency**: Prevents A\u2192B\u2192C\u2192A copy chains (checked to depth 50)\n\n## How Copies Execute\n\nTrades are NOT executed at API call time. A background process monitors tracked wallets in real-time:\n1. Detects trader buy/sell transactions\n2. Checks excluded DEXes and deduplication\n3. Calculates buy amount (fixed or percentage)\n4. Executes the copy trade\n5. Places automatic TP/SL orders based on your settings\n\n## Example: Full Copy Trading Flow\n\n```typescript\nimport {\n  GdexSkill,\n  buildGdexUserSessionData,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n} from '@gemachdao/gdex-skill';\nimport { ethers } from 'ethers';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(apiKey);\n\n// 1. Sign in with session key\nconst wallet = ethers.Wallet.fromPhrase(mnemonic);\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\nconst nonce = String(Date.now());\nconst msg = buildGdexSignInMessage(wallet.address, nonce, sessionKey);\nconst sig = await wallet.signMessage(msg);\nconst payload = buildGdexSignInComputedData({ apiKey, userId: wallet.address, sessionKey, nonce, signature: sig });\nawait skill.signInWithComputedData({ computedData: payload.computedData, chainId: 1 });\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\nconst userId = wallet.address.toLowerCase();\n\n// 2. Browse top wallets\nconst wallets = await skill.getCopyTradeWallets();\nconst best = wallets[0];\nconsole.log(`Top wallet: ${best.address}, PnL: $${best.totalPnl.toFixed(2)}`);\n\n// 3. Check DEXes\nconst { dexes } = await skill.getCopyTradeDexes(622112261);\n\n// 4. Create a copy trade\nawait skill.createCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  chainId: 622112261,\n  traderWallet: best.address,\n  copyTradeName: `Top PnL: ${best.address.slice(0, 8)}`,\n  buyMode: 1,\n  copyBuyAmount: '0.1',\n  lossPercent: '50',\n  profitPercent: '100',\n  copySell: true,\n});\n\n// 5. Monitor\nconst list = await skill.getCopyTradeList({ userId, data });\nfor (const ct of list.allCopyTrades) {\n  console.log(`${ct.copyTradeName}: active=${ct.isActive}, ${ct.txCount ?? 0} trades`);\n}\n```\n\n## Autonomous Agent Notes (Live-Tested)\n\n1. **All 4 discovery endpoints work with API key only (E2E verified):** `getCopyTradeWallets()`, `getCopyTradeCustomWallets()`, `getCopyTradeGems()`, `getCopyTradeDexes()`.\n2. **`getCopyTradeGems()` may return empty array** \u2014 this is normal (cached 20 seconds, depends on hot wallet activity).\n3. **Sign-in for Solana copy trading must use `chainId: 622112261`** (Solana), not `chainId: 1` (EVM). This is the opposite of HL perp copy trading.\n4. **Both `isDelete` and `isChangeStatus` permanently DELETE the copy trade.** There is NO way to pause/toggle \u2014 you must delete and recreate.\n5. **Boolean fields in ABI use `''` (empty string) for false and `'1'` for true.** The string `'0'` is truthy and WILL trigger deletion.\n6. **`copySell: true`** means the copy will also mirror sell transactions, not just buys.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup and sign-in required for read/write\n- **gdex-token-discovery** \u2014 Top trader rankings (`getTopTraders`)\n- **gdex-portfolio** \u2014 Monitor portfolio including copied positions\n- **gdex-spot-trading** \u2014 Understand the trades being copied\n", files: [] }, { name: "gdex-hl-anomaly", description: "Scored, time-stamped anomaly events for HyperLiquid perps (oracle divergence, funding extremity, liquidity shock) against per-market learned baselines, with coverage records", content: "\n# GDEX: HyperLiquid Anomaly Events\n\nDetects unusual behaviour on the HyperLiquid perpetual markets that GDEX trades, and emits it as\n**events** (NDJSON, one record per event), not alerts. Each event says what was unusual, when it\nhappened, how unusual it was against that market's own recent history, and where to re-derive it.\n\nStandard library only \u2014 no API key, no Gemach infrastructure. Reads the public HyperLiquid\n`info` endpoint directly.\n\n## When to Use\n\n- Building a risk feed that needs market anomalies with an event time and a score\n- Screening HyperLiquid markets for manipulation, oracle stress or liquidity shocks\n- Backfilling anomaly history for a window (1h bars reach ~7 months back, 4h ~2 years)\n\n## Run\n\n```bash\npython3 scripts/hl_anomaly.py                                   # last 24h, every active core market\npython3 scripts/hl_anomaly.py --coins BTC ETH SOL --hours 72\npython3 scripts/hl_anomaly.py --start 2025-03-20 --end 2025-03-27 --coins JELLY --interval 1h\n```\n\nOutput is NDJSON: zero or more `signal_type: \"anomaly\"` records, then exactly **one**\n`signal_type: \"anomaly_coverage\"` record.\n\n## Categories\n\n| `anomaly_category` | Fires when | Source |\n|---|---|---|\n| `oracle_divergence` | hourly mark-vs-oracle premium is far from the market's baseline | `fundingHistory` |\n| `funding_extremity` | 8h mean funding is far from baseline **and** premium is outside HyperLiquid's clamp band (inside it funding is pinned to the interest rate and carries no information). Always carries the premium fields. | `fundingHistory` |\n| `liquidity_shock` | bar volume or bar range spikes far above baseline (spikes only) | `candleSnapshot` |\n\n`large_outflow`, `governance_concentration` and `security_flag_change` are part of the contract\nenum but are not produced by this skill (they need on-chain or token-security sources).\n\n## Event record\n\nEach event carries the 15-column anomaly contract shape, plus the model's own features.\n\n| Field | Meaning |\n|---|---|\n| `anomaly_id` | stable id: sha256 of entity, category, event time and data source (first 32 hex). Re-running the same window gives the same id |\n| `entity_id` | `hl-<coin>`, same key as the `hl_markets` feed |\n| `entity_type` | `market` (a perpetual market) |\n| `chain` | `hyperliquid` |\n| `anomaly_category` | `oracle_divergence`, `funding_extremity` or `liquidity_shock` |\n| `anomaly_score` | 0\u2013100. It is 0 at the calibrated threshold and rises monotonically above it. A ranking, **not a probability** |\n| `confidence` | **not emitted.** Nothing in the model is a calibrated probability, and the field is left out rather than faked |\n| `detection_method` | `statistical`: robust z against a learned per-market baseline |\n| `model_version` | changes whenever thresholds or features change |\n| `baseline_window` | `7d` |\n| `observed_metric` | the quantity that fired: `premium_pct`, `funding_8h_mean_hourly_pct`, `volume_base` or `bar_range_pct` |\n| `observed_value`, `expected_value` | that quantity, and its baseline median (the model's expectation) |\n| `detected_at` | epoch seconds when the anomaly **happened** (the funding hour, or the bar close), not when the job ran. `detected_at_utc` gives the same instant in ISO-8601 |\n| `evidence_ref` | the public endpoint, coin, time, and a sha256 of the exact baseline used |\n| `summary` | one-line description |\n| `z`, `z_threshold`, feature fields | the robust z and the threshold it crossed; premium/funding or volume/range values and their baselines |\n\n## Coverage record \u2014 read this before trusting an empty result\n\nEvery run states `detector_window_start`, `detector_window_end`, `markets_scored` and `markets_not_scored`\n(too little history, delisted, or no data). **No event for a scored market means nothing\ncrossed a threshold in that window; it does not mean the market was normal.** Markets in\n`markets_not_scored` were not evaluated at all.\n\n## Method and evidence\n\n- `APPROACH.md` \u2014 the model, why each choice was made, and its known limits\n- `backtest/RESULTS.md` \u2014 hit rate and false-alarm rate on three real events\n- `backtest/calibrate.py`, `backtest/backtest.py` \u2014 reproduce both\n- `sample/anomaly_sample.ndjson` \u2014 records for contract tests\n", files: [{ path: "APPROACH.md", content: '# Approach \u2014 HyperLiquid anomaly events\n\n## What is being detected\n\nThree things a risk consumer cares about on a perpetual market, each from public HyperLiquid data:\n\n1. **Oracle divergence.** The mark trades away from the oracle. HyperLiquid publishes the\n   hourly `premium` directly. That is the basis a liquidation engine and every open position\n   are exposed to.\n2. **Funding extremity.** The carry cost positions pay becomes extreme. HyperLiquid funding is\n   `premium + clamp(interest \u2212 premium, \xB10.05%)`, so while the premium sits in roughly\n   [\u22120.04%, +0.06%] funding is pinned to the interest rate and says nothing. We only score\n   funding outside that band, and we always ship the premium with it.\n3. **Liquidity shock.** Traded volume or the high/low range of a bar spikes.\n\n## The model: a learned baseline for each market\n\nFor every market and every feature, the baseline is that market\'s own trailing 7 days\n(168 hours). It uses the **median** and the **median absolute deviation (MAD)**, not the mean\nand standard deviation. A single past spike cannot inflate the baseline and hide the next one.\n\n    z = (x \u2212 median(history)) / max(1.4826 \xB7 MAD(history), floor)\n\n- 1.4826 \xB7 MAD matches one standard deviation on normal data, so z reads like a familiar z-score.\n- The **floor** stops a perfectly flat history from turning a trivial move into an infinite z:\n  - premium: 0.005%\n  - funding: the base interest rate, 0.00125%/h. A move smaller than what every position\n    already pays is not extreme.\n  - log-volume: 0.25\n  - log-range: 0.025\n- Volume and range are scored in logs because they are multiplicative.\n- Funding is scored as a trailing **8-hour mean** against a baseline of the same 8-hour means.\n  A single hourly print is noisy; the carry over several hours is what hurts.\n- A market with fewer than 72 hourly observations of history is **not scored**, and the\n  coverage record says so. It is never reported as calm.\n- A delisted market reports exact zeros forever. Three trailing zero rows are treated as\n  missing data, not as calm.\n\n"Unusual" therefore always means **unusual for this market, recently**. BTC and a new memecoin\nare held to their own histories, not to one shared threshold.\n\n## Thresholds and how they were chosen\n\nv1 used a single a-priori threshold of z \u2265 6 for everything. The backtest showed that this was\nfine for liquidity but far too loose for premium and funding: alt-perp premiums are heavy-tailed,\nand pinned funding collapses the funding MAD. On control markets v1 produced 0.54\u20131.1 false\nalarms per market-day.\n\nv2 calibrates one threshold per category **on control markets only**:\n\n- Markets: 20 liquid core markets.\n- Windows: May 2025 and August 2025 for premium, funding and 4h bars; August 2026 for 1h bars.\n- Separation from the events: none of these windows overlaps any backtest event or the 14 days\n  before it.\n- Target rate: at most **0.02 events per market-day per category**, about one per market every\n  50 days.\n- Minimum: no threshold goes below the a-priori 6.0.\n\n| Category | Threshold (robust z) | Fire rate at z = 6 in calibration |\n|---|---|---|\n| oracle_divergence | 10.24 | 0.274 / market-day |\n| funding_extremity | 10.17 | 0.165 / market-day |\n| liquidity_shock (4h bars) | 6.00 | 0.002 / market-day |\n| liquidity_shock (1h bars) | 6.18 | 0.022 / market-day |\n\n`backtest/calibrate.py` reproduces these into `backtest/calibration.json`. The events were never\nused to set a threshold.\n\n## Scores\n\n`anomaly_score = 100 \xB7 (1 \u2212 exp(\u2212(|z| \u2212 threshold) / 6))`.\n\n- 0 exactly at the threshold.\n- 63 at 6 z past it, 86 at 12 z past it.\n- Monotonic, so it ranks events. It is **not a probability**, and it is not calibrated to one.\n\nThat is why the record has no `confidence` field. A 0\u20131 confidence would need a calibrated\nprobability that an event is real. With three labelled events there is nothing to calibrate\nagainst, so the field is left out rather than filled with a number that looks like one.\n\n## Events, not alerts\n\n- Every threshold crossing is emitted as an event with its z and `anomaly_score`. The consumer decides\n  what to alert on.\n- `detected_at` is when the anomaly happened: the funding hour, or the close of the bar,\n  because a bar is only observable once closed. It is never the time the job ran.\n- Every run ends with one coverage record naming the window and exactly which markets were and\n  were not scored.\n- `evidence_ref` pins the public endpoint, the coin, the timestamp and a sha256 of the exact\n  baseline series, so anyone can recompute the z.\n\n## Known limits\n\n- **Detection follows onset; it does not predict it.** The features are observable only once\n  the move is under way. On JELLY the first 1h detection came one bar after onset. Nothing fired\n  on JELLY in the hours before onset.\n- **A pumping new listing is noisy.** JELLY fired 84 times on 1h bars in the 14 days before the\n  attack, during its own post-listing pump. The model cannot tell a manipulation from an organic\n  mania using price and volume alone. Position concentration (large single-account open\n  interest) would be the discriminating feature. It is not in public history, only as a live\n  snapshot.\n- **Market-wide events flag every market.** Every baseline is per market, so a crash that moves\n  everything fires on nearly everything. A cross-sectional feature (this market versus the\n  median market) would separate idiosyncratic events from systemic ones. It is not built yet.\n- **Backfill depth.** 1h candles reach ~7 months back and 4h candles ~2 years.\n  Premium/funding history is hourly and deeper.\n- **Scope.** Only core HyperLiquid perps. Builder-deployed DEX markets (equities, FX,\n  commodities) are held out, as in the `hl_markets` feed.\n- **Three events is a small test.** The hit rate is 3/3 on known events. That shows the detector\n  sees them; it does not establish a recall figure.\n' }, { path: "backtest/backtest.py", content: `#!/usr/bin/env python3
+"""Backtest of hl_anomaly over three known real HyperLiquid events.
+
+The detector's parameters were fixed before this was written (see scripts/hl_anomaly.py) and are
+not tuned here. For each event we scan the 14 days before it plus the event itself, across the
+event market and a set of liquid control markets, and report:
+
+  hit            did the detector flag the event market (or, for the market-wide event, how
+                 many markets) inside the event window, and how soon
+  run-up         events on the event market in the 14 days BEFORE the event window
+  false alarms   events on control markets in the pre-event period, per market-day
+
+4h bars are used for liquidity signals throughout: 1h candles only reach back ~7 months, and
+mixing resolutions across markets would make the false-alarm rate incomparable. JELLY is also
+run at 1h (its candles survive delisting) to show what live 1h operation adds.
+"""
+from __future__ import annotations
+
+import collections
+import json
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+import hl_anomaly as H  # noqa: E402
+
+UTC = timezone.utc
+T = lambda s: datetime.fromisoformat(s).replace(tzinfo=UTC)
+
+EVENTS = [
+    {"name": "JELLY manipulation", "kind": "single", "market": "JELLY",
+     "onset": T("2025-03-26T12:00"), "window_end": T("2025-03-26T18:00"),
+     "controls": ["BTC", "ETH", "SOL", "XRP", "DOGE", "AVAX", "LINK", "ARB", "OP", "SUI",
+                  "APT", "INJ", "TIA", "WIF", "kPEPE", "BNB", "LTC", "HYPE", "TRUMP", "ADA"]},
+    {"name": "POPCAT manipulation", "kind": "single", "market": "POPCAT",
+     "onset": T("2025-11-12T12:00"), "window_end": T("2025-11-13T06:00"),
+     "controls": ["BTC", "ETH", "SOL", "XRP", "DOGE", "AVAX", "LINK", "ARB", "OP", "SUI",
+                  "APT", "INJ", "TIA", "WIF", "kPEPE", "BNB", "LTC", "HYPE", "TRUMP", "ADA"]},
+    {"name": "10 Oct 2025 market-wide crash", "kind": "market", "market": None,
+     "onset": T("2025-10-10T20:00"), "window_end": T("2025-10-11T04:00"),
+     "controls": ["BTC", "ETH", "SOL", "XRP", "DOGE", "AVAX", "LINK", "ARB", "OP", "SUI",
+                  "APT", "INJ", "TIA", "WIF", "kPEPE", "BNB", "LTC", "HYPE", "TRUMP", "ADA"]},
+]
+PRE_DAYS = 14
+
+
+def scan(markets, start, end, interval):
+    recs = H.run(markets, start, end, interval)
+    return [r for r in recs if r["signal_type"] == "anomaly"], recs[-1]
+
+
+def evaluate(ev, interval="4h"):
+    start = ev["onset"] - timedelta(days=PRE_DAYS)
+    markets = ([ev["market"]] if ev["market"] else []) + ev["controls"]
+    events, cov = scan(markets, start, ev["window_end"], interval)
+    on, end = ev["onset"].strftime("%Y-%m-%dT%H:%M:%SZ"), ev["window_end"].strftime("%Y-%m-%dT%H:%M:%SZ")
+    in_win = [e for e in events if on <= e["detected_at_utc"] <= end]
+    pre = [e for e in events if e["detected_at_utc"] < on]
+    scored = cov["markets_scored"]
+    out = {"event": ev["name"], "interval": interval, "scan_start": start.isoformat(),
+           "onset": on, "window_end": end, "markets_scored": scored,
+           "markets_not_scored": cov["markets_not_scored"]}
+    if ev["kind"] == "single":
+        m = f"hl-{ev['market']}"
+        hits = sorted((e for e in in_win if e["entity_id"] == m), key=lambda e: e["detected_at_utc"])
+        out["hit"] = bool(hits)
+        if hits:
+            first = hits[0]
+            lag = (T(first["detected_at_utc"][:16]) - ev["onset"]).total_seconds() / 3600
+            out["first_detection"] = {"at": first["detected_at_utc"], "hours_after_onset": lag,
+                                      "category": first["anomaly_category"], "anomaly_score": first["anomaly_score"]}
+            out["categories_in_window"] = sorted({e["anomaly_category"] for e in hits})
+        out["runup_events_on_market"] = [
+            {"at": e["detected_at_utc"], "category": e["anomaly_category"], "z": e["z"]}
+            for e in pre if e["entity_id"] == m]
+        controls_pre = [e for e in pre if e["entity_id"] != m]
+        n_controls = scored - (1 if m.split("-", 1)[1] not in cov["markets_not_scored"] else 0)
+        # controls that also fired inside the event window (possible contagion or noise)
+        out["controls_firing_in_window"] = sorted({e["symbol"] for e in in_win if e["entity_id"] != m})
+    else:
+        fired = sorted({e["symbol"] for e in in_win})
+        out["markets_flagged_in_window"] = f"{len(fired)}/{scored}"
+        out["flagged"] = fired
+        controls_pre = pre
+        n_controls = scored
+    days = PRE_DAYS * max(n_controls, 1)
+    out["false_alarm_rate_per_market_day"] = round(len(controls_pre) / days, 4)
+    out["false_alarms_by_category"] = dict(collections.Counter(e["anomaly_category"] for e in controls_pre))
+    out["false_alarms_total"] = len(controls_pre)
+    out["market_days_observed"] = days
+    out["in_window_events"] = [
+        {k: e[k] for k in ("detected_at_utc", "symbol", "anomaly_category", "z", "anomaly_score")} for e in in_win]
+    if ev["kind"] == "market":
+        first = {}
+        for e in sorted(in_win, key=lambda e: e["detected_at_utc"]):
+            first.setdefault(e["symbol"], e["detected_at_utc"])
+        out["first_detection_by_market"] = first
+    return out, in_win
+
+
+def main():
+    results = []
+    for ev in EVENTS:
+        r, _ = evaluate(ev, "4h")
+        results.append(r)
+        print(json.dumps(r, indent=1), flush=True)
+    jelly_1h, _ = evaluate({**EVENTS[0], "controls": []}, "1h")
+    results.append(jelly_1h)
+    print(json.dumps(jelly_1h, indent=1))
+    Path(__file__).with_name("results.json").write_text(json.dumps(results, indent=1) + "\\n")
+
+
+if __name__ == "__main__":
+    main()
+` }, { path: "backtest/calibrate.py", content: `#!/usr/bin/env python3
+"""Calibrate per-category z thresholds on control markets, away from every backtest event.
+
+For each category we collect the detector's z-scores over the calibration windows and choose
+the smallest threshold (never below the a-priori 6.0) at which the category fires at most
+TARGET_RATE times per market-day. The events in backtest.py are not in these windows, and
+neither are their 14-day run-ups, so the thresholds cannot have been fitted to them.
+"""
+from __future__ import annotations
+
+import json
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+import hl_anomaly as H  # noqa: E402
+
+UTC = timezone.utc
+CONTROLS = ["BTC", "ETH", "SOL", "XRP", "DOGE", "AVAX", "LINK", "ARB", "OP", "SUI",
+            "APT", "INJ", "TIA", "WIF", "kPEPE", "BNB", "LTC", "HYPE", "TRUMP", "ADA"]
+# Event windows (with run-ups) are 2025-03-12..03-26, 2025-09-26..10-11, 2025-10-29..11-13.
+WINDOWS = [("2025-05-01", "2025-05-31"), ("2025-08-01", "2025-08-31")]
+WINDOW_1H = [("2026-08-01", "2026-08-31")]   # 1h candles only reach back ~7 months
+TARGET_RATE = 0.02                            # events per market-day per category
+FLOOR_Z = 6.0
+
+
+def ms(d):
+    return int(datetime.fromisoformat(d).replace(tzinfo=UTC).timestamp() * 1000)
+
+
+def pick(zs: list[float], market_days: float) -> float:
+    allowed = int(TARGET_RATE * market_days)
+    zs = sorted((abs(z) for z in zs), reverse=True)
+    t = zs[allowed] + 0.01 if len(zs) > allowed else FLOOR_Z
+    return round(max(FLOOR_Z, t), 2)
+
+
+def collect(windows, interval_h, want_pf):
+    prem, fund, liq, days = [], [], [], 0.0
+    for a, b in windows:
+        s, e = ms(a), ms(b)
+        fetch = s - (H.BASELINE_HOURS + 24) * 3600_000
+        for c in CONTROLS:
+            if want_pf:
+                for r, zp, zf, *_ in H.premium_funding_z(c, H.funding_history(c, fetch, e), s):
+                    prem.append(zp)
+                    p = float(r["premium"])
+                    if not (H.CLAMP_BAND[0] <= p <= H.CLAMP_BAND[1]):
+                        fund.append(zf)
+            bars = [x for x in H.candles(c, f"{interval_h}h", fetch, e) if x["t"] < e]
+            got = False
+            for _b, _c, zv, zr, *_ in H.liquidity_z(c, bars, interval_h, s):
+                liq.append(max(zv, zr, 0.0)); got = True
+            if got:
+                days += (e - s) / 86_400_000
+            print(f"  {a} {interval_h}h {c}", file=sys.stderr, flush=True)
+    return prem, fund, liq, days
+
+
+def main():
+    prem, fund, liq4, days = collect(WINDOWS, 4, True)
+    _, _, liq1, days1 = collect(WINDOW_1H, 1, False)
+    out = {
+        "target_events_per_market_day": TARGET_RATE, "controls": CONTROLS,
+        "windows": WINDOWS, "windows_1h": WINDOW_1H, "market_days": days, "market_days_1h": days1,
+        "thresholds": {
+            "oracle_divergence": pick(prem, days),
+            "funding_extremity": pick(fund, days),
+            "liquidity_shock/4h": pick(liq4, days),
+            "liquidity_shock/1h": pick(liq1, days1),
+        },
+        "rate_at_6": {
+            "oracle_divergence": round(sum(abs(z) >= 6 for z in prem) / days, 4),
+            "funding_extremity": round(sum(abs(z) >= 6 for z in fund) / days, 4),
+            "liquidity_shock/4h": round(sum(z >= 6 for z in liq4) / days, 4),
+            "liquidity_shock/1h": round(sum(z >= 6 for z in liq1) / days1, 4),
+        },
+    }
+    Path(__file__).with_name("calibration.json").write_text(json.dumps(out, indent=1) + "\\n")
+    print(json.dumps(out, indent=1))
+
+
+if __name__ == "__main__":
+    main()
+` }, { path: "backtest/calibration.json", content: '{\n "target_events_per_market_day": 0.02,\n "controls": [\n  "BTC",\n  "ETH",\n  "SOL",\n  "XRP",\n  "DOGE",\n  "AVAX",\n  "LINK",\n  "ARB",\n  "OP",\n  "SUI",\n  "APT",\n  "INJ",\n  "TIA",\n  "WIF",\n  "kPEPE",\n  "BNB",\n  "LTC",\n  "HYPE",\n  "TRUMP",\n  "ADA"\n ],\n "windows": [\n  [\n   "2025-05-01",\n   "2025-05-31"\n  ],\n  [\n   "2025-08-01",\n   "2025-08-31"\n  ]\n ],\n "windows_1h": [\n  [\n   "2026-08-01",\n   "2026-08-31"\n  ]\n ],\n "market_days": 1200.0,\n "market_days_1h": 600.0,\n "thresholds": {\n  "oracle_divergence": 10.24,\n  "funding_extremity": 10.17,\n  "liquidity_shock/4h": 6.0,\n  "liquidity_shock/1h": 6.18\n },\n "rate_at_6": {\n  "oracle_divergence": 0.2742,\n  "funding_extremity": 0.165,\n  "liquidity_shock/4h": 0.0017,\n  "liquidity_shock/1h": 0.0217\n }\n}\n' }, { path: "backtest/results.json", content: '[\n {\n  "event": "JELLY manipulation",\n  "interval": "4h",\n  "scan_start": "2025-03-12T12:00:00+00:00",\n  "onset": "2025-03-26T12:00:00Z",\n  "window_end": "2025-03-26T18:00:00Z",\n  "markets_scored": 21,\n  "markets_not_scored": [],\n  "hit": true,\n  "first_detection": {\n   "at": "2025-03-26T16:00:00Z",\n   "hours_after_onset": 4.0,\n   "category": "liquidity_shock",\n   "anomaly_score": 67.16\n  },\n  "categories_in_window": [\n   "liquidity_shock",\n   "oracle_divergence"\n  ],\n  "runup_events_on_market": [\n   {\n    "at": "2025-03-15T20:00:00Z",\n    "category": "liquidity_shock",\n    "z": 20.67\n   },\n   {\n    "at": "2025-03-17T19:00:00Z",\n    "category": "oracle_divergence",\n    "z": 12.92\n   },\n   {\n    "at": "2025-03-17T20:00:00Z",\n    "category": "liquidity_shock",\n    "z": 14.53\n   },\n   {\n    "at": "2025-03-18T10:00:00Z",\n    "category": "oracle_divergence",\n    "z": 11.48\n   },\n   {\n    "at": "2025-03-18T11:00:00Z",\n    "category": "funding_extremity",\n    "z": 12.68\n   },\n   {\n    "at": "2025-03-18T11:00:00Z",\n    "category": "oracle_divergence",\n    "z": 11.85\n   },\n   {\n    "at": "2025-03-18T12:00:00Z",\n    "category": "funding_extremity",\n    "z": 16.24\n   },\n   {\n    "at": "2025-03-18T12:00:00Z",\n    "category": "oracle_divergence",\n    "z": 10.8\n   },\n   {\n    "at": "2025-03-19T16:00:00Z",\n    "category": "liquidity_shock",\n    "z": 6.88\n   },\n   {\n    "at": "2025-03-21T00:00:00Z",\n    "category": "oracle_divergence",\n    "z": 13.33\n   },\n   {\n    "at": "2025-03-21T01:00:00Z",\n    "category": "funding_extremity",\n    "z": 13.36\n   },\n   {\n    "at": "2025-03-21T01:00:00Z",\n    "category": "oracle_divergence",\n    "z": 14.42\n   },\n   {\n    "at": "2025-03-21T02:00:00Z",\n    "category": "funding_extremity",\n    "z": 16.43\n   },\n   {\n    "at": "2025-03-21T02:00:00Z",\n    "category": "oracle_divergence",\n    "z": 12.36\n   },\n   {\n    "at": "2025-03-21T03:00:00Z",\n    "category": "funding_extremity",\n    "z": 19.88\n   },\n   {\n    "at": "2025-03-21T03:00:00Z",\n    "category": "oracle_divergence",\n    "z": 12.07\n   },\n   {\n    "at": "2025-03-21T04:00:00Z",\n    "category": "funding_extremity",\n    "z": 22.75\n   },\n   {\n    "at": "2025-03-21T04:00:00Z",\n    "category": "oracle_divergence",\n    "z": 10.88\n   },\n   {\n    "at": "2025-03-21T05:00:00Z",\n    "category": "funding_extremity",\n    "z": 26.52\n   },\n   {\n    "at": "2025-03-21T05:00:00Z",\n    "category": "oracle_divergence",\n    "z": 12.73\n   },\n   {\n    "at": "2025-03-21T06:00:00Z",\n    "category": "funding_extremity",\n    "z": 27.67\n   },\n   {\n    "at": "2025-03-21T06:00:00Z",\n    "category": "oracle_divergence",\n    "z": 11.49\n   },\n   {\n    "at": "2025-03-21T07:00:00Z",\n    "category": "funding_extremity",\n    "z": 30.27\n   },\n   {\n    "at": "2025-03-21T07:00:00Z",\n    "category": "oracle_divergence",\n    "z": 16.32\n   },\n   {\n    "at": "2025-03-21T08:00:00Z",\n    "category": "funding_extremity",\n    "z": 31.59\n   },\n   {\n    "at": "2025-03-21T08:00:00Z",\n    "category": "oracle_divergence",\n    "z": 16.74\n   },\n   {\n    "at": "2025-03-21T09:00:00Z",\n    "category": "funding_extremity",\n    "z": 31.67\n   },\n   {\n    "at": "2025-03-21T09:00:00Z",\n    "category": "oracle_divergence",\n    "z": 14.64\n   },\n   {\n    "at": "2025-03-21T10:00:00Z",\n    "category": "funding_extremity",\n    "z": 32.84\n   },\n   {\n    "at": "2025-03-21T10:00:00Z",\n    "category": "oracle_divergence",\n    "z": 15.7\n   },\n   {\n    "at": "2025-03-21T11:00:00Z",\n    "category": "funding_extremity",\n    "z": 32.7\n   },\n   {\n    "at": "2025-03-21T11:00:00Z",\n    "category": "oracle_divergence",\n    "z": 11.67\n   },\n   {\n    "at": "2025-03-21T12:00:00Z",\n    "category": "funding_extremity",\n    "z": 33.22\n   },\n   {\n    "at": "2025-03-21T12:00:00Z",\n    "category": "oracle_divergence",\n    "z": 12.51\n   },\n   {\n    "at": "2025-03-21T13:00:00Z",\n    "category": "funding_extremity",\n    "z": 34.12\n   },\n   {\n    "at": "2025-03-21T13:00:00Z",\n    "category": "oracle_divergence",\n    "z": 15.44\n   },\n   {\n    "at": "2025-03-21T14:00:00Z",\n    "category": "funding_extremity",\n    "z": 36.35\n   },\n   {\n    "at": "2025-03-21T14:00:00Z",\n    "category": "oracle_divergence",\n    "z": 17.73\n   },\n   {\n    "at": "2025-03-21T15:00:00Z",\n    "category": "funding_extremity",\n    "z": 35.98\n   },\n   {\n    "at": "2025-03-21T15:00:00Z",\n    "category": "oracle_divergence",\n    "z": 14.92\n   },\n   {\n    "at": "2025-03-21T16:00:00Z",\n    "category": "funding_extremity",\n    "z": 34.63\n   },\n   {\n    "at": "2025-03-21T16:00:00Z",\n    "category": "oracle_divergence",\n    "z": 12.63\n   },\n   {\n    "at": "2025-03-21T17:00:00Z",\n    "category": "funding_extremity",\n    "z": 38.19\n   },\n   {\n    "at": "2025-03-21T17:00:00Z",\n    "category": "oracle_divergence",\n    "z": 23.61\n   },\n   {\n    "at": "2025-03-21T18:00:00Z",\n    "category": "funding_extremity",\n    "z": 43.26\n   },\n   {\n    "at": "2025-03-21T18:00:00Z",\n    "category": "oracle_divergence",\n    "z": 28.89\n   },\n   {\n    "at": "2025-03-21T19:00:00Z",\n    "category": "funding_extremity",\n    "z": 46.35\n   },\n   {\n    "at": "2025-03-21T19:00:00Z",\n    "category": "oracle_divergence",\n    "z": 18.84\n   },\n   {\n    "at": "2025-03-21T20:00:00Z",\n    "category": "funding_extremity",\n    "z": 52.25\n   },\n   {\n    "at": "2025-03-21T20:00:00Z",\n    "category": "liquidity_shock",\n    "z": 11.22\n   },\n   {\n    "at": "2025-03-21T20:00:00Z",\n    "category": "oracle_divergence",\n    "z": 26.76\n   },\n   {\n    "at": "2025-03-21T21:00:00Z",\n    "category": "funding_extremity",\n    "z": 57.47\n   },\n   {\n    "at": "2025-03-21T21:00:00Z",\n    "category": "oracle_divergence",\n    "z": 26.82\n   },\n   {\n    "at": "2025-03-21T22:00:00Z",\n    "category": "funding_extremity",\n    "z": 61.61\n   },\n   {\n    "at": "2025-03-21T22:00:00Z",\n    "category": "oracle_divergence",\n    "z": 25.97\n   },\n   {\n    "at": "2025-03-21T23:00:00Z",\n    "category": "funding_extremity",\n    "z": 66.73\n   },\n   {\n    "at": "2025-03-21T23:00:00Z",\n    "category": "oracle_divergence",\n    "z": 25.64\n   },\n   {\n    "at": "2025-03-22T00:00:00Z",\n    "category": "funding_extremity",\n    "z": 69.75\n   },\n   {\n    "at": "2025-03-22T00:00:00Z",\n    "category": "oracle_divergence",\n    "z": 20.98\n   },\n   {\n    "at": "2025-03-22T01:00:00Z",\n    "category": "funding_extremity",\n    "z": 67.72\n   },\n   {\n    "at": "2025-03-22T01:00:00Z",\n    "category": "oracle_divergence",\n    "z": 20.73\n   },\n   {\n    "at": "2025-03-22T02:00:00Z",\n    "category": "funding_extremity",\n    "z": 61.87\n   },\n   {\n    "at": "2025-03-22T02:00:00Z",\n    "category": "oracle_divergence",\n    "z": 22.1\n   },\n   {\n    "at": "2025-03-22T03:00:00Z",\n    "category": "funding_extremity",\n    "z": 65.16\n   },\n   {\n    "at": "2025-03-22T03:00:00Z",\n    "category": "oracle_divergence",\n    "z": 24.28\n   },\n   {\n    "at": "2025-03-22T04:00:00Z",\n    "category": "funding_extremity",\n    "z": 64.86\n   },\n   {\n    "at": "2025-03-22T04:00:00Z",\n    "category": "oracle_divergence",\n    "z": 26.5\n   },\n   {\n    "at": "2025-03-22T05:00:00Z",\n    "category": "funding_extremity",\n    "z": 56.84\n   },\n   {\n    "at": "2025-03-22T05:00:00Z",\n    "category": "oracle_divergence",\n    "z": 24.02\n   },\n   {\n    "at": "2025-03-22T06:00:00Z",\n    "category": "funding_extremity",\n    "z": 50.07\n   },\n   {\n    "at": "2025-03-22T06:00:00Z",\n    "category": "oracle_divergence",\n    "z": 18.98\n   },\n   {\n    "at": "2025-03-22T07:00:00Z",\n    "category": "funding_extremity",\n    "z": 45.52\n   },\n   {\n    "at": "2025-03-22T07:00:00Z",\n    "category": "oracle_divergence",\n    "z": 15.49\n   },\n   {\n    "at": "2025-03-22T08:00:00Z",\n    "category": "funding_extremity",\n    "z": 40.89\n   },\n   {\n    "at": "2025-03-22T08:00:00Z",\n    "category": "oracle_divergence",\n    "z": 10.65\n   },\n   {\n    "at": "2025-03-22T09:00:00Z",\n    "category": "funding_extremity",\n    "z": 35.57\n   },\n   {\n    "at": "2025-03-23T20:00:00Z",\n    "category": "liquidity_shock",\n    "z": 6.18\n   },\n   {\n    "at": "2025-03-24T16:00:00Z",\n    "category": "liquidity_shock",\n    "z": 6.0\n   }\n  ],\n  "controls_firing_in_window": [\n   "HYPE"\n  ],\n  "false_alarm_rate_per_market_day": 0.0036,\n  "false_alarms_by_category": {\n   "oracle_divergence": 1\n  },\n  "false_alarms_total": 1,\n  "market_days_observed": 280,\n  "in_window_events": [\n   {\n    "detected_at_utc": "2025-03-26T15:00:00Z",\n    "symbol": "HYPE",\n    "anomaly_category": "oracle_divergence",\n    "z": 20.02,\n    "anomaly_score": 80.42\n   },\n   {\n    "detected_at_utc": "2025-03-26T16:00:00Z",\n    "symbol": "HYPE",\n    "anomaly_category": "funding_extremity",\n    "z": 12.95,\n    "anomaly_score": 37.08\n   },\n   {\n    "detected_at_utc": "2025-03-26T16:00:00Z",\n    "symbol": "HYPE",\n    "anomaly_category": "liquidity_shock",\n    "z": 7.85,\n    "anomaly_score": 26.52\n   },\n   {\n    "detected_at_utc": "2025-03-26T16:00:00Z",\n    "symbol": "HYPE",\n    "anomaly_category": "oracle_divergence",\n    "z": 16.44,\n    "anomaly_score": 64.4\n   },\n   {\n    "detected_at_utc": "2025-03-26T16:00:00Z",\n    "symbol": "JELLY",\n    "anomaly_category": "liquidity_shock",\n    "z": 12.68,\n    "anomaly_score": 67.16\n   },\n   {\n    "detected_at_utc": "2025-03-26T16:00:00Z",\n    "symbol": "JELLY",\n    "anomaly_category": "oracle_divergence",\n    "z": -13.45,\n    "anomaly_score": 41.39\n   }\n  ]\n },\n {\n  "event": "POPCAT manipulation",\n  "interval": "4h",\n  "scan_start": "2025-10-29T12:00:00+00:00",\n  "onset": "2025-11-12T12:00:00Z",\n  "window_end": "2025-11-13T06:00:00Z",\n  "markets_scored": 21,\n  "markets_not_scored": [],\n  "hit": true,\n  "first_detection": {\n   "at": "2025-11-12T16:00:00Z",\n   "hours_after_onset": 4.0,\n   "category": "funding_extremity",\n   "anomaly_score": 92.01\n  },\n  "categories_in_window": [\n   "funding_extremity",\n   "liquidity_shock",\n   "oracle_divergence"\n  ],\n  "runup_events_on_market": [],\n  "controls_firing_in_window": [],\n  "false_alarm_rate_per_market_day": 0.0857,\n  "false_alarms_by_category": {\n   "oracle_divergence": 16,\n   "funding_extremity": 7,\n   "liquidity_shock": 1\n  },\n  "false_alarms_total": 24,\n  "market_days_observed": 280,\n  "in_window_events": [\n   {\n    "detected_at_utc": "2025-11-12T16:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "funding_extremity",\n    "z": 25.33,\n    "anomaly_score": 92.01\n   },\n   {\n    "detected_at_utc": "2025-11-12T16:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "liquidity_shock",\n    "z": 9.27,\n    "anomaly_score": 42.01\n   },\n   {\n    "detected_at_utc": "2025-11-12T16:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "oracle_divergence",\n    "z": 108.33,\n    "anomaly_score": 100.0\n   },\n   {\n    "detected_at_utc": "2025-11-12T18:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "funding_extremity",\n    "z": 24.49,\n    "anomaly_score": 90.81\n   },\n   {\n    "detected_at_utc": "2025-11-12T19:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "funding_extremity",\n    "z": 23.93,\n    "anomaly_score": 89.91\n   },\n   {\n    "detected_at_utc": "2025-11-12T20:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "funding_extremity",\n    "z": 22.92,\n    "anomaly_score": 88.05\n   },\n   {\n    "detected_at_utc": "2025-11-12T20:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "liquidity_shock",\n    "z": 11.31,\n    "anomaly_score": 58.75\n   },\n   {\n    "detected_at_utc": "2025-11-12T21:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "funding_extremity",\n    "z": 21.57,\n    "anomaly_score": 85.05\n   },\n   {\n    "detected_at_utc": "2025-11-12T22:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "funding_extremity",\n    "z": 20.76,\n    "anomaly_score": 82.89\n   },\n   {\n    "detected_at_utc": "2025-11-12T23:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "funding_extremity",\n    "z": 19.29,\n    "anomaly_score": 78.13\n   },\n   {\n    "detected_at_utc": "2025-11-13T00:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "oracle_divergence",\n    "z": -10.61,\n    "anomaly_score": 5.92\n   },\n   {\n    "detected_at_utc": "2025-11-13T01:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "oracle_divergence",\n    "z": -10.66,\n    "anomaly_score": 6.77\n   },\n   {\n    "detected_at_utc": "2025-11-13T02:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "funding_extremity",\n    "z": -10.68,\n    "anomaly_score": 8.14\n   },\n   {\n    "detected_at_utc": "2025-11-13T03:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "funding_extremity",\n    "z": -13.0,\n    "anomaly_score": 37.64\n   },\n   {\n    "detected_at_utc": "2025-11-13T03:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "oracle_divergence",\n    "z": -13.53,\n    "anomaly_score": 42.2\n   },\n   {\n    "detected_at_utc": "2025-11-13T04:00:00Z",\n    "symbol": "POPCAT",\n    "anomaly_category": "funding_extremity",\n    "z": -13.11,\n    "anomaly_score": 38.77\n   }\n  ]\n },\n {\n  "event": "10 Oct 2025 market-wide crash",\n  "interval": "4h",\n  "scan_start": "2025-09-26T20:00:00+00:00",\n  "onset": "2025-10-10T20:00:00Z",\n  "window_end": "2025-10-11T04:00:00Z",\n  "markets_scored": 20,\n  "markets_not_scored": [],\n  "markets_flagged_in_window": "19/20",\n  "flagged": [\n   "ADA",\n   "APT",\n   "ARB",\n   "AVAX",\n   "BNB",\n   "DOGE",\n   "ETH",\n   "HYPE",\n   "INJ",\n   "LINK",\n   "LTC",\n   "OP",\n   "SOL",\n   "SUI",\n   "TIA",\n   "TRUMP",\n   "WIF",\n   "XRP",\n   "kPEPE"\n  ],\n  "false_alarm_rate_per_market_day": 0.0429,\n  "false_alarms_by_category": {\n   "oracle_divergence": 11,\n   "liquidity_shock": 1\n  },\n  "false_alarms_total": 12,\n  "market_days_observed": 280,\n  "in_window_events": [\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "ADA",\n    "anomaly_category": "oracle_divergence",\n    "z": 14.38,\n    "anomaly_score": 49.83\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "APT",\n    "anomaly_category": "oracle_divergence",\n    "z": -10.98,\n    "anomaly_score": 11.6\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "AVAX",\n    "anomaly_category": "oracle_divergence",\n    "z": -29.82,\n    "anomaly_score": 96.18\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "ETH",\n    "anomaly_category": "oracle_divergence",\n    "z": -11.28,\n    "anomaly_score": 15.93\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "HYPE",\n    "anomaly_category": "funding_extremity",\n    "z": -18.59,\n    "anomaly_score": 75.42\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "HYPE",\n    "anomaly_category": "oracle_divergence",\n    "z": -62.25,\n    "anomaly_score": 99.98\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "LINK",\n    "anomaly_category": "funding_extremity",\n    "z": 16.41,\n    "anomaly_score": 64.68\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "LINK",\n    "anomaly_category": "oracle_divergence",\n    "z": 75.62,\n    "anomaly_score": 100.0\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "LTC",\n    "anomaly_category": "funding_extremity",\n    "z": -10.73,\n    "anomaly_score": 8.88\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "LTC",\n    "anomaly_category": "oracle_divergence",\n    "z": -42.75,\n    "anomaly_score": 99.56\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "SOL",\n    "anomaly_category": "funding_extremity",\n    "z": -20.64,\n    "anomaly_score": 82.53\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "SOL",\n    "anomaly_category": "oracle_divergence",\n    "z": -76.61,\n    "anomaly_score": 100.0\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "SUI",\n    "anomaly_category": "oracle_divergence",\n    "z": 13.02,\n    "anomaly_score": 37.1\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "TRUMP",\n    "anomaly_category": "funding_extremity",\n    "z": -32.48,\n    "anomaly_score": 97.57\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "TRUMP",\n    "anomaly_category": "oracle_divergence",\n    "z": -76.82,\n    "anomaly_score": 100.0\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "WIF",\n    "anomaly_category": "oracle_divergence",\n    "z": -38.8,\n    "anomaly_score": 99.14\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "XRP",\n    "anomaly_category": "funding_extremity",\n    "z": -13.08,\n    "anomaly_score": 38.43\n   },\n   {\n    "detected_at_utc": "2025-10-10T22:00:00Z",\n    "symbol": "XRP",\n    "anomaly_category": "oracle_divergence",\n    "z": -80.18,\n    "anomaly_score": 100.0\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "ADA",\n    "anomaly_category": "oracle_divergence",\n    "z": -12.48,\n    "anomaly_score": 31.11\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "APT",\n    "anomaly_category": "oracle_divergence",\n    "z": -22.51,\n    "anomaly_score": 87.06\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "AVAX",\n    "anomaly_category": "funding_extremity",\n    "z": -13.97,\n    "anomaly_score": 46.93\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "AVAX",\n    "anomaly_category": "oracle_divergence",\n    "z": -16.63,\n    "anomaly_score": 65.52\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "DOGE",\n    "anomaly_category": "funding_extremity",\n    "z": -14.39,\n    "anomaly_score": 50.49\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "DOGE",\n    "anomaly_category": "oracle_divergence",\n    "z": -33.68,\n    "anomaly_score": 97.99\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "HYPE",\n    "anomaly_category": "funding_extremity",\n    "z": -20.16,\n    "anomaly_score": 81.09\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "INJ",\n    "anomaly_category": "oracle_divergence",\n    "z": -17.42,\n    "anomaly_score": 69.8\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "LTC",\n    "anomaly_category": "funding_extremity",\n    "z": -14.92,\n    "anomaly_score": 54.72\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "LTC",\n    "anomaly_category": "oracle_divergence",\n    "z": -20.81,\n    "anomaly_score": 82.82\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "SOL",\n    "anomaly_category": "funding_extremity",\n    "z": -33.92,\n    "anomaly_score": 98.09\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "SOL",\n    "anomaly_category": "oracle_divergence",\n    "z": -50.42,\n    "anomaly_score": 99.88\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "TRUMP",\n    "anomaly_category": "funding_extremity",\n    "z": -66.6,\n    "anomaly_score": 99.99\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "TRUMP",\n    "anomaly_category": "oracle_divergence",\n    "z": -84.88,\n    "anomaly_score": 100.0\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "WIF",\n    "anomaly_category": "funding_extremity",\n    "z": -21.69,\n    "anomaly_score": 85.34\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "WIF",\n    "anomaly_category": "oracle_divergence",\n    "z": -52.55,\n    "anomaly_score": 99.91\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "XRP",\n    "anomaly_category": "funding_extremity",\n    "z": -16.93,\n    "anomaly_score": 67.61\n   },\n   {\n    "detected_at_utc": "2025-10-10T23:00:00Z",\n    "symbol": "XRP",\n    "anomaly_category": "oracle_divergence",\n    "z": -29.53,\n    "anomaly_score": 95.98\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "ADA",\n    "anomaly_category": "liquidity_shock",\n    "z": 28.15,\n    "anomaly_score": 97.51\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "ADA",\n    "anomaly_category": "oracle_divergence",\n    "z": -23.48,\n    "anomaly_score": 88.99\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "APT",\n    "anomaly_category": "funding_extremity",\n    "z": -11.44,\n    "anomaly_score": 19.06\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "APT",\n    "anomaly_category": "liquidity_shock",\n    "z": 28.34,\n    "anomaly_score": 97.59\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "APT",\n    "anomaly_category": "oracle_divergence",\n    "z": -32.04,\n    "anomaly_score": 97.36\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "ARB",\n    "anomaly_category": "liquidity_shock",\n    "z": 33.34,\n    "anomaly_score": 98.95\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "AVAX",\n    "anomaly_category": "funding_extremity",\n    "z": -15.88,\n    "anomaly_score": 61.39\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "AVAX",\n    "anomaly_category": "liquidity_shock",\n    "z": 31.75,\n    "anomaly_score": 98.63\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "BNB",\n    "anomaly_category": "liquidity_shock",\n    "z": 13.41,\n    "anomaly_score": 70.9\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "DOGE",\n    "anomaly_category": "funding_extremity",\n    "z": -15.8,\n    "anomaly_score": 60.86\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "DOGE",\n    "anomaly_category": "liquidity_shock",\n    "z": 27.07,\n    "anomaly_score": 97.01\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "ETH",\n    "anomaly_category": "liquidity_shock",\n    "z": 7.24,\n    "anomaly_score": 18.68\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "HYPE",\n    "anomaly_category": "liquidity_shock",\n    "z": 9.89,\n    "anomaly_score": 47.71\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "INJ",\n    "anomaly_category": "liquidity_shock",\n    "z": 34.75,\n    "anomaly_score": 99.17\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "INJ",\n    "anomaly_category": "oracle_divergence",\n    "z": -14.82,\n    "anomaly_score": 53.38\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "LINK",\n    "anomaly_category": "liquidity_shock",\n    "z": 26.92,\n    "anomaly_score": 96.94\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "LTC",\n    "anomaly_category": "funding_extremity",\n    "z": -13.6,\n    "anomaly_score": 43.53\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "LTC",\n    "anomaly_category": "liquidity_shock",\n    "z": 26.31,\n    "anomaly_score": 96.61\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "OP",\n    "anomaly_category": "liquidity_shock",\n    "z": 29.36,\n    "anomaly_score": 97.96\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "OP",\n    "anomaly_category": "oracle_divergence",\n    "z": -38.2,\n    "anomaly_score": 99.05\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "SOL",\n    "anomaly_category": "funding_extremity",\n    "z": -40.94,\n    "anomaly_score": 99.41\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "SOL",\n    "anomaly_category": "liquidity_shock",\n    "z": 13.03,\n    "anomaly_score": 69.0\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "SOL",\n    "anomaly_category": "oracle_divergence",\n    "z": -28.05,\n    "anomaly_score": 94.86\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "SUI",\n    "anomaly_category": "liquidity_shock",\n    "z": 39.38,\n    "anomaly_score": 99.62\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "SUI",\n    "anomaly_category": "oracle_divergence",\n    "z": -10.43,\n    "anomaly_score": 3.06\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "TIA",\n    "anomaly_category": "liquidity_shock",\n    "z": 39.53,\n    "anomaly_score": 99.63\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "TIA",\n    "anomaly_category": "oracle_divergence",\n    "z": -17.52,\n    "anomaly_score": 70.27\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "TRUMP",\n    "anomaly_category": "funding_extremity",\n    "z": -78.59,\n    "anomaly_score": 100.0\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "TRUMP",\n    "anomaly_category": "liquidity_shock",\n    "z": 38.95,\n    "anomaly_score": 99.59\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "TRUMP",\n    "anomaly_category": "oracle_divergence",\n    "z": -31.83,\n    "anomaly_score": 97.26\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "WIF",\n    "anomaly_category": "funding_extremity",\n    "z": -26.8,\n    "anomaly_score": 93.74\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "WIF",\n    "anomaly_category": "liquidity_shock",\n    "z": 37.22,\n    "anomaly_score": 99.45\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "WIF",\n    "anomaly_category": "oracle_divergence",\n    "z": -22.95,\n    "anomaly_score": 87.99\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "XRP",\n    "anomaly_category": "funding_extremity",\n    "z": -18.07,\n    "anomaly_score": 73.2\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "XRP",\n    "anomaly_category": "liquidity_shock",\n    "z": 23.66,\n    "anomaly_score": 94.73\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "XRP",\n    "anomaly_category": "oracle_divergence",\n    "z": -13.92,\n    "anomaly_score": 45.87\n   },\n   {\n    "detected_at_utc": "2025-10-11T00:00:00Z",\n    "symbol": "kPEPE",\n    "anomaly_category": "liquidity_shock",\n    "z": 29.21,\n    "anomaly_score": 97.91\n   },\n   {\n    "detected_at_utc": "2025-10-11T01:00:00Z",\n    "symbol": "APT",\n    "anomaly_category": "funding_extremity",\n    "z": -13.98,\n    "anomaly_score": 47.04\n   },\n   {\n    "detected_at_utc": "2025-10-11T01:00:00Z",\n    "symbol": "APT",\n    "anomaly_category": "oracle_divergence",\n    "z": -15.22,\n    "anomaly_score": 56.43\n   },\n   {\n    "detected_at_utc": "2025-10-11T01:00:00Z",\n    "symbol": "AVAX",\n    "anomaly_category": "funding_extremity",\n    "z": -18.04,\n    "anomaly_score": 73.05\n   },\n   {\n    "detected_at_utc": "2025-10-11T01:00:00Z",\n    "symbol": "DOGE",\n    "anomaly_category": "funding_extremity",\n    "z": -15.85,\n    "anomaly_score": 61.21\n   },\n   {\n    "detected_at_utc": "2025-10-11T01:00:00Z",\n    "symbol": "HYPE",\n    "anomaly_category": "funding_extremity",\n    "z": -21.13,\n    "anomaly_score": 83.89\n   },\n   {\n    "detected_at_utc": "2025-10-11T01:00:00Z",\n    "symbol": "LTC",\n    "anomaly_category": "oracle_divergence",\n    "z": 16.35,\n    "anomaly_score": 63.87\n   },\n   {\n    "detected_at_utc": "2025-10-11T01:00:00Z",\n    "symbol": "SOL",\n    "anomaly_category": "funding_extremity",\n    "z": -42.89,\n    "anomaly_score": 99.57\n   },\n   {\n    "detected_at_utc": "2025-10-11T01:00:00Z",\n    "symbol": "TRUMP",\n    "anomaly_category": "funding_extremity",\n    "z": -82.99,\n    "anomaly_score": 100.0\n   },\n   {\n    "detected_at_utc": "2025-10-11T01:00:00Z",\n    "symbol": "TRUMP",\n    "anomaly_category": "oracle_divergence",\n    "z": -13.19,\n    "anomaly_score": 38.88\n   },\n   {\n    "detected_at_utc": "2025-10-11T01:00:00Z",\n    "symbol": "WIF",\n    "anomaly_category": "funding_extremity",\n    "z": -27.24,\n    "anomaly_score": 94.18\n   },\n   {\n    "detected_at_utc": "2025-10-11T01:00:00Z",\n    "symbol": "XRP",\n    "anomaly_category": "funding_extremity",\n    "z": -18.29,\n    "anomaly_score": 74.14\n   },\n   {\n    "detected_at_utc": "2025-10-11T01:00:00Z",\n    "symbol": "kPEPE",\n    "anomaly_category": "funding_extremity",\n    "z": -11.3,\n    "anomaly_score": 17.12\n   },\n   {\n    "detected_at_utc": "2025-10-11T02:00:00Z",\n    "symbol": "APT",\n    "anomaly_category": "funding_extremity",\n    "z": -14.24,\n    "anomaly_score": 49.27\n   },\n   {\n    "detected_at_utc": "2025-10-11T02:00:00Z",\n    "symbol": "AVAX",\n    "anomaly_category": "funding_extremity",\n    "z": -18.48,\n    "anomaly_score": 74.98\n   },\n   {\n    "detected_at_utc": "2025-10-11T02:00:00Z",\n    "symbol": "DOGE",\n    "anomaly_category": "funding_extremity",\n    "z": -16.28,\n    "anomaly_score": 63.86\n   },\n   {\n    "detected_at_utc": "2025-10-11T02:00:00Z",\n    "symbol": "HYPE",\n    "anomaly_category": "funding_extremity",\n    "z": -21.53,\n    "anomaly_score": 84.93\n   },\n   {\n    "detected_at_utc": "2025-10-11T02:00:00Z",\n    "symbol": "SOL",\n    "anomaly_category": "funding_extremity",\n    "z": -45.21,\n    "anomaly_score": 99.71\n   },\n   {\n    "detected_at_utc": "2025-10-11T02:00:00Z",\n    "symbol": "SOL",\n    "anomaly_category": "oracle_divergence",\n    "z": -11.25,\n    "anomaly_score": 15.5\n   },\n   {\n    "detected_at_utc": "2025-10-11T02:00:00Z",\n    "symbol": "TIA",\n    "anomaly_category": "funding_extremity",\n    "z": -10.81,\n    "anomaly_score": 10.05\n   },\n   {\n    "detected_at_utc": "2025-10-11T02:00:00Z",\n    "symbol": "TRUMP",\n    "anomaly_category": "funding_extremity",\n    "z": -86.57,\n    "anomaly_score": 100.0\n   },\n   {\n    "detected_at_utc": "2025-10-11T02:00:00Z",\n    "symbol": "TRUMP",\n    "anomaly_category": "oracle_divergence",\n    "z": -11.74,\n    "anomaly_score": 22.15\n   },\n   {\n    "detected_at_utc": "2025-10-11T02:00:00Z",\n    "symbol": "WIF",\n    "anomaly_category": "funding_extremity",\n    "z": -27.28,\n    "anomaly_score": 94.23\n   },\n   {\n    "detected_at_utc": "2025-10-11T02:00:00Z",\n    "symbol": "XRP",\n    "anomaly_category": "funding_extremity",\n    "z": -18.66,\n    "anomaly_score": 75.7\n   },\n   {\n    "detected_at_utc": "2025-10-11T02:00:00Z",\n    "symbol": "kPEPE",\n    "anomaly_category": "funding_extremity",\n    "z": -11.11,\n    "anomaly_score": 14.48\n   },\n   {\n    "detected_at_utc": "2025-10-11T03:00:00Z",\n    "symbol": "APT",\n    "anomaly_category": "funding_extremity",\n    "z": -14.41,\n    "anomaly_score": 50.69\n   },\n   {\n    "detected_at_utc": "2025-10-11T03:00:00Z",\n    "symbol": "AVAX",\n    "anomaly_category": "funding_extremity",\n    "z": -19.45,\n    "anomaly_score": 78.72\n   },\n   {\n    "detected_at_utc": "2025-10-11T03:00:00Z",\n    "symbol": "DOGE",\n    "anomaly_category": "funding_extremity",\n    "z": -16.33,\n    "anomaly_score": 64.16\n   },\n   {\n    "detected_at_utc": "2025-10-11T03:00:00Z",\n    "symbol": "HYPE",\n    "anomaly_category": "funding_extremity",\n    "z": -22.1,\n    "anomaly_score": 86.31\n   },\n   {\n    "detected_at_utc": "2025-10-11T03:00:00Z",\n    "symbol": "SOL",\n    "anomaly_category": "funding_extremity",\n    "z": -47.02,\n    "anomaly_score": 99.78\n   },\n   {\n    "detected_at_utc": "2025-10-11T03:00:00Z",\n    "symbol": "TIA",\n    "anomaly_category": "funding_extremity",\n    "z": -12.45,\n    "anomaly_score": 31.66\n   },\n   {\n    "detected_at_utc": "2025-10-11T03:00:00Z",\n    "symbol": "TRUMP",\n    "anomaly_category": "funding_extremity",\n    "z": -88.87,\n    "anomaly_score": 100.0\n   },\n   {\n    "detected_at_utc": "2025-10-11T03:00:00Z",\n    "symbol": "XRP",\n    "anomaly_category": "funding_extremity",\n    "z": -18.89,\n    "anomaly_score": 76.64\n   }\n  ],\n  "first_detection_by_market": {\n   "ADA": "2025-10-10T22:00:00Z",\n   "APT": "2025-10-10T22:00:00Z",\n   "AVAX": "2025-10-10T22:00:00Z",\n   "ETH": "2025-10-10T22:00:00Z",\n   "HYPE": "2025-10-10T22:00:00Z",\n   "LINK": "2025-10-10T22:00:00Z",\n   "LTC": "2025-10-10T22:00:00Z",\n   "SOL": "2025-10-10T22:00:00Z",\n   "SUI": "2025-10-10T22:00:00Z",\n   "TRUMP": "2025-10-10T22:00:00Z",\n   "WIF": "2025-10-10T22:00:00Z",\n   "XRP": "2025-10-10T22:00:00Z",\n   "DOGE": "2025-10-10T23:00:00Z",\n   "INJ": "2025-10-10T23:00:00Z",\n   "ARB": "2025-10-11T00:00:00Z",\n   "BNB": "2025-10-11T00:00:00Z",\n   "OP": "2025-10-11T00:00:00Z",\n   "TIA": "2025-10-11T00:00:00Z",\n   "kPEPE": "2025-10-11T00:00:00Z"\n  }\n },\n {\n  "event": "JELLY manipulation",\n  "interval": "1h",\n  "scan_start": "2025-03-12T12:00:00+00:00",\n  "onset": "2025-03-26T12:00:00Z",\n  "window_end": "2025-03-26T18:00:00Z",\n  "markets_scored": 1,\n  "markets_not_scored": [],\n  "hit": true,\n  "first_detection": {\n   "at": "2025-03-26T13:00:00Z",\n   "hours_after_onset": 1.0,\n   "category": "liquidity_shock",\n   "anomaly_score": 18.54\n  },\n  "categories_in_window": [\n   "liquidity_shock",\n   "oracle_divergence"\n  ],\n  "runup_events_on_market": [\n   {\n    "at": "2025-03-15T17:00:00Z",\n    "category": "liquidity_shock",\n    "z": 6.74\n   },\n   {\n    "at": "2025-03-15T18:00:00Z",\n    "category": "liquidity_shock",\n    "z": 24.05\n   },\n   {\n    "at": "2025-03-15T20:00:00Z",\n    "category": "liquidity_shock",\n    "z": 9.74\n   },\n   {\n    "at": "2025-03-17T18:00:00Z",\n    "category": "liquidity_shock",\n    "z": 20.23\n   },\n   {\n    "at": "2025-03-17T19:00:00Z",\n    "category": "liquidity_shock",\n    "z": 12.77\n   },\n   {\n    "at": "2025-03-17T19:00:00Z",\n    "category": "oracle_divergence",\n    "z": 12.92\n   },\n   {\n    "at": "2025-03-18T10:00:00Z",\n    "category": "oracle_divergence",\n    "z": 11.48\n   },\n   {\n    "at": "2025-03-18T11:00:00Z",\n    "category": "funding_extremity",\n    "z": 12.68\n   },\n   {\n    "at": "2025-03-18T11:00:00Z",\n    "category": "oracle_divergence",\n    "z": 11.85\n   },\n   {\n    "at": "2025-03-18T12:00:00Z",\n    "category": "funding_extremity",\n    "z": 16.24\n   },\n   {\n    "at": "2025-03-18T12:00:00Z",\n    "category": "oracle_divergence",\n    "z": 10.8\n   },\n   {\n    "at": "2025-03-19T16:00:00Z",\n    "category": "liquidity_shock",\n    "z": 7.21\n   },\n   {\n    "at": "2025-03-19T20:00:00Z",\n    "category": "liquidity_shock",\n    "z": 8.05\n   },\n   {\n    "at": "2025-03-21T00:00:00Z",\n    "category": "oracle_divergence",\n    "z": 13.33\n   },\n   {\n    "at": "2025-03-21T01:00:00Z",\n    "category": "funding_extremity",\n    "z": 13.36\n   },\n   {\n    "at": "2025-03-21T01:00:00Z",\n    "category": "oracle_divergence",\n    "z": 14.42\n   },\n   {\n    "at": "2025-03-21T02:00:00Z",\n    "category": "funding_extremity",\n    "z": 16.43\n   },\n   {\n    "at": "2025-03-21T02:00:00Z",\n    "category": "oracle_divergence",\n    "z": 12.36\n   },\n   {\n    "at": "2025-03-21T03:00:00Z",\n    "category": "funding_extremity",\n    "z": 19.88\n   },\n   {\n    "at": "2025-03-21T03:00:00Z",\n    "category": "oracle_divergence",\n    "z": 12.07\n   },\n   {\n    "at": "2025-03-21T04:00:00Z",\n    "category": "funding_extremity",\n    "z": 22.75\n   },\n   {\n    "at": "2025-03-21T04:00:00Z",\n    "category": "oracle_divergence",\n    "z": 10.88\n   },\n   {\n    "at": "2025-03-21T05:00:00Z",\n    "category": "funding_extremity",\n    "z": 26.52\n   },\n   {\n    "at": "2025-03-21T05:00:00Z",\n    "category": "oracle_divergence",\n    "z": 12.73\n   },\n   {\n    "at": "2025-03-21T06:00:00Z",\n    "category": "funding_extremity",\n    "z": 27.67\n   },\n   {\n    "at": "2025-03-21T06:00:00Z",\n    "category": "oracle_divergence",\n    "z": 11.49\n   },\n   {\n    "at": "2025-03-21T07:00:00Z",\n    "category": "funding_extremity",\n    "z": 30.27\n   },\n   {\n    "at": "2025-03-21T07:00:00Z",\n    "category": "oracle_divergence",\n    "z": 16.32\n   },\n   {\n    "at": "2025-03-21T08:00:00Z",\n    "category": "funding_extremity",\n    "z": 31.59\n   },\n   {\n    "at": "2025-03-21T08:00:00Z",\n    "category": "oracle_divergence",\n    "z": 16.74\n   },\n   {\n    "at": "2025-03-21T09:00:00Z",\n    "category": "funding_extremity",\n    "z": 31.67\n   },\n   {\n    "at": "2025-03-21T09:00:00Z",\n    "category": "oracle_divergence",\n    "z": 14.64\n   },\n   {\n    "at": "2025-03-21T10:00:00Z",\n    "category": "funding_extremity",\n    "z": 32.84\n   },\n   {\n    "at": "2025-03-21T10:00:00Z",\n    "category": "oracle_divergence",\n    "z": 15.7\n   },\n   {\n    "at": "2025-03-21T11:00:00Z",\n    "category": "funding_extremity",\n    "z": 32.7\n   },\n   {\n    "at": "2025-03-21T11:00:00Z",\n    "category": "oracle_divergence",\n    "z": 11.67\n   },\n   {\n    "at": "2025-03-21T12:00:00Z",\n    "category": "funding_extremity",\n    "z": 33.22\n   },\n   {\n    "at": "2025-03-21T12:00:00Z",\n    "category": "oracle_divergence",\n    "z": 12.51\n   },\n   {\n    "at": "2025-03-21T13:00:00Z",\n    "category": "funding_extremity",\n    "z": 34.12\n   },\n   {\n    "at": "2025-03-21T13:00:00Z",\n    "category": "oracle_divergence",\n    "z": 15.44\n   },\n   {\n    "at": "2025-03-21T14:00:00Z",\n    "category": "funding_extremity",\n    "z": 36.35\n   },\n   {\n    "at": "2025-03-21T14:00:00Z",\n    "category": "oracle_divergence",\n    "z": 17.73\n   },\n   {\n    "at": "2025-03-21T15:00:00Z",\n    "category": "funding_extremity",\n    "z": 35.98\n   },\n   {\n    "at": "2025-03-21T15:00:00Z",\n    "category": "oracle_divergence",\n    "z": 14.92\n   },\n   {\n    "at": "2025-03-21T16:00:00Z",\n    "category": "funding_extremity",\n    "z": 34.63\n   },\n   {\n    "at": "2025-03-21T16:00:00Z",\n    "category": "oracle_divergence",\n    "z": 12.63\n   },\n   {\n    "at": "2025-03-21T17:00:00Z",\n    "category": "funding_extremity",\n    "z": 38.19\n   },\n   {\n    "at": "2025-03-21T17:00:00Z",\n    "category": "oracle_divergence",\n    "z": 23.61\n   },\n   {\n    "at": "2025-03-21T18:00:00Z",\n    "category": "funding_extremity",\n    "z": 43.26\n   },\n   {\n    "at": "2025-03-21T18:00:00Z",\n    "category": "oracle_divergence",\n    "z": 28.89\n   },\n   {\n    "at": "2025-03-21T19:00:00Z",\n    "category": "funding_extremity",\n    "z": 46.35\n   },\n   {\n    "at": "2025-03-21T19:00:00Z",\n    "category": "liquidity_shock",\n    "z": 16.98\n   },\n   {\n    "at": "2025-03-21T19:00:00Z",\n    "category": "oracle_divergence",\n    "z": 18.84\n   },\n   {\n    "at": "2025-03-21T20:00:00Z",\n    "category": "funding_extremity",\n    "z": 52.25\n   },\n   {\n    "at": "2025-03-21T20:00:00Z",\n    "category": "liquidity_shock",\n    "z": 6.94\n   },\n   {\n    "at": "2025-03-21T20:00:00Z",\n    "category": "oracle_divergence",\n    "z": 26.76\n   },\n   {\n    "at": "2025-03-21T21:00:00Z",\n    "category": "funding_extremity",\n    "z": 57.47\n   },\n   {\n    "at": "2025-03-21T21:00:00Z",\n    "category": "oracle_divergence",\n    "z": 26.82\n   },\n   {\n    "at": "2025-03-21T22:00:00Z",\n    "category": "funding_extremity",\n    "z": 61.61\n   },\n   {\n    "at": "2025-03-21T22:00:00Z",\n    "category": "oracle_divergence",\n    "z": 25.97\n   },\n   {\n    "at": "2025-03-21T23:00:00Z",\n    "category": "funding_extremity",\n    "z": 66.73\n   },\n   {\n    "at": "2025-03-21T23:00:00Z",\n    "category": "oracle_divergence",\n    "z": 25.64\n   },\n   {\n    "at": "2025-03-22T00:00:00Z",\n    "category": "funding_extremity",\n    "z": 69.75\n   },\n   {\n    "at": "2025-03-22T00:00:00Z",\n    "category": "oracle_divergence",\n    "z": 20.98\n   },\n   {\n    "at": "2025-03-22T01:00:00Z",\n    "category": "funding_extremity",\n    "z": 67.72\n   },\n   {\n    "at": "2025-03-22T01:00:00Z",\n    "category": "oracle_divergence",\n    "z": 20.73\n   },\n   {\n    "at": "2025-03-22T02:00:00Z",\n    "category": "funding_extremity",\n    "z": 61.87\n   },\n   {\n    "at": "2025-03-22T02:00:00Z",\n    "category": "oracle_divergence",\n    "z": 22.1\n   },\n   {\n    "at": "2025-03-22T03:00:00Z",\n    "category": "funding_extremity",\n    "z": 65.16\n   },\n   {\n    "at": "2025-03-22T03:00:00Z",\n    "category": "oracle_divergence",\n    "z": 24.28\n   },\n   {\n    "at": "2025-03-22T04:00:00Z",\n    "category": "funding_extremity",\n    "z": 64.86\n   },\n   {\n    "at": "2025-03-22T04:00:00Z",\n    "category": "oracle_divergence",\n    "z": 26.5\n   },\n   {\n    "at": "2025-03-22T05:00:00Z",\n    "category": "funding_extremity",\n    "z": 56.84\n   },\n   {\n    "at": "2025-03-22T05:00:00Z",\n    "category": "oracle_divergence",\n    "z": 24.02\n   },\n   {\n    "at": "2025-03-22T06:00:00Z",\n    "category": "funding_extremity",\n    "z": 50.07\n   },\n   {\n    "at": "2025-03-22T06:00:00Z",\n    "category": "oracle_divergence",\n    "z": 18.98\n   },\n   {\n    "at": "2025-03-22T07:00:00Z",\n    "category": "funding_extremity",\n    "z": 45.52\n   },\n   {\n    "at": "2025-03-22T07:00:00Z",\n    "category": "oracle_divergence",\n    "z": 15.49\n   },\n   {\n    "at": "2025-03-22T08:00:00Z",\n    "category": "funding_extremity",\n    "z": 40.89\n   },\n   {\n    "at": "2025-03-22T08:00:00Z",\n    "category": "oracle_divergence",\n    "z": 10.65\n   },\n   {\n    "at": "2025-03-22T09:00:00Z",\n    "category": "funding_extremity",\n    "z": 35.57\n   },\n   {\n    "at": "2025-03-23T18:00:00Z",\n    "category": "liquidity_shock",\n    "z": 11.84\n   },\n   {\n    "at": "2025-03-24T15:00:00Z",\n    "category": "liquidity_shock",\n    "z": 7.91\n   },\n   {\n    "at": "2025-03-25T11:00:00Z",\n    "category": "liquidity_shock",\n    "z": 6.47\n   }\n  ],\n  "controls_firing_in_window": [],\n  "false_alarm_rate_per_market_day": 0.0,\n  "false_alarms_by_category": {},\n  "false_alarms_total": 0,\n  "market_days_observed": 14,\n  "in_window_events": [\n   {\n    "detected_at_utc": "2025-03-26T13:00:00Z",\n    "symbol": "JELLY",\n    "anomaly_category": "liquidity_shock",\n    "z": 7.41,\n    "anomaly_score": 18.54\n   },\n   {\n    "detected_at_utc": "2025-03-26T14:00:00Z",\n    "symbol": "JELLY",\n    "anomaly_category": "liquidity_shock",\n    "z": 28.11,\n    "anomaly_score": 97.41\n   },\n   {\n    "detected_at_utc": "2025-03-26T15:00:00Z",\n    "symbol": "JELLY",\n    "anomaly_category": "liquidity_shock",\n    "z": 14.51,\n    "anomaly_score": 75.04\n   },\n   {\n    "detected_at_utc": "2025-03-26T16:00:00Z",\n    "symbol": "JELLY",\n    "anomaly_category": "oracle_divergence",\n    "z": -13.45,\n    "anomaly_score": 41.39\n   }\n  ]\n }\n]\n' }, { path: "backtest/RESULTS.md", content: '# Backtest \u2014 gemach-hl-anomaly/robust-baseline-v2\n\n## What was tested\n\n- **Events.** Three real HyperLiquid events, each scanned from 14 days before onset to the end\n  of the event window.\n- **Controls.** The same 20 liquid core markets every time (BTC, ETH, SOL, XRP, DOGE, AVAX,\n  LINK, ARB, OP, SUI, APT, INJ, TIA, WIF, kPEPE, BNB, LTC, HYPE, TRUMP, ADA).\n- **Bar size.** Liquidity signals use 4h bars everywhere, because 1h candles do not reach back\n  to March 2025. JELLY is also run on 1h bars to show what live operation adds.\n- **Thresholds.** Calibrated beforehand on control markets over May and August 2025. Those\n  windows overlap no event and no event\'s 14-day run-up (see `../APPROACH.md`). Nothing below\n  was used to set a threshold.\n- **Reproduce.** `python3 calibrate.py && python3 backtest.py`. Raw output is in\n  `results.json`, including every in-window event.\n\n## Detection\n\n| Event | Onset used | First detection | Categories in window |\n|---|---|---|---|\n| JELLY short-squeeze manipulation | 2025-03-26 12:00 UTC (first 100\xD7 volume hour) | **13:00** on 1h bars (liquidity_shock, bar range); 16:00 on 4h bars | liquidity_shock, oracle_divergence |\n| POPCAT pump-and-dump | 2025-11-12, premium +2.0% in the 16:00 hour | **16:00** in the same hour (oracle_divergence z = 108, funding_extremity z = 25, liquidity_shock z = 9) | all three |\n| 10 Oct 2025 market-wide liquidation cascade | ~21:00 UTC | **22:00**, the first funding hour after the crash, on 12 markets; all 19 by 00:00 | all three |\n\n**Hit rate: 3/3 events.** The 10 Oct crash flagged **19 of 20** control markets. BTC was not\nflagged: its worst premium was \u22120.056%, which is inside its own normal range.\n\nHours after onset:\n\n- JELLY: 1h after onset on 1h bars, 4h after on 4h bars.\n- POPCAT: detected in the same hour as the dislocation. The 4h gap in `results.json` comes from\n  the approximate onset of 12:00 entered for the scan, not from a detection lag.\n- 10 Oct: about 1h after onset.\n\n## False alarms\n\nThese are events on control markets in the 14 days before each event. Every market-day in\nthese windows was treated as "should be quiet", which is conservative: some of those events\nmay be real.\n\n| Pre-event window | Market-days | Events | Rate / market-day | By category |\n|---|---|---|---|---|\n| 2025-03-12 \u2192 03-26 (JELLY) | 280 | 1 | 0.004 | oracle_divergence 1 |\n| 2025-09-26 \u2192 10-10 (crash) | 280 | 12 | 0.043 | oracle_divergence 11, liquidity_shock 1 |\n| 2025-10-29 \u2192 11-12 (POPCAT) | 280 | 24 | 0.086 | oracle_divergence 16, funding_extremity 7, liquidity_shock 1 |\n| **All** | **840** | **37** | **0.044** | |\n\nThe calibration target was 0.02 per market-day per category, so about 0.06 in total. The\npooled 0.044 sits under that target, but the late-October window ran higher, at 0.086.\n\nAt the scale of all ~180 active core markets, 0.044 per market-day means about **8 events on\na quiet day**.\n\nv1 used a single z \u2265 6 for every category. On the same windows it produced 150, 310 and 273\ncontrol events: **0.54\u20131.1 per market-day**, driven by funding and premium. That is why v2\nexists.\n\n## Findings a consumer should know\n\n1. **No lead time.** Nothing fired on JELLY before the 12:00 volume explosion. The detector\n   reports anomalies as they happen; it does not forecast them.\n2. **The event market\'s own run-up is noisy.** JELLY produced **84 events on 1h bars** (78 on\n   4h) in the 14 days before the attack, during its post-listing pump. POPCAT produced **0**.\n   A newly listed coin that is already running looks anomalous, and this model cannot tell\n   organic mania from a setup using price and volume alone. Large single-account open interest\n   would tell them apart. That is available only live, not historically.\n3. **Premium lags volume on a squeeze.** JELLY\'s premium only crossed at 16:00, four hours\n   after the volume did. Its baseline week was volatile (premium \u22120.38% to +0.97%), so a +0.10%\n   premium at 14:00 scored z \u2248 3. Liquidity carried the early detection.\n4. **Systemic events flag everything.** On 10 Oct nearly every market fired, so the stream\n   alone does not separate "this market" from "the whole market". A cross-sectional feature is\n   the next improvement.\n5. **Three events is not a recall estimate.** 3/3 shows these three known events are visible to\n   the detector. More labelled events are needed before quoting a detection rate.\n\n## Samples\n\n- `../sample/anomaly_sample.ndjson` holds two real records for contract tests:\n  - JELLY `liquidity_shock` at 2025-03-26 13:00 (1h bars)\n  - POPCAT `funding_extremity` at 2025-11-12 16:00, which carries the premium fields\n- `../sample/anomaly_coverage_sample.json` holds the coverage record from the POPCAT run. That\n  run emitted 3 events; the sample keeps one of them.\n' }, { path: "sample/anomaly_coverage_sample.json", content: '{"signal_type":"anomaly_coverage","source":"gemach","model_version":"gemach-hl-anomaly/robust-baseline-v2","detector_window_start":"2025-11-12T15:59:00Z","detector_window_end":"2025-11-12T16:01:00Z","bar_interval_h":4,"markets_scored":1,"markets_not_scored":[],"events":3,"note":"Only markets in markets_scored were evaluated. No event for a scored market means nothing crossed the threshold in this window - not that the market was normal."}\n' }, { path: "sample/anomaly_sample.ndjson", content: '{"signal_type":"anomaly","source":"gemach","anomaly_id":"4890eb6bf0ded957fcb734e3ea7955fd","entity_id":"hl-JELLY","entity_type":"market","chain":"hyperliquid","symbol":"JELLY","anomaly_category":"liquidity_shock","anomaly_score":18.54,"detection_method":"statistical","model_version":"gemach-hl-anomaly/robust-baseline-v2","baseline_window":"7d","observed_metric":"bar_range_pct","observed_value":35.77496350684979,"expected_value":5.170969899907207,"detected_at":1742994000,"detected_at_utc":"2025-03-26T13:00:00Z","evidence_ref":"hyperliquid:info/candleSnapshot/1h?coin=JELLY&t=1742990400000#baseline-sha256:9fdfa45ed4fc4945","summary":"JELLY liquidity shock: bar_range_pct 35.77 vs baseline 5.171 (robust z +7.4, threshold 6.18)","z":7.41,"z_threshold":6.18,"volume_base":452818911.0,"volume_z":3.79,"volume_baseline_base":2465204.405821188,"bar_range_pct":35.77496350684979,"bar_range_baseline_pct":5.170969899907207,"range_z":7.41,"bar_interval_h":1,"bar_start":"2025-03-26T12:00:00Z"}\n{"signal_type":"anomaly","source":"gemach","anomaly_id":"55c7b84c9520e91a2508bd85cbeb9f90","entity_id":"hl-POPCAT","entity_type":"market","chain":"hyperliquid","symbol":"POPCAT","anomaly_category":"funding_extremity","anomaly_score":92.01,"detection_method":"statistical","model_version":"gemach-hl-anomaly/robust-baseline-v2","baseline_window":"7d","observed_metric":"funding_8h_mean_hourly_pct","observed_value":0.0329148825,"expected_value":0.00125,"detected_at":1762963200,"detected_at_utc":"2025-11-12T16:00:00Z","evidence_ref":"hyperliquid:info/fundingHistory?coin=POPCAT&t=1762963200001#baseline-sha256:25528175eec74208","summary":"POPCAT funding extremity: funding_8h_mean_hourly_pct 0.03291 vs baseline 0.00125 (robust z +25.3, threshold 10.17)","z":25.33,"z_threshold":10.17,"premium_pct":2.00325221,"funding_hourly_pct":0.24415652999999998,"funding_8h_mean_hourly_pct":0.0329148825,"premium_baseline_pct":-0.01269008,"premium_z":108.33,"funding_baseline_pct":0.00125,"funding_z":25.33}\n' }, { path: "scripts/hl_anomaly.py", content: `#!/usr/bin/env python3
+"""HyperLiquid anomaly detection \u2014 scored, time-stamped events with learned baselines.
+
+Standard library only. For each market it learns a per-market baseline from that market's own
+recent history (trailing median and median absolute deviation), then scores each new
+observation by how far it sits from that baseline in robust standard deviations. Nothing here
+is a fixed market-wide threshold: "unusual" means unusual *for this market, recently*.
+
+Signals (signal_type "anomaly"):
+  oracle_divergence    hourly mark-vs-oracle premium far from its learned baseline
+  funding_extremity    funding far from baseline, ONLY when premium is outside HyperLiquid's
+                       clamp band \u2014 inside it, funding is pinned to the interest rate and says
+                       nothing. Always emitted with the premium alongside, never alone.
+  liquidity_shock      traded volume or bar range far from baseline
+
+Every run also emits ONE coverage record naming the window scanned, the markets covered, and
+the markets it could not score (too little history, delisted, no data). Absence of an event
+must never be read as "normal" \u2014 only as "scanned, nothing crossed the threshold".
+
+Usage:
+    hl_anomaly.py                                   # last 24h, all active core markets
+    hl_anomaly.py --coins BTC ETH --hours 72
+    hl_anomaly.py --start 2025-03-20 --end 2025-03-27 --coins JELLY BTC --interval 1h
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import math
+import statistics
+import sys
+import time
+import urllib.request
+from datetime import datetime, timedelta, timezone
+
+MODEL_VERSION = "gemach-hl-anomaly/robust-baseline-v2"
+INFO = "https://api.hyperliquid.xyz/info"
+
+BASELINE_HOURS = 168           # learn from the trailing 7 days
+MIN_BASELINE_OBS = 72          # below this the market is reported as not scored
+FUNDING_WINDOW_H = 8           # funding is scored as an 8h carry cost, not a single print
+# MAD floors: a perfectly flat history must not turn a tiny move into an infinite score.
+# The funding floor is HyperLiquid's base interest rate (0.01%/8h = 1.25e-5/h): a deviation
+# smaller than the rate every position already pays is not "extreme".
+FLOOR = {"premium": 5e-5, "funding": 1.25e-5, "log_volume": 0.25, "log_range": 0.025}
+# Robust-z thresholds per category, calibrated on control markets over windows that contain
+# none of the backtest events (backtest/calibrate.py -> backtest/calibration.json) to a target
+# of ~1 event per market per 50 days per category. Never tuned on the events themselves.
+Z_THRESHOLD = {"oracle_divergence": 10.24, "funding_extremity": 10.17,
+               "liquidity_shock/1h": 6.18, "liquidity_shock/4h": 6.0}
+Z_REF = 6.0                    # score() scale; fixed so scores stay comparable across versions
+# HyperLiquid funding equals the interest rate while premium sits in roughly this band.
+CLAMP_BAND = (-0.0004, 0.0006)
+
+
+# ---------------------------------------------------------------------------- data
+
+def _post(body: dict, tries: int = 7):
+    """POST to the info endpoint. Backs off exponentially (1.5s..~96s) on 429s and transient errors."""
+    last = None
+    for i in range(tries):
+        try:
+            req = urllib.request.Request(INFO, data=json.dumps(body).encode(),
+                                         headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=40) as r:
+                return json.load(r)
+        except Exception as exc:  # rate limits and transient errors: back off and retry
+            last = exc
+            time.sleep(1.5 * 2 ** i)
+    raise RuntimeError(f"HyperLiquid info {body.get('type')} failed: {last}")
+
+
+def funding_history(coin: str, start_ms: int, end_ms: int) -> list[dict]:
+    """Hourly funding + premium. Pages past the 500-row response cap."""
+    out, cursor = [], start_ms
+    while cursor < end_ms:
+        page = _post({"type": "fundingHistory", "coin": coin, "startTime": cursor, "endTime": end_ms})
+        if not page:
+            break
+        out.extend(page)
+        nxt = page[-1]["time"] + 1
+        if nxt <= cursor:
+            break
+        cursor = nxt
+        if len(page) < 500:
+            break
+    return out
+
+
+def candles(coin: str, interval: str, start_ms: int, end_ms: int) -> list[dict]:
+    return _post({"type": "candleSnapshot", "req": {"coin": coin, "interval": interval,
+                                                     "startTime": start_ms, "endTime": end_ms}}) or []
+
+
+def active_core_markets() -> list[str]:
+    meta = _post({"type": "meta"})
+    return [u["name"] for u in meta["universe"] if not u.get("isDelisted")]
+
+
+# ---------------------------------------------------------------------------- model
+
+def robust_z(x: float, history: list[float], floor: float) -> tuple[float, float, float]:
+    """(z, median, scale) of x against a learned baseline. Scale is 1.4826*MAD, floored."""
+    med = statistics.median(history)
+    mad = statistics.median(abs(h - med) for h in history)
+    scale = max(1.4826 * mad, floor)
+    return (x - med) / scale, med, scale
+
+
+def score(z: float, threshold: float) -> float:
+    """Map |z| to 0..1: 0 at the threshold, rising by 1-e^-1 per Z_REF beyond it. Monotonic, not a probability."""
+    return round(1.0 - math.exp(-max(0.0, abs(z) - threshold) / Z_REF), 4)
+
+
+def _iso(ms: int) -> str:
+    return datetime.fromtimestamp(ms / 1000, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _evidence(kind: str, coin: str, t_ms: int, baseline: list[float]) -> str:
+    """Reproducible pointer: the public endpoint + a hash of the exact baseline used."""
+    h = hashlib.sha256(json.dumps(baseline).encode()).hexdigest()[:16]
+    return f"hyperliquid:info/{kind}?coin={coin}&t={t_ms}#baseline-sha256:{h}"
+
+
+def _stale(rows: list[dict]) -> bool:
+    """A delisted market reports exact zeros forever. That is missing data, not calm."""
+    return len(rows) >= 3 and all(float(r["premium"]) == 0 and float(r["fundingRate"]) == 0 for r in rows[-3:])
+
+
+def _live(rows: list[dict]) -> list[dict]:
+    """Rows up to the point the market went flat (delisting)."""
+    live = []
+    for r in rows:
+        live.append(r)
+        if _stale(live):
+            return live[:-3]
+    return live
+
+
+def premium_funding_z(coin: str, rows: list[dict], scan_from_ms: int):
+    """Yield (row, premium z, funding z, features, premium baseline, funding baseline) per scored hour.
+
+    Funding is scored as the trailing FUNDING_WINDOW_H-hour mean against a baseline of the same
+    rolling means: one hourly print is noise; the carry a position pays over hours is the risk.
+    """
+    live = _live(rows)
+    fmean = []
+    for i, r in enumerate(live):
+        w = [float(x["fundingRate"]) for x in live[max(0, i - FUNDING_WINDOW_H + 1):i + 1]]
+        fmean.append(sum(w) / len(w))
+    for i, r in enumerate(live):
+        if r["time"] < scan_from_ms:
+            continue
+        idx = [j for j in range(i) if r["time"] - live[j]["time"] <= BASELINE_HOURS * 3600_000]
+        if len(idx) < MIN_BASELINE_OBS:
+            continue
+        p = float(r["premium"])
+        hp = [float(live[j]["premium"]) for j in idx]
+        hf = [fmean[j] for j in idx]
+        zp, mp, _ = robust_z(p, hp, FLOOR["premium"])
+        zf, mf, _ = robust_z(fmean[i], hf, FLOOR["funding"])
+        feats = {"premium_pct": p * 100, "funding_hourly_pct": float(r["fundingRate"]) * 100,
+                 "funding_8h_mean_hourly_pct": fmean[i] * 100,
+                 "premium_baseline_pct": mp * 100, "premium_z": round(zp, 2),
+                 "funding_baseline_pct": mf * 100, "funding_z": round(zf, 2)}
+        yield r, zp, zf, feats, hp, hf
+
+
+def detect_premium_funding(coin: str, rows: list[dict], scan_from_ms: int) -> tuple[list[dict], bool]:
+    """Returns (events, scored?). rows must include BASELINE_HOURS of history before scan_from."""
+    events, scored = [], False
+    for r, zp, zf, feats, hp, hf in premium_funding_z(coin, rows, scan_from_ms):
+        scored = True
+        p = float(r["premium"])
+        outside_clamp = not (CLAMP_BAND[0] <= p <= CLAMP_BAND[1])
+        if abs(zp) >= Z_THRESHOLD["oracle_divergence"]:
+            events.append(_event(coin, "oracle_divergence", r["time"], zp, feats,
+                                 _evidence("fundingHistory", coin, r["time"], hp),
+                                 metric="premium_pct", source_kind="fundingHistory"))
+        if abs(zf) >= Z_THRESHOLD["funding_extremity"] and outside_clamp:
+            events.append(_event(coin, "funding_extremity", r["time"], zf, feats,
+                                 _evidence("fundingHistory", coin, r["time"], hf),
+                                 metric="funding_8h_mean_hourly_pct", source_kind="fundingHistory"))
+    return events, scored
+
+
+def liquidity_z(coin: str, bars: list[dict], interval_h: int, scan_from_ms: int):
+    """Yield (bar, close_ms, volume z, range z, features, volume baseline) per scored bar."""
+    n_base = max(MIN_BASELINE_OBS // interval_h, 12)
+    for i, b in enumerate(bars):
+        close_ms = b["t"] + interval_h * 3600_000   # observable once the bar has closed
+        if close_ms < scan_from_ms:
+            continue
+        hist = [x for x in bars[:i] if b["t"] - x["t"] <= BASELINE_HOURS * 3600_000]
+        if len(hist) < n_base:
+            continue
+        lv = math.log1p(float(b["v"]))
+        lr = math.log(max(float(b["h"]), 1e-18) / max(float(b["l"]), 1e-18))
+        hv = [math.log1p(float(x["v"])) for x in hist]
+        hr = [math.log1p(math.log(max(float(x["h"]), 1e-18) / max(float(x["l"]), 1e-18))) for x in hist]
+        zv, mv, _ = robust_z(lv, hv, FLOOR["log_volume"])
+        zr, mr, _ = robust_z(math.log1p(lr), hr, FLOOR["log_range"])
+        feats = {"volume_base": float(b["v"]), "volume_z": round(zv, 2),
+                 "volume_baseline_base": math.expm1(mv), "bar_range_pct": lr * 100,
+                 "bar_range_baseline_pct": math.expm1(mr) * 100,
+                 "range_z": round(zr, 2), "bar_interval_h": interval_h, "bar_start": _iso(b["t"])}
+        yield b, close_ms, zv, zr, feats, hv
+
+
+def detect_liquidity(coin: str, bars: list[dict], interval_h: int, scan_from_ms: int) -> tuple[list[dict], bool]:
+    events, scored = [], False
+    thr = Z_THRESHOLD[f"liquidity_shock/{interval_h}h"]
+    for b, close_ms, zv, zr, feats, hv in liquidity_z(coin, bars, interval_h, scan_from_ms):
+        scored = True
+        # Only spikes: a volume collapse on a quiet night is not a liquidity shock.
+        if max(zv, zr) >= thr:
+            events.append(_event(coin, "liquidity_shock", close_ms, max(zv, zr), feats,
+                                 _evidence(f"candleSnapshot/{interval_h}h", coin, b["t"], hv),
+                                 threshold=thr, metric="volume_base" if zv >= zr else "bar_range_pct",
+                                 source_kind=f"candleSnapshot/{interval_h}h"))
+    return events, scored
+
+
+# observed metric -> the feature holding its learned baseline (the model's expectation)
+EXPECTED = {"premium_pct": "premium_baseline_pct",
+            "funding_8h_mean_hourly_pct": "funding_baseline_pct",
+            "volume_base": "volume_baseline_base",
+            "bar_range_pct": "bar_range_baseline_pct"}
+
+
+def _event(coin, category, t_ms, z, features, evidence, metric, source_kind, threshold=None):
+    """One event in the downstream contract's anomaly shape (15 columns), plus model features.
+
+    \`confidence\` is deliberately absent: the score ranks events against a calibrated threshold
+    and is not a probability, so there is no honest 0-1 confidence to report.
+    """
+    threshold = Z_THRESHOLD[category] if threshold is None else threshold
+    t_s = t_ms // 1000
+    entity = f"hl-{coin}"
+    observed, expected = features[metric], features[EXPECTED[metric]]
+    return {
+        "signal_type": "anomaly", "source": "gemach",
+        "anomaly_id": hashlib.sha256(f"{entity}|{category}|{t_s}|{source_kind}".encode()).hexdigest()[:32],
+        "entity_id": entity, "entity_type": "market", "chain": "hyperliquid", "symbol": coin,
+        "anomaly_category": category,
+        "anomaly_score": round(100 * score(z, threshold), 2),
+        "detection_method": "statistical",
+        "model_version": MODEL_VERSION,
+        "baseline_window": f"{BASELINE_HOURS // 24}d",
+        "observed_metric": metric, "observed_value": observed, "expected_value": expected,
+        "detected_at": t_s, "detected_at_utc": _iso(t_ms),
+        "evidence_ref": evidence,
+        "summary": (f"{coin} {category.replace('_', ' ')}: {metric} {observed:.4g} vs baseline "
+                    f"{expected:.4g} (robust z {z:+.1f}, threshold {threshold})"),
+        "z": round(z, 2), "z_threshold": threshold, **features}
+
+
+def run(coins: list[str], start: datetime, end: datetime, interval: str = "1h") -> list[dict]:
+    interval_h = int(interval.rstrip("h"))
+    s_ms, e_ms = int(start.timestamp() * 1000), int(end.timestamp() * 1000)
+    fetch_from = s_ms - (BASELINE_HOURS + 24) * 3600_000
+    events, covered, unscored = [], [], []
+    for coin in coins:
+        pf, s1 = detect_premium_funding(coin, [r for r in funding_history(coin, fetch_from, e_ms)], s_ms)
+        lq, s2 = detect_liquidity(coin, [b for b in candles(coin, interval, fetch_from, e_ms) if b["t"] < e_ms],
+                                  interval_h, s_ms)
+        events += [x for x in pf + lq if x["detected_at"] <= e_ms // 1000]
+        (covered if (s1 or s2) else unscored).append(coin)
+    events.sort(key=lambda x: (x["detected_at"], x["entity_id"], x["anomaly_category"], x["anomaly_id"]))
+    coverage = {"signal_type": "anomaly_coverage", "source": "gemach", "model_version": MODEL_VERSION,
+                "detector_window_start": _iso(s_ms), "detector_window_end": _iso(e_ms), "bar_interval_h": interval_h,
+                "markets_scored": len(covered), "markets_not_scored": sorted(unscored),
+                "events": len(events),
+                "note": "Only markets in markets_scored were evaluated. No event for a scored market means "
+                        "nothing crossed the threshold in this window - not that the market was normal."}
+    return events + [coverage]
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--coins", nargs="*", help="markets (default: all active core markets)")
+    ap.add_argument("--hours", type=int, default=24, help="scan the last N hours (ignored with --start)")
+    ap.add_argument("--start"); ap.add_argument("--end")
+    ap.add_argument("--interval", default="1h", choices=["1h", "4h"],
+                    help="bar size for liquidity signals; 1h reaches back ~7 months, 4h ~2 years")
+    a = ap.parse_args(argv)
+    end = (datetime.fromisoformat(a.end).replace(tzinfo=timezone.utc) if a.end
+           else datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0))
+    start = (datetime.fromisoformat(a.start).replace(tzinfo=timezone.utc) if a.start
+             else end - timedelta(hours=a.hours))
+    coins = a.coins or active_core_markets()
+    for rec in run(coins, start, end, a.interval):
+        sys.stdout.write(json.dumps(rec, separators=(",", ":")) + "\\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+` }, { path: "scripts/test_hl_anomaly.py", content: `"""Offline tests for hl_anomaly: the model's invariants, no network."""
+import unittest
+
+import hl_anomaly as H
+
+H0 = 1_700_000_000_000
+HOUR = 3600_000
+
+
+def rows(premiums, fundings=None):
+    fundings = fundings or [1.25e-5] * len(premiums)
+    return [{"time": H0 + i * HOUR, "premium": str(p), "fundingRate": str(f)}
+            for i, (p, f) in enumerate(zip(premiums, fundings))]
+
+
+class Model(unittest.TestCase):
+    def test_robust_z_ignores_one_past_spike(self):
+        calm = [0.0001, -0.0001] * 50
+        z_clean, *_ = H.robust_z(0.003, calm, H.FLOOR["premium"])
+        z_spiked, *_ = H.robust_z(0.003, calm[:-1] + [0.05], H.FLOOR["premium"])
+        self.assertGreater(z_spiked, 0.9 * z_clean)   # a mean/stdev baseline would drop below 1
+
+    def test_floor_bounds_flat_history(self):
+        z, _, scale = H.robust_z(1e-4, [0.0] * 100, H.FLOOR["premium"])
+        self.assertEqual(scale, H.FLOOR["premium"])
+        self.assertAlmostEqual(z, 2.0)
+
+    def test_score_zero_at_threshold_and_monotonic(self):
+        self.assertEqual(H.score(10.0, 10.0), 0.0)
+        self.assertEqual(H.score(-9.0, 10.0), 0.0)
+        self.assertLess(H.score(12, 10), H.score(20, 10))
+        self.assertLessEqual(H.score(1e6, 10), 1.0)
+
+    def test_premium_spike_fires_divergence(self):
+        ps = [0.0001 * (1 if i % 2 else -1) for i in range(200)] + [0.02]
+        ev, scored = H.detect_premium_funding("X", rows(ps), H0 + 200 * HOUR)
+        self.assertTrue(scored)
+        self.assertEqual([e["anomaly_category"] for e in ev if e["anomaly_category"] == "oracle_divergence"],
+                         ["oracle_divergence"])
+        self.assertEqual(ev[0]["detected_at"], (H0 + 200 * HOUR) // 1000)
+        self.assertEqual(ev[0]["detected_at_utc"], H._iso(H0 + 200 * HOUR))
+
+    def test_funding_inside_clamp_never_fires(self):
+        ps = [0.0] * 200 + [0.0005]            # inside the band
+        fs = [1.25e-5] * 200 + [0.01]          # absurd funding, but premium is in-band
+        ev, _ = H.detect_premium_funding("X", rows(ps, fs), H0 + 200 * HOUR)
+        self.assertNotIn("funding_extremity", [e["anomaly_category"] for e in ev])
+
+    def test_funding_event_carries_premium(self):
+        ps = [0.0] * 200 + [0.05] * 8
+        fs = [1.25e-5] * 200 + [0.006] * 8
+        ev, _ = H.detect_premium_funding("X", rows(ps, fs), H0 + 200 * HOUR)
+        fe = [e for e in ev if e["anomaly_category"] == "funding_extremity"]
+        self.assertTrue(fe)
+        self.assertIn("premium_pct", fe[0])
+
+    def test_short_history_not_scored(self):
+        ev, scored = H.detect_premium_funding("X", rows([0.0] * 50 + [0.05]), H0 + 50 * HOUR)
+        self.assertFalse(scored)
+        self.assertEqual(ev, [])
+
+    def test_delisted_zeros_are_missing_not_calm(self):
+        r = rows([0.0001 * (1 if i % 2 else -1) for i in range(100)] + [0.0] * 50, [1e-5] * 100 + [0.0] * 50)
+        _, scored = H.detect_premium_funding("X", r, H0 + 110 * HOUR)
+        self.assertFalse(scored)
+
+    def test_liquidity_detected_at_bar_close_spikes_only(self):
+        bars = [{"t": H0 + i * HOUR, "v": "1000", "h": "1.01", "l": "1.0"} for i in range(100)]
+        bars += [{"t": H0 + 100 * HOUR, "v": "1", "h": "1.01", "l": "1.0"},        # collapse
+                 {"t": H0 + 101 * HOUR, "v": "500000", "h": "1.3", "l": "1.0"}]    # spike
+        ev, scored = H.detect_liquidity("X", bars, 1, H0 + 100 * HOUR)
+        self.assertTrue(scored)
+        self.assertEqual([e["detected_at_utc"] for e in ev], [H._iso(H0 + 102 * HOUR)])
+
+
+CONTRACT = {  # column -> type, per the downstream anomaly contract (v1.1 section 3a + v1.2)
+    "anomaly_id": str, "entity_id": str, "entity_type": str, "chain": str, "anomaly_category": str,
+    "anomaly_score": float, "detection_method": str, "model_version": str, "baseline_window": str,
+    "observed_value": float, "expected_value": float, "detected_at": int, "evidence_ref": str,
+    "summary": str}
+
+
+class ContractShape(unittest.TestCase):
+    def _events(self):
+        ps = [0.0001 * (1 if i % 2 else -1) for i in range(200)] + [0.05] * 8
+        fs = [1.25e-5] * 200 + [0.006] * 8
+        ev, _ = H.detect_premium_funding("X", rows(ps, fs), H0 + 200 * HOUR)
+        bars = [{"t": H0 + i * HOUR, "v": "1000", "h": "1.01", "l": "1.0"} for i in range(100)]
+        bars += [{"t": H0 + 100 * HOUR, "v": "500000", "h": "1.3", "l": "1.0"}]
+        lq, _ = H.detect_liquidity("X", bars, 1, H0 + 100 * HOUR)
+        self.assertTrue(ev and lq)
+        return ev + lq
+
+    def test_every_contract_column_present_and_typed(self):
+        for e in self._events():
+            for col, typ in CONTRACT.items():
+                self.assertIsInstance(e[col], typ, col)
+            self.assertTrue(0 <= e["anomaly_score"] <= 100)
+            self.assertEqual(e["detection_method"], "statistical")
+            self.assertEqual(e["baseline_window"], "7d")
+
+    def test_confidence_is_absent_not_faked(self):
+        for e in self._events():
+            self.assertNotIn("confidence", e)
+
+    def test_observed_and_expected_come_from_the_named_metric(self):
+        for e in self._events():
+            self.assertEqual(e["observed_value"], e[e["observed_metric"]])
+            self.assertEqual(e["expected_value"], e[H.EXPECTED[e["observed_metric"]]])
+
+    def test_anomaly_id_stable_and_distinct(self):
+        a, b = self._events(), self._events()
+        self.assertEqual([e["anomaly_id"] for e in a], [e["anomaly_id"] for e in b])
+        self.assertEqual(len({e["anomaly_id"] for e in a}), len(a))
+
+
+if __name__ == "__main__":
+    unittest.main()
+` }] }, { name: "gdex-hl-market-risk", description: "HyperLiquid core-perp risk via GDEX: funding, open interest, oracle premium, leverage caps, delisting for ~234 markets, as NDJSON from a deterministic script.", content: "\n# GDEX: HyperLiquid Market Risk\n\nA read-only risk snapshot of every market on HyperLiquid's **core** perpetual DEX, as served\nthrough GDEX. One JSON object per market.\n\n## Run it\n\n```bash\npython3 scripts/hl_market_risk.py                  # all core markets (NDJSON on stdout)\npython3 scripts/hl_market_risk.py --symbol BTC ETH\npython3 scripts/hl_market_risk.py --active-only\n```\n\nStandard library only \u2014 no install, no API key. A non-zero exit means the read failed; never\ntreat it as \"no markets\".\n\n## Rule for agents\n\n**Report numbers exactly as the script prints them.** Do not estimate, interpolate, round\naway precision, or compute new figures in prose. If a figure is needed that the script does\nnot print, say so.\n\n## Fields\n\n| Field | Meaning |\n|---|---|\n| `mark_px_usd`, `oracle_px_usd`, `mid_px_usd` | prices, USD |\n| `premium_pct` | `(mark \u2212 oracle) / oracle`, percent \u2014 oracle deviation versus market |\n| `funding_hourly_pct` | hourly funding rate, percent (HL's decimal fraction \xD7 100) |\n| `open_interest_base` / `open_interest_usd` | OI in coin units / \xD7 mark |\n| `volume_24h_usd` | 24h notional volume |\n| `max_leverage` | protocol cap; **core HL tops out at 40x** |\n| `is_delisted` / `is_active` | always present (upstream omits `isDelisted` when false) |\n\n**Delisted markets** (about a quarter of the universe) are kept with `is_active: false` so you\nfilter deliberately. They have no order book, so `mid_px_usd` and `premium_pct` are absent on\nexactly those rows. An *active* market without them makes the script fail loudly.\n\n## Scope\n\nCore DEX only. GDEX also lists ~140 builder-deployed perpetuals (equities, FX, commodities,\nindices); they are excluded here on purpose.\n", files: [{ path: "scripts/hl_market_risk.py", content: '#!/usr/bin/env python3\n"""HyperLiquid core-perpetual risk snapshot via GDEX. Standard library only.\n\nPrints one JSON object per market (NDJSON) to stdout. Every number comes from the API\nresponse; nothing is estimated. Exit code is non-zero on any upstream or shape error, so a\ncaller can never mistake a failed read for an empty market.\n\nScope: the core HyperLiquid DEX only (the `/v1/hl/meta_and_asset_ctxs` universe). Builder-\ndeployed markets (equities, FX, commodities, indices) are deliberately excluded.\n\nUsage:\n    hl_market_risk.py                     # all core markets\n    hl_market_risk.py --symbol BTC ETH    # just these\n    hl_market_risk.py --active-only       # drop delisted markets\n"""\nfrom __future__ import annotations\n\nimport argparse\nimport json\nimport sys\nimport urllib.request\nfrom datetime import datetime, timezone\n\nAPI = "https://trade-api.gemach.io/v1/hl/meta_and_asset_ctxs"\n# The GDEX API refuses non-browser clients (HTTP 403); these headers are load-bearing.\nHEADERS = {\n    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "\n                  "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",\n    "Origin": "https://gdex.pro",\n    "Accept": "application/json",\n}\nFEED = "hl_markets"\nCHAIN_ID = 999  # HyperEVM mainnet, used purely as a registry key\n\n\nclass ShapeError(RuntimeError):\n    pass\n\n\ndef fetch() -> dict:\n    req = urllib.request.Request(API, headers=HEADERS)\n    with urllib.request.urlopen(req, timeout=30) as r:\n        return json.load(r)\n\n\ndef _num(v) -> float:\n    if v is None or isinstance(v, bool):\n        raise ValueError(f"expected a number, got {v!r}")\n    return float(str(v).strip())\n\n\ndef _pct(fraction: float) -> float:\n    """Fraction -> percent, trimming the float noise that x100 introduces (e.g. ...0000004).\n    12 significant digits is far beyond the precision HyperLiquid publishes."""\n    return float(f"{fraction * 100.0:.12g}")\n\n\ndef _opt(v) -> float | None:\n    return None if v is None or v == "" else _num(v)\n\n\ndef pairs(payload: dict):\n    if not isinstance(payload, dict) or payload.get("isSuccess") is False:\n        raise ShapeError(f"upstream reported failure: {str(payload)[:200]}")\n    data = payload.get("data")\n    if not isinstance(data, list) or len(data) != 2:\n        raise ShapeError("expected data = [meta, contexts]")\n    universe, ctxs = (data[0] or {}).get("universe"), data[1]\n    if not isinstance(universe, list) or not isinstance(ctxs, list):\n        raise ShapeError("universe or contexts is not a list")\n    if len(universe) != len(ctxs):\n        # Pairing is by index; misaligned arrays would attach one market\'s prices to another.\n        raise ShapeError(f"universe has {len(universe)} entries but contexts has {len(ctxs)}")\n    return zip(universe, ctxs)\n\n\ndef market(meta: dict, ctx: dict, now: datetime) -> dict:\n    name = str(meta["name"]).strip()\n    delisted = bool(meta.get("isDelisted", False))  # upstream only sends it when true\n    mark, oracle, prev = _num(ctx["markPx"]), _num(ctx["oraclePx"]), _num(ctx["prevDayPx"])\n    oi = _num(ctx["openInterest"])\n    rec = {\n        "gemach_id": f"hl-{name}",\n        "source": "gemach", "feed": FEED, "product": "gdex", "deployment": "hyperliquid-core",\n        "chain_id": CHAIN_ID, "chain_name": "HyperLiquid", "symbol": name,\n        "is_active": not delisted, "is_delisted": delisted,\n        "only_isolated": bool(meta.get("onlyIsolated", False)),\n        "max_leverage": int(meta["maxLeverage"]), "sz_decimals": int(meta["szDecimals"]),\n        "mark_px_usd": mark, "oracle_px_usd": oracle, "prev_day_px_usd": prev,\n        # HL publishes funding and premium as decimal fractions; x100 gives percent.\n        "funding_hourly_pct": _pct(_num(ctx["funding"])),\n        "open_interest_base": oi, "open_interest_usd": float(f"{oi * mark:.12g}"),\n        "volume_24h_usd": _num(ctx["dayNtlVlm"]), "volume_24h_base": _num(ctx["dayBaseVlm"]),\n        "change_24h_pct": _pct(mark / prev - 1.0) if prev > 0 else 0.0,\n        "upstream_updated_at": int(now.timestamp()), "upstream_updated_source": "api_snapshot_time",\n        "ingestion_date": now.strftime("%Y-%m-%d"),\n        "fetched_at": now.strftime("%Y-%m-%dT%H:%M:%S.%f") + "+00:00",\n    }\n    # Delisted markets have no book: upstream nulls these two. Active ones must have them.\n    mid, prem = _opt(ctx.get("midPx")), _opt(ctx.get("premium"))\n    if mid is not None:\n        rec["mid_px_usd"] = mid\n    if prem is not None:\n        rec["premium_pct"] = _pct(prem)\n    if not delisted and (mid is None or prem is None):\n        raise ShapeError(f"active market {name} has no mid/premium; upstream shape changed")\n    return rec\n\n\ndef main(argv=None) -> int:\n    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])\n    ap.add_argument("--symbol", nargs="*", help="only these symbols (case-sensitive, e.g. BTC kPEPE)")\n    ap.add_argument("--active-only", action="store_true", help="drop delisted markets")\n    a = ap.parse_args(argv)\n    now = datetime.now(timezone.utc)\n    rows = [market(m, c, now) for m, c in pairs(fetch())]\n    if a.symbol:\n        want = set(a.symbol)\n        rows = [r for r in rows if r["symbol"] in want]\n    if a.active_only:\n        rows = [r for r in rows if r["is_active"]]\n    for r in rows:\n        sys.stdout.write(json.dumps(r, separators=(",", ":")) + "\\n")\n    return 0\n\n\nif __name__ == "__main__":\n    sys.exit(main())\n' }] }, { name: "gdex-hl-outcomes", description: "HyperLiquid HIP-3 outcome / event markets \u2014 list markets, place outcome orders, and manage outcome positions", content: "\n# GDEX: HyperLiquid Outcomes (HIP-3 Event Markets)\n\nTrade discrete-outcome event markets running on HyperLiquid HIP-3 permissioned\nperp DEXes. These are prediction-market-style instruments where each market\nresolves to a discrete outcome rather than a continuous price.\n\n## When to Use\n\n- Listing the currently open / resolved outcome markets\n- Getting an account state on an outcomes perp dex\n- Opening, cancelling, or closing positions on an outcome market\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via managed custody \u2014 see **gdex-authentication**\n- Trading enabled on HL (one-time `/v1/hl/enable_trading`) \u2014 see\n  **gdex-perp-trading** for the HIP-3 setup flow\n- For write operations: a pre-built `computedData` payload built by the\n  caller using the standard managed-custody encrypted-payload contract\n  (ABI schemas for outcome actions live in\n  `src/api/services/ServiceHyperLiquid.ts` of the backend)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/hl/outcomes` | List outcome markets |\n| `GET`  | `/v1/hl/outcome_account` | Account state on outcomes dex |\n| `POST` | `/v1/hl/outcome/create_order` | Open an outcome order |\n| `POST` | `/v1/hl/outcome/cancel_order` | Cancel an outcome order |\n| `POST` | `/v1/hl/outcome/close_order` | Close an outcome position |\n\nAll read endpoints accept an optional `dex` query parameter to target a\nspecific HIP-3 perp dex registered via `/v1/hl/perp_dexes`.\n\n## SDK Usage\n\nThe SDK builds the encrypted payload for you \u2014 pass structured params plus\nmanaged-custody credentials (`apiKey`, `walletAddress` = your **control**\naddress from sign-in, `sessionPrivateKey`). A pre-built `computedData` is\nstill accepted for advanced callers.\n\n```typescript\nimport { GdexSkill } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\n// 1. List markets. Each `mids` key is a coin id: \"#<outcomeId><sideIndex>\",\n//    e.g. \"#1010\" = outcome 101 / side 0 (Yes), \"#1011\" = side 1 (No).\nconst markets = await skill.getHlOutcomes({ status: 'open' });\n\n// 2. Enable trading once before the first outcome order (see Prerequisites).\nawait skill.hlEnableTrading({ apiKey, walletAddress, sessionPrivateKey });\n\n// 3. Account state for one market (outcomeId is REQUIRED).\nconst state = await skill.getHlOutcomeAccount({\n  userAddress: managedAddress,   // the managed wallet holds outcome balances\n  outcomeId: 101,\n});\n\n// 4. Place an order. price is a probability in [0,1]; size is in contracts.\nconst order = await skill.createHlOutcomeOrder({\n  apiKey, walletAddress, sessionPrivateKey,\n  outcomeId: 101,\n  coin: '#1010',        // Yes side of outcome 101\n  isBuy: true,\n  price: '0.55',        // limit; pass isMarket:true to take the book\n  size: '20',\n  isMarket: false,\n});\n\n// 5. Cancel / close\nawait skill.cancelHlOutcomeOrder({ apiKey, walletAddress, sessionPrivateKey, outcomeId: 101, coin: '#1010', orderId });\nawait skill.closeHlOutcomeOrder({ apiKey, walletAddress, sessionPrivateKey, outcomeId: 101, coin: '#1010', price: '0', size: '20', isMarket: true });\n```\n\n## Collateral currency (HIP-3 / HIP-4) \u2014 swap before trading\n\nEach outcome market is quoted in a specific stablecoin (its `quoteToken` \u2014\n`USDC`, `USDH`, `USDE`, or `USDT0`). HIP-3 and HIP-4 deployments use different\nquote currencies, so **before placing an order you must hold that market's\ncurrency in your HL spot balance.** If you only hold USDC, swap into the\nmarket's currency first with `hlSwapCollateral` (a HL spot swap), then swap\nback when done.\n\n```typescript\n// Check the market's currency\nconst m = (await skill.getHlOutcomes({ status: 'open' })).data.meta.outcomes\n  .find((o) => o.outcome === 101);\nconsole.log(m.quoteToken);   // e.g. 'USDH'\n\n// If it's not USDC, swap USDC -> that currency (amount = NON-USDC token amount).\n// HyperLiquid enforces a $10 minimum per swap order.\nawait skill.hlSwapCollateral({\n  apiKey, walletAddress, sessionPrivateKey,\n  fromToken: 'USDC', toToken: 'USDH', amount: '15',   // buy 15 USDH\n});\n\n// ...place / manage outcome orders in that currency...\n\n// Swap leftover back to USDC when finished\nawait skill.hlSwapCollateral({\n  apiKey, walletAddress, sessionPrivateKey,\n  fromToken: 'USDH', toToken: 'USDC', amount: '15',\n});\n```\n\nSupported swap currencies: `USDC` \u21C4 `USDH` / `USDE` / `USDT0`. MCP exposes this\nas the `hl_swap_collateral` tool with the same structured params.\n\n## Notes\n\n- **Coin format:** orders take `coin` as `\"#<outcomeId><sideIndex>\"` \u2014 side 0\n  is the first `sideSpecs` entry (usually \"Yes\"), side 1 the second (\"No\").\n  Current prices are in the `mids` map returned by `getHlOutcomes`.\n- **Price is a probability** in `(0,1)`; **size is contracts**. HyperLiquid\n  enforces its own minimum order value (~$10\u201311 notional).\n- **`walletAddress` is the control address** used at sign-in (the same rule as\n  perp trading); outcome balances/positions live under the **managed** address,\n  so pass the managed address to `getHlOutcomeAccount`.\n- Outcome markets settle through HyperLiquid **spot** collateral, separate from\n  the perp engine. Funding an HL account (via **gdex-perp-funding**) and placing\n  an outcome order can move USDC from the perp to the spot/outcomes balance;\n  check both `getHlAccountState` (perp) and `getHlSpotState` (spot).\n- MCP: the same flow is available via the `hl_enable_trading`,\n  `hl_create_outcome_order`, `hl_cancel_outcome_order`, and\n  `hl_close_outcome_order` tools with these structured params.\n", files: [] }, { name: "gdex-hl-referral", description: "HyperLiquid referral info and reward claims \u2014 distinct from the HL copy-trading referral flows", content: "\n# GDEX: HyperLiquid Referral\n\nInspect a wallet's HyperLiquid referral status and submit claims for accrued\nrewards. This is the user-side HL referral flow exposed under\n`/v1/hl_ref/*` \u2014 **distinct** from the copy-trading top-traders referral\nflow under `/v1/hl/top_traders_by_pnl` and from the builder referral under\n`/v1/hl/builder_referral`.\n\n## When to Use\n\n- Checking how much HL referral reward a wallet has accrued\n- Submitting a claim transaction for accrued rewards\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via managed custody \u2014 see **gdex-authentication**\n- For claim: a pre-built `computedData` payload built by the caller using\n  the standard managed-custody encrypted-payload contract (claim ABI lives\n  in `src/api/services/ServiceHlReferral.ts` of the backend)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/hl_ref/info` | Referral info (earned, eligibility, code) |\n| `POST` | `/v1/hl_ref/request_claim` | Submit a reward claim |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\nconst info = await skill.getHlReferralInfo({ userAddress: '0xWallet' });\n\n// Claim rewards (caller pre-builds computedData)\nconst result = await skill.requestHlReferralClaim({ computedData });\n```\n\n## Notes\n\n- Eligibility is enforced server-side based on referral state and minimum\n  thresholds.\n- The claim response typically contains a `requestId` to poll via\n  `/v1/trade-status/:requestId` when the claim is processed asynchronously.\n", files: [] }, { name: "gdex-limit-orders", description: "Limit buy, limit sell, update/delete, and list limit orders via managed-custody encrypted payloads", content: "\n# GDEX: Limit Orders\n\nCreate limit buy/sell orders that trigger when a token reaches your target price. Uses the same managed-custody encryption flow as spot trades (ABI-encoded \u2192 signed \u2192 AES-encrypted `computedData`).\n\n## Critical: Endpoint Structure\n\nLimit orders use **separate endpoints for buy vs sell** (NOT a single create endpoint):\n\n| Action | Endpoint | SDK Method |\n|--------|----------|------------|\n| List orders | `GET /v1/orders` | `getLimitOrders()` |\n| Buy when price drops | `POST /v1/limit_buy` | `limitBuy()` |\n| Sell when price rises/drops | `POST /v1/limit_sell` | `limitSell()` |\n| Update or delete order | `POST /v1/update_order` | `updateOrder()` |\n\n> There is NO `/v1/orders/create` or `/v1/orders/cancel` endpoint.\n\n## When to Use\n\n- Buy a token when its price drops to a target \u2192 `limitBuy()`\n- Sell a token when its price rises (take-profit) or drops (stop-loss) \u2192 `limitSell()`\n- Cancel an existing order \u2192 `updateOrder({ isDelete: true })`\n- Update an order's price/amount \u2192 `updateOrder()`\n- List all active orders \u2192 `getLimitOrders()`\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via `loginWithApiKey()` \u2014 see **gdex-authentication**\n- Minimum order: `config.chains[chainId].minLimitOrder` (typically 0.01 native token)\n\n## Limit Buy \u2014 Buy Token When Price Drops\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\nconst result = await skill.limitBuy({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',  // control wallet\n  sessionPrivateKey: '<session-private-key-hex>',\n  chainId: 622112261,           // Solana\n  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', // WIF\n  amount: '10000000',           // 0.01 SOL in lamports\n  triggerPrice: '0.50',         // trigger when WIF price \u2264 $0.50\n  profitPercent: '50',          // take profit at 50% gain (optional)\n  lossPercent: '25',            // stop loss at 25% loss (optional)\n});\n```\n\n### LimitBuyParams\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `apiKey` | `string` | Yes | API key for AES encryption |\n| `userId` | `string` | Yes | Control wallet address (NOT managed) |\n| `sessionPrivateKey` | `string` | Yes | Session key from sign-in |\n| `chainId` | `number` | Yes | Numeric chain ID (e.g. 622112261 for Solana) |\n| `tokenAddress` | `string` | Yes | Token to buy |\n| `amount` | `string` | Yes | Native token to spend (raw units: wei/lamports) |\n| `triggerPrice` | `string` | Yes | USD price to trigger the buy |\n| `profitPercent` | `string` | No | Take-profit % above trigger (\"0\" to skip) |\n| `lossPercent` | `string` | No | Stop-loss % below trigger (\"0\" to skip) |\n\n**ABI schema:** `['string','string','string','uint256','uint256','string']` = `[tokenAddress, amount, triggerPrice, profitPercent, lossPercent, nonce]`\n**Signature:** `limit_buy-{userId}-{data}`\n\n> **CRITICAL (Live-Tested):** `profitPercent` and `lossPercent` MUST be ABI-encoded as `uint256`, NOT `string`. The backend decodes them as uint256 and validates `0-100` range. Using `string` type produces ABI byte-offsets (e.g. 192) that fail the range check with `\"lossPercent must be between 0 and 100\"`. The SDK handles this correctly \u2014 only matters if encoding manually.\n\n## Limit Sell \u2014 Sell Token at Target Price\n\n```typescript\n// Sell WIF when price reaches $999.99 (take-profit)\nconst result = await skill.limitSell({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',\n  sessionPrivateKey: '<session-private-key-hex>',\n  chainId: 622112261,\n  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', // WIF\n  amount: '100000',             // token amount in raw units\n  triggerPrice: '999.99',       // trigger when WIF price reaches $999.99\n});\n```\n\n### LimitSellParams\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `apiKey` | `string` | Yes | API key for AES encryption |\n| `userId` | `string` | Yes | Control wallet address |\n| `sessionPrivateKey` | `string` | Yes | Session key from sign-in |\n| `chainId` | `number` | Yes | Numeric chain ID |\n| `tokenAddress` | `string` | Yes | Token to sell |\n| `amount` | `string` | Yes | Token amount to sell (raw units) |\n| `triggerPrice` | `string` | Yes | USD price to trigger the sell |\n\n**ABI schema:** `['string','string','string','string']` = `[tokenAddress, amount, triggerPrice, nonce]`\n**Signature:** `limit_sell-{userId}-{data}`\n\n> The backend auto-classifies as take-profit (trigger > current price) or stop-loss (trigger < current price).\n\n## Update or Delete an Order\n\n```typescript\n// Delete an order\nawait skill.updateOrder({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',\n  sessionPrivateKey: '<session-private-key-hex>',\n  chainId: 622112261,\n  orderId: '64-char-hex-order-id',\n  isDelete: true,\n});\n\n// Update an order's trigger price\nawait skill.updateOrder({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',\n  sessionPrivateKey: '<session-private-key-hex>',\n  chainId: 622112261,\n  orderId: '64-char-hex-order-id',\n  triggerPrice: '1.50',\n  amount: '10000000',\n});\n```\n\n### UpdateOrderParams\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `apiKey` | `string` | Yes | API key for AES encryption |\n| `userId` | `string` | Yes | Control wallet address |\n| `sessionPrivateKey` | `string` | Yes | Session key from sign-in |\n| `chainId` | `number` | Yes | Numeric chain ID |\n| `orderId` | `string` | Yes | Order ID from getLimitOrders() |\n| `amount` | `string` | No | New amount (raw units) |\n| `triggerPrice` | `string` | No | New trigger price (USD) |\n| `profitPercent` | `string` | No | New take-profit % (buy orders) |\n| `lossPercent` | `string` | No | New stop-loss % (buy orders) |\n| `isDelete` | `boolean` | No | Set true to cancel/delete the order |\n\n**ABI schema:** `['string','string','string','uint256','uint256','string','string']` = `[orderId, amount, triggerPrice, profitPercent, lossPercent, nonce, isDelete]`\n**Signature:** `update_order-{userId}-{data}`\n\n> **CRITICAL:** Same as `limit_buy` \u2014 `profitPercent` and `lossPercent` are `uint256`, not `string`.\n\n## List Orders\n\n```typescript\nconst { count, orders } = await skill.getLimitOrders({\n  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',\n  data: encryptedSessionKey,  // from buildGdexUserSessionData()\n  chainId: 622112261,\n});\n```\n\n### GetLimitOrdersParams\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `userId` | `string` | Yes | Control wallet address |\n| `data` | `string` | Yes | Encrypted session key (from `buildGdexUserSessionData`) |\n| `chainId` | `number` | Yes | Numeric chain ID |\n\n### LimitOrder Object (response)\n\n```typescript\ninterface LimitOrder {\n  orderId: string;           // unique 64-char hex ID\n  fromToken: string;         // token being sold\n  toToken: string;           // token being bought\n  isBuyLimit: boolean;       // true = buy limit, false = sell limit\n  price: number;             // trigger price in USD\n  takeProfitPrice: number;   // TP price (0 = disabled)\n  stopLossPrice: number;     // SL price (0 = disabled)\n  fromTokenAmount: string;   // amount in raw units\n  toTokenAmount: string;     // computed output amount\n  walletAddress: string;     // managed wallet address\n  userId: string;            // control wallet address\n  chainId: number;           // numeric chain ID\n  pairAddress: string;       // DEX pair address\n  isActive: boolean;         // still pending?\n  isCancelled?: boolean;     // was cancelled?\n  expiredAt: number;         // expiry Unix timestamp\n  profitPercent?: string;    // TP % (buy orders)\n  lossPercent?: string;      // SL % (buy orders)\n}\n```\n\n## Order Fill Logic\n\nOrders are filled by background processes that monitor prices via NATS:\n- **Buy limit:** triggers when `tokenPrice <= order.price`\n- **Sell take-profit:** triggers when `tokenPrice >= takeProfitPrice`\n- **Sell stop-loss:** triggers when `tokenPrice <= stopLossPrice`\n\n## Error Codes\n\n| Code | Meaning |\n|------|---------|\n| 101 | Missing required parameters |\n| 102 | Invalid nonce or params |\n| 103 | Unauthorized (wrong userId or session key) |\n| 1011 | Invalid/expired order |\n| 1012 | Order expired |\n| 1031 | Unsupported token |\n| 400 | Insufficient balance (need \u2265 minLimitOrder in native token) |\n\n## Legacy Aliases\n\nFor backward compatibility, older method names still work:\n- `createLimitOrder()` \u2192 calls `limitBuy()`\n- `cancelLimitOrder()` \u2192 calls `updateOrder({ isDelete: true })`\n\n## Autonomous Agent Notes (Live-Tested)\n\n### Verified Working Flow (Solana/WIF Example)\n\nThis exact sequence was tested end-to-end and succeeded:\n\n```typescript\n// 1. List existing orders\nconst orders = await skill.getLimitOrders({ userId, data, chainId: 622112261 });\n\n// 2. Create a limit buy order\nconst result = await skill.limitBuy({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId: controlAddress,          // MUST be control address, lowercase\n  sessionPrivateKey,\n  chainId: 622112261,              // Solana\n  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', // WIF\n  amount: '1000000',               // ~0.001 SOL in lamports (raw units)\n  triggerPrice: '0.0001',          // trigger when price drops to $0.0001\n  profitPercent: '50',             // 50% take-profit\n  lossPercent: '30',               // 30% stop-loss\n});\n// \u2192 { isSuccess: true, message: \"Order created successfully\", order: {...} }\n\n// 3. Verify order appears in list\nconst updated = await skill.getLimitOrders({ userId, data, chainId: 622112261 });\n\n// 4. Cancel the order\nawait skill.updateOrder({\n  apiKey, userId, sessionPrivateKey,\n  chainId: 622112261,\n  orderId: result.order.orderId,\n  isDelete: true,\n});\n```\n\n### Key Requirements for Limit Buy\n\n- `amount` must be in **raw units** (lamports for Solana, wei for EVM) \u2014 NOT float\n- `profitPercent` and `lossPercent` are **mandatory** for `limit_buy` (both must be > 0)\n- `profitPercent` and `lossPercent` must be valid 0-100 range (ABI-encoded as `uint256`)\n- `userId` must be the **control** wallet address, **lowercase**\n- `triggerPrice` is in USD (string)\n\n### Minimum Order Size\n\nThe backend enforces `config.chains[chainId].minLimitOrder` per chain. For Solana, this is approximately 0.001 SOL (1000000 lamports). Going below returns \"Insufficient balance\".\n\n### Order Cancellation\n\nTo cancel, use `updateOrder({ isDelete: true })`. There is no separate cancel endpoint. The `cancelLimitOrder()` alias calls this internally.\n\n### Error Messages and What They Mean\n\n| Error | Cause | Fix |\n|-------|-------|-----|\n| `lossPercent must be between 0 and 100` | ABI encoding used `string` type instead of `uint256` | SDK handles this correctly; only matters for manual encoding |\n| `Insufficient balance` | Amount too small or managed wallet underfunded | Increase amount or fund the managed Solana wallet |\n| `Order not found` (on update/delete) | Wrong `orderId` or order already filled/expired | Refresh order list with `getLimitOrders()` first |\n| `Invalid nonce` | Reused or stale nonce | Generate fresh: `String(Date.now())` |\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup required before creating orders\n- **gdex-spot-trading** \u2014 Market orders (immediate execution) instead of limits\n- **gdex-portfolio** \u2014 Track order fills in trade history\n", files: [] }, { name: "gdex-livestream-discovery", description: "Solana livestream-token discovery \u2014 currently-live streams, per-token live status, and big-buy alert feeds", content: "\n# GDEX: Livestream Discovery\n\nSurface the Solana livestream token-launch ecosystem inside an AI agent or\ntrading UI: tokens that are currently live-streaming, per-token live status,\nand the \"big buy\" alert feed.\n\n## When to Use\n\n- Building a discovery feed for live token launches\n- Showing a live indicator next to a token\n- Alerting users to large incoming buys on a chain\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- No authentication required for these read endpoints (whitelisted)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/currently_live` | Tokens currently live-streaming |\n| `GET`  | `/v1/live_status/:address` | Per-token live status |\n| `GET`  | `/v1/bigbuys/:chainId` | Big-buy alert feed for a chain |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\n\n// Currently-live launches (Solana-centric)\nconst live = await skill.getCurrentlyLiveTokens({ limit: 50 });\n\n// Live status for one token\nconst status = await skill.getLiveStatus({ address: 'SoLanA1111...' });\n\n// Big-buy feed (chainId 622112261 = Solana)\nconst bigBuys = await skill.getBigBuys({ chainId: 622112261, limit: 100 });\n```\n\n## Notes\n\n- The livestream surface is currently Solana-only \u2014 the most common\n  `chainId` for `bigbuys` is `622112261`.\n- These endpoints are cached server-side and may return slightly stale data\n  (typically <30s).\n- The `live_status` path includes the token address inline; pass the raw\n  address (no chain prefix).\n", files: [] }, { name: "gdex-onboarding", description: "Start here \u2014 GDEX overview, architecture, supported chains, available skills, and quickstart for cross-chain DeFi trading via managed-custody wallets", content: "\n# GDEX: Agent Onboarding\n\nGDEX is a cross-chain DeFi trading infrastructure for AI agents. It provides spot trading, perpetual futures (HyperLiquid), portfolio management, token discovery, copy trading, and bridging across Solana, Sui, and 12+ EVM chains \u2014 all through a single SDK with managed-custody wallets.\n\n## When to Use\n\n- You're new to GDEX and need to understand the platform\n- You need to decide which skill to load for a specific task\n- You want a quick overview of supported chains and capabilities\n\n## Architecture\n\n```\nAgent \u2192 @gemachdao/gdex-skill SDK \u2192 GDEX Backend (trade-api.gemach.io/v1) \u2192 On-chain Execution\n```\n\n**Key concepts:**\n- **Managed custody** \u2014 GDEX provisions and manages all on-chain trading wallets server-side. Your control wallet only signs in once.\n- **Encrypted payloads** \u2014 All trades use AES-256-CBC encrypted `computedData` payloads. The API key derives the AES key deterministically via SHA256 hash chain.\n- **Session keypairs** \u2014 A secp256k1 session key signs trade payloads after initial control-wallet sign-in.\n- **Shared API keys** \u2014 Pre-configured keys let agents authenticate instantly without wallet signing.\n\n## Quick Start\n\n```bash\nnpm install @gemachdao/gdex-skill\n```\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// No-auth: check trending tokens\nconst trending = await skill.getTrendingTokens({ chain: 'solana', period: '24h', limit: 5 });\n\n// Trading needs the managed-custody session from sign-in (see \"Full Managed-Custody Setup\"\n// below or gdex-authentication): apiKey + control walletAddress + sessionPrivateKey.\nconst trade = await skill.buyToken({\n  chain: 8453,                     // Base\n  tokenAddress: '0xTokenAddress',\n  amount: '0.01',                  // 0.01 ETH\n  slippage: 1,\n  apiKey: GDEX_API_KEY_PRIMARY,\n  walletAddress: controlAddress,   // the control wallet that signed in\n  sessionPrivateKey,\n});\n```\n\n**Using the MCP server?** Run `gdex_connect` once and pass the returned `accountRef` to every\ntrading tool (`buy_token`, `open_perp_position`, `usdc_buy`, ...) instead of keys.\n\n**Shared API Keys (pre-configured for all agents):**\n- Primary: `9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54`\n- Secondary: `2c8f0a91-5d34-4e7b-9a62-f1c3d8e4b705`\n\n## Supported Chains\n\n| Chain | ChainId | DEXes | Perps | Bridge |\n|-------|---------|-------|-------|--------|\n| Ethereum | `1` | Uniswap v2/v3, Odos | \u2014 | Yes |\n| Optimism | `10` | Uniswap v3, Odos | \u2014 | Yes |\n| BSC | `56` | PancakeSwap, Odos | \u2014 | Yes |\n| Sonic | `146` | \u2014 | \u2014 | Yes |\n| Fraxtal | `252` | Uniswap v3 | \u2014 | Yes |\n| Robinhood Chain | `4663` | Uniswap v2, KyberSwap | \u2014 | No |\n| Nibiru | `6900` | \u2014 | \u2014 | Yes |\n| Base | `8453` | Uniswap v3, Odos, Arcadia | \u2014 | Yes |\n| Arbitrum | `42161` | Uniswap v3, Odos | \u2014 | Yes |\n| Berachain | `80094` | \u2014 | \u2014 | Yes |\n| Solana | `622112261` / `'solana'` | Raydium, Raydium v2, Orca | \u2014 | Yes |\n| Sui | `1313131213` / `'sui'` | Cetus, Bluefin | \u2014 | Yes |\n| HyperLiquid | \u2014 | \u2014 | Native perp engine | \u2014 |\n\n**Chain IDs for managed-custody:** 900 = Solana, 101 = Sui, or standard EVM chain IDs.\n\n## Available Skills\n\n| Category | Skill | Description |\n|----------|-------|-------------|\n| **Getting Started** | `gdex-onboarding` | **You are here** \u2014 Overview, architecture, quickstart |\n| **Auth** | `gdex-authentication` | Managed-custody auth, encryption, session key flow |\n| **Trading** | `gdex-spot-trading` | Buy/sell tokens on any supported chain |\n| | `gdex-perp-trading` | HyperLiquid perpetual futures \u2014 positions, orders, leverage |\n| | `gdex-perp-funding` | Deposit/withdraw USDC to/from HyperLiquid |\n| | `gdex-limit-orders` | Create, cancel, and list limit orders |\n| **Data** | `gdex-portfolio` | Cross-chain portfolio, balances, trade history |\n| | `gdex-token-discovery` | Token details, trending tokens, OHLCV charts (no auth) |\n| **Platform** | `gdex-copy-trading` | Copy trade wallets, create/manage configs, tx history, DEXes (Solana writes only) |\n| | `gdex-perp-copy-trading` | HL perp copy trading \u2014 top traders, create/manage configs, market data |\n| | `gdex-bridge` | Cross-chain bridging with quotes |\n| | `gdex-usdc-wallet` | Unified USDC wallet \u2014 one USDC balance across chains, auto-bridge funding |\n| | `gdex-wallet-setup` | Generate EVM wallets, session keys, get wallet info |\n| **Frontend** | `gdex-ui-install-setup` | React/Next.js project setup, SDK context providers |\n| | `gdex-ui-trading-components` | React component patterns for trading UIs |\n| | `gdex-ui-portfolio-dashboard` | Portfolio dashboard components |\n| | `gdex-ui-wallet-connection` | Wallet connection UI and auth flows |\n| | `gdex-ui-theming` | CSS theming \u2014 dark/light mode, trading colors |\n| | `gdex-ui-page-layouts` | Full page compositions for trading apps |\n| **Developer Tools** | `gdex-sdk-debugging` | Troubleshoot errors, chain quirks, common pitfalls |\n\n## Recommended Next Steps\n\n**If you want to trade tokens (spot):**\n1. Load **gdex-authentication** for auth setup\n2. Load **gdex-spot-trading** for buy/sell operations\n\n**If you want perpetual futures:**\n1. Load **gdex-authentication** for auth setup\n2. Load **gdex-perp-funding** to deposit USDC to HyperLiquid\n3. Load **gdex-perp-trading** for positions and orders\n\n**If you just need market data (no auth):**\n1. Load **gdex-token-discovery** \u2014 works immediately, no authentication needed\n\n**If the user has no wallet:**\n1. Load **gdex-wallet-setup** to generate an EVM control wallet\n2. Load **gdex-authentication** to sign in via managed custody\n\n**If you want to copy successful traders:**\n1. Load **gdex-authentication** for auth setup\n2. Load **gdex-copy-trading** for tracking wallets and settings\n\n**If you want to bridge assets cross-chain:**\n1. Load **gdex-authentication** for auth setup\n2. Load **gdex-bridge** for bridging operations\n3. For USDC, load **gdex-usdc-wallet**: it trades and bridges USDC across chains as one balance\n\n**If you want to build a trading frontend:**\n1. Load **gdex-ui-install-setup** for React/Next.js project setup\n2. Load **gdex-ui-trading-components** for order forms and position tables\n3. Load **gdex-ui-theming** for dark/light mode and trading colors\n4. Load **gdex-ui-page-layouts** for full page compositions\n\n**If you're debugging an issue:**\n1. Load **gdex-sdk-debugging** for error codes, chain quirks, and common pitfalls\n\n## Key Links\n\n| Resource | URL |\n|----------|-----|\n| SDK (npm) | https://www.npmjs.com/package/@gemachdao/gdex-skill |\n| Repository | https://github.com/GemachDAO/gdex-skill |\n| Trading Dashboard | https://gdex.pro |\n| Backend API | https://trade-api.gemach.io/v1 |\n\n## Installation\n\n```bash\n# Install all skills globally (recommended)\nnpx skills add GemachDAO/gdex-skill --all --agent '*' -g\n\n# Install specific skill\nnpx skills add GemachDAO/gdex-skill --skill gdex-spot-trading\n\n# Install SDK\nnpm install @gemachdao/gdex-skill\n```\n\n## MCP Server\n\nFor AI clients that support [Model Context Protocol](https://modelcontextprotocol.io),\nthe GDEX MCP server exposes **137 tools** covering the full SDK surface \u2014 spot and\nperp trading, HyperLiquid funding, limit orders, copy trading, bridging, portfolio\nand token data, transfers/social, and HIP-3/HIP-4 outcome (event) markets (e.g.\n`buy_token`, `open_perp_position`, `place_perp_order`, `hl_create_outcome_order`,\n`hl_swap_collateral`, `get_account_state`, `estimate_bridge`).\n\n### Auto-configure (one command, no npm account)\n\n```bash\nnpx -y github:GemachDAO/gdex-skill gdex-mcp-server init --client claude\n# clients: claude \xB7 cursor \xB7 vscode \xB7 codex \xB7 opencode\n```\n\nThis writes the MCP config for your agent (e.g. `.mcp.json`) wired to launch the\nserver straight from GitHub with the shared API key \u2014 no npm publish required:\n\n```jsonc\n{\n  \"mcpServers\": {\n    \"gdex-mcp-server\": {\n      \"command\": \"npx\",\n      \"args\": [\"-y\", \"github:GemachDAO/gdex-skill\", \"gdex-mcp-server\"],\n      \"env\": { \"GDEX_API_KEY\": \"9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54\" }\n    }\n  }\n}\n```\n\n> The skills.sh install configures **skills**, not MCP \u2014 run the command above to add\n> the MCP server. The skills also work via the SDK without MCP. The first launch\n> builds the package from source (cached afterward).\n\n## Autonomous Agent Quickstart\n\nIf you're an AI agent operating autonomously (no human to ask), here's the minimum viable flow:\n\n### 1. Initialize\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n```\n\n### 2. Research Before Trading\n```typescript\n// Check what's trending\nconst trending = await skill.getTrendingTokens({ chain: 622112261, period: '1h', limit: 10 });\n\n// Get details on a token \u2014 CHECK dexId BEFORE buying\nconst token = await skill.getTokenDetails({ tokenAddress: trending[0].address, chain: 622112261 });\nif (token.dexId === 'meteora') {\n  // \u274C Meteora tokens FAIL on Solana \u2014 skip this token\n}\nif (token.dexId === 'raydium') {\n  // \u2705 Safe to buy\n}\n```\n\n### 3. Full Managed-Custody Setup (for actual trading)\n```typescript\nimport { ethers } from 'ethers';\nimport {\n  generateGdexSessionKeyPair, buildGdexSignInMessage,\n  buildGdexSignInComputedData, buildGdexUserSessionData,\n} from '@gemachdao/gdex-skill';\n\nconst wallet = ethers.Wallet.fromPhrase('your mnemonic...');\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\nconst nonce = String(Date.now());\nconst msg = buildGdexSignInMessage(wallet.address, nonce, sessionKey);\nconst sig = await wallet.signMessage(msg);\nconst payload = buildGdexSignInComputedData({\n  apiKey: GDEX_API_KEY_PRIMARY, userId: wallet.address, sessionKey, nonce, signature: sig,\n});\nawait skill.signInWithComputedData({ computedData: payload.computedData, chainId: 1 });\n```\n\n### 4. Key Rules for Autonomous Operation\n- **Always use control wallet address** (the one that signed in) for `userId`/`walletAddress` in API calls\n- **Never use managed wallet address** in API calls (except `getHlUserStats()`)\n- **Amounts in raw units** for managed trades (lamports for Solana, wei for EVM)\n- **Check `dexId`** before buying on Solana \u2014 skip Meteora tokens\n- **Generate fresh nonce** for every operation\n- **Portfolio/balances use raw client** \u2014 high-level methods send wrong params\n- **If `hlCloseAll` fails**, use reduce-only order instead\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Managed-custody auth flow and encryption details\n- **gdex-spot-trading** \u2014 Buy/sell tokens on any chain\n- **gdex-perp-trading** \u2014 HyperLiquid perpetual futures\n- **gdex-token-discovery** \u2014 Token info without authentication\n- **gdex-wallet-setup** \u2014 Wallet generation for new users\n- **gdex-ui-install-setup** \u2014 Frontend project setup with React/Next.js\n- **gdex-sdk-debugging** \u2014 Error troubleshooting and debugging guide\n\n---\n\n# Live-Tested Operational Playbook\n\n_Consolidated reference (migrated from the umbrella skill). Critical notes and an autonomous-agent playbook validated against the live backend._\n\n## Critical Notes (Live-Tested)\n\n> **walletAddress = CONTROL address, NOT managed address.** All HL write operations (`hlCreateOrder`, `hlCloseAll`, `perpDeposit`, etc.) require `walletAddress` set to the **control wallet address** used during sign-in \u2014 NOT the managed-custody address returned by `/v1/user`. The backend verifies the session key signature against the sign-in `userId`. Passing the managed address causes `400 Unauthorized (code 103)`.\n\n> **`hlCloseAll` / `/v1/hl/close_all_positions` is unreliable.** It frequently returns `TIMEOUT` or JSON parse errors. Close per coin with `closePerpPosition` (MCP: `close_perp_position`), which places a **reduce-only** order for the exact live position size.\n\n> **`hlUpdateLeverage` / `/v1/hl/update_leverage` is not implemented** on the backend (returns 404). Set leverage on the order instead: `hlCreateOrder({ ..., leverage: 5 })` (MCP: `open_perp_position` with `leverage`) sends it as a top-level field with the order.\n\n> **Solana chainId is `622112261`, NOT `900`.** The correct Solana chain ID is `ChainId.SOLANA = 622112261`. Using `900` falls back to the EVM managed address with `balance: null`. The `/v1/user` endpoint returns a **different managed wallet** per `chainId`:\n> - `chainId=1` \u2192 EVM managed: `0x9967...`\n> - `chainId=622112261` \u2192 Solana managed: `CFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1` (base58)\n> Always use `ChainId.SOLANA` from the SDK's enum to avoid this mistake.\n\n> **Solana Meteora swaps are broken (backend bug).** Tokens that route through Meteora DLMM (e.g. BONK) fail with `Program error: 1` because the backend doesn\u2019t wrap SOL into WSOL before calling `Swap2`. **Raydium-routed tokens work correctly** (e.g. WIF). Check `token.dexId` \u2014 if it's `\"meteora\"`, the swap will fail. Prefer tokens with `isRaydium: true` or `dexId: \"raydium\"`.\n\n> **Solana trades need ~0.01 SOL minimum.** ATA (Associated Token Account) creation costs ~0.002 SOL per new token, plus priority fees (default 0.0005 SOL) and base tx fees. First trade on a new token needs ~0.007 SOL overhead beyond the swap amount.\n\n> **Bridge endpoints use different paths than expected.** The actual backend routes are `GET /v1/bridge/estimate_bridge`, `POST /v1/bridge/request_bridge`, and `GET /v1/bridge/bridge_orders`. The `request_bridge` endpoint requires ABI-encoded + signed + AES-encrypted `computedData` (same pattern as managed trades). Bridge is **native tokens only** and uses ChangeNow as provider. Amounts must be in **raw token units** (wei/lamports). See **gdex-bridge** skill for full details.\n\n> **Copy trade write operations (create/delete) use `chainId: 622112261` for sign-in, NOT `chainId: 1`.** The chainId field in the ABI is `uint256` (not string). The update endpoint uses 16 ABI fields (not 15): `[traderWallet, copyTradeName, chainId(uint256), gasPrice, buyMode, copyBuyAmount, isBuyExistingToken, lossPercent, profitPercent, nonce, copySell, excludedDexNumbers, copyTradeId, isDelete, isChangeStatus, excludedProgramIds]`. Both `isDelete='1'` and `isChangeStatus='1'` permanently delete the trade \u2014 there is no toggle. Boolean fields use `''` (empty string) for false and `'1'` for true; string `'0'` is truthy and will trigger deletion.\n\n> **Limit order endpoints are `limit_buy` / `limit_sell` / `update_order` \u2014 NOT `orders/create` / `orders/cancel`.** Use `limitBuy()` for buy orders, `limitSell()` for sell orders (auto-classifies TP vs SL), and `updateOrder({ isDelete: true })` to cancel. Listing uses `GET /v1/orders` with `userId` + encrypted `data` + `chainId`. All write endpoints use ABI-encoded + signed + AES-encrypted `computedData` (same managed-custody pattern). Minimum order is ~0.01 native token. See **gdex-limit-orders** skill for full details.\n\n> **HL perp copy trading is completely separate from Solana copy trading.** Uses `chainId: 1` (EVM), ABI methods `hl_create`/`hl_update` (8 and 11 string fields), and goes through `buildHlComputedData()`. Both `isDelete` and `isChangeStatus` permanently **DELETE** the trade (same as Solana \u2014 there is no toggle). Both TP and SL are **mandatory** (> 0). Max 3 copy trades per user. Supports opposite-direction copying via `oppositeCopy`. Backend stores ABI byte-offsets for `copyMode` and `oppositeCopy` (e.g., `copyMode=416`), not the actual values. `user_stats` requires the managed wallet address, not the control wallet. See **gdex-perp-copy-trading** skill for full details.\n\n## Autonomous Agent Playbook\n\n> **This section contains everything an autonomous AI agent needs to trade without human help.**\n\n### Portfolio / Balances \u2014 Backend Param Mismatch (Live-Tested)\n\nThe high-level `getPortfolio()` and `getBalances()` methods send `walletAddress` + `chain`, but the backend expects `userId` + `chainId` + `data` (encrypted session key). **Workaround \u2014 use the raw client directly:**\n\n```typescript\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\n\n// Portfolio (balances embedded under portfolio.balances[])\nconst portfolio = await skill.client.get('/v1/portfolio', {\n  params: { userId: controlAddress, chainId: 622112261, data }\n});\n\n// Balances \u2014 read from /v1/portfolio (balances embedded under portfolio.balances[]).\n// There is no separate /v1/balances endpoint on backend v1.1.0.\nconst balances = portfolio.balances ?? [];\n```\n\n### Trade History \u2014 Different Param Names (Live-Tested)\n\nBackend expects `user` (not `userId`), and the managed Solana chainId for trade history is `900` (not `622112261`):\n\n```typescript\nconst history = await skill.client.get('/v1/user_history', {\n  params: { user: controlAddress, chainId: 900, data, page: 1, limit: 20 }\n});\n```\n\n### OHLCV / TopTraders \u2014 Numeric chainId Required (Live-Tested)\n\nBackend needs numeric `chainId`, not string `chain`. These work:\n```typescript\nawait skill.getOHLCV({ tokenAddress, chain: 622112261, resolution: '60', from, to });\nawait skill.getTopTraders({ chain: 622112261, period: '7d', limit: 5 });\n```\n\n### Spot Trading (Managed Custody) \u2014 Raw Units Required (Live-Tested)\n\nFor hand-built managed-custody payloads (`buildGdexManagedTradeComputedData` \u2192 `submitManagedPurchase` / `submitManagedSell`), amounts must be in **raw units** (lamports for Solana, wei for EVM), NOT float. (`buyToken` with a session key takes a decimal native amount and converts it.)\n```typescript\n// \u274C WRONG: amount: '0.01'\n// \u2705 CORRECT: amount: '10000000' (0.01 SOL = 10000000 lamports)\n```\n\n### Limit Orders \u2014 profitPercent/lossPercent MUST Be uint256 (Live-Tested)\n\nThe `limit_buy` and `update_order` ABI schemas use `uint256` for `profitPercent` and `lossPercent` \u2014 NOT `string`. The backend decodes them as uint256 and validates 0-100 range. Using `string` type produces ABI byte-offsets (e.g. 192) that always fail. The SDK handles this correctly.\n\n### Endpoints That Don't Work (Live-Tested)\n\n| Endpoint | Status | Alternative |\n|----------|--------|-------------|\n| `hlCloseAll` / `/v1/hl/close_all_positions` | Returns TIMEOUT/400 | Use `closePerpPosition` per coin (or `hlCreateOrder` with `reduceOnly: true, isMarket: true`) |\n| `hlUpdateLeverage` / `/v1/hl/update_leverage` | Returns 404 | Pass `leverage` on `hlCreateOrder` |\n| `getGbotUsdcBalance` | Returns 404 | Use `getHlAccountState()` to check USDC balance |\n| `getHlUserStats(controlAddress)` | Returns 400 | Must pass the **managed** wallet address, not control |\n\n### Error Recovery for Autonomous Agents\n\n| Error | What to Do |\n|-------|------------|\n| `400 Unauthorized (103)` | Check: (1) using control address not managed, (2) ABI types match exactly, (3) session key is from the same sign-in |\n| `Insufficient balance` | Check managed wallet balance on the correct chain. For HL, check USDC deposit amount. |\n| `TIMEOUT` on hlCloseAll | Use reduce-only order instead (see above) |\n| `Program error: 1` on Solana | Token routes through Meteora DLMM. Swap to a Raydium-routed token instead. |\n| `lossPercent must be between 0 and 100` | ABI encoding bug \u2014 profitPercent/lossPercent must be uint256, not string |\n| `404` on leverage | Expected from `hlUpdateLeverage` \u2014 pass `leverage` on `hlCreateOrder` instead. |\n| `Reused nonce` | Always generate fresh: `String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000))` |\n| Rate limited (429) | SDK auto-retries with exponential backoff. If manual, wait `retryAfter` seconds. |\n\n### Live-Tested E2E Results (39/42 Pass)\n\n| Section | Tests | Pass | Notes |\n|---------|-------|------|-------|\n| Auth & Portfolio | 7 | 7/7 | Sign-in, resolve user, portfolio (raw client), balances, trade history |\n| Token Discovery | 3 | 3/3 | Token details, trending, OHLCV |\n| Top Traders | 1 | 1/1 | Top traders by PnL |\n| Spot Trading | 3 | 3/3 | Buy WIF (Solana), sell WIF, poll status |\n| HL Perp Trading | 10 | 8/10 | Deposit, create order, positions, close (reduce-only). `getGbotUsdcBalance` 404, `hlCloseAll` 400 |\n| Limit Orders | 4 | 4/4 | List, create (limit buy), verify, cancel |\n| Copy Trading Reads | 4 | 4/4 | Wallets, custom wallets, gems, DEXes |\n| HL Copy Trading Reads | 8 | 7/8 | Top traders, top by PnL, assets, DEXes, deposit tokens. `getHlUserStats` needs managed addr |\n| Bridge Estimate | 1 | 1/1 | ETH\u2192ARB estimate |\n| Wallet Generation | 1 | 1/1 | Offline EVM wallet |\n\n## Quick Start\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// No-auth endpoints work immediately\nconst trending = await skill.getTrendingTokens({ chain: 'solana', period: '24h', limit: 5 });\n\n// Trades need the managed-custody session (apiKey + control walletAddress + sessionPrivateKey)\nconst trade = await skill.buyToken({\n  chain: 8453,\n  tokenAddress: '0xTokenAddress',\n  amount: '0.01',\n  slippage: 1,\n  apiKey: GDEX_API_KEY_PRIMARY,\n  walletAddress: controlAddress,\n  sessionPrivateKey,\n});\n```\n\n**Shared API Keys:** `9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54` (primary), `2c8f0a91-5d34-4e7b-9a62-f1c3d8e4b705` (secondary)\n\n## Installation\n\n```bash\n# Install all skills\nnpx skills add GemachDAO/gdex-skill --all --agent '*' -g\n\n# Install SDK (from GitHub \u2014 builds on install; imports stay '@gemachdao/gdex-skill')\nnpm install github:GemachDAO/gdex-skill\n```\n| userId | Control wallet address (from sign-in), NOT managed wallet |\n| Bridge receiver | `0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7` |\n\n### HL Signature Format\n\nAll HL write operations sign with the **session private key** (registered during sign-in):\n```\nmessage = \"{action}-{userId.toLowerCase()}-{dataHex}\" // e.g. \"hl_deposit-0x53d0...-0000...\"\ndigest  = keccak256(utf8Bytes(message))\noutput  = r(64hex) + s(64hex) + v(2hex)  // 130 chars, v=00/01, no 0x prefix\n```\n\n### HL Error Codes\n\n| Code | Error | Common Cause |\n|---|---|---|\n| 103 | Unauthorized | Wrong ABI type (uint256 instead of uint64), wrong userId, or signing with wrong key |\n| 102 | Invalid chainId | chainId is not 42161 |\n| 102 | Invalid params | Reused nonce or unsupported token |\n| \u2014 | Insufficient balance | Managed wallet needs more USDC + fee on Arbitrum |\n| \u2014 | Too low amount | Amount < 10 USDC (10000000 smallest unit) |\n", files: [] }, { name: "gdex-perp-copy-trading", description: "HyperLiquid perpetual futures copy trading \u2014 discover top perp traders, create/manage perp copy trades, fill history, opposite-direction copying, and market data", content: "\n# GDEX: Perp Copy Trading (HyperLiquid)\n\nAutomatically mirror perpetual futures positions (long/short) from top-performing HyperLiquid traders. Supports opposite-direction copying, fixed or proportional sizing, and TP/SL controls.\n\n> **This is completely separate from Solana spot copy trading (`gdex-copy-trading`).** Different chain (EVM, chainId=1 vs Solana 622112261), different ABI methods (`hl_create`/`hl_update` vs `create_copy_trade`/`update_copy_trade`), different field schemas. Both `isDelete` and `isChangeStatus` permanently DELETE copy trades on both chains.\n\n## When to Use\n\n- Browsing top HyperLiquid perp traders (by volume, PnL, or deposit)\n- Getting detailed trading stats for a specific trader\n- Creating a perp copy trade to follow a trader's long/short positions\n- Updating or deleting a perp copy trade\n- Viewing perp copy trade fill history with enrichment\n- Checking market data (assets, DEXes, clearinghouse state, open orders)\n- Checking deposit tokens and USDC balance\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- For discovery: `loginWithApiKey()` only\n- For read (list/tx_list): Full sign-in with session key (`chainId: 1`)\n- For write (create/update): Full sign-in + computedData\n\n## Auth Tiers\n\n| Tier | Endpoints | Auth Needed |\n|------|-----------|-------------|\n| Discovery | `top_traders`, `top_traders_by_pnl`, `user_stats`, `perp_dexes`, `all_assets`, `clearinghouse_state`, `open_orders`, `deposit_tokens`, `usdc_balance` | API key only |\n| Read | `list`, `tx_list` | Session-key auth (`userId` + encrypted `data`) |\n| Write | `create`, `update` | computedData (ABI-encode + sign + AES-encrypt) |\n\n## Key Differences from Solana Copy Trading\n\n| Feature | Solana (`gdex-copy-trading`) | HL Perp (`gdex-perp-copy-trading`) |\n|---------|---------|------|\n| Chain | Solana (622112261) | EVM (chainId = 1) |\n| Asset Type | Spot tokens | Perpetual futures (long/short) |\n| ABI Methods | `create_copy_trade` / `update_copy_trade` | `hl_create` / `hl_update` |\n| ABI Fields | 12 create / 16 update (chainId=uint256) | 8 create / 11 update (all strings) |\n| Opposite Copy | \u274C Not supported | \u2705 `oppositeCopy` flag |\n| `isChangeStatus` | \u26A0\uFE0F Permanently deletes! | \u26A0\uFE0F Also permanently deletes (same as `isDelete`) |\n| Copy Modes | 1=fixed SOL, 2=% of trader | 1=fixed USD per order, 2=proportion of trader's size |\n| TP/SL | Optional | **Mandatory** (both > 0, lossPercent < 100) |\n| Max Copies | `config.maxCopyTrades` | Default 3 (`hyperLiquidConfig.maxFuturesCopy`) |\n\n## Discovery Endpoints (No Auth)\n\n### Top Traders by Volume/TradeCount/Deposit\n\n```typescript\nconst topByVolume = await skill.getHlTopTraders('volume');\nconst topByTrades = await skill.getHlTopTraders('tradeCount');\nconst topByDeposit = await skill.getHlTopTraders('deposit');\n// Cached 15 minutes\n```\n\n### Top 30 Traders by PnL\n\n```typescript\nconst topPnl = await skill.getHlTopTradersByPnl();\n// Response: { isSuccess: true, topTraders: { day: [...], week: [...], month: [...] } }\n// Each entry: { ethAddress, accountValue, windowPerformances: [{ window, percentage, pnl }] }\n```\n\n### Detailed User Stats\n\n```typescript\n// NOTE: Requires the MANAGED wallet address, not the control wallet.\n// Control wallet and external trader addresses return \"Wallet not found\".\nconst stats = await skill.getHlUserStats('0xManagedWalletAddress');\n// Cached 1 hour in Redis\n```\n\n#### HlUserStats Shape\n\n```typescript\ninterface HlUserStats {\n  '24h': number;        // PnL last 24 hours\n  '7d': number;         // PnL last 7 days\n  '30d': number;        // PnL last 30 days\n  week: number;\n  dailyPnls: Array<{\n    timeMs: number;\n    date: string;\n    pnl: number;\n    pnlPercentage: number;\n    capitalDeployed: number;\n  }>;\n  volumes: Record<string, number>;\n  tradesCount: Record<string, { win: number; lose: number; total: number }>;\n  percentagePnl: Record<string, number>;\n  capitalDeployed: Record<string, number>;\n  allTime: { pnl: number; pnlPercentage: number; capitalDeployed: number };\n}\n```\n\n### Perp DEXes\n\n```typescript\nconst dexes = await skill.getHlPerpDexes();\n// { isSuccess: true, perpDexes: ['HyperLiquid', ...] }\n```\n\n### All Tradeable Assets\n\n```typescript\nconst assets = await skill.getHlAllAssets();\n// { isSuccess: true, count: N, assets: [...] }\n```\n\n### Clearinghouse State (Account Positions)\n\n```typescript\n// Single DEX\nconst state = await skill.getHlClearinghouseState('0xTraderAddress');\n\n// All DEXes\nconst stateAll = await skill.getHlClearinghouseStateAll('0xTraderAddress');\n```\n\n### Open Orders\n\n```typescript\n// Single DEX\nconst orders = await skill.getHlOpenOrdersForCopy('0xTraderAddress');\n\n// All DEXes\nconst ordersAll = await skill.getHlOpenOrdersAllForCopy('0xTraderAddress');\n```\n\n### Deposit Tokens\n\n```typescript\nconst tokens = await skill.getHlDepositTokens();\n// { isSuccess: true, tokens: { \"42161\": [{ name, symbol, address, chainId, decimals, minDeposit, HLReceiver }] } }\n// Key is chain ID (\"42161\" = Arbitrum One)\n```\n\n### USDC Balance (Arbitrum)\n\n```typescript\nconst balance = await skill.getHlUsdcBalanceForCopy('0xTraderAddress');\n```\n\n## Read Endpoints (Session-Key Auth)\n\nRequire `userId` and `data` (AES-encrypted session key from `buildGdexUserSessionData`).\n\n### List User's HL Copy Trades\n\n```typescript\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\n\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\nconst list = await skill.getHlCopyTradeList({ userId, data });\n// { isSuccess: true, count: 2, allCopyTrades: [...] }\n```\n\n#### HlCopyTradeConfig Shape\n\n```typescript\ninterface HlCopyTradeConfig {\n  copyTradeId: string;\n  copyTradeName: string;\n  copyMode: number;              // Backend stores ABI offset (416/480), not the actual 1/2 value\n  chainId: number;               // Always 1 (EVM)\n  isActive: boolean;\n  userId: string;\n  userWallet: string;            // MANAGED wallet address\n  traderWallet: string;          // EVM address\n  lossPercent: number;\n  profitPercent: number;\n  fixedAmountCostPerOrder: string;\n  oppositeCopy: boolean;         // Always true in response (backend ABI offset bug)\n  createdAt: number;\n  lastUpdated: number;\n  totalTrades: number;\n  totalVolumes: number;\n  totalPnl: number;\n}\n```\n\n### Fill History\n\n```typescript\nconst txList = await skill.getHlCopyTradeTxList({\n  userId,\n  data,\n  page: '1',\n  limit: '20',  // max 100\n});\n// { isSuccess: true, totalCount: 42, txes: [...] }\n// Cached 15 seconds\n```\n\n#### HlCopyTradeTx Shape\n\n```typescript\ninterface HlCopyTradeTx {\n  coin: string;              // e.g. \"BTC\"\n  px: string;                // Fill price\n  sz: string;                // Fill size\n  side: string;              // \"B\" (buy) or \"S\" (sell)\n  time: number;              // Unix ms\n  closedPnl: string;\n  oid: string;               // HyperLiquid order ID\n  dir: string;               // e.g. \"Open Long\"\n  copyTradeName: string;     // or \"N/A\"\n  traderTxHash: string;      // or \"N/A\"\n  traderSize: string;        // or \"N/A\"\n  traderPrice: string;       // or \"N/A\"\n  traderWallet: string;      // or \"N/A\"\n}\n```\n\n## Write Endpoints (ComputedData Auth)\n\n### Create an HL Perp Copy Trade\n\n```typescript\nawait skill.createHlCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  traderWallet: '0xTraderEvmAddress',\n  copyTradeName: 'BTC Whale Follower',\n  copyMode: 1,                    // Fixed USD amount per order\n  fixedAmountCostPerOrder: '50',  // $50 per copied trade\n  lossPercent: '25',              // 25% stop-loss (mandatory, > 0)\n  profitPercent: '100',           // 100% take-profit (mandatory, > 0)\n  oppositeCopy: false,            // Copy same direction\n});\n```\n\n**ABI Schema (`hl_create`, 8 fields, ALL strings):**\n\n| # | Field | Type | Description |\n|---|-------|------|-------------|\n| 0 | traderWallet | string | EVM address to copy |\n| 1 | copyTradeName | string | Human-readable label |\n| 2 | copyMode | string | \"1\" or \"2\" |\n| 3 | fixedAmountCostPerOrder | string | USD amount (mode 1) or ratio (mode 2) |\n| 4 | lossPercent | string | Stop-loss % |\n| 5 | profitPercent | string | Take-profit % |\n| 6 | nonce | string | Auto-generated |\n| 7 | oppositeCopy | string | \"1\" or \"\" |\n\n### Update an HL Perp Copy Trade\n\n```typescript\nawait skill.updateHlCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  copyTradeId: 'abc123...',\n  traderWallet: '0xTraderEvmAddress',\n  copyTradeName: 'BTC Whale (Updated)',\n  copyMode: 2,                    // Switch to proportional\n  fixedAmountCostPerOrder: '0.5', // 50% of trader's size\n  lossPercent: '30',\n  profitPercent: '150',\n  oppositeCopy: true,             // Now copy opposite direction\n});\n```\n\n### Delete an HL Perp Copy Trade\n\nUse either `isDelete` or `isChangeStatus` \u2014 both permanently delete the trade.\n\n```typescript\nawait skill.updateHlCopyTrade({\n  ...existingParams,\n  isDelete: true,  // Permanently deletes\n});\n```\n\n> **\u26A0\uFE0F WARNING: `isChangeStatus` also PERMANENTLY DELETES the trade.**\n> Despite the name suggesting a toggle, `isChangeStatus` behaves identically to `isDelete`\n> on the current backend. This matches Solana copy trade behavior.\n\n**ABI Schema (`hl_update`, 11 fields, ALL strings):**\n\n| # | Field | Type | Description |\n|---|-------|------|-------------|\n| 0 | traderWallet | string | EVM address |\n| 1 | copyTradeName | string | Label |\n| 2 | copyMode | string | \"1\" or \"2\" |\n| 3 | fixedAmountCostPerOrder | string | Amount or ratio |\n| 4 | lossPercent | string | Stop-loss % |\n| 5 | profitPercent | string | Take-profit % |\n| 6 | nonce | string | Auto-generated |\n| 7 | isDelete | string | \"1\" or \"\" |\n| 8 | isChangeStatus | string | \"1\" or \"\" |\n| 9 | copyTradeId | string | Existing trade ID |\n| 10 | oppositeCopy | string | \"1\" or \"\" |\n\n## Backend Quirks (Live E2E Findings)\n\n> These are verified behaviors observed during live E2E testing.\n\n1. **`copyMode` in responses is the ABI byte-offset, not the actual value.** For `hl_create` (8 fields) the offset is 416; for `hl_update` (11 fields) it's 480. The actual copy mode value (1 or 2) exists in the ABI data but the backend stores the offset instead.\n\n2. **`oppositeCopy` in responses is always `true`** for the same ABI-offset reason. The offset slot is always a non-zero number (736 for create, 960 for update), which the backend interprets as truthy.\n\n3. **Both `isDelete` and `isChangeStatus` permanently DELETE** the copy trade. `isChangeStatus` does NOT toggle `isActive` on/off. This matches Solana copy trade behavior exactly.\n\n4. **`user_stats` requires the MANAGED wallet address** (`userWallet` from the copy trade config), not the control wallet address. The control wallet and external trader wallets return `{\"code\":103,\"error\":\"Wallet not found\"}`.\n\n5. **Discovery endpoints use different query params:**\n   - `user_stats`: `?user=<address>` (managed wallet only)\n   - `clearinghouse_state`, `clearinghouse_state_all`: `?address=<address>`\n   - `open_orders`, `open_orders_all`: `?address=<address>`\n   - `usdc_balance`: `?address=<address>`\n\n6. **`top_traders_by_pnl`** returns nested structure: `{ day: [...], week: [...], month: [...] }` where each entry has `ethAddress`, `accountValue`, and `windowPerformances`.\n\n7. **`deposit_tokens`** response keys are chain IDs (e.g., `\"42161\"` for Arbitrum), not chain names. Each token includes `name`, `symbol`, `address`, `chainId`, `decimals`, `minDeposit`, `HLReceiver`.\n\n## Backend Validation Rules\n\n- **TP/SL mandatory**: Both `lossPercent` > 0 (and < 100) and `profitPercent` > 0\n- **Copy modes**: Mode 1 = fixed USD per order, Mode 2 = proportion of trader's size\n- **Max copies**: Default 3 per user (`hyperLiquidConfig.maxFuturesCopy`)\n- **No self-copy**: Can't copy your own wallet\n- **Circular dependency**: Full DFS graph cycle detection (A\u2192B\u2192C\u2192A prevented)\n- **No duplicates**: Can't copy the same trader wallet twice\n\n## How Copies Execute\n\nCopies are NOT executed at API call time. A background watcher monitors tracked traders:\n1. Detects trader's new perp position (open/close/modify)\n2. Calculates your position size based on copyMode\n3. Opens/closes a mirrored position (or opposite if `oppositeCopy=true`)\n4. Applies TP/SL based on your lossPercent/profitPercent settings\n5. Tracks fill in `HLCopyTradeTrack` collection for tx_list\n\n## Example: Full HL Perp Copy Trading Flow\n\n```typescript\nimport {\n  GdexSkill,\n  buildGdexUserSessionData,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n} from '@gemachdao/gdex-skill';\nimport { ethers } from 'ethers';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(apiKey);\n\n// 1. Sign in (chainId: 1 for HL operations)\nconst wallet = ethers.Wallet.fromPhrase(mnemonic);\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\nconst nonce = String(Date.now());\nconst msg = buildGdexSignInMessage(wallet.address, nonce, sessionKey);\nconst sig = await wallet.signMessage(msg);\nconst payload = buildGdexSignInComputedData({\n  apiKey, userId: wallet.address, sessionKey, nonce, signature: sig,\n});\nawait skill.signInWithComputedData({ computedData: payload.computedData, chainId: 1 });\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\nconst userId = wallet.address.toLowerCase();\n\n// 2. Discover top traders\nconst topTraders = await skill.getHlTopTradersByPnl();\nconst bestTrader = topTraders.topTraders[0];\nconsole.log(`Top trader: ${bestTrader.address}, volume: $${bestTrader.volume}`);\n\n// 3. Check trader's stats\nconst stats = await skill.getHlUserStats(bestTrader.address);\nconsole.log(`30d PnL: $${stats.userStats['30d']}`);\n\n// 4. Create a copy trade\nawait skill.createHlCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  traderWallet: bestTrader.address,\n  copyTradeName: `Top PnL: ${bestTrader.address.slice(0, 8)}`,\n  copyMode: 1,\n  fixedAmountCostPerOrder: '25',  // $25 per copied trade\n  lossPercent: '30',\n  profitPercent: '100',\n});\n\n// 5. Monitor\nconst list = await skill.getHlCopyTradeList({ userId, data });\nfor (const ct of list.allCopyTrades) {\n  console.log(`${ct.copyTradeName}: active=${ct.isActive}, trades=${ct.totalTrades}, PnL=$${ct.totalPnl}`);\n}\n\n// 6. Check fill history\nconst fills = await skill.getHlCopyTradeTxList({ userId, data, limit: '20' });\nfor (const tx of fills.txes) {\n  console.log(`${tx.coin} ${tx.dir}: ${tx.sz} @ $${tx.px}, PnL=${tx.closedPnl}`);\n}\n```\n\n## Autonomous Agent Notes (Live-Tested)\n\n1. **`getHlUserStats()` requires the MANAGED wallet address.** Passing the control address or any external trader address returns 400 `\"Wallet not found\"`. Use the managed EVM address from `/v1/user?chainId=1`.\n2. **All 7 other discovery endpoints (topTraders, topTradersByPnl, allAssets, perpDexes, depositTokens, clearinghouseState, openOrders) work with the control address or any external address.** Only `user_stats` has the managed-address requirement.\n3. **Don't trust `copyMode` or `oppositeCopy` in API responses.** The backend returns ABI byte-offsets (416, 480, 736, etc.) instead of the real values. Store your own copy trade configs locally.\n4. **To pause a copy trade, you must delete and recreate it.** There is no toggle endpoint \u2014 `isChangeStatus` deletes permanently.\n5. **Sign-in for HL copy trading must use `chainId: 1`** (EVM), not `622112261` (Solana).\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup and sign-in required for read/write\n- **gdex-copy-trading** \u2014 Solana spot copy trading (separate system)\n- **gdex-perp-trading** \u2014 HL perp order management, positions, leverage\n- **gdex-perp-funding** \u2014 Deposit/withdraw USDC to HL account\n- **gdex-portfolio** \u2014 Monitor portfolio including copied positions\n", files: [] }, { name: "gdex-perp-funding", description: "Deposit and withdraw USDC to/from HyperLiquid for perpetual futures trading \u2014 constraints, amounts, and managed-custody flow", content: "\n# GDEX: HyperLiquid Funding (Deposit / Withdraw)\n\nManage USDC deposits and withdrawals between your managed wallet and HyperLiquid perp account.\n\n## When to Use\n\n- Depositing USDC to HyperLiquid before trading perps\n- Withdrawing USDC from HyperLiquid back to managed wallet\n- Understanding deposit constraints and delivery times\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via managed-custody sign-in \u2014 see **gdex-authentication**\n\n## Deposit USDC to HyperLiquid\n\nEvery deposit needs the managed-custody credentials from sign-in (sign in with\n`chainId: 1`). MCP users pass `accountRef` from `gdex_connect` to `perp_deposit` instead.\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n// ... managed sign-in (see gdex-authentication) \u2192 apiKey, walletAddress (control), sessionPrivateKey\n\n// Amount is human-readable USDC \u2014 SDK converts to smallest unit (6 decimals) internally. Min 10 USDC.\nawait skill.perpDeposit({\n  amount: '50',\n  tokenAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', // USDC on Arbitrum\n  chainId: 42161,     // Arbitrum\n  apiKey,\n  walletAddress,      // MUST be the CONTROL wallet address (from sign-in), NOT the managed address\n  sessionPrivateKey,\n});\n```\n\n> **CRITICAL:** `walletAddress` must be the **control wallet address** used during sign-in \u2014 NOT the managed-custody address returned by `/v1/user`. Passing the managed address causes `400 Unauthorized (code 103)`. See **gdex-authentication** for details.\n\n## Withdraw USDC from HyperLiquid\n\n```typescript\nawait skill.perpWithdraw({\n  amount: '25',\n  apiKey,\n  walletAddress,\n  sessionPrivateKey,\n});\n```\n\n## Deposit Constraints\n\n| Constraint | Value |\n|------------|-------|\n| **Chain** | Arbitrum only (chainId `42161`) |\n| **Token** | USDC only (`0xaf88d065e77c8cC2239327C5EDb3A432268e5831`) |\n| **Min deposit** | 10 USDC |\n| **Amount format** | Human-readable (e.g., `'10'` for 10 USDC); SDK converts to 6 decimal smallest unit internally |\n| **Fee buffer** | Managed wallet must hold `amount \xD7 1.01` (1% fee) |\n| **Delivery time** | ~10 minutes after Arbitrum tx confirms |\n| **On-chain amount** | 10 USDC = `10000000` (6 decimals) in the ABI encoding |\n\n## Check USDC Balance on HyperLiquid\n\n```typescript\n// HL funds sit on the managed EVM wallet (getManagedUser with chainId 1)\nconst balance = await skill.getHlUsdcBalance(managedEvmAddress);\nconsole.log('Available USDC:', balance);\n```\n\n## ABI Encoding Details\n\nThe deposit uses a specific ABI schema with `uint64` for chainId:\n\n| Field | ABI Type | Example |\n|-------|----------|---------|\n| `chainId` | `uint64` | `42161` |\n| `tokenAddress` | `address` | `0xaf88d065e77c8cC2239327C5EDb3A432268e5831` |\n| `amount` | `uint256` | `10000000` (10 USDC) |\n| `nonce` | `string` | Client-generated timestamp + random |\n\n**CRITICAL:** `chainId` is `uint64`, NOT `uint256`. Using `uint256` causes `400 Unauthorized (code 103)`.\n\nWithdraw ABI schema:\n\n| Field | ABI Type | Example |\n|-------|----------|---------|\n| `amount` | `string` | `'5000000'` (5 USDC in smallest unit) |\n| `nonce` | `string` | Client-generated |\n\n## Common Issues\n\n### \"Insufficient balance\" on deposit\n- Managed wallet needs `amount \xD7 1.01` USDC on Arbitrum (1% fee buffer)\n- Check managed wallet balance, not HL perp balance\n\n### Deposit doesn't appear on HL\n- Normal delivery time is ~10 minutes after Arbitrum tx confirmation\n- Use `getHlUsdcBalance()` or `getHlAccountState()` to check\n\n### \u26A0\uFE0F Deposit may return an error even when it succeeded (verify before retrying)\nThe backend can return an error (HTTP 400, \"Transaction has been reverted\u2026\")\n**even though the on-chain USDC transfer to the HL bridge succeeded** and the\nfunds are en route. **Do not blindly retry** \u2014 a retry spends gas and can move\nfunds twice. On any deposit error, first check the managed wallet's USDC\nbalance on Arbitrum and `getHlAccountState()` / `getHlUsdcBalance()`; only\nretry if the balance is unchanged after a few minutes.\n\n### Deposited funds show under the managed address (and may move to spot)\nHyperLiquid credits the depositing wallet (the **managed** address), so check\n`getHlAccountState(managedAddress)`. Enabling outcome (HIP-3) trading or placing\nan outcome order can move USDC from the perp account to the **spot** balance \u2014\ncheck `getHlSpotState(managedAddress)` if the perp balance reads `$0`.\n\n### 400 Unauthorized (code 103)\n- **Most common cause:** Passing the managed address as `walletAddress` instead of the control wallet address \u2014 see **gdex-authentication**\n- Second cause: `uint256` vs `uint64` encoding mismatch for chainId \u2014 see **gdex-perp-trading** for full ABI details\n\n## Autonomous Agent Notes (Live-Tested)\n\n1. **Deposit of 10 USDC was E2E verified.** Takes ~10 minutes for USDC to appear on HyperLiquid after Arbitrum tx confirms.\n2. **After deposit, check balance with `getHlAccountState()`** \u2014 `getGbotUsdcBalance` returns 404.\n3. **Amount is human-readable for high-level methods** (`perpDeposit({ amount: '10' })`), but the ABI encoding internally converts to 6-decimal smallest unit (10 USDC = 10000000).\n4. **Sign-in must use `chainId: 1`** (EVM) for HL deposit/withdraw operations.\n5. **`walletAddress` MUST be control wallet** \u2014 passing managed address \u2192 400 Unauthorized (code 103).\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Managed-custody auth required for deposits/withdrawals\n- **gdex-perp-trading** \u2014 Trade perps after funding your HL account\n- **gdex-portfolio** \u2014 Check overall portfolio including HL positions\n", files: [] }, { name: "gdex-perp-trading", description: "HyperLiquid perpetual futures \u2014 open/close positions, set leverage, place market and limit orders with TP/SL, and manage open orders", content: "\n# GDEX: Perpetual Futures Trading (HyperLiquid)\n\nTrade perpetual futures on HyperLiquid through GDEX managed-custody. Supports long/short positions, configurable leverage, take-profit/stop-loss, and market/limit orders.\n\n## When to Use\n\n- Opening or closing perp positions\n- Setting leverage for an asset\n- Placing HL orders (market/limit) with TP/SL\n- Querying positions, mark prices, or account state\n- Canceling orders\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via `loginWithApiKey()` \u2014 see **gdex-authentication**\n- USDC deposited to HyperLiquid \u2014 see **gdex-perp-funding**\n\n## Open a Position (managed custody)\n\nPerp orders go through `hlCreateOrder` after a managed sign-in. There is **no**\n`openPerpPosition`/`setPerpLeverage` \u2014 those don't exist (closing has\n`closePerpPosition`, below). The real flow:\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n// ... do the managed sign-in (see gdex-authentication) to get sessionPrivateKey ...\nconst creds = { apiKey, walletAddress: controlAddress, sessionPrivateKey };\n\nconst res = await skill.hlCreateOrder({\n  coin: 'ETH',           // 'BTC'|'ETH'|'SOL'\u2026 or a builder market 'xyz:NVDA' (lowercase dex prefix)\n  isLong: true,\n  price: String(mark),   // mark price; for market orders this is the slippage bound\n  size: '0.05',          // size in CONTRACTS (coin units), not USD\n  isMarket: true,\n  tpPrice: String(tp),   // '' to skip\n  slPrice: String(sl),   // '' to skip\n  leverage: 3,           // 1\u201350; see below\n  ...creds,\n});\n```\n\n**Leverage is supported** and is sent as a **top-level field** in the order\nrequest (the SDK forwards it for you). Verified: setting `leverage: 3` opens at\n3\xD7 (liquidation at the matching buffer) instead of HL's 20\xD7 default.\n\n> The standalone `/hl/update_leverage` endpoint (`hlUpdateLeverage`) is **404 \u2014 do\n> not use it.** Leverage is set as part of the order via the `leverage` field above.\n\n## Close a Position\n\nPrefer `closePerpPosition`: it reads the live position (dex-scoped\nclearinghouse state, signed `szi`) and picks the side for you \u2014 a long closes\nwith a sell, a short with a buy. Omit `size` for a full close; a larger `size`,\na flat position, or a bare coin open on several builder dexes is rejected.\n`positionAddress` is the address whose HL account holds the position (the\nmanaged wallet; defaults to `walletAddress`).\n\n```typescript\nconst r = await skill.closePerpPosition({ ...creds, coin: 'xyz:TSLA', positionAddress: managedAddress });\n// r: { closeSide: 'buy' | 'sell', size, positionSize, remainingSize, order, ... }\n```\n\nOr by hand with a reduce-only order (the opposite side, full size), or close everything:\n\n```typescript\nawait skill.hlCreateOrder({ coin: 'ETH', isLong: false, price: String(mark),\n  size: String(positionSize), reduceOnly: true, isMarket: true, tpPrice: '', slPrice: '', ...creds });\n\nawait skill.hlCloseAll({ ...creds }); // close all positions\n```\n\nNote HL's **$11 minimum order value** applies to closes too \u2014 you can't reduce a\nsub-$11 remainder; add to it first or let the stop close it.\n\n## Builder / HIP-3 markets (stocks, commodities)\n\nBuilder-dex assets are named `dex:ASSET` with a **lowercase** dex prefix\n(`xyz:NVDA`, `xyz:SPCX`, `flx:OIL`). Pass the coin in that exact form (the SDK\nnormalizes casing). They trade through the same `hlCreateOrder` flow as default\nmarkets and honor the `leverage` you pass (live-confirmed: `xyz` stock perps open\nat **3\xD7 isolated**, not 20\xD7).\n\n**Collateral depends on the dex.** The `xyz` stock/commodity perps are\n**USDC-collateralized and 24-hour** \u2014 no collateral swap needed; trade them with\nyour existing HL USDC. Only dexes that settle in a different token (e.g. HYNA \u2192\nUSDE) need `hlSwapCollateral` first. The account must be a **unified account**\n(`hlEnableTrading`) to share margin across dexes.\n\n**Reading builder positions is dex-scoped.** A `xyz:NVDA` position lives under the\n`xyz` dex's isolated account, **not** the default clearinghouse \u2014 query\n`getHlClearinghouseState({ userAddress, dex: 'xyz' })`. The default query (and\n`getHlClearinghouseStateAll`, which omits `xyz`) returns it empty, which looks\nlike \"the order never filled\" when it actually did.\n\n## Query Positions & Account State\n\nPositions live on the **managed** EVM wallet (from sign-in / `getManagedUser`), so\nreads take that address; writes take the control wallet.\n\n```typescript\n// Get open positions\nconst positions = await skill.getPerpPositions({\n  walletAddress: managedEvmAddress,\n  coin: 'BTC',   // optional filter\n});\n// Each: { coin, side, size, entryPrice, markPrice, leverage, unrealizedPnl, liquidationPrice }\n\n// Full account state\nconst state = await skill.getHlAccountState(managedEvmAddress);\n// { accountValue, totalNtlPos, totalRawUsd, totalMarginUsed, withdrawable, positions[] }\n\n// Mark price for an asset\nconst price = await skill.getHlMarkPrice('BTC');\n```\n\n## Place Orders (HL Managed-Custody)\n\n### Market Order with TP/SL\n\n```typescript\nawait skill.hlCreateOrder({\n  coin: 'ETH',\n  isLong: true,\n  price: '0',       // '0' for market orders\n  size: '0.5',      // position size\n  reduceOnly: false,\n  isMarket: true,\n  tpPrice: '4000',  // take-profit (optional)\n  slPrice: '3200',  // stop-loss (optional)\n  apiKey,\n  walletAddress,\n  sessionPrivateKey,\n});\n```\n\n### Simple Order (no TP/SL)\n\n```typescript\nawait skill.hlPlaceOrder({\n  coin: 'SOL',\n  isLong: false,     // short\n  price: '180',      // limit price\n  size: '10',\n  reduceOnly: false,\n  apiKey,\n  walletAddress,\n  sessionPrivateKey,\n});\n```\n\n## Cancel Orders\n\n```typescript\n// Cancel specific order\nawait skill.hlCancelOrder({\n  coin: 'BTC',\n  orderId: '12345',\n  apiKey,\n  walletAddress,\n  sessionPrivateKey,\n});\n\n// Cancel all orders\nawait skill.hlCancelAllOrders({\n  apiKey,\n  walletAddress,\n  sessionPrivateKey,\n});\n```\n\n## Close All Positions\n\n> **WARNING:** The `hlCloseAll` / `/v1/hl/close_all_positions` endpoint is unreliable \u2014 it frequently returns `TIMEOUT` or JSON parse errors from the backend. **Close per coin with `closePerpPosition`, or a reduce-only order** (see below).\n\n```typescript\n// \u274C Unreliable \u2014 may timeout\nawait skill.hlCloseAll({\n  apiKey,\n  walletAddress,   // MUST be control address, not managed address\n  sessionPrivateKey,\n});\n\n// \u2705 Reliable \u2014 close one coin; side and size come from the live position\nawait skill.closePerpPosition({ coin: 'BTC', positionAddress: managedEvmAddress, apiKey, walletAddress, sessionPrivateKey });\n\n// \u2705 Or by hand: to close a LONG, place a SHORT reduce-only order for the exact size\nconst btcPrice = await skill.getHlMarkPrice('BTC');\nawait skill.hlCreateOrder({\n  coin: 'BTC',\n  isLong: false,                               // opposite of your position\n  price: Math.round(btcPrice * 0.97).toString(), // 3% below mid for market sell\n  size: '0.001',                                 // exact position size\n  reduceOnly: true,                              // close only, don't open new position\n  isMarket: true,\n  tpPrice: '',\n  slPrice: '',\n  apiKey,\n  walletAddress,   // MUST be control address\n  sessionPrivateKey,\n});\n```\n\n## HL ABI Schemas (Critical)\n\nHL operations use a **different crypto pipeline** than spot trades. Getting any detail wrong produces `400 Unauthorized (code 103)`.\n\n| Action | ABI Types | Fields |\n|--------|-----------|--------|\n| `hl_deposit` | `['uint64', 'address', 'uint256', 'string']` | `[chainId, tokenAddress, amount, nonce]` |\n| `hl_withdraw` | `['string', 'string']` | `[amount, nonce]` |\n| `hl_create_order` | `['string', 'bool', 'string', 'string', 'bool', 'string', 'string', 'string', 'bool']` | `[coin, isLong, price, size, reduceOnly, nonce, tpPrice, slPrice, isMarket]` |\n| `hl_place_order` | `['string', 'bool', 'string', 'string', 'bool', 'string']` | `[coin, isLong, price, size, reduceOnly, nonce]` |\n| `hl_close_all` | `['string']` | `[nonce]` |\n| `hl_cancel_order` | `['string', 'string', 'string']` | `[nonce, coin, orderId]` |\n| `hl_cancel_all_orders` | `['string']` | `[nonce]` |\n| `hl_update_leverage` | `['string', 'uint32', 'bool', 'string']` | `[coin, leverage, isCross, nonce]` |\n\n**CRITICAL:** `hl_deposit` chainId is `uint64`, NOT `uint256`. This is the #1 cause of Unauthorized errors. The backend re-encodes with `uint64` for signature verification \u2014 if you encode with `uint256`, the hex differs and you get code 103.\n\n## HL Managed-Custody Credentials\n\nAll HL write operations require `HlManagedCredentials`:\n\n```typescript\ninterface HlManagedCredentials {\n  apiKey: string;            // GDEX API key for AES encryption\n  walletAddress: string;     // CONTROL wallet address (from sign-in), NOT managed address\n  sessionPrivateKey: string; // Session key from sign-in flow\n}\n```\n\n## Default HL Assets\n\nBTC, ETH, SOL, DOGE, AVAX, APE, APT, ARB, ATOM, BCH, BLUR, BNB, COMP, CRV, DOT, EOS, FIL, FTM, HBAR, ICP, IMX, INJ, JUP, KPEPE, LDO, LINK, LTC, MATIC, MKR, NEAR, OP, ORDI, PEPE, PYTH, RNDR, RUNE, SEI, SHIB, SNX, STX, SUI, TIA, TON, TRX, UNI, WIF, WLD, XRP\n\n## Critical: walletAddress Must Be Control Address\n\n**The #1 cause of `400 Unauthorized (code 103)` on HL operations is passing the wrong `walletAddress`.**\n\n- During sign-in, the session key is registered against your **control wallet address** (e.g., `0x53D0...2eD`).\n- The backend returns a **managed address** (e.g., `0x9967...0f`) that holds the actual funds.\n- All HL write operations sign the message as `{action}-{walletAddress}-{data}`, and the backend verifies the signature against the session key registered for that address.\n- If you pass the managed address, the signature verification fails \u2192 code 103.\n\n```typescript\n// \u274C WRONG \u2014 causes 400 Unauthorized (code 103)\nconst creds = { apiKey, walletAddress: managedAddress, sessionPrivateKey };\n\n// \u2705 CORRECT \u2014 use the control wallet address from sign-in\nconst creds = { apiKey, walletAddress: controlAddress, sessionPrivateKey };\n```\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup required for all HL operations\n- **gdex-perp-funding** \u2014 Deposit/withdraw USDC to HyperLiquid\n- **gdex-portfolio** \u2014 View positions and P&L\n\n## Autonomous Agent Notes (Live-Tested)\n\n### Endpoints That Don't Work\n\n| Endpoint | Status | What to Do |\n|----------|--------|------------|\n| `hlCloseAll` / `/v1/hl/close_all_positions` | Returns TIMEOUT or 400 | Place a reduce-only `hlCreateOrder` for the exact position size |\n| `hlUpdateLeverage` / `/v1/hl/update_leverage` | Returns 404 | Pass `leverage` on `hlCreateOrder` (sent top-level with the order) |\n| `getGbotUsdcBalance` | Returns 404 | Use `getHlAccountState()` or clearinghouse state to check balance |\n\n### Close Position Reliably (Live-Tested)\n\n```typescript\n// Positions are read from the MANAGED wallet; the close is signed with the CONTROL wallet.\nconst positions = await skill.getPerpPositions({ walletAddress: managedEvmAddress });\n\nfor (const pos of positions) {\n  // Reads the live side/size and sends a reduce-only market order on the opposite side\n  await skill.closePerpPosition({\n    coin: pos.coin,\n    positionAddress: managedEvmAddress,\n    apiKey,\n    walletAddress: controlAddress,   // MUST be control address\n    sessionPrivateKey,\n  });\n}\n```\n\n### HL Deposit Minimum\n\n- **Minimum deposit: 10 USDC** (10000000 in smallest unit)\n- Managed wallet must hold `amount \xD7 1.01` (1% fee buffer)\n- Delivery takes ~10 minutes after Arbitrum tx confirms\n\n### Leverage and Position Sizing\n\n- Set leverage per order with `leverage` on `hlCreateOrder` (MCP: `open_perp_position`); it is sent as a\n  top-level field with the order. Omitted, HL uses its default (20x on most markets).\n- `hlUpdateLeverage` (MCP: `set_leverage`) hits `/hl/update_leverage`, which has returned 404 \u2014 don't rely on it.\n- **Effective leverage** = position notional value / account equity, so size positions with that in mind.\n\n### Critical Checks Before Opening a Position\n\n1. Verify USDC is deposited on HL (use `getHlAccountState()`)\n2. Use **control** wallet address (not managed) for all write operations\n3. Generate a fresh nonce for every order\n4. For market orders: set `isMarket: true` and pass the mark price (`'0'` is resolved to the mark price by the SDK)\n5. Pass `''` for `tpPrice` / `slPrice` to skip TP/SL\n", files: [] }, { name: "gdex-portfolio", description: "Cross-chain portfolio overview, chain-specific token balances, and paginated trade history", content: "\n# GDEX: Portfolio & Balances\n\nQuery cross-chain portfolio summaries, chain-specific balances, and trade history.\n\n> **USDC across chains:** `getUsdcBalances` returns the user's USDC and gas balance on every USDC chain plus the total. See **gdex-usdc-wallet**.\n\n## When to Use\n\n- Getting a user's total portfolio value across all chains\n- Checking token balances on a specific chain\n- Retrieving trade history with pagination and filters\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via `loginWithApiKey()` \u2014 see **gdex-authentication**\n\n## Cross-Chain Portfolio\n\n> **WARNING (Live-Tested):** The high-level `getPortfolio()` and `getBalances()` methods send `walletAddress` + `chain` to the backend, but the backend expects `userId` + `chainId` + `data` (encrypted session key). **These methods return empty or incorrect results.** Use the raw client workaround below.\n\n### Correct Way \u2014 Raw Client (Live-Tested, Works)\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY, buildGdexUserSessionData } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// Build encrypted session data\nconst data = buildGdexUserSessionData(sessionKey, GDEX_API_KEY_PRIMARY);\n\n// Portfolio \u2014 use raw client with correct params\nconst portfolio = await skill.client.get('/v1/portfolio', {\n  params: {\n    userId: controlAddress,   // control wallet, NOT managed\n    chainId: 622112261,       // numeric Solana chain ID\n    data,                     // encrypted session key\n  }\n});\n```\n\n### Incorrect Way \u2014 High-Level Methods (SDK Bug)\n\n```typescript\n// \u274C These send wrong params to backend \u2014 DO NOT USE for managed custody\nconst portfolio = await skill.getPortfolio({ walletAddress: '0x...', chain: 'solana' });\nconst balances = await skill.getBalances({ walletAddress: '0x...', chain: 8453 });\n```\n\n### Portfolio Response\n\n```typescript\ninterface Portfolio {\n  totalValueUsd: number;\n  balances: Balance[];\n  perpPositions?: PerpPosition[];\n  realizedPnl?: number;\n  unrealizedPnl?: number;\n  totalPnl?: number;\n}\n\ninterface Balance {\n  tokenAddress: string;\n  symbol: string;\n  name: string;\n  decimals: number;\n  rawBalance: string;\n  balance: string;        // human-readable\n  usdValue: number;\n  priceUsd: number;\n  change24h?: number;\n  chain: string | number;\n}\n```\n\n## Chain-Specific Balances\n\n> **WARNING (Live-Tested):** Same issue as portfolio \u2014 use raw client. On\n> backend v1.1.0 balances are embedded in the portfolio response under\n> `portfolio.balances[]` (there is no separate `/v1/balances` endpoint).\n\n```typescript\nconst portfolio = await skill.client.get('/v1/portfolio', {\n  params: {\n    userId: controlAddress,\n    chainId: 622112261,       // numeric chain ID\n    data,                     // encrypted session key\n  }\n});\nconst balances = portfolio.balances ?? [];\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `walletAddress` | `string` | Yes | Wallet address to query |\n| `chain` | `string \\| ChainId` | Yes | Chain to query balances on |\n| `tokenAddress` | `string` | No | Filter to a specific token |\n\n## Trade History\n\n> **WARNING (Live-Tested):** The backend expects param `user` (NOT `userId`), and managed Solana chainId for trade history is `900` (NOT `622112261`). Use the raw client:\n\n```typescript\nconst history = await skill.client.get('/v1/user_history', {\n  params: {\n    user: controlAddress,     // NOTE: \"user\", not \"userId\"\n    chainId: 900,             // NOTE: 900 for Solana trade history, not 622112261\n    data,                     // encrypted session key\n    page: 1,\n    limit: 20,\n  }\n});\n```\n\n> The high-level `getTradeHistory()` sends wrong param names. Use raw client above.\n\n### Trade Record\n\n```typescript\ninterface TradeRecord {\n  id: string;\n  type: string;        // 'buy' | 'sell'\n  inputToken: string;\n  outputToken: string;\n  amountIn: string;\n  amountOut: string;\n  usdValue?: number;\n  chain: string | number;\n  dex?: string;\n  txHash: string;\n  timestamp: number;\n  status: string;\n}\n```\n\n## Example: Portfolio Dashboard (Autonomous Agent \u2014 Live-Tested)\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY, buildGdexUserSessionData } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// Build encrypted session data (required for all portfolio/balance/history queries)\nconst data = buildGdexUserSessionData(sessionKey, GDEX_API_KEY_PRIMARY);\nconst userId = controlAddress; // control wallet, NOT managed\n\n// 1. Get portfolio (raw client \u2014 high-level method has wrong params)\nconst portfolio = await skill.client.get('/v1/portfolio', {\n  params: { userId, chainId: 622112261, data }\n});\n\n// 2. Get balances (embedded in portfolio.balances[] on backend v1.1.0)\nconst balances = portfolio.balances ?? [];\n\n// 3. Get trade history (use \"user\" param, chainId 900 for Solana)\nconst history = await skill.client.get('/v1/user_history', {\n  params: { user: userId, chainId: 900, data, page: 1, limit: 20 }\n});\n```\n\n## Autonomous Agent Notes\n\n1. **Always use raw client** for portfolio, balances, and trade history. The high-level SDK methods send incorrect parameter names.\n2. **Portfolio/balances chainId**: Use `622112261` for Solana, standard EVM chain IDs for others.\n3. **Trade history chainId**: Use `900` for Solana (not `622112261`). This is a backend quirk.\n4. **Trade history param**: Use `user` (not `userId`) \u2014 backend expects different param name for this endpoint.\n5. **Data param**: Always pass the encrypted session key from `buildGdexUserSessionData()`.\n6. **userId**: Always use the **control** wallet address, never the managed address.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup required for portfolio queries\n- **gdex-spot-trading** \u2014 Execute trades based on portfolio analysis\n- **gdex-perp-trading** \u2014 View perp positions in portfolio\n- **gdex-token-discovery** \u2014 Research tokens found in portfolio\n", files: [] }, { name: "gdex-retailer-onboarding", description: "Retailer partner integrations \u2014 list branded onboarding partners that white-label the GDEX trading stack", content: "\n# GDEX: Retailer Onboarding\n\nInspect the list of registered retailer partners \u2014 third-party brands that\nwhite-label the GDEX trading stack and have their own branded onboarding\nexperience.\n\n## When to Use\n\n- Building a partner-aware onboarding flow that routes users to their\n  retailer's branded sign-up\n- Surfacing partner branding (logo, theme, name) at the application level\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- No authentication required (public retailer registry)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/retailer` | List registered retailer integrations |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nconst retailers = await skill.getRetailers();\n// Optionally filter by retailer slug / identifier:\nconst single = await skill.getRetailers({ retailer: 'partner-slug' });\n```\n\n## Notes\n\n- The retailer registry is the source of truth for the partner-onboarding\n  routing layer \u2014 clients should treat it as authoritative.\n- Per-retailer schema (logo, theme, redirect URLs) is determined by the\n  backend deployment.\n", files: [] }, { name: "gdex-sdk-debugging", description: "Troubleshoot GDEX SDK errors \u2014 error codes, encryption debugging, chain-specific quirks, HL gotchas, and copy trade pitfalls", content: "\n# GDEX: SDK Debugging & Troubleshooting\n\nComprehensive troubleshooting guide for GDEX SDK errors, covering API error codes, encryption debugging, chain-specific quirks, HyperLiquid gotchas, and copy trade pitfalls. All issues documented from live E2E testing.\n\n## When to Use\n\n- Getting unexpected API errors (103, 102, TIMEOUT)\n- Trades failing silently or returning wrong data\n- Debugging encryption / `computedData` payload issues\n- Chain-specific problems (wrong chainId, wrong managed wallet)\n- HyperLiquid perp issues\n- Copy trade configuration problems\n\n## API Error Codes\n\n| Code | Error | Common Cause | Fix |\n|------|-------|-------------|-----|\n| `103` | Unauthorized | Wrong `walletAddress` (using managed instead of control), wrong ABI type, signing with wrong key | Use **control wallet address** as `walletAddress` / `userId`. Verify session key matches sign-in. |\n| `102` | Invalid chainId | Using wrong chainId for HL operations | HL operations require `chainId: 42161` (Arbitrum). Copy trades need specific chainIds (see below). |\n| `102` | Invalid params | Reused nonce, unsupported token, or malformed ABI payload | Check nonce is fresh (`Date.now()`). Verify token is supported on chain. |\n| `400` | Bad Request | Missing required fields or wrong field types | Check all required params are present and correctly typed. |\n| `TIMEOUT` | Request timeout | Backend processing delay (common with `hlCloseAll`) | Retry once, or use alternative approach (reduce-only order to close). |\n| `JSON parse error` | Invalid response | Backend returned non-JSON (HTML error page, Cloudflare block) | Check User-Agent header is set. Verify API key is valid. |\n\n## Critical: Control Wallet vs Managed Wallet\n\nThis is the **#1 source of errors**:\n\n```\nControl wallet:  0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD  \u2190 used for API calls (userId, walletAddress)\nManaged wallet:  0x9967179de55bd67e6b90fcc4f908556d93938c0f  \u2190 server-side, executes trades on-chain\n```\n\n**Rule:** All API calls use the **control address** \u2014 the one you signed in with. The managed address is only used when querying on-chain state directly (e.g., `user_stats` on HL needs the managed address).\n\n> The `/v1/user` endpoint returns a **different managed wallet per chainId**:\n> - `chainId=1` \u2192 EVM managed: `0x9967...`\n> - `chainId=622112261` \u2192 Solana managed: `CFSi4Y...` (base58)\n\n## Chain ID Gotchas\n\n| Issue | Wrong | Correct | Notes |\n|-------|-------|---------|-------|\n| Solana chain ID | `900` | `622112261` (`ChainId.SOLANA`) | `900` returns EVM managed address with `balance: null` |\n| Copy trade sign-in | `chainId: 1` | `chainId: 622112261` | Solana copy trades need Solana chainId for sign-in |\n| Perp copy trade sign-in | `chainId: 622112261` | `chainId: 1` | HL perp copy trades need EVM chainId for sign-in |\n| HL operations | Any other | `42161` (Arbitrum) | HL deposit, create order, close \u2014 all use Arbitrum chainId |\n\n## HyperLiquid-Specific Issues\n\n### `hlCloseAll` is Unreliable\n\nThe `/v1/hl/close_all_positions` endpoint frequently returns `TIMEOUT` or JSON parse errors.\n\n**Workaround:** Close each coin with `closePerpPosition` (MCP: `close_perp_position`). It reads the live\nposition and sends a reduce-only market order for the exact size on the opposite side:\n```typescript\n// Instead of skill.hlCloseAll() \u2014 use this:\nconst positions = await skill.getPerpPositions({ walletAddress: managedEvmAddress }); // positions live on the managed wallet\nfor (const pos of positions) {\n  await skill.closePerpPosition({\n    coin: pos.coin,\n    positionAddress: managedEvmAddress,\n    apiKey,\n    walletAddress: controlAddress,  // control wallet signs\n    sessionPrivateKey,\n  });\n}\n```\n\n### Leverage Is Set Per Order\n\nThe standalone `hlUpdateLeverage` / `/v1/hl/update_leverage` endpoint returns **404**. Set leverage on the\norder instead: `hlCreateOrder({ ..., leverage: 5 })` (MCP: `open_perp_position` with `leverage`). The SDK\nsends it as a top-level field next to `computedData`, which is where the backend reads it. Omitted, HL\nuses its default (20x on most markets).\n\n### HL Signature Format\n\n```\nmessage = \"{action}-{userId.toLowerCase()}-{dataHex}\"\ndigest  = keccak256(utf8Bytes(message))\noutput  = r(64hex) + s(64hex) + v(2hex)  // 130 chars total, v=00/01, no 0x prefix\n```\n\nCommon signature errors:\n- Wrong `userId` (must be control wallet, lowercase)\n- Wrong `action` string (e.g., `\"hl_deposit\"` not `\"deposit\"`)\n- Leading `0x` on signature output (must be stripped)\n- Wrong `v` value (must be `00` or `01`, not `27`/`28`)\n\n## Encryption Debugging\n\nAll managed-custody trades use AES-256-CBC encrypted `computedData`:\n\n```\n1. ABI-encode trade parameters \u2192 hex string (no 0x prefix)\n2. Sign: keccak256(action + userId + dataHex) \u2192 r+s+v (130 chars)\n3. Encrypt: AES-256-CBC(dataHex + signature, derivedKey, iv)\n4. POST to backend with { computedData, userId, chainId }\n```\n\n### Common Encryption Errors\n\n| Symptom | Cause | Fix |\n|---------|-------|-----|\n| `103 Unauthorized` | ABI using `uint256` when backend expects `uint64`, or vice versa | Check the exact ABI types for each endpoint \u2014 HL deposit uses `uint64`, not `uint256` |\n| `Invalid signature` | Signing with wrong key or wrong message format | Ensure session key (not control wallet key) signs the message. Check action string exactly matches. |\n| Empty response | `computedData` encrypted with wrong key | Verify AES key derivation: `SHA256(SHA256(SHA256(apiKey)))` |\n| `Reused nonce` | Same nonce value in consecutive trades | Always use fresh `Date.now()` or incrementing nonce |\n\n### AES Key Derivation\n\n```typescript\nconst key = SHA256(SHA256(SHA256(apiKey)));  // 3\xD7 SHA256 hash chain\nconst iv = randomBytes(16);                  // fresh IV per request\nconst encrypted = AES_CBC_encrypt(payload, key, iv);\n// computedData = iv.hex + encrypted.hex (concatenated)\n```\n\n## Solana-Specific Issues\n\n### Meteora Swaps Are Broken\n\nTokens routed through Meteora DLMM (e.g., BONK) fail with `Program error: 1` because the backend doesn't wrap SOL into WSOL.\n\n**Workaround:** Use Raydium-routed tokens. Check `token.dexId`:\n- `\"raydium\"` / `\"raydium_v2\"` \u2192 works\n- `\"meteora\"` \u2192 **will fail**\n- `\"orca\"` \u2192 works\n\n### ATA Creation Costs\n\nFirst trade on a new Solana token incurs ~0.007 SOL overhead:\n- ATA creation: ~0.002 SOL\n- Priority fee: ~0.0005 SOL (default)\n- Keep at least 0.01 SOL in the managed wallet for safety\n\n### Solana Managed Wallet\n\nAfter sign-in with `chainId: 622112261`, the Solana managed wallet is a **base58 address** (not hex):\n```\nCFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1\n```\n\n## Copy Trade Pitfalls\n\n### `isDelete` and `isChangeStatus` Both Delete\n\nOn **both Solana and HyperLiquid**, setting either `isDelete='1'` or `isChangeStatus='1'` **permanently deletes** the copy trade. There is no \"pause\" or \"toggle\" \u2014 it's irreversible.\n\n> **Boolean encoding:** Use `''` (empty string) for false and `'1'` for true. The string `'0'` is **truthy** and will trigger deletion.\n\n### ABI Offset Bugs in Responses\n\nThe backend returns ABI **byte-offsets** instead of actual values for some fields:\n- `copyMode` \u2192 Returns `416` or `480` (byte offset), not the JSON value\n- `oppositeCopy` \u2192 Always returns `true` regardless of actual setting\n\n**Workaround:** Store your own copy trade configuration locally. Don't rely on response values for `copyMode` or `oppositeCopy`.\n\n### Max 3 HL Copy Trades\n\nThe HyperLiquid perp copy trading system allows a maximum of 3 active copy trades per user. Creating a 4th will fail.\n\n## Network Issues\n\n### Cloudflare Blocking\n\nThe GDEX backend sits behind Cloudflare. Requests without a browser-like `User-Agent` may be blocked.\n\n```typescript\n// The SDK handles this automatically, but for manual requests:\nheaders: {\n  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',\n  'Content-Type': 'application/json',\n  'Authorization': `Bearer ${apiKey}`,\n}\n```\n\n### Bridge Endpoint Paths\n\nBridge endpoints use non-obvious paths:\n- `GET /v1/bridge/estimate_bridge` (not `/bridge/estimate`)\n- `POST /v1/bridge/request_bridge` (not `/bridge/execute`)\n- `GET /v1/bridge/bridge_orders` (not `/bridge/orders`)\n\n## Debugging Checklist\n\nWhen a trade fails, check in order:\n\n1. **Auth:** Is `loginWithApiKey()` called? Is the API key valid?\n2. **Wallet:** Are you using the **control** wallet address (not managed)?\n3. **Chain ID:** Is chain ID correct for the operation? (See table above)\n4. **Nonce:** Is the nonce fresh (`Date.now()`)?\n5. **ABI types:** Do the ABI types exactly match what the backend expects?\n6. **Signature:** Is the session key signing (not control key)? Is the message format correct?\n7. **Balance:** Does the managed wallet have enough funds + gas?\n\n## Portfolio / Balances / Trade History Quirks (Live-Tested)\n\nThese are **critical for autonomous agents** \u2014 the high-level SDK methods have parameter mismatches:\n\n| Endpoint | SDK Method Issue | Correct Raw Client Call |\n|----------|-----------------|------------------------|\n| Portfolio | `getPortfolio()` sends `walletAddress`+`chain` | `GET /v1/portfolio?userId=X&chainId=N&data=Y` |\n| Balances | `getBalances()` sends `walletAddress`+`chain` | `GET /v1/portfolio?userId=X&chainId=N&data=Y` (balances embedded under `portfolio.balances[]`) |\n| Trade History | `getTradeHistory()` sends `userId` | `GET /v1/user_history?user=X&chainId=900&data=Y` |\n\n**Key differences:**\n- Portfolio/balances: Backend expects `userId` + `chainId` + `data` (encrypted session key), NOT `walletAddress` + `chain`. On v1.1.0 there is no separate `/v1/balances` endpoint \u2014 balances are embedded under `portfolio.balances[]`.\n- Trade history: Backend expects `user` (NOT `userId`) and `chainId: 900` for Solana (NOT `622112261`)\n- All three require the encrypted session key from `buildGdexUserSessionData()`\n\n```typescript\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\n\n// Correct portfolio call (balances are inside portfolio.balances[])\nconst portfolio = await skill.client.get('/v1/portfolio', {\n  params: { userId: controlAddress, chainId: 622112261, data }\n});\n\n// Correct trade history call\nconst history = await skill.client.get('/v1/user_history', {\n  params: { user: controlAddress, chainId: 900, data, page: 1, limit: 20 }\n});\n```\n\n## Limit Order ABI Bug (Fixed in SDK)\n\nThe `limit_buy` and `update_order` ABI schemas encode `profitPercent` and `lossPercent` as `uint256`, NOT `string`. Using `string` type causes the backend to receive ABI byte-offsets (e.g. 192) instead of the actual percentage values, which always fails the 0-100 range validation.\n\n**Symptom:** `\"lossPercent must be between 0 and 100\"` even with valid values like `lossPercent: '25'`\n**Cause:** ABI `string` type \u2192 encoded offset (192) \u2192 fails range check\n**Fix:** SDK encodes as `uint256` (correct). Only matters if encoding manually.\n8. **Token support:** Is the token supported on this chain? Is the DEX working? (Meteora is broken)\n\n## Backend-Limited Behavior (Not SDK Bugs)\n\nThese are server-side behaviors, verified live. They are **not fixable in the SDK** \u2014 don't\nwaste a debugging loop on them. Treat the listed responses as expected.\n\n### Deposit returns HTTP 400 even when the transfer succeeds\n\n`perpDeposit` (USDC \u2192 HyperLiquid) frequently returns HTTP 400 while the on-chain transfer\n**still completes**. The error is a backend response-handling bug, not a failed deposit.\n\n**Symptom:** `perpDeposit` throws a 400, but the USDC arrives in the HL account moments later.\n**Do:** Don't retry blindly on the 400 (you'll double-deposit). Poll the HL perp balance /\n`getHlAccount` to confirm before retrying. Verify state, not the HTTP status.\n\n### Outcome-market listings are controlled by the backend, not the SDK\n\nThe SDK can place/cancel/close orders on **any** outcome market (coin format\n`#<outcomeId><sideIndex>`, e.g. `#1010` = outcome 101, Yes side), but *which* markets exist \u2014\nand that they may currently be limited (e.g. only a BTC over/under) \u2014 is decided by the\nbackend / HIP-3 deployer, not the SDK.\n\n**Symptom:** `listOutcomeMarkets` returns few/limited markets, or a `#\u2026` coin you expect is absent.\n**Do:** Only trade markets returned by `listOutcomeMarkets` / the outcome account query. An empty\nor short list is a market-config state on the backend, not a discovery bug. HIP-3/HIP-4 markets\nmay also quote in non-USDC collateral (USDH/USDE/USDT0) \u2014 use `swap_collateral` first.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Full auth flow and encryption details\n- **gdex-spot-trading** \u2014 Spot trade parameters and chain support\n- **gdex-perp-trading** \u2014 HL perp specifics\n- **gdex-copy-trading** \u2014 Solana copy trade ABI format\n- **gdex-perp-copy-trading** \u2014 HL perp copy trade ABI format\n", files: [] }, { name: "gdex-spot-trading", description: "Buy and sell tokens on Solana, Sui, and EVM chains with automatic DEX routing, slippage control, and percentage-based sells", content: "\n# GDEX: Spot Trading\n\nBuy and sell tokens across Solana, Sui, and 12+ EVM chains. The SDK routes through the best available DEX automatically, or you can specify one.\n\n> **Paying with USDC?** To buy with USDC from any chain (GDEX bridges it in automatically) or sell straight into USDC, see **gdex-usdc-wallet**.\n## When to Use\n\n- Buying a token with native currency (SOL, ETH, etc.)\n- Selling a token (absolute amount or percentage of holdings)\n- Executing managed-custody spot trades with encrypted payloads\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via `loginWithApiKey()` or managed-custody sign-in\n- See **gdex-authentication** for auth setup\n\n## Buy a Token\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\nconst trade = await skill.buyToken({\n  chain: 'solana',                                        // chain name or ChainId number\n  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC on Solana\n  amount: '0.1',                                          // 0.1 SOL (native token input)\n  slippage: 1,                                            // 1% max slippage (optional, default: 1)\n  dex: 'raydium',                                         // optional: prefer a specific DEX\n});\n// Returns: { jobId, status, inputAmount, outputAmount, txHash?, error? }\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `chain` | `string \\| ChainId` | Yes | `'solana'`, `'sui'`, or ChainId number (1=Ethereum, 8453=Base, 42161=Arbitrum, 56=BSC, 4663=Robinhood Chain, **622112261=Solana**) |\n\n> **Critical:** The Solana numeric chainId is `622112261` (`ChainId.SOLANA`), NOT `900`. Using `900` returns the EVM managed address with `balance: null`. The `/v1/user` endpoint returns a different managed wallet per chainId (e.g. `CFSi4Y...` for Solana, `0x9967...` for EVM). |\n| `tokenAddress` | `string` | Yes | Contract address of the token to buy |\n| `amount` | `string` | Yes | Amount of native token to spend (e.g., `'0.1'` for 0.1 SOL) |\n| `slippage` | `number` | No | Max slippage % (default: 1) |\n| `dex` | `string` | No | Force specific DEX: `'raydium'`, `'orca'`, `'uniswap-v3'`, `'cetus'`, etc. |\n| `walletAddress` | `string` | No | Override wallet address |\n| `priorityFee` | `number` | No | Solana priority fee in lamports |\n\n## Sell a Token\n\n```typescript\n// Sell absolute amount\nconst trade = await skill.sellToken({\n  chain: 8453,                                            // Base\n  tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base\n  amount: '100',                                          // sell 100 tokens\n  slippage: 0.5,\n});\n\n// Sell percentage of holdings\nconst trade = await skill.sellToken({\n  chain: 'solana',\n  tokenAddress: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', // BONK\n  amount: '50%',                                          // sell 50% of holdings\n});\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `chain` | `string \\| ChainId` | Yes | Chain identifier |\n| `tokenAddress` | `string` | Yes | Token contract address |\n| `amount` | `string` | Yes | Absolute amount (`'100'`) or percentage (`'50%'`) |\n| `slippage` | `number` | No | Max slippage % (default: 1) |\n| `walletAddress` | `string` | No | Override wallet address |\n\n## Managed-Custody Trade Submission\n\nFor full managed-custody trading with encrypted payloads:\n\n```typescript\nimport {\n  GdexSkill,\n  GDEX_API_KEY_PRIMARY,\n  buildGdexManagedTradeComputedData,\n} from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// Build encrypted trade payload (requires session key from sign-in)\nconst trade = buildGdexManagedTradeComputedData({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  action: 'purchase',  // or 'sell'\n  userId: '0xYourAddress',\n  tokenAddress: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',\n  amount: '100000',     // in smallest unit\n  nonce: String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000)),\n  sessionPrivateKey,    // from generateGdexSessionKeyPair()\n});\n\nconst result = await skill.submitManagedPurchase({\n  computedData: trade.computedData,\n  chainId: 622112261,   // 622112261=Solana (ChainId.SOLANA), NOT 900\n  slippage: 15,          // 10-15% recommended for Solana\n});\n```\n\n### Solana-Specific Notes (Live-Tested)\n\n- **Raydium-routed tokens work; Meteora tokens fail.** The backend has a bug where Meteora DLMM swaps don't wrap SOL into WSOL before swapping. Check `token.dexId` \u2014 if `\"meteora\"`, the swap will fail with `Program error: 1`. Tokens with `dexId: \"raydium\"` work correctly.\n- **Minimum ~0.01 SOL balance needed.** Each new token ATA costs ~0.002 SOL rent + priority fee (0.0005 default) + base tx fee. The first trade on a token needs significantly more SOL than just the swap amount.\n- **Amount is in lamports** (1 SOL = 1,000,000,000 lamports). Pass as a string, e.g. `'5000000'` for 0.005 SOL.\n- **Use `chainId: 622112261`**, not `900`. Using `900` will submit the trade to the wrong chain context.\n```\n```\n\n## Trade Status Polling\n\n```typescript\nif (result.requestId) {\n  const status = await skill.getManagedTradeStatus(result.requestId);\n  console.log('Status:', status.status, 'Hash:', status.hash);\n}\n```\n\n**Status values:**\n- `'queued'` \u2014 submitted to queue\n- `'pending'` \u2014 being processed\n- `'completed'` \u2014 executed on-chain\n- `'failed'` \u2014 failed (check `error` field)\n\n## Supported Chains \xD7 DEXes\n\n| Chain | Available DEXes |\n|-------|-----------------|\n| Solana | Raydium, Raydium v2, Orca |\n| Sui | Cetus, Bluefin |\n| Ethereum | Uniswap v2, Uniswap v3, Odos |\n| Base | Uniswap v3, Odos, Arcadia |\n| Robinhood Chain | Uniswap v2, KyberSwap aggregator |\n| Arbitrum | Uniswap v3, Odos |\n| BSC | PancakeSwap, Odos |\n| Optimism | Uniswap v3, Odos |\n| Fraxtal | Uniswap v3 |\n\n## Error Handling\n\n```typescript\nimport { GdexValidationError, GdexApiError, GdexRateLimitError } from '@gemachdao/gdex-skill';\n\ntry {\n  await skill.buyToken({ chain: 'solana', tokenAddress: '...', amount: '0.1' });\n} catch (err) {\n  if (err instanceof GdexRateLimitError) {\n    await delay(err.retryAfter * 1000);  // wait and retry\n  } else if (err instanceof GdexValidationError) {\n    console.error('Invalid param:', err.message);\n  } else if (err instanceof GdexApiError) {\n    console.error('API error:', err.status, err.message);\n  }\n}\n```\n\n## Notes\n\n- All amounts are strings to preserve precision (e.g., `'0.1'`, `'1000'`)\n- Chain can be string (`'solana'`) or ChainId number (`622112261`)\n- The SDK retries on transient errors (429, 503) with exponential backoff\n- If no `dex` specified, the backend selects the best route automatically\n\n## Autonomous Agent Notes (Live-Tested)\n\n### Managed-Custody Trades Require Raw Units\n\nFor `buildGdexManagedTradeComputedData()` + `submitManagedPurchase()` / `submitManagedSell()`, the `amount` must be in **raw units** (lamports for Solana, wei for EVM), NOT human-readable:\n\n```typescript\n// \u274C WRONG: amount: '0.01' (this is a float, not raw units)\n// \u2705 CORRECT: amount: '10000000' (0.01 SOL = 10,000,000 lamports)\n// \u2705 CORRECT: amount: '10000000000000000' (0.01 ETH = 10^16 wei)\n```\n\n### Raydium vs Meteora on Solana\n\n- **Raydium-routed tokens work correctly** (WIF, most liquid tokens)\n- **Meteora DLMM tokens fail** with `Program error: 1` (backend bug \u2014 doesn't wrap SOL into WSOL)\n- **Check before buying:** `token.dexId === 'raydium'` \u2705 / `token.dexId === 'meteora'` \u274C\n- If you get `Program error: 1`, the token is Meteora-routed \u2014 don't retry, pick a different token\n\n### Minimum SOL Balance\n\nKeep at least **0.01 SOL** in the managed Solana wallet. First trade on a new token costs ~0.007 SOL overhead (ATA creation + priority fee + base tx fee) on top of the trade amount.\n\n### Trade Status Polling\n\nAfter a managed trade returns a `requestId`, poll until `status === 'completed'`:\n```typescript\nif (result.requestId) {\n  let status;\n  do {\n    await new Promise(r => setTimeout(r, 3000)); // wait 3s between polls\n    status = await skill.getManagedTradeStatus(result.requestId);\n  } while (status.status === 'queued' || status.status === 'pending');\n  console.log('Final:', status.status, status.hash);\n}\n```\n\n### Sell by Percentage\n\nTo sell a portion of holdings, use `amount: '50%'` (string with % sign). The backend calculates the exact token amount.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup required before trading\n- **gdex-portfolio** \u2014 Check balances and trade history after trading\n- **gdex-token-discovery** \u2014 Research tokens before buying (no auth needed)\n- **gdex-limit-orders** \u2014 Set limit orders instead of market buys/sells\n", files: [] }, { name: "gdex-token-discovery", description: "Token details, trending tokens, OHLCV candlestick data, and top traders \u2014 requires API key auth (Bearer token)", content: "\n# GDEX: Token Discovery\n\nResearch tokens with price data, market metrics, trending rankings, candlestick charts, and top trader leaderboards.\n\n> **Auth required:** All token discovery endpoints (except `/v1/token_details`) return 403 \"Access denied: Invalid client\" without a Bearer token. Always call `loginWithApiKey()` first.\n\n## When to Use\n\n- Looking up token price, market cap, volume, liquidity, and socials\n- Finding trending tokens on a specific chain\n- Getting OHLCV candlestick data for charting or analysis\n- Researching a token before buying (DEX info, security audit, holder count)\n- Finding top-performing trader wallets\n\n## Prerequisites\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n```\n\n## Token Details\n\n```typescript\nconst token = await skill.getTokenDetails({\n  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',\n  chain: 622112261,  // Solana\n});\n\nconsole.log(token.symbol);        // \"$WIF\"\nconsole.log(token.priceUsd);      // 0.176\nconsole.log(token.marketCap);     // 176054268\nconsole.log(token.liquidityUsd);  // 4574052\nconsole.log(token.dexId);         // \"raydium\"\nconsole.log(token.isRaydium);     // true\nconsole.log(token.priceChanges);  // { m5: 0, h1: -0.2, h6: -2.2, h24: -1.3 }\nconsole.log(token.volumes);       // { m5: 482, h1: 15438, h6: 74105, h24: 316704 }\nconsole.log(token.securities?.holderCount);  // 201554\n```\n\n### TokenDetails (response)\n\n```typescript\ninterface TokenDetails {\n  address: string;           // token contract address\n  chainId: number;           // numeric chain ID\n  symbol: string;            // may include $ prefix (e.g. \"$WIF\")\n  name: string;              // full name\n  decimals: number;\n  priceUsd?: number;         // current USD price\n  priceNative?: number;      // price in native token (SOL/ETH)\n  marketCap?: number;        // market cap in USD\n  liquidityUsd?: number;     // liquidity in USD\n  liquidityEth?: number;     // liquidity in native token\n  totalSupply?: string;      // raw units\n  pairAddress?: string;      // DEX pair address\n  dexId?: string;            // primary DEX (e.g. \"raydium\")\n  dexes?: string[];          // all DEXes\n  isRaydium?: boolean;\n  isMeteora?: boolean;\n  isPumpfun?: boolean;\n  isPumpSwap?: boolean;\n  priceChanges?: {           // price changes by period\n    m5?: number; h1?: number; h6?: number; h24?: number;\n  };\n  volumes?: {                // volume by period\n    m5?: number; h1?: number; h6?: number; h24?: number;\n  };\n  socialInfo?: {\n    telegramUrl?: string; twitterUrl?: string;\n    websiteUrl?: string; logoUrl?: string;\n  };\n  securities?: {             // security audit\n    mintAbility?: boolean; freezeAbility?: boolean;\n    lpLockPercentage?: number; holderCount?: number;\n    topHoldersPercentage?: number;\n  };\n  createdTime?: number;      // creation timestamp (Unix ms)\n}\n```\n\n## Trending Tokens\n\n```typescript\nconst trending = await skill.getTrendingTokens({\n  chain: 622112261,   // Solana (chainId)\n  period: '24h',      // '1h' | '6h' | '24h' | '7d'\n  limit: 5,\n});\n\ntrending.forEach(t => {\n  console.log(`${t.symbol}: $${t.priceUsd} mcap=$${t.marketCap} liq=$${t.liquidityUsd}`);\n});\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `chain` | `SupportedChain` | No | Chain to filter by (numeric chainId) |\n| `period` | `string` | No | `'1h'`, `'6h'`, `'24h'`, `'7d'` (default: `'24h'`) |\n| `limit` | `number` | No | Max results (default: 20) |\n| `minLiquidity` | `number` | No | Minimum liquidity in USD |\n| `minVolume` | `number` | No | Minimum 24h volume in USD |\n\n> Trending tokens have the **same shape as TokenDetails** \u2014 same fields from the tokens collection.\n\n## OHLCV Candlestick Data\n\n```typescript\nconst ohlcv = await skill.getOHLCV({\n  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',\n  chain: 622112261,\n  resolution: '60',   // 1-hour candles\n  from: Math.floor(Date.now() / 1000) - 86400,  // 24h ago\n  to: Math.floor(Date.now() / 1000),\n});\n\nconsole.log('Candles:', ohlcv.candles.length);\nohlcv.candles.forEach(c => {\n  console.log(`[${new Date(c.time * 1000).toISOString()}] O=${c.open} H=${c.high} L=${c.low} C=${c.close}`);\n});\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `tokenAddress` | `string` | Yes | Token contract address |\n| `chain` | `SupportedChain` | Yes | Chain (numeric chainId) |\n| `resolution` | `string` | Yes | `'1'`, `'5'`, `'15'`, `'30'`, `'60'`, `'240'`, `'D'`, `'W'` |\n| `from` | `number` | No | Start timestamp (Unix seconds) |\n| `to` | `number` | No | End timestamp (Unix seconds) |\n| `limit` | `number` | No | Number of candles |\n\n> **Note:** The backend candle data may not be populated for all tokens. If `candles` is empty, the data isn't available yet \u2014 not an SDK error.\n\n## Top Traders\n\n```typescript\nconst traders = await skill.getTopTraders({\n  chain: 622112261,  // Solana\n  period: '7d',\n  limit: 5,\n});\n\ntraders.forEach((t, i) => {\n  console.log(`#${i + 1}: ${t.wallet_address} PnL(7d)=$${t.realized_profit_7d} name=${t.name || '?'}`);\n});\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `chain` | `SupportedChain` | No | Chain filter |\n| `period` | `string` | No | `'1d'`, `'7d'`, `'30d'`, `'all'` (default: `'7d'`) |\n| `limit` | `number` | No | Max results (default: 10) |\n| `sortBy` | `string` | No | `'pnl'`, `'winRate'`, `'volume'`, `'tradeCount'` |\n\n### TopTrader (response)\n\n```typescript\ninterface TopTrader {\n  wallet_address: string;     // wallet address\n  address: string;            // same as wallet_address\n  name?: string;              // display name\n  twitter_username?: string;\n  twitter_name?: string;\n  avatar?: string;\n  tags?: string[];            // e.g. [\"app_smart_money\", \"kol\"]\n  realized_profit_1d?: number;\n  realized_profit_7d?: number;\n  realized_profit_30d?: number;\n  pnl_1d?: number;           // PnL ratio (1d)\n  pnl_7d?: number;\n  pnl_30d?: number;\n  buy?: number;               // recent buy count\n  sell?: number;\n  last_active?: number;       // Unix timestamp\n}\n```\n\n## Example: Token Research Before Buying\n\n```typescript\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// 1. Find trending tokens on Solana\nconst trending = await skill.getTrendingTokens({\n  chain: 622112261,\n  period: '1h',\n  limit: 5,\n});\n\n// 2. Get details on the top trending token\nconst top = trending[0];\nconst details = await skill.getTokenDetails({\n  tokenAddress: top.address,\n  chain: 622112261,\n});\n\nconsole.log(`${details.symbol}: $${details.priceUsd}`);\nconsole.log(`Market Cap: $${details.marketCap}`);\nconsole.log(`Liquidity: $${details.liquidityUsd}`);\nconsole.log(`Holders: ${details.securities?.holderCount}`);\nconsole.log(`DEX: ${details.dexId} (Raydium: ${details.isRaydium})`);\n\n// 3. Check who the top traders are\nconst traders = await skill.getTopTraders({ chain: 622112261, period: '7d', limit: 3 });\ntraders.forEach(t => console.log(`  ${t.name || t.wallet_address}: $${t.realized_profit_7d} PnL`));\n```\n\n## Autonomous Agent Notes (Live-Tested)\n\n### Chain Parameter Must Be Numeric\n\nAll token discovery endpoints (`getOHLCV`, `getTopTraders`, `getTrendingTokens`, `getTokenDetails`) require **numeric** `chainId`, not string `chain`. Use `622112261` for Solana, `8453` for Base, `4663` for Robinhood Chain, etc.\n\n```typescript\n// \u2705 Correct\nawait skill.getOHLCV({ tokenAddress, chain: 622112261, resolution: '60', from, to });\nawait skill.getTopTraders({ chain: 622112261, period: '7d', limit: 5 });\n\n// \u274C Wrong \u2014 string chain names may not work for all endpoints\nawait skill.getOHLCV({ tokenAddress, chain: 'solana', resolution: '60', from, to });\n```\n\n### OHLCV Data May Be Empty\n\nNot all tokens have OHLCV data populated. If `candles` is an empty array, the data isn't available yet \u2014 this is not an SDK error. Try a different token or wider time range.\n\n### Token Safety Checks Before Buying\n\nBefore buying a token autonomously, check:\n1. **`dexId`**: Must be `'raydium'` on Solana (Meteora fails \u2014 see gdex-spot-trading)\n2. **`liquidityUsd`**: Should be > $1000 to avoid slippage problems\n3. **`securities.mintAbility`**: If `true`, the token can be infinitely minted (rug risk)\n4. **`securities.freezeAbility`**: If `true`, your tokens can be frozen\n5. **`securities.lpLockPercentage`**: Higher is safer (100% = fully locked LP)\n6. **`marketCap`**: Sanity check \u2014 very low mcap tokens are extremely volatile\n\n### Auth Required\n\nAll token discovery endpoints return `403 \"Access denied: Invalid client\"` without a Bearer token. Always call `loginWithApiKey()` first \u2014 even for read-only data.\n\n## Related Skills\n\n- **gdex-spot-trading** \u2014 Buy/sell tokens after researching them\n- **gdex-portfolio** \u2014 Check if you already hold a token\n- **gdex-authentication** \u2014 Required for all token discovery endpoints\n", files: [] }, { name: "gdex-token-import", description: "Import user-defined custom tokens so they appear in token details, balances, and portfolio across the platform", content: "\n# GDEX: Token Import\n\nRegister a user-defined custom token so it is recognised by the backend's\ntoken-details, balances, and portfolio endpoints. Useful for long-tail tokens\nthat are not yet indexed.\n\n## When to Use\n\n- A user wants to see a brand-new (or otherwise un-indexed) token in their\n  portfolio or token-search results\n- Pre-registering a token before launch so trading UI can resolve metadata\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via shared API key or wallet sign-in \u2014 see\n  **gdex-authentication**\n- The token's on-chain address (contract address on EVM, mint address on\n  Solana, object id on Sui)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `POST` | `/v1/import_token` | Register a user-imported custom token |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill, buildImportTokenComputedData } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\n// Structured shape \u2014 SDK builds computedData internally\nawait skill.importToken({\n  tokenAddress: '0xCustomToken',\n  chainId: 8453,\n  managed: {\n    apiKey: process.env.GDEX_API_KEY!,\n    walletAddress: '0xWallet',\n    sessionPrivateKey: '0x\u2026',\n    userId: '0xWallet',\n  },\n});\n\n// Or raw shape \u2014 caller pre-built computedData\nawait skill.importToken({\n  computedData: buildImportTokenComputedData({\n    apiKey: process.env.GDEX_API_KEY!,\n    walletAddress: '0xWallet',\n    sessionPrivateKey: '0x\u2026',\n    userId: '0xWallet',\n    tokenAddress: '0xCustomToken',\n    chainId: '8453',\n  }),\n  chainId: 8453,\n});\n```\n\n## Notes\n\n- `import_token` uses managed-custody **encrypted `computedData`**:\n  ABI `['import_token', [tokenAddress, chainId, nonce]]`,\n  sig message `import_token-${userId}-${data}`.\n- The backend deduplicates imports per `(userId, chain, tokenAddress)`.\n- After import, queries such as `getTokenDetails`, `getBalances`, and\n  `getPortfolio` will start returning data for the token (subject to\n  indexer latency).\n", files: [] }, { name: "gdex-token-risk", description: "GDEX token screen on 12 chains: price, liquidity, volume plus honeypot, taxes, LP lock, holder concentration. Deterministic NDJSON; missing security data never means safe.", content: "\n# GDEX: Token Risk Screen\n\nThe GDEX trending board for each chain, with market context and GDEX's back-end security\nassessment. One JSON object per token.\n\n## Run it\n\n```bash\npython3 scripts/token_risk.py                    # every supported chain\npython3 scripts/token_risk.py --chain-id 1 8453  # GDEX chain ids\npython3 scripts/token_risk.py --list-chains\n```\n\nStandard library only. Non-zero exit means a read failed.\n\n## Rules for agents\n\n1. **Report numbers exactly as the script prints them.** Never estimate or compute new figures.\n2. **Absent is unknown, never safe.** Security fields are omitted when GDEX has no value \u2014 on a\n   typical run `is_honeypot` is present for only about a quarter of tokens. A token with no\n   `is_honeypot` field has *not been checked*; say so rather than calling it clean.\n3. The board carries junk and scam tokens by design (it ranks trending, not quality). Treat\n   market figures as observations \u2014 a token can show a huge market cap on trivial liquidity.\n\n## Fields\n\nSecurity (percent fields are 0\u2013100): `is_honeypot`, `buy_tax_pct`, `sell_tax_pct`,\n`lp_lock_pct`, `top_holders_pct`, `is_contract_verified`, and \u2014 on Solana \u2014 `can_mint`,\n`can_freeze`. Market: `price_usd`, `market_cap_usd`, `liquidity_usd`, `volume_24h_usd`,\n`change_1h_pct`, `change_24h_pct`. `upstream_updated_source` names which clock stamped the row;\n`fetch_time_fallback` means GDEX had no timestamp, so the row's age is unknown.\n\nSolana and Sui addresses are case-sensitive and kept exactly; Sui type tags (`0x\u2026::mod::TYPE`)\nappear with `::` replaced by `.` in `gemach_id` only.\n", files: [{ path: "scripts/token_risk.py", content: `#!/usr/bin/env python3
+"""GDEX token market + security screen, per chain. Standard library only.
+
+Prints one JSON object per token (NDJSON). Security fields are copied from GDEX's own
+back-end assessment and are OMITTED when GDEX has no value \u2014 never defaulted to false.
+Absent is unknown, and unknown must never be read as safe.
+
+Usage:
+    token_risk.py                          # trending tokens on every supported chain
+    token_risk.py --chain-id 1 8453        # just these chains (GDEX chain ids)
+    token_risk.py --list-chains
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import urllib.parse
+import urllib.request
+from datetime import datetime, timezone
+
+API = "https://trade-api.gemach.io/v1/trending/list"
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    "Origin": "https://gdex.pro",
+    "Accept": "application/json",
+}
+# GDEX-internal chain ids. Solana and Sui are NOT the ids those ecosystems use elsewhere;
+# a wrong id silently returns an empty list, so use exactly these.
+CHAINS = {1: "Ethereum", 10: "Optimism", 56: "BNB Smart Chain", 146: "Sonic", 252: "Fraxtal",
+          6900: "Nibiru", 8453: "Base", 42161: "Arbitrum One", 80094: "Berachain",
+          4663: "Robinhood Chain", 622112261: "Solana", 1313131213: "Sui"}
+CASE_SENSITIVE = {622112261, 1313131213}  # base58 mints / Move type tags: never lowercase
+ENVELOPE = "trendingTokens"
+
+
+class ShapeError(RuntimeError):
+    pass
+
+
+def fetch(chain_id: int) -> list[dict]:
+    url = API + "?" + urllib.parse.urlencode({"chainId": chain_id})
+    with urllib.request.urlopen(urllib.request.Request(url, headers=HEADERS), timeout=30) as r:
+        body = json.load(r)
+    if body.get("isSuccess") is False:
+        raise ShapeError(f"chain {chain_id}: upstream failure {body.get('error')!r}")
+    rows = body.get(ENVELOPE)
+    if not isinstance(rows, list):
+        # A renamed envelope must fail loudly, not look like a quiet market.
+        raise ShapeError(f"chain {chain_id}: no {ENVELOPE!r} list (keys {sorted(body)[:8]})")
+    return rows
+
+
+def _num(v):
+    if v is None or isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    s = str(v).replace(",", "").strip()
+    return float(s) if s else None
+
+
+def _flag(v):
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, (int, float)):
+        return bool(v)
+    return str(v).strip().lower() in {"true", "1", "yes"}
+
+
+def address(chain_id: int, addr: str) -> str:
+    addr = addr.strip()
+    return addr if chain_id in CASE_SENSITIVE else addr.lower()
+
+
+def token(e: dict, now: datetime) -> dict:
+    cid = int(e["chainId"])
+    addr = address(cid, str(e["address"]))
+    sec = e.get("securities") if isinstance(e.get("securities"), dict) else {}
+    chg = e.get("priceChanges") if isinstance(e.get("priceChanges"), dict) else {}
+    vol = e.get("volumes") if isinstance(e.get("volumes"), dict) else {}
+    liq = _num(e.get("liquidityUsd"))
+    clock, src = None, "fetch_time_fallback"
+    for k in ("lastReserveUpdatedTimestamp", "lastCalculateVolumesAndPriceChanges",
+              "lastTotalSupplyUpdatedTimestamp", "lastVolumeUpdatedTimestamp"):
+        v = e.get(k)
+        if isinstance(v, (int, float)) and v > 0:
+            clock, src = int(v), k
+            break
+    rec = {
+        "gemach_id": f"{cid}-{addr.replace('::', '.')}",
+        "source": "gemach", "feed": "token_markets",
+        "chain_id": cid, "chain_name": CHAINS.get(cid, f"chain-{cid}"),
+        "token_address": addr, "symbol": str(e.get("symbol") or "").strip(),
+        "is_active": bool(liq and liq > 0),
+        "upstream_updated_at": clock if clock is not None else int(now.timestamp()),
+        "upstream_updated_source": src,
+        "ingestion_date": now.strftime("%Y-%m-%d"),
+        "fetched_at": now.strftime("%Y-%m-%dT%H:%M:%S.%f") + "+00:00",
+    }
+    optional = {
+        "token_name": (str(e["name"]).strip() if e.get("name") else None),
+        "price_usd": _num(e.get("priceUsd")), "market_cap_usd": _num(e.get("marketCap")),
+        "liquidity_usd": liq, "volume_24h_usd": _num(vol.get("h24")),
+        "change_1h_pct": _num(chg.get("h1")), "change_24h_pct": _num(chg.get("h24")),
+        # --- GDEX security assessment: percent fields are 0-100 upstream ---
+        "is_honeypot": _flag(sec.get("isHoneyPot")),
+        "buy_tax_pct": _num(sec.get("buyTax")), "sell_tax_pct": _num(sec.get("sellTax")),
+        "lp_lock_pct": _num(sec.get("lpLockPercentage")),
+        "top_holders_pct": _num(sec.get("topHoldersPercentage")),
+        "is_contract_verified": _flag(sec.get("contractVerified")),
+        "can_mint": _flag(sec.get("mintAbility")), "can_freeze": _flag(sec.get("freezeAbility")),
+    }
+    rec.update({k: v for k, v in optional.items() if v is not None})
+    return rec
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--chain-id", nargs="*", type=int, help="GDEX chain ids (default: all)")
+    ap.add_argument("--list-chains", action="store_true")
+    a = ap.parse_args(argv)
+    if a.list_chains:
+        for cid, name in CHAINS.items():
+            print(f"{cid}\\t{name}")
+        return 0
+    now = datetime.now(timezone.utc)
+    seen = {}
+    for cid in (a.chain_id or list(CHAINS)):
+        for e in fetch(cid):
+            r = token(e, now)
+            seen[r["gemach_id"]] = r
+    for gid in sorted(seen):
+        sys.stdout.write(json.dumps(seen[gid], separators=(",", ":"), ensure_ascii=False) + "\\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+` }] }, { name: "gdex-transfers", description: "Native and ERC20/SPL token transfers via GDEX managed custody \u2014 send assets to any recipient on supported chains", content: '\n# GDEX: Transfers\n\nSend native assets (ETH, SOL, SUI, BNB, \u2026) or ERC20 / SPL tokens from a\nmanaged-custody wallet to any recipient.\n\n## When to Use\n\n- Withdrawing native assets to an external wallet\n- Sending ERC20 / SPL tokens to a recipient\n- Paying out winnings, rewards, or peer-to-peer transfers\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via managed-custody sign-in \u2014 see **gdex-authentication**\n- Session keypair (`sessionPrivateKey` + `sessionKey`) from sign-in\n- Pre-built `computedData` payload (encrypted via the standard AES-256-CBC\n  managed-custody contract). Caller is responsible for ABI-encoding the\n  transfer parameters and signing with the session key \u2014 schema is\n  documented in `src/api/services/ServiceMain.ts` of the backend.\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `POST` | `/v1/transfer` | Native token transfer |\n| `POST` | `/v1/transfer_token` | ERC20 / SPL token transfer |\n\nBoth endpoints accept:\n```json\n{ "computedData": "<hex>", "chainId": 8453 }\n```\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill } from \'@gemachdao/gdex-skill\';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\n// Native ETH transfer (caller pre-builds computedData)\nconst result = await skill.transferNative({\n  computedData,           // hex-encoded encrypted payload\n  chainId: 8453,\n});\n\n// ERC20 / SPL transfer\nconst result2 = await skill.transferToken({\n  computedData,\n  chainId: 622112261,     // Solana SPL\n});\n```\n\n## Response\n\nTypically:\n```json\n{ "requestId": "...", "status": "pending", "createdAt": 1717000000 }\n```\nPoll status via `GET /v1/trade-status/:requestId` (or `skill.getManagedTradeStatus(requestId)`).\n\n## Notes\n\n- Both endpoints follow the standard managed-custody encrypted-payload pattern.\n- For Solana SPL transfers, the first transfer to a recipient may incur an\n  Associated Token Account (ATA) creation fee (~0.002 SOL).\n- Chain id semantics match the rest of the SDK \u2014 Solana uses `622112261`,\n  Sui uses `1313131213`.\n', files: [] }, { name: "gdex-trending-promotion", description: "Paid trending-slot promotion \u2014 book featured slots on the trending feed and check booking status", content: "\n# GDEX: Trending Promotion\n\nBook paid trending slots so a token appears in the platform's promoted\ntrending feed for a defined period.\n\n## When to Use\n\n- A token creator / marketer wants to buy visibility for their token\n- Listing the available trending packages, prices, and durations\n- Checking the booking status of a previously-registered slot\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via shared API key or wallet sign-in \u2014 see **gdex-authentication**\n- For paid bookings: a managed-custody `computedData` payload, OR a\n  user wallet able to pay on-chain (depending on backend deployment)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/trending/list` | Currently active / booked promoted tokens |\n| `GET`  | `/v1/trending/options` | Available slot packages, durations, prices |\n| `POST` | `/v1/trending/register` | Register / pay for a trending slot |\n| `GET`  | `/v1/trending/booking_status` | Check booking status |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\n// 1. List available packages\nconst options = await skill.getTrendingOptions();\n\n// 2. Register a slot\nconst booking = await skill.registerTrending({\n  tokenAddress: '0x...',\n  chain: 8453,\n  slot: 'gold',\n  durationHours: 24,\n  userId: '0xUserControlWallet',\n  computedData,                  // when paying via managed custody\n});\n\n// 3. Poll status\nconst status = await skill.getTrendingBookingStatus({\n  bookingId: booking.bookingId as string,\n});\n```\n\n## Notes\n\n- Packages (slots) and pricing are configured server-side and may change.\n- The backend returns a `bookingId` from `register` that should be persisted\n  for status polling.\n- Booking status values are typically `pending_payment`, `active`, or\n  `expired`.\n", files: [] }, { name: "gdex-ui-install-setup", description: "React and Next.js project setup for GDEX \u2014 SDK initialization, context providers, environment variables, and TypeScript configuration", content: '\n# GDEX: Frontend Installation & Setup\n\nSet up a React or Next.js project to build trading UIs with the GDEX SDK. This skill covers project scaffolding, provider patterns, and SDK initialization.\n\n## When to Use\n\n- Starting a new frontend project that integrates GDEX trading\n- Adding GDEX SDK to an existing React/Next.js app\n- Setting up the provider hierarchy and context pattern\n- Configuring TypeScript and environment variables for GDEX\n\n## Prerequisites\n\n- Node.js 18+ installed\n- Basic React/Next.js knowledge\n\n## Project Setup\n\n### Next.js (Recommended)\n\n```bash\nnpx create-next-app@latest my-gdex-app --typescript --tailwind --app\ncd my-gdex-app\nnpm install @gemachdao/gdex-skill ethers\n```\n\n### Vite + React\n\n```bash\nnpm create vite@latest my-gdex-app -- --template react-ts\ncd my-gdex-app\nnpm install @gemachdao/gdex-skill ethers\n```\n\n## Environment Variables\n\n```env\n# .env.local (Next.js) or .env (Vite)\nNEXT_PUBLIC_GDEX_API_KEY=9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54\n# Or use the secondary key:\n# NEXT_PUBLIC_GDEX_API_KEY=2c8f0a91-5d34-4e7b-9a62-f1c3d8e4b705\n```\n\n> For Vite, use `VITE_GDEX_API_KEY` prefix instead of `NEXT_PUBLIC_`.\n\n## SDK Context Provider\n\nCreate a React context that initializes and shares the `GdexSkill` instance across your app:\n\n```typescript\n// src/providers/GdexProvider.tsx\n\'use client\'; // Next.js App Router\n\nimport React, { createContext, useContext, useEffect, useRef, useState } from \'react\';\nimport { GdexSkill } from \'@gemachdao/gdex-skill\';\n\ninterface GdexContextValue {\n  skill: GdexSkill;\n  isReady: boolean;\n  error: string | null;\n}\n\nconst GdexContext = createContext<GdexContextValue | null>(null);\n\nexport function GdexProvider({ children, apiKey }: { children: React.ReactNode; apiKey: string }) {\n  const skillRef = useRef(new GdexSkill());\n  const [isReady, setIsReady] = useState(false);\n  const [error, setError] = useState<string | null>(null);\n\n  useEffect(() => {\n    try {\n      skillRef.current.loginWithApiKey(apiKey);\n      setIsReady(true);\n    } catch (err) {\n      setError(err instanceof Error ? err.message : \'Failed to initialize GDEX SDK\');\n    }\n  }, [apiKey]);\n\n  return (\n    <GdexContext.Provider value={{ skill: skillRef.current, isReady, error }}>\n      {children}\n    </GdexContext.Provider>\n  );\n}\n\nexport function useGdex(): GdexContextValue {\n  const ctx = useContext(GdexContext);\n  if (!ctx) throw new Error(\'useGdex must be used within <GdexProvider>\');\n  return ctx;\n}\n```\n\n## App Layout with Provider\n\n### Next.js App Router\n\n```typescript\n// src/app/layout.tsx\nimport { GdexProvider } from \'@/providers/GdexProvider\';\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en">\n      <body>\n        <GdexProvider apiKey={process.env.NEXT_PUBLIC_GDEX_API_KEY!}>\n          {children}\n        </GdexProvider>\n      </body>\n    </html>\n  );\n}\n```\n\n### Vite + React\n\n```typescript\n// src/main.tsx\nimport { GdexProvider } from \'./providers/GdexProvider\';\n\nReactDOM.createRoot(document.getElementById(\'root\')!).render(\n  <GdexProvider apiKey={import.meta.env.VITE_GDEX_API_KEY}>\n    <App />\n  </GdexProvider>\n);\n```\n\n## Custom Hooks Pattern\n\nBuild feature-specific hooks on top of `useGdex()`:\n\n```typescript\n// src/hooks/usePortfolio.ts\nimport { useState, useCallback } from \'react\';\nimport { useGdex } from \'@/providers/GdexProvider\';\n\nexport function usePortfolio(walletAddress: string) {\n  const { skill, isReady } = useGdex();\n  const [portfolio, setPortfolio] = useState<any>(null);\n  const [loading, setLoading] = useState(false);\n\n  const refresh = useCallback(async () => {\n    if (!isReady || !walletAddress) return;\n    setLoading(true);\n    try {\n      const data = await skill.getPortfolio({ walletAddress });\n      setPortfolio(data);\n    } finally {\n      setLoading(false);\n    }\n  }, [skill, isReady, walletAddress]);\n\n  return { portfolio, loading, refresh };\n}\n```\n\n```typescript\n// src/hooks/useTrade.ts\nimport { useState } from \'react\';\nimport type { SupportedChain } from \'@gemachdao/gdex-skill\';\nimport { useGdex } from \'@/providers/GdexProvider\';\nimport { useAuth } from \'@/providers/AuthProvider\'; // managed-custody creds, see gdex-ui-wallet-connection\n\ntype TradeInput = { chain: SupportedChain; tokenAddress: string; amount: string; slippage?: number };\n\nexport function useTrade() {\n  const { skill, isReady } = useGdex();\n  const { creds } = useAuth();\n  const [pending, setPending] = useState(false);\n  const [result, setResult] = useState<any>(null);\n\n  const buyToken = async (params: TradeInput) => {\n    if (!isReady || !creds) throw new Error(\'Sign in with a wallet first\');\n    setPending(true);\n    try {\n      const res = await skill.buyToken({ ...params, ...creds });\n      setResult(res);\n      return res;\n    } finally {\n      setPending(false);\n    }\n  };\n\n  const sellToken = async (params: TradeInput) => {\n    if (!isReady || !creds) throw new Error(\'Sign in with a wallet first\');\n    setPending(true);\n    try {\n      const res = await skill.sellToken({ ...params, walletAddress: creds.walletAddress });\n      setResult(res);\n      return res;\n    } finally {\n      setPending(false);\n    }\n  };\n\n  return { buyToken, sellToken, pending, result };\n}\n```\n\n## TypeScript Configuration\n\nEnsure your `tsconfig.json` includes Node.js types for the SDK:\n\n```json\n{\n  "compilerOptions": {\n    "target": "ES2022",\n    "module": "ESNext",\n    "moduleResolution": "bundler",\n    "lib": ["ES2022", "DOM", "DOM.Iterable"],\n    "strict": true,\n    "jsx": "react-jsx",\n    "paths": {\n      "@/*": ["./src/*"]\n    }\n  }\n}\n```\n\n## Provider Hierarchy\n\nFor apps with wallet connection + GDEX + theming:\n\n```\nThemeProvider          \u2190 dark/light mode (see gdex-ui-theming)\n  \u2514\u2500 WalletProvider   \u2190 wallet connection (see gdex-ui-wallet-connection)\n       \u2514\u2500 GdexProvider \u2190 SDK instance + auth state\n            \u2514\u2500 App     \u2190 your trading UI\n```\n\n## Related Skills\n\n- **gdex-ui-trading-components** \u2014 Trading UI component patterns (order forms, position tables)\n- **gdex-ui-wallet-connection** \u2014 Wallet connection UI and auth flows\n- **gdex-ui-theming** \u2014 CSS theming for trading interfaces\n- **gdex-ui-page-layouts** \u2014 Full page compositions (trading, portfolio, copy trade)\n- **gdex-authentication** \u2014 Backend auth details (encryption, session keys)\n', files: [] }, { name: "gdex-ui-page-layouts", description: "Full page layout compositions for GDEX \u2014 trading page, portfolio page, copy trading page, and bridge page with responsive grid patterns", content: "\n# GDEX: Page Layouts\n\nFull page layout compositions for GDEX trading apps. Each layout combines components from other UI skills into a complete, responsive page.\n\n## When to Use\n\n- Building a full trading page with chart, order form, and positions\n- Creating a portfolio dashboard page\n- Composing a copy trading management page\n- Building a bridge page\n\n## Prerequisites\n\n- Components from **gdex-ui-trading-components** and **gdex-ui-portfolio-dashboard**\n- Theme set up per **gdex-ui-theming**\n- SDK context provider from **gdex-ui-install-setup**\n\n## Trading Page\n\nThe primary trading interface \u2014 chart, order form, positions, and optionally an orderbook.\n\n```typescript\n// app/trade/page.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { SpotTradeForm } from '@/components/SpotTradeForm';\nimport { PerpOrderForm } from '@/components/PerpOrderForm';\nimport { PositionTable } from '@/components/PositionTable';\nimport { TokenSearch } from '@/components/TokenSearch';\nimport { ChainSelector } from '@/components/ChainSelector';\nimport { PnLDisplay } from '@/components/PnLDisplay';\n\nexport default function TradingPage() {\n  const [chain, setChain] = useState('solana');\n  const [mode, setMode] = useState<'spot' | 'perp'>('spot');\n  const [selectedToken, setSelectedToken] = useState<string>('');\n\n  return (\n    <div className=\"min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]\">\n      {/* Top bar */}\n      <header className=\"border-b border-[var(--border-primary)] px-4 py-3 flex items-center justify-between\">\n        <div className=\"flex items-center gap-4\">\n          <h1 className=\"text-lg font-bold\">GDEX Trade</h1>\n          <div className=\"flex gap-1\">\n            <button onClick={() => setMode('spot')}\n              className={`px-3 py-1 rounded text-sm ${mode === 'spot' ? 'bg-brand text-white' : ''}`}>\n              Spot\n            </button>\n            <button onClick={() => setMode('perp')}\n              className={`px-3 py-1 rounded text-sm ${mode === 'perp' ? 'bg-brand text-white' : ''}`}>\n              Perp\n            </button>\n          </div>\n        </div>\n        <ChainSelector value={chain} onChange={setChain} />\n      </header>\n\n      {/* Main grid \u2014 responsive */}\n      <div className=\"grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-0 lg:gap-4 p-4\">\n        {/* Left: Chart + Token search + Positions */}\n        <div className=\"space-y-4\">\n          {mode === 'spot' && (\n            <TokenSearch chain={chain}\n              onSelect={token => setSelectedToken(token.address)} />\n          )}\n\n          {/* Chart placeholder \u2014 integrate TradingView or Lightweight Charts */}\n          <div className=\"bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg h-[400px] flex items-center justify-center text-[var(--text-secondary)]\">\n            Chart \u2014 TradingView or Lightweight Charts\n          </div>\n\n          {/* Positions / Open orders */}\n          {mode === 'perp' && (\n            <div className=\"bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg p-4\">\n              <h2 className=\"text-sm font-bold mb-3\">Open Positions</h2>\n              <PositionTable />\n            </div>\n          )}\n        </div>\n\n        {/* Right: Order form */}\n        <div className=\"bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg p-4 h-fit lg:sticky lg:top-4\">\n          <h2 className=\"text-sm font-bold mb-3\">\n            {mode === 'spot' ? 'Spot Trade' : 'Perp Order'}\n          </h2>\n          {mode === 'spot'\n            ? <SpotTradeForm defaultChain={chain} />\n            : <PerpOrderForm />\n          }\n        </div>\n      </div>\n    </div>\n  );\n}\n```\n\n### Layout Grid (responsive)\n\n```\nMobile (< 1024px):          Desktop (\u2265 1024px):\n\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510          \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502 Token Search   \u2502          \u2502 Token Search \u2502 Order   \u2502\n\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524          \u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524 Form    \u2502\n\u2502 Chart          \u2502          \u2502 Chart        \u2502         \u2502\n\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524          \u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524         \u2502\n\u2502 Positions      \u2502          \u2502 Positions    \u2502         \u2502\n\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524          \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n\u2502 Order Form     \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n```\n\n## Portfolio Page\n\n```typescript\n// app/portfolio/page.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { PortfolioOverview } from '@/components/PortfolioOverview';\nimport { TokenBalanceGrid } from '@/components/TokenBalanceGrid';\nimport { TradeHistoryTable } from '@/components/TradeHistoryTable';\nimport { ChainSelector } from '@/components/ChainSelector';\n\nexport default function PortfolioPage() {\n  const [chain, setChain] = useState('all');\n  const [tab, setTab] = useState<'balances' | 'history'>('balances');\n\n  return (\n    <div className=\"min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] p-4 space-y-6\">\n      <h1 className=\"text-2xl font-bold\">Portfolio</h1>\n\n      {/* Overview cards */}\n      <PortfolioOverview />\n\n      {/* Chain filter */}\n      <ChainSelector value={chain} onChange={setChain} />\n\n      {/* Tabs */}\n      <div className=\"flex gap-4 border-b border-[var(--border-primary)]\">\n        <button onClick={() => setTab('balances')}\n          className={`pb-2 text-sm ${tab === 'balances' ? 'border-b-2 border-brand font-bold' : 'text-[var(--text-secondary)]'}`}>\n          Token Balances\n        </button>\n        <button onClick={() => setTab('history')}\n          className={`pb-2 text-sm ${tab === 'history' ? 'border-b-2 border-brand font-bold' : 'text-[var(--text-secondary)]'}`}>\n          Trade History\n        </button>\n      </div>\n\n      {/* Content */}\n      {tab === 'balances'\n        ? <TokenBalanceGrid chain={chain === 'all' ? undefined : chain} />\n        : <TradeHistoryTable />\n      }\n    </div>\n  );\n}\n```\n\n## Copy Trading Page\n\n```typescript\n// app/copy-trade/page.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { CopyTradePanel } from '@/components/CopyTradePanel';\n\nexport default function CopyTradingPage() {\n  const [platform, setPlatform] = useState<'solana' | 'hyperliquid'>('solana');\n\n  return (\n    <div className=\"min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] p-4 space-y-6\">\n      <div className=\"flex items-center justify-between\">\n        <h1 className=\"text-2xl font-bold\">Copy Trading</h1>\n        <div className=\"flex gap-2\">\n          <button onClick={() => setPlatform('solana')}\n            className={`px-3 py-1.5 rounded text-sm ${platform === 'solana' ? 'bg-[var(--color-chain-solana)] text-white' : 'border'}`}>\n            Solana Spot\n          </button>\n          <button onClick={() => setPlatform('hyperliquid')}\n            className={`px-3 py-1.5 rounded text-sm ${platform === 'hyperliquid' ? 'bg-brand text-white' : 'border'}`}>\n            HL Perp\n          </button>\n        </div>\n      </div>\n\n      <div className=\"grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6\">\n        {/* Left: Leaderboard / Top traders */}\n        <div className=\"bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg p-4\">\n          <h2 className=\"text-lg font-bold mb-4\">Top Traders</h2>\n          <p className=\"text-sm text-[var(--text-secondary)]\">\n            {platform === 'solana' ? 'Top Solana spot traders by PnL' : 'Top HyperLiquid perp traders by PnL'}\n          </p>\n          {/* Trader leaderboard list */}\n        </div>\n\n        {/* Right: Active copy trades */}\n        <div className=\"bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg p-4\">\n          <h2 className=\"text-lg font-bold mb-4\">Your Copy Trades</h2>\n          <CopyTradePanel />\n        </div>\n      </div>\n    </div>\n  );\n}\n```\n\n## Bridge Page\n\n```typescript\n// app/bridge/page.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { ChainSwitcher } from '@/components/ChainSwitcher';\n\nexport default function BridgePage() {\n  const { skill, isReady } = useGdex();\n  const [fromChain, setFromChain] = useState(1);\n  const [toChain, setToChain] = useState(622112261);\n  const [amount, setAmount] = useState('');\n  const [estimate, setEstimate] = useState<any>(null);\n  const [loading, setLoading] = useState(false);\n\n  const getEstimate = async () => {\n    if (!isReady || !amount) return;\n    setLoading(true);\n    try {\n      const est = await skill.estimateBridge({\n        fromChainId: fromChain,\n        toChainId: toChain,\n        amount,   // raw units of the source native token (wei / lamports)\n      });\n      setEstimate(est);\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  return (\n    <div className=\"min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] p-4\">\n      <h1 className=\"text-2xl font-bold mb-6\">Bridge</h1>\n\n      <div className=\"max-w-lg mx-auto bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg p-6 space-y-4\">\n        {/* From chain */}\n        <div>\n          <label className=\"text-xs text-[var(--text-secondary)] mb-1 block\">From</label>\n          <ChainSwitcher value={fromChain} onChange={setFromChain} />\n        </div>\n\n        {/* Swap button */}\n        <div className=\"flex justify-center\">\n          <button onClick={() => { setFromChain(toChain); setToChain(fromChain); }}\n            className=\"p-2 border rounded-full hover:bg-[var(--bg-tertiary)]\">\n            \u2195\n          </button>\n        </div>\n\n        {/* To chain */}\n        <div>\n          <label className=\"text-xs text-[var(--text-secondary)] mb-1 block\">To</label>\n          <ChainSwitcher value={toChain} onChange={setToChain} />\n        </div>\n\n        {/* Amount */}\n        <input type=\"number\" placeholder=\"Amount (native token)\" value={amount}\n          onChange={e => setAmount(e.target.value)} step=\"any\" min=\"0\"\n          className=\"w-full p-3 border rounded-lg bg-[var(--bg-input)]\" />\n\n        {/* Estimate */}\n        <button onClick={getEstimate} disabled={loading || !amount}\n          className=\"w-full py-3 bg-brand text-white rounded-lg font-bold disabled:opacity-50\">\n          {loading ? 'Getting estimate...' : 'Get Estimate'}\n        </button>\n\n        {estimate && (\n          <div className=\"border border-[var(--border-primary)] rounded-lg p-4 space-y-2 text-sm\">\n            <div className=\"flex justify-between\">\n              <span className=\"text-[var(--text-secondary)]\">You receive</span>\n              <span className=\"font-bold\">{estimate.estimateAmount}</span>\n            </div>\n            <div className=\"flex justify-between\">\n              <span className=\"text-[var(--text-secondary)]\">ETA</span>\n              <span>{estimate.minEstimateTime}\u2013{estimate.maxEstimateTime}s via {estimate.tool}</span>\n            </div>\n            <button className=\"w-full py-2 mt-2 bg-brand text-white rounded-lg\">\n              Bridge Now\n            </button>\n          </div>\n        )}\n      </div>\n    </div>\n  );\n}\n```\n\n## Navigation Layout\n\n```typescript\n// components/Navigation.tsx\n'use client';\n\nimport Link from 'next/link';\nimport { usePathname } from 'next/navigation';\nimport { ConnectButton } from './ConnectButton';\nimport { ThemeToggle } from './ThemeToggle';\n\nconst NAV_ITEMS = [\n  { href: '/trade', label: 'Trade' },\n  { href: '/portfolio', label: 'Portfolio' },\n  { href: '/copy-trade', label: 'Copy Trade' },\n  { href: '/bridge', label: 'Bridge' },\n];\n\nexport function Navigation() {\n  const pathname = usePathname();\n\n  return (\n    <nav className=\"border-b border-[var(--border-primary)] bg-[var(--bg-primary)]\">\n      <div className=\"max-w-7xl mx-auto px-4 flex items-center justify-between h-14\">\n        <div className=\"flex items-center gap-6\">\n          <span className=\"font-bold text-lg\">GDEX</span>\n          {NAV_ITEMS.map(item => (\n            <Link key={item.href} href={item.href}\n              className={`text-sm ${pathname === item.href\n                ? 'text-brand font-bold'\n                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>\n              {item.label}\n            </Link>\n          ))}\n        </div>\n        <div className=\"flex items-center gap-3\">\n          <ThemeToggle />\n          <ConnectButton />\n        </div>\n      </div>\n    </nav>\n  );\n}\n```\n\n## Page \u2192 Component \u2192 SDK Method Map\n\n| Page | Components Used | SDK Methods |\n|------|----------------|-------------|\n| Trading | `SpotTradeForm`, `PerpOrderForm`, `PositionTable`, `TokenSearch`, `ChainSelector` | `buyToken`, `sellToken`, `hlCreateOrder`, `getPerpPositions`, `closePerpPosition`, `getTokenDetails` |\n| Portfolio | `PortfolioOverview`, `TokenBalanceGrid`, `TradeHistoryTable`, `ChainSelector` | `getPortfolio`, `getTradeHistory` |\n| Copy Trading | `CopyTradePanel` | `getCopyTradeList`, `getCopyTradeWallets` |\n| Bridge | `ChainSwitcher` | `estimateBridge`, `requestBridge` |\n\n## Related Skills\n\n- **gdex-ui-install-setup** \u2014 Project scaffolding to build these pages\n- **gdex-ui-trading-components** \u2014 Individual component patterns\n- **gdex-ui-portfolio-dashboard** \u2014 Dashboard-specific components\n- **gdex-ui-theming** \u2014 Theme tokens and CSS variables used throughout\n- **gdex-ui-wallet-connection** \u2014 ConnectButton and auth flows\n", files: [] }, { name: "gdex-ui-portfolio-dashboard", description: "React component patterns for GDEX portfolio dashboards \u2014 token balances, trade history, chain selectors, and live data polling", content: "\n# GDEX: Portfolio Dashboard Components\n\nReact component patterns for building portfolio dashboards with the GDEX SDK. Covers balance displays, trade history with pagination, and live data polling.\n\n## When to Use\n\n- Displaying cross-chain token balances\n- Building paginated trade history tables\n- Creating chain selector dropdowns with balance summaries\n- Implementing auto-refresh for live portfolio data\n\n## Prerequisites\n\n- GDEX SDK context provider set up \u2014 see **gdex-ui-install-setup**\n- Authenticated via `loginWithApiKey()` \u2014 see **gdex-authentication**\n\n## Portfolio Overview\n\n```typescript\n// components/PortfolioOverview.tsx\n'use client';\n\nimport { useState, useEffect, useCallback } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\nexport function PortfolioOverview({ pollInterval = 30000 }: { pollInterval?: number }) {\n  const { skill, isReady } = useGdex();\n  const { walletAddress } = useAuth();\n  const [portfolio, setPortfolio] = useState<any>(null);\n  const [loading, setLoading] = useState(true);\n\n  const refresh = useCallback(async () => {\n    if (!isReady || !walletAddress) return;\n    try {\n      const data = await skill.getPortfolio({ walletAddress });\n      setPortfolio(data);\n    } finally {\n      setLoading(false);\n    }\n  }, [skill, isReady, walletAddress]);\n\n  useEffect(() => {\n    refresh();\n    const id = setInterval(refresh, pollInterval);\n    return () => clearInterval(id);\n  }, [refresh, pollInterval]);\n\n  if (loading) return <div className=\"animate-pulse h-24 bg-gray-200 rounded\" />;\n\n  return (\n    <div className=\"grid grid-cols-2 md:grid-cols-4 gap-4\">\n      <StatCard label=\"Total Value\" value={`$${portfolio?.totalValue?.toFixed(2) ?? '0.00'}`} />\n      <StatCard label=\"24h PnL\" value={portfolio?.pnl24h}\n        className={portfolio?.pnl24h >= 0 ? 'text-green-500' : 'text-red-500'} />\n      <StatCard label=\"Chains\" value={portfolio?.chains?.length ?? 0} />\n      <StatCard label=\"Tokens\" value={portfolio?.tokens?.length ?? 0} />\n    </div>\n  );\n}\n\nfunction StatCard({ label, value, className = '' }: { label: string; value: any; className?: string }) {\n  return (\n    <div className=\"border rounded-lg p-4\">\n      <p className=\"text-xs text-gray-500\">{label}</p>\n      <p className={`text-xl font-bold ${className}`}>{value}</p>\n    </div>\n  );\n}\n```\n\n**SDK method called:** `skill.getPortfolio()`\n\n## Token Balance Grid\n\n```typescript\n// components/TokenBalanceGrid.tsx\n'use client';\n\nimport { useState, useEffect } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\nimport type { SupportedChain } from '@gemachdao/gdex-skill';\n\ninterface Token {\n  symbol: string;\n  name: string;\n  balance: string;\n  valueUsd: number;\n  chain: string;\n  address: string;\n  logoUrl?: string;\n}\n\nexport function TokenBalanceGrid({ chain }: { chain?: SupportedChain }) {\n  const { skill, isReady } = useGdex();\n  const { walletAddress } = useAuth();\n  const [tokens, setTokens] = useState<Token[]>([]);\n  const [loading, setLoading] = useState(true);\n\n  useEffect(() => {\n    if (!isReady || !walletAddress) return;\n    setLoading(true);\n    skill.getPortfolio({ walletAddress, chain })\n      .then(data => {\n        setTokens(data?.tokens ?? []);\n      })\n      .finally(() => setLoading(false));\n  }, [skill, isReady, chain]);\n\n  if (loading) return <div className=\"animate-pulse h-48 bg-gray-200 rounded\" />;\n\n  return (\n    <div className=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3\">\n      {tokens.map((token, i) => (\n        <div key={i} className=\"border rounded-lg p-3 flex items-center gap-3\">\n          {token.logoUrl && <img src={token.logoUrl} alt={token.symbol} className=\"w-8 h-8 rounded-full\" />}\n          <div className=\"flex-1\">\n            <div className=\"flex justify-between\">\n              <span className=\"font-bold\">{token.symbol}</span>\n              <span className=\"text-sm text-gray-500\">{token.chain}</span>\n            </div>\n            <div className=\"flex justify-between text-sm\">\n              <span>{token.balance}</span>\n              <span className=\"text-gray-600\">${token.valueUsd?.toFixed(2)}</span>\n            </div>\n          </div>\n        </div>\n      ))}\n      {!tokens.length && <p className=\"text-gray-500 col-span-full\">No tokens found</p>}\n    </div>\n  );\n}\n```\n\n## Trade History Table\n\n```typescript\n// components/TradeHistoryTable.tsx\n'use client';\n\nimport { useState, useEffect } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\nexport function TradeHistoryTable({ pageSize = 20 }: { pageSize?: number }) {\n  const { skill, isReady } = useGdex();\n  const { walletAddress } = useAuth();\n  const [trades, setTrades] = useState<any[]>([]);\n  const [page, setPage] = useState(1);\n  const [hasMore, setHasMore] = useState(true);\n  const [loading, setLoading] = useState(true);\n\n  useEffect(() => {\n    if (!isReady || !walletAddress) return;\n    setLoading(true);\n    skill.getTradeHistory({ walletAddress, page, limit: pageSize })\n      .then(data => {\n        setTrades(data?.trades ?? []);\n        setHasMore((data?.trades?.length ?? 0) >= pageSize);\n      })\n      .finally(() => setLoading(false));\n  }, [skill, isReady, page, pageSize]);\n\n  return (\n    <div>\n      <table className=\"w-full text-sm\">\n        <thead>\n          <tr className=\"text-left border-b text-gray-500\">\n            <th className=\"py-2\">Date</th>\n            <th>Type</th>\n            <th>Token</th>\n            <th>Amount</th>\n            <th>Chain</th>\n            <th>Status</th>\n          </tr>\n        </thead>\n        <tbody>\n          {loading ? (\n            <tr><td colSpan={6} className=\"text-center py-8\">Loading...</td></tr>\n          ) : (\n            trades.map((trade, i) => (\n              <tr key={i} className=\"border-b hover:bg-gray-50\">\n                <td className=\"py-2\">{new Date(trade.timestamp).toLocaleDateString()}</td>\n                <td className={trade.side === 'buy' ? 'text-green-600' : 'text-red-600'}>\n                  {trade.side?.toUpperCase()}\n                </td>\n                <td className=\"font-mono\">{trade.symbol ?? trade.tokenAddress?.slice(0, 8)}</td>\n                <td>{trade.amount}</td>\n                <td>{trade.chain}</td>\n                <td>\n                  <span className={`px-2 py-0.5 rounded text-xs ${\n                    trade.status === 'completed' ? 'bg-green-100 text-green-800' :\n                    trade.status === 'failed' ? 'bg-red-100 text-red-800' :\n                    'bg-yellow-100 text-yellow-800'\n                  }`}>\n                    {trade.status}\n                  </span>\n                </td>\n              </tr>\n            ))\n          )}\n        </tbody>\n      </table>\n\n      {/* Pagination */}\n      <div className=\"flex justify-between items-center mt-4\">\n        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}\n          className=\"px-3 py-1 border rounded disabled:opacity-50\">\n          Previous\n        </button>\n        <span className=\"text-sm text-gray-500\">Page {page}</span>\n        <button onClick={() => setPage(p => p + 1)} disabled={!hasMore}\n          className=\"px-3 py-1 border rounded disabled:opacity-50\">\n          Next\n        </button>\n      </div>\n    </div>\n  );\n}\n```\n\n**SDK method called:** `skill.getTradeHistory()`\n\n## Chain Selector\n\n```typescript\n// components/ChainSelector.tsx\nconst CHAINS = [\n  { id: 'all', name: 'All Chains', icon: '\u{1F310}' },\n  { id: 'solana', name: 'Solana', icon: '\u25CE' },\n  { id: '1', name: 'Ethereum', icon: '\u039E' },\n  { id: '8453', name: 'Base', icon: '\u{1F535}' },\n  { id: '42161', name: 'Arbitrum', icon: '\u{1F537}' },\n  { id: '56', name: 'BSC', icon: '\u{1F7E1}' },\n  { id: '10', name: 'Optimism', icon: '\u{1F534}' },\n  { id: 'sui', name: 'Sui', icon: '\u{1F4A7}' },\n];\n\ninterface ChainSelectorProps {\n  value: string;\n  onChange: (chain: string) => void;\n}\n\nexport function ChainSelector({ value, onChange }: ChainSelectorProps) {\n  return (\n    <div className=\"flex gap-2 flex-wrap\">\n      {CHAINS.map(chain => (\n        <button key={chain.id} onClick={() => onChange(chain.id)}\n          className={`px-3 py-1.5 rounded-full text-sm border transition ${\n            value === chain.id ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:border-gray-400'\n          }`}>\n          {chain.icon} {chain.name}\n        </button>\n      ))}\n    </div>\n  );\n}\n```\n\n## Data Fetching Pattern: SWR / React Query\n\nFor production apps, wrap SDK calls with a caching library:\n\n```typescript\n// hooks/usePortfolioQuery.ts (React Query example)\nimport { useQuery } from '@tanstack/react-query';\nimport type { SupportedChain } from '@gemachdao/gdex-skill';\nimport { useGdex } from '@/providers/GdexProvider';\n\nexport function usePortfolioQuery(walletAddress: string, chain?: SupportedChain) {\n  const { skill, isReady } = useGdex();\n\n  return useQuery({\n    queryKey: ['portfolio', walletAddress, chain],\n    queryFn: () => skill.getPortfolio({ walletAddress, chain }),\n    enabled: isReady && !!walletAddress,\n    refetchInterval: 30_000,      // poll every 30s\n    staleTime: 10_000,            // consider fresh for 10s\n  });\n}\n```\n\n```typescript\n// hooks/useTradeHistoryQuery.ts\nimport { useQuery } from '@tanstack/react-query';\nimport { useGdex } from '@/providers/GdexProvider';\n\nexport function useTradeHistoryQuery(walletAddress: string, page: number, limit = 20) {\n  const { skill, isReady } = useGdex();\n\n  return useQuery({\n    queryKey: ['tradeHistory', walletAddress, page, limit],\n    queryFn: () => skill.getTradeHistory({ walletAddress, page, limit }),\n    enabled: isReady && !!walletAddress,\n    keepPreviousData: true,       // smooth pagination\n  });\n}\n```\n\n## Backend Quirk: SDK Methods Need Raw Client (Live-Tested)\n\n> **WARNING:** The high-level `skill.getPortfolio()` and `skill.getTradeHistory()` methods send incorrect params to the backend. For managed-custody users, the UI components above will return empty/incorrect data unless you use the raw client workaround. See **gdex-portfolio** skill for correct raw client calls.\n\n**For frontend React Query hooks, use raw client instead:**\n\n```typescript\n// hooks/usePortfolioQuery.ts \u2014 CORRECT for managed custody\nimport { useQuery } from '@tanstack/react-query';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\n\nexport function usePortfolioQuery(userId: string, sessionKey: string, apiKey: string, chainId: number) {\n  const { skill, isReady } = useGdex();\n  const data = buildGdexUserSessionData(sessionKey, apiKey);\n\n  return useQuery({\n    queryKey: ['portfolio', userId, chainId],\n    queryFn: () => skill.client.get('/v1/portfolio', {\n      params: { userId, chainId, data }\n    }),\n    enabled: isReady,\n    refetchInterval: 30_000,\n  });\n}\n```\n\n## Component \u2192 SDK Method Reference\n\n| Component | SDK Method | Skill |\n|-----------|------------|-------|\n| `PortfolioOverview` | `skill.client.get('/v1/portfolio', ...)` | gdex-portfolio |\n| `TokenBalanceGrid` | `skill.client.get('/v1/portfolio', ...)` (balances embedded under `portfolio.balances[]`) | gdex-portfolio |\n| `TradeHistoryTable` | `skill.client.get('/v1/user_history', ...)` | gdex-portfolio |\n| `ChainSelector` | (UI only) | \u2014 |\n\n## Related Skills\n\n- **gdex-ui-install-setup** \u2014 Project setup and SDK context provider\n- **gdex-ui-trading-components** \u2014 Trading forms and order entry components\n- **gdex-ui-page-layouts** \u2014 Full page layouts using these dashboard components\n- **gdex-portfolio** \u2014 Portfolio SDK API details and raw client workarounds\n", files: [] }, { name: "gdex-ui-theming", description: "CSS theming system for GDEX trading UIs \u2014 dark/light modes, trading colors, responsive breakpoints, and Tailwind CSS configuration", content: "\n# GDEX: UI Theming\n\nCSS theming system for building polished trading interfaces. Covers dark/light mode, trading-specific color semantics (long/short/PnL), responsive layouts, and Tailwind CSS integration.\n\n## When to Use\n\n- Setting up dark/light mode for a trading app\n- Defining trading-specific color semantics (buy/sell, PnL, chains)\n- Configuring responsive breakpoints for trading layouts\n- Extending Tailwind CSS with trading theme tokens\n\n## CSS Custom Properties\n\nDefine a base theme using CSS variables. Trading UIs need specialized color semantics beyond generic UI:\n\n```css\n/* styles/theme.css */\n\n:root {\n  /* Brand \u2014 Gemach (see assets/brand) */\n  --color-brand: #704FF6;        /* Majorelle Blue (primary accent) */\n  --color-brand-hover: #5A3FE0;\n  --color-brand-2: #61B8FF;      /* Argentinian Blue (secondary accent) */\n\n  /* Gemach product lines */\n  --color-gbot: #DF2E2E;         /* Rojo */\n  --color-loans: #61B8FF;        /* Argentinian Blue */\n  --color-vaults: #704FF6;       /* Majorelle Blue */\n  --color-index: #49B875;        /* Emerald */\n\n  /* Trading \u2014 Long / Short */\n  --color-long: #49B875;         /* Emerald */\n  --color-long-bg: #49B8751A;\n  --color-short: #DF2E2E;        /* Rojo */\n  --color-short-bg: #DF2E2E1A;\n\n  /* PnL */\n  --color-pnl-positive: #49B875;\n  --color-pnl-negative: #DF2E2E;\n  --color-pnl-neutral: #697083;\n\n  /* Order Status */\n  --color-status-filled: #49B875;\n  --color-status-pending: #61B8FF;\n  --color-status-cancelled: #697083;\n  --color-status-failed: #DF2E2E;\n\n  /* Chain Colors (chain brand colors, not Gemach) */\n  --color-chain-solana: #9945FF;\n  --color-chain-ethereum: #627EEA;\n  --color-chain-base: #0052FF;\n  --color-chain-arbitrum: #2D374B;\n  --color-chain-bsc: #F0B90B;\n  --color-chain-sui: #4DA2FF;\n  --color-chain-optimism: #FF0420;\n\n  /* Surfaces (light mode) */\n  --bg-primary: #FFFFFF;\n  --bg-secondary: #F9FAFB;\n  --bg-tertiary: #F3F4F6;\n  --bg-card: #FFFFFF;\n  --bg-input: #F9FAFB;\n  --border-primary: #E5E7EB;\n  --border-secondary: #D1D5DB;\n\n  /* Text (light mode) */\n  --text-primary: #060A17;       /* Rich Black */\n  --text-secondary: #4D5972;\n  --text-tertiary: #81899F;\n  --text-on-brand: #FFFFFF;\n\n  /* Typography \u2014 Gemach uses Inter */\n  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;\n  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;\n\n  /* Spacing */\n  --radius-sm: 6px;\n  --radius-md: 8px;\n  --radius-lg: 12px;\n  --radius-full: 9999px;\n}\n\n/* Dark Mode (Gemach default \u2014 Rich Black + navy ramp) */\n[data-theme='dark'], .dark {\n  --bg-primary: #060A17;         /* Rich Black */\n  --bg-secondary: #0C1322;\n  --bg-tertiary: #162139;\n  --bg-card: #0D1424;\n  --bg-input: #152037;\n  --border-primary: #192843;\n  --border-secondary: #2E4164;\n\n  --text-primary: #FFFFFF;\n  --text-secondary: #A1A5B3;\n  --text-tertiary: #697083;\n}\n```\n\n## Gemach brand palette (official)\n\nFrom the Gemach brand guide. The dark theme above is the Gemach default.\n\n| Token | Hex | Use |\n|-------|-----|-----|\n| Rich Black | `#060A17` | App background (dark) |\n| Majorelle Blue | `#704FF6` | Primary brand accent (Vaults) |\n| Argentinian Blue | `#61B8FF` | Secondary accent (Loans) |\n| Emerald | `#49B875` | Long / positive (Index Funds) |\n| Rojo | `#DF2E2E` | Short / negative (GBOT) |\n\nNavy \u2192 white neutral ramp: `#161D2F #152037 #162139 #192843 #2E4164 #4D5972 #697083 #81899F #A1A5B3 #D5D9E1 #FFFFFF`\n\n**Logo:** the white Gemach lion mark is at `assets/brand/gemach-lion.png`. Pair it with the\n`GEMACH` / `GDEX` wordmark in **Inter** (700\u2013800 weight). On dark, use the white mark; on\nlight, the black mark. **Font:** Inter (400/500/600/700/800) \u2014 load via Google Fonts or self-host.\n\n## Dark / Light Mode Toggle\n\n```typescript\n// components/ThemeToggle.tsx\n'use client';\n\nimport { useEffect, useState } from 'react';\n\nexport function ThemeToggle() {\n  const [dark, setDark] = useState(false);\n\n  useEffect(() => {\n    const saved = localStorage.getItem('gdex-theme');\n    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;\n    setDark(saved ? saved === 'dark' : prefersDark);\n  }, []);\n\n  useEffect(() => {\n    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');\n    document.documentElement.classList.toggle('dark', dark);\n    localStorage.setItem('gdex-theme', dark ? 'dark' : 'light');\n  }, [dark]);\n\n  return (\n    <button onClick={() => setDark(!dark)}\n      className=\"p-2 rounded-lg border border-[var(--border-primary)] hover:bg-[var(--bg-tertiary)]\">\n      {dark ? '\u2600\uFE0F' : '\u{1F319}'}\n    </button>\n  );\n}\n```\n\n## Tailwind CSS Configuration\n\nExtend Tailwind with GDEX trading theme tokens:\n\n```typescript\n// tailwind.config.ts\nimport type { Config } from 'tailwindcss';\n\nconst config: Config = {\n  darkMode: 'class',\n  content: ['./src/**/*.{ts,tsx}', './app/**/*.{ts,tsx}'],\n  theme: {\n    extend: {\n      colors: {\n        brand: 'var(--color-brand)',\n        'brand-hover': 'var(--color-brand-hover)',\n        long: 'var(--color-long)',\n        'long-bg': 'var(--color-long-bg)',\n        short: 'var(--color-short)',\n        'short-bg': 'var(--color-short-bg)',\n        'pnl-positive': 'var(--color-pnl-positive)',\n        'pnl-negative': 'var(--color-pnl-negative)',\n        'pnl-neutral': 'var(--color-pnl-neutral)',\n        'surface-primary': 'var(--bg-primary)',\n        'surface-secondary': 'var(--bg-secondary)',\n        'surface-card': 'var(--bg-card)',\n      },\n      fontFamily: {\n        sans: ['var(--font-sans)'],\n        mono: ['var(--font-mono)'],\n      },\n      borderRadius: {\n        sm: 'var(--radius-sm)',\n        md: 'var(--radius-md)',\n        lg: 'var(--radius-lg)',\n      },\n    },\n  },\n};\n\nexport default config;\n```\n\n### Usage in Components\n\n```tsx\n{/* Trading colors via Tailwind */}\n<span className=\"text-long\">+$420.69</span>     {/* green \u2014 long position / profit */}\n<span className=\"text-short\">-$69.42</span>      {/* red \u2014 short position / loss */}\n<div className=\"bg-long-bg p-2\">Long highlight</div>\n<div className=\"bg-surface-card border border-[var(--border-primary)]\">Card</div>\n```\n\n## Responsive Breakpoints\n\nTrading UIs have unique layout needs \u2014 the primary trading view should maximize horizontal space:\n\n```css\n/* Trading layout breakpoints */\n@media (min-width: 768px) {\n  /* Tablet: stack chart above order form */\n  .trading-layout { grid-template-columns: 1fr; }\n}\n\n@media (min-width: 1024px) {\n  /* Desktop: chart + order form side by side */\n  .trading-layout { grid-template-columns: 1fr 360px; }\n}\n\n@media (min-width: 1440px) {\n  /* Wide: chart + orderbook + order form */\n  .trading-layout { grid-template-columns: 280px 1fr 360px; }\n}\n```\n\n```tsx\n{/* Responsive trading grid */}\n<div className=\"grid grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[280px_1fr_360px] gap-4\">\n  <aside className=\"hidden xl:block\">{/* Orderbook */}</aside>\n  <main>{/* Chart + Positions */}</main>\n  <aside>{/* Order Form */}</aside>\n</div>\n```\n\n## Component Styling Patterns\n\n### Trading Buttons\n\n```tsx\n{/* Long / Short buttons */}\n<button className=\"w-full py-3 rounded-lg font-bold text-white bg-long hover:opacity-90\">\n  Long BTC\n</button>\n<button className=\"w-full py-3 rounded-lg font-bold text-white bg-short hover:opacity-90\">\n  Short BTC\n</button>\n```\n\n### PnL with Color\n\n```tsx\nfunction PnL({ value }: { value: number }) {\n  const color = value > 0 ? 'text-pnl-positive' : value < 0 ? 'text-pnl-negative' : 'text-pnl-neutral';\n  const sign = value > 0 ? '+' : '';\n  return <span className={`font-mono font-bold ${color}`}>{sign}${value.toFixed(2)}</span>;\n}\n```\n\n### Chain Badge\n\n```tsx\nconst CHAIN_COLORS: Record<string, string> = {\n  solana: 'var(--color-chain-solana)',\n  ethereum: 'var(--color-chain-ethereum)',\n  base: 'var(--color-chain-base)',\n  arbitrum: 'var(--color-chain-arbitrum)',\n  bsc: 'var(--color-chain-bsc)',\n  sui: 'var(--color-chain-sui)',\n};\n\nfunction ChainBadge({ chain }: { chain: string }) {\n  return (\n    <span className=\"px-2 py-0.5 rounded-full text-xs font-medium text-white\"\n      style={{ backgroundColor: CHAIN_COLORS[chain] ?? '#6B7280' }}>\n      {chain}\n    </span>\n  );\n}\n```\n\n## Related Skills\n\n- **gdex-ui-install-setup** \u2014 Project setup (includes Tailwind setup)\n- **gdex-ui-page-layouts** \u2014 Full page layouts using these theme tokens\n- **gdex-ui-trading-components** \u2014 Trading components that use theme colors\n", files: [] }, { name: "gdex-ui-trading-components", description: "React component patterns for GDEX trading UIs \u2014 order entry forms, position tables, copy trade panels, orderbook displays, and PnL views", content: "\n# GDEX: Trading UI Components\n\nReact component patterns for building trading interfaces with the GDEX SDK. Each component shows the props interface, SDK method it calls, and state management pattern.\n\n## When to Use\n\n- Building a spot or perp trading form\n- Displaying open positions or orders\n- Creating a copy trade management panel\n- Showing PnL or orderbook data\n\n## Prerequisites\n\n- GDEX SDK context provider set up \u2014 see **gdex-ui-install-setup**\n- Wallet sign-in via `AuthProvider.loginWithWallet()` \u2014 see **gdex-ui-wallet-connection**. It runs the managed-custody\n  sign-in and exposes `creds` (`{ apiKey, walletAddress, sessionPrivateKey }`, walletAddress = control wallet) and\n  `managedAddress`. Every write call below takes `creds`; `loginWithApiKey()` alone only covers read-only data.\n\n## Spot Trade Form\n\n```typescript\n// components/SpotTradeForm.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\ninterface SpotTradeFormProps {\n  defaultChain?: string;\n  onTradeComplete?: (result: any) => void;\n}\n\nexport function SpotTradeForm({ defaultChain = 'solana', onTradeComplete }: SpotTradeFormProps) {\n  const { skill, isReady } = useGdex();\n  const { creds } = useAuth();\n  const [mode, setMode] = useState<'buy' | 'sell'>('buy');\n  const [chain, setChain] = useState(defaultChain);\n  const [tokenAddress, setTokenAddress] = useState('');\n  const [amount, setAmount] = useState('');\n  const [slippage, setSlippage] = useState(1);\n  const [loading, setLoading] = useState(false);\n  const [error, setError] = useState<string | null>(null);\n\n  const handleSubmit = async (e: React.FormEvent) => {\n    e.preventDefault();\n    if (!isReady || !creds) return;\n    setLoading(true);\n    setError(null);\n    try {\n      const chainArg = /^\\d+$/.test(chain) ? Number(chain) : chain; // numeric ChainId or 'solana' / 'sui'\n      const result = mode === 'buy'\n        ? await skill.buyToken({ chain: chainArg, tokenAddress, amount, slippage, ...creds })\n        : await skill.sellToken({ chain: chainArg, tokenAddress, amount, slippage, walletAddress: creds.walletAddress });\n      onTradeComplete?.(result);\n    } catch (err) {\n      setError(err instanceof Error ? err.message : 'Trade failed');\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  return (\n    <form onSubmit={handleSubmit} className=\"space-y-4\">\n      {/* Buy / Sell toggle */}\n      <div className=\"flex gap-2\">\n        <button type=\"button\" onClick={() => setMode('buy')}\n          className={mode === 'buy' ? 'bg-green-600 text-white' : 'bg-gray-200'}>\n          Buy\n        </button>\n        <button type=\"button\" onClick={() => setMode('sell')}\n          className={mode === 'sell' ? 'bg-red-600 text-white' : 'bg-gray-200'}>\n          Sell\n        </button>\n      </div>\n\n      {/* Chain selector */}\n      <select value={chain} onChange={e => setChain(e.target.value)}>\n        <option value=\"solana\">Solana</option>\n        <option value=\"8453\">Base</option>\n        <option value=\"42161\">Arbitrum</option>\n        <option value=\"1\">Ethereum</option>\n        <option value=\"56\">BSC</option>\n        <option value=\"sui\">Sui</option>\n      </select>\n\n      <input placeholder=\"Token address\" value={tokenAddress}\n        onChange={e => setTokenAddress(e.target.value)} required />\n      <input type=\"number\" placeholder=\"Amount\" value={amount}\n        onChange={e => setAmount(e.target.value)} step=\"any\" min=\"0\" required />\n      <input type=\"number\" placeholder=\"Slippage %\" value={slippage}\n        onChange={e => setSlippage(Number(e.target.value))} step=\"0.1\" min=\"0.1\" max=\"50\" />\n\n      {error && <p className=\"text-red-500\">{error}</p>}\n      <button type=\"submit\" disabled={loading || !isReady}>\n        {loading ? 'Executing...' : `${mode === 'buy' ? 'Buy' : 'Sell'} Token`}\n      </button>\n    </form>\n  );\n}\n```\n\n**SDK methods called:** `skill.buyToken()`, `skill.sellToken()`\n\n## Perp Order Form\n\n```typescript\n// components/PerpOrderForm.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\ninterface PerpOrderFormProps {\n  onOrderPlaced?: (result: any) => void;\n}\n\nexport function PerpOrderForm({ onOrderPlaced }: PerpOrderFormProps) {\n  const { skill, isReady } = useGdex();\n  const { creds } = useAuth();\n  const [coin, setCoin] = useState('BTC');\n  const [side, setSide] = useState<'long' | 'short'>('long');\n  const [sizeUsd, setSizeUsd] = useState('');\n  const [leverage, setLeverage] = useState(5);\n  const [takeProfitPrice, setTakeProfitPrice] = useState('');\n  const [stopLossPrice, setStopLossPrice] = useState('');\n  const [loading, setLoading] = useState(false);\n  const [error, setError] = useState<string | null>(null);\n\n  const handleSubmit = async (e: React.FormEvent) => {\n    e.preventDefault();\n    if (!isReady || !creds) return;\n    setLoading(true);\n    setError(null);\n    try {\n      // hlCreateOrder takes size in contracts (coin units): convert the USD notional at the mark price\n      const mark = await skill.getHlMarkPrice(coin);\n      const size = (Number(sizeUsd) / mark).toFixed(5); // round to the market's szDecimals in production\n      const result = await skill.hlCreateOrder({\n        coin,\n        isLong: side === 'long',\n        price: String(mark),\n        size,\n        isMarket: true,\n        leverage,                   // sent top-level with the order\n        tpPrice: takeProfitPrice,   // '' skips TP\n        slPrice: stopLossPrice,     // '' skips SL\n        ...creds,\n      });\n      onOrderPlaced?.(result);\n    } catch (err) {\n      setError(err instanceof Error ? err.message : 'Order failed');\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  return (\n    <form onSubmit={handleSubmit} className=\"space-y-4\">\n      <div className=\"flex gap-2\">\n        <button type=\"button\" onClick={() => setSide('long')}\n          className={side === 'long' ? 'bg-green-600 text-white' : 'bg-gray-200'}>\n          Long\n        </button>\n        <button type=\"button\" onClick={() => setSide('short')}\n          className={side === 'short' ? 'bg-red-600 text-white' : 'bg-gray-200'}>\n          Short\n        </button>\n      </div>\n\n      <select value={coin} onChange={e => setCoin(e.target.value)}>\n        <option value=\"BTC\">BTC</option>\n        <option value=\"ETH\">ETH</option>\n        <option value=\"SOL\">SOL</option>\n        <option value=\"ARB\">ARB</option>\n      </select>\n\n      <input type=\"number\" placeholder=\"Size (USD)\" value={sizeUsd}\n        onChange={e => setSizeUsd(e.target.value)} min=\"10\" required />\n      <input type=\"range\" min=\"1\" max=\"50\" value={leverage}\n        onChange={e => setLeverage(Number(e.target.value))} />\n      <span>Leverage: {leverage}\xD7</span>\n\n      <input type=\"number\" placeholder=\"Take Profit Price (optional)\" value={takeProfitPrice}\n        onChange={e => setTakeProfitPrice(e.target.value)} step=\"any\" />\n      <input type=\"number\" placeholder=\"Stop Loss Price (optional)\" value={stopLossPrice}\n        onChange={e => setStopLossPrice(e.target.value)} step=\"any\" />\n\n      {error && <p className=\"text-red-500\">{error}</p>}\n      <button type=\"submit\" disabled={loading || !isReady}\n        className={side === 'long' ? 'bg-green-600' : 'bg-red-600'}>\n        {loading ? 'Placing...' : `${side === 'long' ? 'Long' : 'Short'} ${coin}`}\n      </button>\n    </form>\n  );\n}\n```\n\n**SDK methods called:** `skill.getHlMarkPrice()`, `skill.hlCreateOrder()`\n\n## Position Table\n\n```typescript\n// components/PositionTable.tsx\n'use client';\n\nimport { useState, useEffect, useCallback } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\nexport function PositionTable({ pollInterval = 10000 }: { pollInterval?: number }) {\n  const { skill, isReady } = useGdex();\n  const { creds, managedAddress } = useAuth();\n  const [positions, setPositions] = useState<any[]>([]);\n\n  // Positions live on the managed EVM wallet, not the control wallet\n  const refresh = useCallback(async () => {\n    if (!isReady || !managedAddress) return;\n    setPositions(await skill.getPerpPositions({ walletAddress: managedAddress }));\n  }, [skill, isReady, managedAddress]);\n\n  useEffect(() => {\n    refresh();\n    const id = setInterval(refresh, pollInterval);\n    return () => clearInterval(id);\n  }, [refresh, pollInterval]);\n\n  if (!positions.length) return <p className=\"text-gray-500\">No open positions</p>;\n\n  return (\n    <table className=\"w-full text-sm\">\n      <thead>\n        <tr className=\"text-left border-b\">\n          <th>Asset</th><th>Side</th><th>Size</th><th>Entry</th>\n          <th>Mark</th><th>PnL</th><th>Leverage</th><th>Actions</th>\n        </tr>\n      </thead>\n      <tbody>\n        {positions.map((pos, i) => {\n          // PerpPosition: { coin, side, size, entryPrice, markPrice, leverage, unrealizedPnl, liquidationPrice }\n          const pnl = Number(pos.unrealizedPnl ?? 0);\n          const isLong = pos.side === 'long';\n          return (\n            <tr key={i} className=\"border-b\">\n              <td>{pos.coin}</td>\n              <td className={isLong ? 'text-green-500' : 'text-red-500'}>\n                {isLong ? 'LONG' : 'SHORT'}\n              </td>\n              <td>{pos.size}</td>\n              <td>${Number(pos.entryPrice ?? 0).toFixed(2)}</td>\n              <td>${Number(pos.markPrice ?? 0).toFixed(2)}</td>\n              <td className={pnl >= 0 ? 'text-green-500' : 'text-red-500'}>\n                ${Number(pnl).toFixed(2)}\n              </td>\n              <td>{pos.leverage ?? '\u2014'}\xD7</td>\n              <td>\n                <button\n                  onClick={() => {\n                    if (creds && managedAddress) void skill.closePerpPosition({ ...creds, coin: pos.coin, positionAddress: managedAddress });\n                  }}\n                  className=\"text-red-500 hover:underline\">\n                  Close\n                </button>\n              </td>\n            </tr>\n          );\n        })}\n      </tbody>\n    </table>\n  );\n}\n```\n\n**SDK methods called:** `skill.getPerpPositions()`, `skill.closePerpPosition()`\n\n## Copy Trade Panel\n\n```typescript\n// components/CopyTradePanel.tsx\n'use client';\n\nimport { useState, useEffect } from 'react';\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\nexport function CopyTradePanel({ sessionKey }: { sessionKey: string }) {\n  const { skill, isReady } = useGdex();\n  const { creds } = useAuth();\n  const [activeTrades, setActiveTrades] = useState<any[]>([]);\n  const [topTraders, setTopTraders] = useState<any[]>([]);\n  const [tab, setTab] = useState<'active' | 'discover'>('active');\n\n  useEffect(() => {\n    if (!isReady || !creds) return;\n    // Load the user's copy trades (Solana sign-in; data = encrypted session key)\n    skill.getCopyTradeList({\n      userId: creds.walletAddress,\n      data: buildGdexUserSessionData(sessionKey, creds.apiKey),\n    }).then((r) => setActiveTrades(r.allCopyTrades ?? [])).catch(() => {});\n    // Load top traders for discovery (no auth)\n    skill.getCopyTradeWallets().then((w) => setTopTraders(w.slice(0, 10))).catch(() => {});\n  }, [skill, isReady, creds, sessionKey]);\n\n  return (\n    <div>\n      <div className=\"flex gap-2 mb-4\">\n        <button onClick={() => setTab('active')}\n          className={tab === 'active' ? 'font-bold border-b-2' : ''}>\n          Active ({activeTrades.length})\n        </button>\n        <button onClick={() => setTab('discover')}\n          className={tab === 'discover' ? 'font-bold border-b-2' : ''}>\n          Discover\n        </button>\n      </div>\n\n      {tab === 'active' && (\n        <div className=\"space-y-2\">\n          {activeTrades.map((trade, i) => (\n            <div key={i} className=\"border rounded p-3 flex justify-between\">\n              <div>\n                <p className=\"font-mono text-sm\">{trade.traderWallet}</p>\n                <p className=\"text-xs text-gray-500\">{trade.copyTradeName}</p>\n              </div>\n              <span className=\"text-sm\">\n                {trade.buyMode === 1 ? `${trade.copyBuyFixedAmount} SOL` : `${trade.copyBuyPercent}%`}\n              </span>\n            </div>\n          ))}\n          {!activeTrades.length && <p className=\"text-gray-500\">No active copy trades</p>}\n        </div>\n      )}\n\n      {tab === 'discover' && (\n        <div className=\"space-y-2\">\n          {topTraders.map((trader, i) => (\n            <div key={i} className=\"border rounded p-3 flex justify-between items-center\">\n              <div>\n                <p className=\"font-mono text-sm\">{trader.address}</p>\n                <p className=\"text-xs text-green-500\">PnL: {trader.totalPnl}</p>\n              </div>\n              <button className=\"bg-blue-600 text-white px-3 py-1 rounded text-sm\">\n                Copy\n              </button>\n            </div>\n          ))}\n        </div>\n      )}\n    </div>\n  );\n}\n```\n\n**SDK methods called:** `skill.getCopyTradeList()`, `skill.getCopyTradeWallets()`\n\n## PnL Display\n\n```typescript\n// components/PnLDisplay.tsx\ninterface PnLDisplayProps {\n  value: number;\n  label?: string;\n  showSign?: boolean;\n  currency?: string;\n}\n\nexport function PnLDisplay({ value, label, showSign = true, currency = '$' }: PnLDisplayProps) {\n  const isPositive = value >= 0;\n  const formatted = `${showSign && isPositive ? '+' : ''}${currency}${Math.abs(value).toFixed(2)}`;\n\n  return (\n    <div className=\"text-center\">\n      {label && <p className=\"text-xs text-gray-500 mb-1\">{label}</p>}\n      <p className={`text-lg font-bold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>\n        {formatted}\n      </p>\n    </div>\n  );\n}\n```\n\n## Token Search with Autocomplete\n\n```typescript\n// components/TokenSearch.tsx\n'use client';\n\nimport { useState, useCallback } from 'react';\nimport type { SupportedChain } from '@gemachdao/gdex-skill';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { debounce } from '@/utils/debounce'; // simple debounce utility\n\ninterface TokenSearchProps {\n  chain: SupportedChain;\n  onSelect: (token: { address: string; symbol: string; name: string }) => void;\n}\n\nexport function TokenSearch({ chain, onSelect }: TokenSearchProps) {\n  const { skill, isReady } = useGdex();\n  const [query, setQuery] = useState('');\n  const [results, setResults] = useState<any[]>([]);\n\n  const search = useCallback(\n    debounce(async (q: string) => {\n      if (!isReady || q.length < 2) { setResults([]); return; }\n      const data = await skill.getTokenDetails({ chain, tokenAddress: q });\n      setResults(data ? [data] : []);\n    }, 300),\n    [skill, isReady, chain]\n  );\n\n  return (\n    <div className=\"relative\">\n      <input placeholder=\"Token address or symbol\" value={query}\n        onChange={e => { setQuery(e.target.value); search(e.target.value); }} />\n      {results.length > 0 && (\n        <ul className=\"absolute bg-white border rounded shadow-lg w-full z-10\">\n          {results.map((token, i) => (\n            <li key={i} onClick={() => { onSelect(token); setResults([]); setQuery(token.symbol); }}\n              className=\"p-2 hover:bg-gray-100 cursor-pointer\">\n              <span className=\"font-bold\">{token.symbol}</span> \u2014 {token.name}\n            </li>\n          ))}\n        </ul>\n      )}\n    </div>\n  );\n}\n```\n\n**SDK method called:** `skill.getTokenDetails()`\n\n## Component \u2192 SDK Method Reference\n\n| Component | SDK Method | Skill |\n|-----------|------------|-------|\n| `SpotTradeForm` | `buyToken()`, `sellToken()` | gdex-spot-trading |\n| `PerpOrderForm` | `getHlMarkPrice()`, `hlCreateOrder()` | gdex-perp-trading |\n| `PositionTable` | `getPerpPositions()`, `closePerpPosition()` | gdex-perp-trading |\n| `CopyTradePanel` | `getCopyTradeList()`, `getCopyTradeWallets()` | gdex-copy-trading |\n| `PnLDisplay` | (display only) | \u2014 |\n| `TokenSearch` | `getTokenDetails()` | gdex-token-discovery |\n\n## Backend Quirks Affecting UI (Live-Tested)\n\n1. **Spot trading amounts in managed custody are RAW UNITS** (lamports/wei), not human-readable. The `SpotTradeForm` above uses `skill.buyToken()` which handles conversion, but if using `submitManagedPurchase()` directly, convert first.\n2. **`hlCloseAll` is unreliable** \u2014 the `PositionTable` close button uses `closePerpPosition()` per coin (a reduce-only order for the live size), not `skill.hlCloseAll()`.\n3. **Solana Meteora tokens fail** \u2014 if building a token selector, filter out `dexId === 'meteora'` tokens to avoid failed trades.\n4. **Leverage goes on the order** \u2014 the slider value is passed as `leverage` to `hlCreateOrder()` (sent top-level with the order). The standalone `hlUpdateLeverage` endpoint returns 404.\n5. **`getTopTraders()` needs numeric chainId** \u2014 use `622112261`, not `'solana'`.\n\n## Related Skills\n\n- **gdex-ui-install-setup** \u2014 Project setup and provider pattern\n- **gdex-ui-portfolio-dashboard** \u2014 Portfolio display components\n- **gdex-ui-page-layouts** \u2014 Full page compositions using these components\n- **gdex-spot-trading** \u2014 Spot trading SDK API details and managed-custody quirks\n- **gdex-perp-trading** \u2014 Perpetual futures SDK API details and close-position workaround\n", files: [] }, { name: "gdex-ui-wallet-connection", description: "React patterns for GDEX wallet connection \u2014 connect buttons, account displays, chain switching, and API key vs wallet auth UI flows", content: "\n# GDEX: Wallet Connection UI\n\nReact component patterns for wallet connection, authentication state management, and account display in GDEX trading apps.\n\n## When to Use\n\n- Adding a connect wallet / login button to your app\n- Displaying account info (address, chain, balance)\n- Managing authentication state (API key vs wallet-based)\n- Implementing chain switching UI\n\n## Prerequisites\n\n- GDEX SDK context provider set up \u2014 see **gdex-ui-install-setup**\n- Understanding of auth flows \u2014 see **gdex-authentication**\n\n## Auth State Provider\n\nExtend the base `GdexProvider` with wallet connection state:\n\n```typescript\n// providers/AuthProvider.tsx\n'use client';\n\nimport React, { createContext, useContext, useState, useCallback } from 'react';\nimport {\n  GDEX_API_KEY_PRIMARY,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n  buildGdexUserSessionData,\n} from '@gemachdao/gdex-skill';\nimport { useGdex } from '@/providers/GdexProvider';\n\ntype AuthMethod = 'none' | 'api-key' | 'wallet';\n\n/** Managed-custody credentials every write call takes (walletAddress = control wallet). */\nexport interface GdexCreds {\n  apiKey: string;\n  walletAddress: string;\n  sessionPrivateKey: string;\n}\n\ninterface AuthContextValue {\n  authMethod: AuthMethod;\n  walletAddress: string | null;\n  managedAddress: string | null;\n  creds: GdexCreds | null;\n  isAuthenticated: boolean;\n  loginWithApiKey: (key: string) => void;\n  loginWithWallet: (address: string, signFn: (msg: string) => Promise<string>) => Promise<void>;\n  logout: () => void;\n}\n\nconst AuthContext = createContext<AuthContextValue | null>(null);\n\nexport function AuthProvider({ children }: { children: React.ReactNode }) {\n  const { skill } = useGdex();\n  const [authMethod, setAuthMethod] = useState<AuthMethod>('none');\n  const [walletAddress, setWalletAddress] = useState<string | null>(null);\n  const [managedAddress, setManagedAddress] = useState<string | null>(null);\n  const [creds, setCreds] = useState<GdexCreds | null>(null);\n\n  // Read-only access (token data, trending, charts). Trading needs loginWithWallet.\n  const loginWithApiKey = useCallback((key: string) => {\n    skill.loginWithApiKey(key);\n    setAuthMethod('api-key');\n    setWalletAddress(null);\n    setCreds(null);\n  }, [skill]);\n\n  // Managed-custody sign-in: the user's wallet signs once (personal_sign), then a\n  // browser-held session key signs every trade.\n  const loginWithWallet = useCallback(async (\n    address: string,\n    signFn: (msg: string) => Promise<string>\n  ) => {\n    const apiKey = GDEX_API_KEY_PRIMARY;\n    skill.loginWithApiKey(apiKey);\n    const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\n    const nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));\n    const signature = await signFn(buildGdexSignInMessage(address, nonce, sessionKey));\n    const signIn = buildGdexSignInComputedData({ apiKey, userId: address, sessionKey, nonce, signature });\n    await skill.signInWithComputedData({ computedData: signIn.computedData, chainId: 1 });\n\n    // Managed EVM wallet: receives funds and holds HyperLiquid positions\n    const user = await skill.getManagedUser({\n      userId: address,\n      data: buildGdexUserSessionData(sessionKey, apiKey),\n      chainId: 1,\n    });\n    setAuthMethod('wallet');\n    setWalletAddress(address);\n    setManagedAddress(typeof user.address === 'string' ? user.address : null);\n    setCreds({ apiKey, walletAddress: address, sessionPrivateKey });\n  }, [skill]);\n\n  const logout = useCallback(() => {\n    skill.logout();\n    setAuthMethod('none');\n    setWalletAddress(null);\n    setManagedAddress(null);\n    setCreds(null);\n  }, [skill]);\n\n  return (\n    <AuthContext.Provider value={{\n      authMethod,\n      walletAddress,\n      managedAddress,\n      creds,\n      isAuthenticated: authMethod !== 'none',\n      loginWithApiKey,\n      loginWithWallet,\n      logout,\n    }}>\n      {children}\n    </AuthContext.Provider>\n  );\n}\n\nexport function useAuth() {\n  const ctx = useContext(AuthContext);\n  if (!ctx) throw new Error('useAuth must be used within <AuthProvider>');\n  return ctx;\n}\n```\n\n## Connect Button\n\n```typescript\n// components/ConnectButton.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { useAuth } from '@/providers/AuthProvider';\nimport { GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nexport function ConnectButton() {\n  const { isAuthenticated, authMethod, walletAddress, loginWithApiKey, logout } = useAuth();\n  const [showMenu, setShowMenu] = useState(false);\n\n  if (isAuthenticated) {\n    return (\n      <div className=\"relative\">\n        <button onClick={() => setShowMenu(!showMenu)}\n          className=\"px-4 py-2 border rounded-lg flex items-center gap-2\">\n          <span className=\"w-2 h-2 rounded-full bg-green-500\" />\n          {authMethod === 'wallet'\n            ? `${walletAddress!.slice(0, 6)}...${walletAddress!.slice(-4)}`\n            : 'API Key Connected'}\n        </button>\n        {showMenu && (\n          <div className=\"absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-50\">\n            <button onClick={() => { logout(); setShowMenu(false); }}\n              className=\"w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600\">\n              Disconnect\n            </button>\n          </div>\n        )}\n      </div>\n    );\n  }\n\n  return (\n    <div className=\"flex gap-2\">\n      {/* Quick connect with shared API key */}\n      <button onClick={() => loginWithApiKey(GDEX_API_KEY_PRIMARY)}\n        className=\"px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700\">\n        Quick Connect\n      </button>\n    </div>\n  );\n}\n```\n\n## Account Display\n\n```typescript\n// components/AccountDisplay.tsx\n'use client';\n\nimport { useAuth } from '@/providers/AuthProvider';\n\nexport function AccountDisplay() {\n  const { isAuthenticated, authMethod, walletAddress, managedAddress } = useAuth();\n\n  if (!isAuthenticated) return null;\n\n  return (\n    <div className=\"border rounded-lg p-4 space-y-2\">\n      <div className=\"flex justify-between items-center\">\n        <span className=\"text-xs text-gray-500\">Auth Method</span>\n        <span className=\"text-sm font-medium capitalize\">{authMethod.replace('-', ' ')}</span>\n      </div>\n\n      {walletAddress && (\n        <div className=\"flex justify-between items-center\">\n          <span className=\"text-xs text-gray-500\">Control Wallet</span>\n          <span className=\"font-mono text-sm\">\n            {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}\n          </span>\n        </div>\n      )}\n\n      {managedAddress && (\n        <div className=\"flex justify-between items-center\">\n          <span className=\"text-xs text-gray-500\">Managed Wallet</span>\n          <span className=\"font-mono text-sm\">\n            {managedAddress.slice(0, 6)}...{managedAddress.slice(-4)}\n          </span>\n        </div>\n      )}\n\n      <p className=\"text-xs text-gray-400 mt-2\">\n        All trades execute from the managed wallet. Your control wallet only signs authentication.\n      </p>\n    </div>\n  );\n}\n```\n\n> **Critical:** `walletAddress` is the **control wallet** (used for sign-in). The **managed wallet** is GDEX's server-side wallet that executes trades. Never confuse them \u2014 all API calls use the control address as `userId`.\n\n## Chain Switcher\n\n```typescript\n// components/ChainSwitcher.tsx\n'use client';\n\nimport { useState } from 'react';\n\nconst SUPPORTED_CHAINS = [\n  { id: 1, name: 'Ethereum', symbol: 'ETH' },\n  { id: 8453, name: 'Base', symbol: 'ETH' },\n  { id: 42161, name: 'Arbitrum', symbol: 'ETH' },\n  { id: 56, name: 'BSC', symbol: 'BNB' },\n  { id: 10, name: 'Optimism', symbol: 'ETH' },\n  { id: 622112261, name: 'Solana', symbol: 'SOL' },\n  { id: 1313131213, name: 'Sui', symbol: 'SUI' },\n];\n\ninterface ChainSwitcherProps {\n  value: number;\n  onChange: (chainId: number) => void;\n}\n\nexport function ChainSwitcher({ value, onChange }: ChainSwitcherProps) {\n  const [open, setOpen] = useState(false);\n  const selected = SUPPORTED_CHAINS.find(c => c.id === value);\n\n  return (\n    <div className=\"relative\">\n      <button onClick={() => setOpen(!open)} className=\"px-3 py-2 border rounded-lg flex items-center gap-2\">\n        {selected?.name ?? 'Select Chain'}\n        <span className=\"text-xs\">\u25BC</span>\n      </button>\n      {open && (\n        <ul className=\"absolute mt-1 w-48 bg-white border rounded-lg shadow-lg z-50\">\n          {SUPPORTED_CHAINS.map(chain => (\n            <li key={chain.id}>\n              <button onClick={() => { onChange(chain.id); setOpen(false); }}\n                className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${\n                  chain.id === value ? 'font-bold bg-gray-50' : ''\n                }`}>\n                {chain.name} ({chain.symbol})\n              </button>\n            </li>\n          ))}\n        </ul>\n      )}\n    </div>\n  );\n}\n```\n\n## Provider Hierarchy\n\n```\nThemeProvider\n  \u2514\u2500 AuthProvider          \u2190 wallet/API key state\n       \u2514\u2500 GdexProvider     \u2190 SDK instance\n            \u2514\u2500 App\n```\n\n```typescript\n// app/layout.tsx\nimport { GdexProvider } from '@/providers/GdexProvider';\nimport { AuthProvider } from '@/providers/AuthProvider';\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html>\n      <body>\n        <GdexProvider apiKey={process.env.NEXT_PUBLIC_GDEX_API_KEY!}>\n          <AuthProvider>\n            {children}\n          </AuthProvider>\n        </GdexProvider>\n      </body>\n    </html>\n  );\n}\n```\n\n## Two Auth Paths\n\n| Path | When | Flow |\n|------|------|------|\n| **API Key (quick)** | Shared/demo accounts, agent-driven apps | Call `loginWithApiKey(GDEX_API_KEY_PRIMARY)` \u2014 instant, no wallet needed |\n| **Wallet (full)** | User's own wallet, production apps, any trading | User connects wallet \u2192 signs the sign-in message \u2192 `loginWithWallet(address, signFn)` runs the managed sign-in and exposes `creds` + `managedAddress` |\n\n> Most agent-driven apps use the **API key path** since shared keys are built into the SDK. Wallet-based auth is for production apps where users bring their own wallets.\n\n## Related Skills\n\n- **gdex-ui-install-setup** \u2014 Base project setup and GdexProvider\n- **gdex-authentication** \u2014 Full auth flow details (encryption, session keys, managed custody)\n- **gdex-ui-trading-components** \u2014 Trading forms that require authenticated SDK\n- **gdex-wallet-setup** \u2014 Generate wallets for users who don't have one\n", files: [] }, { name: "gdex-usdc-wallet", description: "Unified USDC wallet \u2014 one USDC balance across chains, buy with USDC or native, sell to USDC, auto-bridge funding, native-to-USDC convert, USDC bridge", content: "\n# GDEX: Unified USDC Wallet\n\nA GDEX user's USDC on Ethereum, Optimism, BSC, Sonic, Base, Arbitrum and Solana works as **one balance**.\nBuy any token with USDC (or the chain's native token) on any of those chains; if the target chain is short,\nGDEX bridges USDC in from the user's other chains automatically (`autoBridge`), never spending more than\nthe source budget the user signed. Sells settle back to USDC.\n\n## When to Use\n\n- \"What's my USDC balance?\" across all chains \u2192 `getUsdcBalances`\n- Buying a token with USDC without first bridging by hand \u2192 `buyWithUsdc`\n- Selling a token into USDC \u2192 `sellToUsdc`\n- Paying with ETH/BNB/SOL but letting GDEX top up from other chains \u2192 `buyWithNative`\n- Turning leftover gas tokens into USDC \u2192 `convertNativeToUsdc`\n- Moving USDC between chains yourself \u2192 `estimateUsdcBridge` + `executeUsdcBridge`\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Managed-custody sign-in done \u2014 see **gdex-authentication**. Every call takes\n  `{ apiKey, walletAddress, sessionPrivateKey }`, where `walletAddress` is the **control wallet**\n  used at sign-in (not the managed address).\n\n## Automatic Funding and Gas (On by Default)\n\nLike gdex.pro's **\"Automatic funding \u2014 bridge USDC & top up gas\"** checkbox, which is ticked by default,\nthe SDK turns it on for every **buy** (`autoBridge: true`, paying with USDC or native; gdex.pro's Native tab\nhas the same \"Auto-bridge from other chains\" option). **Sells** settle on their own chain and never auto-fund,\nexactly as gdex.pro does. If a buy's chain is\nshort of USDC or of native gas, GDEX bridges USDC and tops up gas from the user's other chains. It\nnever spends more than the signed `maxSourceSpendRaw`. Bridges to EVM chains also add a **$1 destination\ngas top-up** by default (`gasTopUp`, off for Solana destinations, where Relay can't top up gas). Its cost\nis already in the estimate. Pass `autoBridge: false` or `gasTopUp: false` only when the user asks to opt out.\n\n## Supported Chains\n\n| Chain | chainId | USDC decimals | Native decimals |\n|-------|---------|---------------|-----------------|\n| Ethereum | 1 | 6 | 18 |\n| Optimism | 10 | 6 | 18 |\n| BSC | 56 | **18** | 18 |\n| Sonic | 146 | 6 | 18 |\n| Base | 8453 | 6 | 18 |\n| Arbitrum | 42161 | 6 | 18 |\n| Solana | 622112261 | 6 | 9 |\n\nRobinhood Chain (4663, uses USDG) and Fraxtal (252) have **no USDC**. All amounts are **raw integer\nstrings** (`'5000000'` = 5 USDC on a 6-decimal chain); decimals are rejected, not rounded.\n\n## Balances\n\n```typescript\nimport { GdexSkill, describeUsdcFundingStep } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nconst creds = { apiKey, walletAddress, sessionPrivateKey };\n\nconst b = await skill.getUsdcBalances(creds);\n// { asOf, totalUsdc: '42.10', totalUsd: '57.33',\n//   chains: [{ chainId: 8453, usdc: '30.1', usdcRaw: '30100000', native: '0.004', nativeSymbol: 'ETH', ... }] }\n```\n\n## Buy With USDC\n\nQuote first, apply slippage, then buy:\n\n```typescript\nconst quote = await skill.getUsdcTradeQuote({\n  ...creds, chainId: 8453, tokenAddress, payAsset: 'usdc', amountInRaw: '5000000', side: 'buy',\n});\n// { amountOutRaw: '123456789', source: 'kyberswap' }\n\nconst minTokenOutRaw = (BigInt(quote.amountOutRaw as string) * 99n / 100n).toString(); // 1% slippage\n\nconst res = await skill.buyWithUsdc({\n  ...creds,\n  chainId: 8453,\n  tokenAddress,\n  usdcAmountRaw: '5000000',   // 5 USDC\n  minTokenOutRaw,\n  // autoBridge defaults to true: USDC and gas are pulled from other chains if Base is short\n  // maxSourceSpendRaw: '6000000', // optional; default ceil(amount \xD7 1.2)\n});\n```\n\nA direct fill returns `status` and `hash`. When funding or confirmation is still running the response is\n`{ status: 'pending', requestId }`. Follow it the way gdex.pro's live progress note does:\n\n```typescript\nconst r = await skill.watchUsdcTrade({\n  ...creds, requestId: res.requestId as string,\n  onUpdate: (funding, steps) => console.log(funding.status, steps.map(describeUsdcFundingStep)),\n});\n// planning [] -> bridging ['bridge USDC Arbitrum -> Base: active'] -> done ['bridge USDC Arbitrum -> Base: done', 'swap: done']\n// r.outcome: 'success' | 'failed' (r.errorCode) | 'needs_retry' (dropped sell, see below) | 'pending' (still settling: never resubmit)\n```\n\nIt polls `/v1/usdc/funding/status` every 3 s and, once funding succeeds, reads the trade result from\n`/v1/trade-status/:requestId`. Step keys: `balance_check`, `bridge`, `native_topup` (gas), `approve`, `swap`.\n\n### The Signed Source Budget\n\nWith `autoBridge`, the user signs `maxSourceSpendRaw`: the most the backend may spend across all funding\nlegs, in the target chain's units. The SDK defaults it to gdex.pro's rule: `ceil((amount + gas headroom) \xD7 1.2)`, where the gas headroom is\n3 USDC on EVM chains and 2 USDC on Solana (for a buy with ~0 native gas) and the 20% covers bridge fees. If funding would cost more, the trade fails with `EXCEEDS_SIGNED_MAX` instead of\noverspending. With `autoBridge: false` the budget is `0` and only the target chain's USDC is used.\n\n## Sell to USDC\n\n```typescript\nconst q = await skill.getUsdcTradeQuote({\n  ...creds, chainId: 42161, tokenAddress, payAsset: 'usdc', amountInRaw: tokenAmountRaw, side: 'sell',\n});\nawait skill.sellToUsdc({\n  ...creds, chainId: 42161, tokenAddress, tokenAmountRaw,\n  minUsdcOutRaw: (BigInt(q.amountOutRaw as string) * 99n / 100n).toString(),\n});\n```\n\nIf a sell's broadcast is dropped, `watchUsdcTrade` returns `outcome: 'needs_retry'` with the backend's\n`retry` capability (`SAME_NONCE_RETRY_AVAILABLE`). Retry it in place: the SDK reads chain, token, amount and\nnonce from that capability and generates the retry id (a UUID, as gdex.pro does). It reuses the same\ntransaction nonce, so the sell cannot execute twice. The backend allows two retries.\n\n```typescript\nconst q2 = await skill.getUsdcTradeQuote({ ...creds, chainId, tokenAddress, payAsset: 'usdc', amountInRaw: tokenAmountRaw, side: 'sell' });\nawait skill.retryUsdcSell({ ...creds, requestId, minUsdcOutRaw: (BigInt(q2.amountOutRaw as string) * 97n / 100n).toString() });\n```\n\n## Buy With Native\n\n```typescript\nawait skill.buyWithNative({\n  ...creds, chainId: 622112261, tokenAddress: mint,\n  nativeAmountRaw: '100000000',   // 0.1 SOL\n  minTokenOutRaw, autoBridge: true,\n});\n```\n\n## Convert Gas Tokens to USDC\n\n```typescript\nconst cq = await skill.getUsdcConvertQuote({ ...creds, chainId: 8453, amount: 'max' });\n// { nativeSpent, nativeRetained (gas reserve kept), estimatedUsdcOut, minUsdcOut }\nawait skill.convertNativeToUsdc({\n  ...creds, chainId: 8453, nativeAmountRaw: cq.nativeSpent as string, minUsdcOutRaw: cq.minUsdcOut as string,\n});\n```\n\n## Bridge USDC Between Chains\n\n`amountRaw` is what **arrives** on the destination, in destination decimals. Sign the estimate's source\nspend (plus a little headroom) as the cap:\n\n```typescript\nconst est = await skill.estimateUsdcBridge({\n  ...creds, fromChainId: 8453, toChainId: 42161, amountRaw: '10000000',\n  // gas top-up defaults to $1 for EVM destinations; gasTopUpAmountUsd sets up to $50\n});\nconst maxFromAmountRaw = (BigInt(est.fromAmountRaw as string) * 101n / 100n).toString();\nconst br = await skill.executeUsdcBridge({\n  ...creds, fromChainId: 8453, toChainId: 42161, amountRaw: '10000000', maxFromAmountRaw,\n});\nawait skill.getUsdcBridgeStatus({ ...creds, bridgeId: br.bridgeId as string, refresh: true });\nawait skill.getUsdcBridgeOrders(creds);\n```\n\n## Never Double-Submit\n\nIf a trade's outcome is unknown (timeout, `503 USDC_STATUS_UNCONFIRMED`, `indeterminate: true`), do **not**\nsubmit it again. Check `getUsdcPendingTrades({ ...creds, chainId })` and `getUsdcFundingStatus` first.\n\n## MCP Tools\n\n`usdc_get_balances`, `usdc_get_trade_quote`, `usdc_buy`, `usdc_sell`, `usdc_buy_with_native`,\n`usdc_retry_sell`, `usdc_get_funding_status`, `usdc_wait_for_trade`, `usdc_get_deferred_trade`, `usdc_get_pending_trades`,\n`usdc_get_convert_quote`, `usdc_convert_native`, `usdc_estimate_bridge`, `usdc_execute_bridge`,\n`usdc_get_bridge_status`, `usdc_get_bridge_orders`.\n\n## Common Errors\n\n| Code | Meaning |\n|------|---------|\n| `V2_REQUIRED` | Called a retired v1 route; the SDK always uses v2 |\n| `CHAIN_MISMATCH` | Body `chainId` differs from the signed one |\n| `MISSING_SIGNED_MAX` | Auto-funding needed but the signed budget was `0` |\n| `EXCEEDS_SIGNED_MAX` | Funding or bridge would cost more than the signed cap; re-quote |\n| `BELOW_MINIMUM` | Bridge amount under the minimum |\n| `INVALID_GAS_TOPUP` | Gas top-up outside (0, 50] USD |\n| `USDC_QUOTE_UNAVAILABLE` | No executable route right now |\n| `USDC_STATUS_UNCONFIRMED` | Status still being confirmed; do not resubmit |\n\n## Related Skills\n\n- **gdex-spot-trading** \u2014 classic native-paid swaps\n- **gdex-bridge** \u2014 the native-asset bridge (`/v1/bridge/*`)\n- **gdex-portfolio** \u2014 balances and trade history\n- **gdex-perp-funding** \u2014 moving USDC into Hyperliquid\n", files: [] }, { name: "gdex-wallet-setup", description: "Generate EVM control wallets offline, create session keypairs, get wallet info \u2014 first step for users without wallets", content: "\n# GDEX: Wallet Setup\n\nGenerate EVM control wallets for new users and session keypairs for managed-custody trading. Wallet generation is fully offline \u2014 no network or auth required.\n\n## When to Use\n\n- A user says they don't have a wallet\n- Setting up a new user for the first time\n- Generating session keypairs for managed-custody trading\n- Querying wallet info on a specific chain\n\n## Prerequisites\n\n```bash\nnpm install @gemachdao/gdex-skill\n```\n\nNo authentication needed for wallet generation.\n\n## Generate an EVM Control Wallet\n\n```typescript\nimport { generateEvmWallet } from '@gemachdao/gdex-skill';\n\nconst wallet = generateEvmWallet();\nconsole.log('Address:', wallet.address);        // public \u2014 safe to display\nconsole.log('Private Key:', wallet.privateKey);  // SECRET \u2014 store securely\nconsole.log('Mnemonic:', wallet.mnemonic);       // SECRET \u2014 12-word backup phrase\n\n// wallet.type         \u2192 'evm'\n// wallet.derivationPath \u2192 \"m/44'/60'/0'/0/0\"\n```\n\n**Important:**\n- Works fully offline \u2014 no network or API calls\n- The private key and mnemonic must be stored securely\n- Never log, display in UI, or transmit the private key\n- The EVM control wallet is all you need \u2014 after managed-custody sign-in, the backend provisions Solana + other chain wallets automatically\n\n## Generate a Session Keypair\n\nSession keypairs (secp256k1) are used to sign trades after the initial control-wallet sign-in:\n\n```typescript\nimport { generateGdexSessionKeyPair } from '@gemachdao/gdex-skill';\n\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\n// sessionPrivateKey: hex string (store securely, reuse across requests)\n// sessionKey: compressed public key (0x + 66 hex chars)\n```\n\n## Get Wallet Info\n\nQuery native balance and token count on a specific chain (requires auth):\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\nconst info = await skill.getWalletInfo({\n  walletAddress: '0xYourAddress',\n  chain: 1,   // Ethereum\n});\n```\n\n### Wallet Info Response\n\n```typescript\ninterface WalletInfo {\n  address: string;\n  chain: string | number;\n  nativeBalance: string;\n  nativeSymbol: string;    // 'ETH', 'SOL', 'SUI', etc.\n  totalValueUsd?: number;\n  tokenCount?: number;\n}\n```\n\n## Full New User Onboarding Flow\n\n```typescript\nimport {\n  generateEvmWallet,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n  GdexSkill,\n  GDEX_API_KEY_PRIMARY,\n} from '@gemachdao/gdex-skill';\n\n// Step 1: Generate a control wallet (offline)\nconst wallet = generateEvmWallet();\nconsole.log('Your new wallet address:', wallet.address);\n// \u26A0\uFE0F Tell user to save privateKey and mnemonic securely!\n\n// Step 2: Generate session keypair\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\n\n// Step 3: Initialize SDK\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// Step 4: Build sign-in message and sign with the new wallet\nconst userId = wallet.address;\nconst nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));\nconst message = buildGdexSignInMessage(userId, nonce, sessionKey);\n\n// For a generated wallet, sign directly with ethers:\nimport { ethers } from 'ethers';\nconst signer = new ethers.Wallet(wallet.privateKey);\nconst signature = await signer.signMessage(message);\n\n// Step 5: Sign in via managed custody\nconst signInPayload = buildGdexSignInComputedData({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId,\n  sessionKey,\n  nonce,\n  signature,\n});\nawait skill.signInWithComputedData({\n  computedData: signInPayload.computedData,\n  chainId: 1,  // EVM\n});\n\n// \u2705 User is now authenticated and can trade\n// The backend has provisioned Solana + other chain wallets automatically\n```\n\n## Autonomous Agent Notes (Live-Tested)\n\n1. **`generateEvmWallet()` works fully offline (E2E verified).** No network calls needed. Returns `{ address, privateKey, mnemonic, type, derivationPath }`.\n2. **After sign-in, the backend auto-provisions managed wallets** on all chains. You only need one EVM control wallet.\n3. **Store the mnemonic and private key securely.** Loss = permanent loss of access.\n4. **The session keypair is separate from the wallet.** Generate it with `generateGdexSessionKeyPair()` \u2014 it's used for signing trades, not wallet derivation.\n5. **Multiple sign-ins are fine.** You can generate new session keys and re-sign-in at any time.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Full managed-custody auth details\n- **gdex-onboarding** \u2014 Platform overview for new users\n- **gdex-spot-trading** \u2014 Start trading after wallet setup\n", files: [] }, { name: "gdex-watchlist-social", description: "Watchlist, comments, and sentiment voting \u2014 social community features around individual tokens", content: "\n# GDEX: Watchlist & Social\n\nManage a per-user watchlist and interact with the social layer around each\ntoken (comments and bullish/bearish sentiment votes).\n\n## When to Use\n\n- Letting a user pin tokens for quick access\n- Reading or posting comments on a token's page\n- Voting bullish / bearish on a token\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via shared API key or wallet sign-in \u2014 see\n  **gdex-authentication**\n- For write operations: a session-key authentication context (`userId` and\n  encrypted `data` payload) or a managed-custody token, depending on\n  backend deployment\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/watch_list` | Get the user's watchlist |\n| `POST` | `/v1/change_watch_list` | Add or remove a token from the watchlist |\n| `GET`  | `/v1/comments` | Get comments for a token |\n| `POST` | `/v1/add_comment` | Post a comment |\n| `POST` | `/v1/vote_sentiment` | Cast a bullish/bearish sentiment vote |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill, buildWatchListComputedData } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\n// Watchlist (managed custody \u2014 backend decodes computedData)\nconst list = await skill.getWatchList({ userId: '0xWallet', data: encryptedSessionKey });\n\n// Structured shape \u2014 SDK builds computedData internally\nawait skill.changeWatchList({\n  tokenAddress: '0xToken',\n  chainId: 8453,\n  action: 'add',\n  managed: {\n    apiKey: process.env.GDEX_API_KEY!,\n    walletAddress: '0xWallet',\n    sessionPrivateKey: '0x\u2026',\n    userId: '0xWallet',\n  },\n});\n\n// Or raw shape \u2014 caller pre-built computedData\nawait skill.changeWatchList({\n  computedData: buildWatchListComputedData({\n    apiKey: process.env.GDEX_API_KEY!,\n    walletAddress: '0xWallet',\n    sessionPrivateKey: '0x\u2026',\n    userId: '0xWallet',\n    tokenAddress: '0xToken',\n    chainId: '8453',\n    isAdded: true,\n  }),\n  chainId: 8453,\n});\n\n// Comments (plain JSON)\nconst comments = await skill.getComments({ tokenAddress: '0xToken', chain: 8453 });\nawait skill.addComment({\n  tokenAddress: '0xToken',\n  chain: 8453,\n  message: 'Looking strong on the 4h',\n  userId: '0xWallet',\n  data: encryptedSessionKey,\n});\n\n// Sentiment (plain JSON)\nawait skill.voteSentiment({\n  tokenAddress: '0xToken',\n  chain: 8453,\n  sentiment: 'bullish',\n  userId: '0xWallet',\n  data: encryptedSessionKey,\n});\n```\n\n## Notes\n\n- `change_watch_list` uses managed-custody **encrypted `computedData`**:\n  ABI `['watch_list', [tokenAddress, chainId, isAdded, nonce]]`,\n  sig message `watch_list-${userId}-${data}`.\n- `add_comment` and `vote_sentiment` use **plain JSON** with the standard\n  session header for auth \u2014 they do NOT go through `serverDecryptData`.\n- Watchlist entries are scoped to `(userId, chain, tokenAddress)`.\n- Sentiment votes are deduplicated per `(userId, tokenAddress)` \u2014 re-voting\n  updates the existing vote.\n- Comment moderation policies (rate limits, profanity filters) are enforced\n  server-side; expect API errors when limits are hit.\n", files: [] }, { name: "gdex-xstocks", description: "List tokenised equities (xStocks) \u2014 real-world stocks traded as tokens on GDEX \u2014 requires API key auth (Bearer token)", content: "\n# GDEX: xStocks\n\nList tokenised equities. xStocks are real-world stocks issued as on-chain tokens, so they trade\nthrough the same spot rails as any other token on GDEX: you discover them here, then buy or sell\nthem with `gdex-spot-trading`.\n\n> **Auth required:** returns 403 \"Access denied: Invalid client\" without a Bearer token. Call\n> `loginWithApiKey()` first.\n\n## When to Use\n\n- Listing the tokenised stocks available to trade\n- Checking price, market cap, liquidity, or 24h volume on an xStock before buying\n- Answering \"can I trade Nvidia / Circle / McDonald's on GDEX\"\n\nUse `gdex-spot-trading` to actually execute. This skill is discovery only.\n\n## Prerequisites\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY, ChainId } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n```\n\n## List xStocks\n\n```typescript\nconst xstocks = await skill.getXstocks({\n  chain: ChainId.SOLANA,  // optional\n  limit: 50,              // optional\n  page: 1,                // optional\n});\n```\n\n### Parameters\n\n`getXstocks` takes `TokenListParams`, which is the same shape used by `getNewestTokens` and\n`getTopTokens`:\n\n```typescript\ninterface TokenListParams {\n  chain?: SupportedChain;  // chain id or alias; omit for all chains\n  limit?: number;          // page size\n  page?: number;           // 1-based page number\n}\n```\n\nThere are no other filters. Sorting, market-cap floors, and age windows are not exposed.\n\n### Response\n\n```typescript\nPromise<Record<string, unknown>>\n```\n\n**The response is untyped.** Unlike `getTokenDetails`, this endpoint has no declared interface in\nthe SDK, so inspect the payload rather than assuming a shape:\n\n```typescript\nconst xstocks = await skill.getXstocks({ limit: 5 });\nconsole.log(JSON.stringify(xstocks, null, 2));\n```\n\nThe product surface at `gdex.pro/<network>/xstock` renders each row with token symbol and name,\nage, price, 24h price change, market cap, liquidity, and 24h volume, so expect fields covering at\nleast those. Confirm the exact keys against a live call before you depend on them.\n\n## Trading an xStock\n\nxStocks are ordinary SPL/ERC-20 tokens, so once you have an address from this listing you buy and\nsell them with the normal spot methods:\n\n```typescript\nawait skill.buyToken({\n  tokenAddress: '<address from getXstocks>',\n  chain: ChainId.SOLANA,\n  amount: '0.5',\n});\n```\n\nSee `gdex-spot-trading` for the full buy and sell surface, slippage handling, and trade-status\npolling.\n\n## Endpoint\n\n| Method | Endpoint |\n|---|---|\n| `getXstocks` | `GET /v1/xstocks` |\n\n## Notes\n\n- Tokenised equities carry issuer and market-hours risk that ordinary tokens do not. Liquidity on\n  individual names can be very thin \u2014 the live board shows several with under $10k \u2014 so size\n  accordingly and check the liquidity figure before quoting a fill.\n- This method ships with no tests and no typed response in the SDK. Treat the shape as\n  provisional.\n", files: [] }, { name: "gvault", description: "GVault (GMACL, Gemach's Enzyme vault on Ethereum) \u2014 NAV, share price, holdings and return both cumulative and annualised, read from Enzyme's own accounting by a deterministic script.", content: '\n# GVault\n\nRead-only state of GVault (ticker GMACL, "Gemach LP"), an Enzyme vault on Ethereum\ndenominated in USDC.\n\n## Run it\n\n```bash\npython3 scripts/gvault.py      # one JSON object on stdout\n```\n\nStandard library only. Every value is read at one Ethereum block (`observed_block`).\n\n## Rules for agents\n\n1. **Report numbers exactly as the script prints them.**\n2. **Always quote return with its horizon.** `all_time_return_pct` is cumulative since\n   inception (2022-07-31); `annualised_return_pct` is the same over `age_years`. Quoting the\n   cumulative figure alone invites it to be read as a one-year rate. Say both, or say the\n   annualised one.\n3. NAV comes from Enzyme\'s `calcGav()`, not from token balances \u2014 do not "check" it by summing\n   balances; the vault holds stETH as well as USDC.\n\n## Fields\n\n`nav_usd`, `share_price_usd`, `shares_outstanding`, `tracked_assets`,\n`all_time_return_pct`, `annualised_return_pct`, `age_years`, `inception_date`,\n`denomination_symbol`, `observed_block`.\n', files: [{ path: "scripts/gvault.py", content: `#!/usr/bin/env python3
+"""GVault (GMACL, an Enzyme vault) NAV, share price and return. Standard library only.
+
+Figures come from Enzyme's own accounting on the vault's comptroller, not from summing token
+balances (the vault holds stETH as well as USDC; a balance sweep understates NAV badly).
+Return is printed both cumulative and annualised: a multi-year cumulative figure alone
+reads as an annual rate and overstates performance several-fold.
+
+Usage:  gvault.py
+"""
+from __future__ import annotations
+
+import json
+import sys
+import urllib.request
+from datetime import datetime, timezone
+
+VAULT = "0x740cbfefb9ca9c1c99d95b711e959dd960f8bdb6"
+INCEPTION = "2022-07-31"  # first code at block 15250173; the first shares minted at 1.0
+LAUNCH_SHARE_PRICE = 1.0
+# cloudflare-eth.com and rpc.ankr.com/eth return an EMPTY result for contracts that exist,
+# which reads as "not deployed"; they are deliberately not used.
+RPCS = ["https://ethereum-rpc.publicnode.com", "https://eth.drpc.org"]
+UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
+SEL = {"symbol": "0x95d89b41", "decimals": "0x313ce567", "totalSupply": "0x18160ddd",
+       "getAccessor": "0x5a53e348", "getTrackedAssets": "0xc4b97370",
+       "getDenominationAsset": "0xe269c3d6", "calcGav": "0x56cff99f",
+       "calcGrossShareValue": "0xda72503c"}
+
+
+def rpc(method: str, params: list):
+    last = None
+    for url in RPCS:
+        req = urllib.request.Request(url, data=json.dumps(
+            {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode(),
+            headers={"Content-Type": "application/json", "User-Agent": UA})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                body = json.load(r)
+        except Exception as exc:  # transport failure: try the next endpoint
+            last = exc
+            continue
+        err = body.get("error")
+        if err:
+            if err.get("code") == 3 or "revert" in str(err.get("message", "")).lower():
+                return None  # the contract answered: it reverted
+            last = RuntimeError(f"{url}: {err.get('message')}")  # node failure: fail over
+            continue
+        return body.get("result")
+    raise RuntimeError(f"{method} failed on every endpoint: {last}")
+
+
+def call(to: str, data: str, block: str):
+    r = rpc("eth_call", [{"to": to, "data": data}, block])
+    return None if r in (None, "", "0x") else r
+
+
+def uint(h):
+    return None if not h or len(h) < 66 else int(h[2:66], 16)
+
+
+def addr(h):
+    return None if not h or len(h) < 66 else "0x" + h[26:66]
+
+
+def string(h):
+    if not h or len(h) < 130:
+        return None
+    b = bytes.fromhex(h[2:])
+    off = int.from_bytes(b[:32], "big")
+    n = int.from_bytes(b[off:off + 32], "big")
+    return b[off + 32:off + 32 + n].decode("utf-8", "replace").strip()
+
+
+def addr_array(h):
+    if not h or len(h) < 130:
+        return []
+    b = h[2:]
+    off = int(b[:64], 16) * 2
+    n = int(b[off:off + 64], 16)
+    return ["0x" + b[off + 64 + i * 64 + 24: off + 64 + (i + 1) * 64] for i in range(n)]
+
+
+def main() -> int:
+    now = datetime.now(timezone.utc)
+    blk = hex(int(rpc("eth_blockNumber", []), 16) - 3)  # every read at ONE block
+    comp = addr(call(VAULT, SEL["getAccessor"], blk))
+    if not comp:
+        raise RuntimeError("getAccessor() reverted \u2014 cannot reach the vault comptroller")
+    denom = addr(call(comp, SEL["getDenominationAsset"], blk))
+    dec = uint(call(denom, SEL["decimals"], blk)) if denom else 18
+    gav, share = uint(call(comp, SEL["calcGav"], blk)), uint(call(comp, SEL["calcGrossShareValue"], blk))
+    if gav is None or share is None:
+        raise RuntimeError("calcGav/calcGrossShareValue reverted")
+    shares = uint(call(VAULT, SEL["totalSupply"], blk))
+    price = share / 10 ** dec
+    start = datetime.strptime(INCEPTION, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    years = max((now - start).days / 365.25, 1e-9)
+    ratio = price / LAUNCH_SHARE_PRICE
+    held = sorted({s for s in (string(call(a, SEL["symbol"], blk))
+                               for a in addr_array(call(VAULT, SEL["getTrackedAssets"], blk))) if s})
+    rec = {
+        "gemach_id": "gvault-gmacl", "source": "gemach", "feed": "gvault", "product": "gvault",
+        "deployment": "gvault-gmacl", "chain_id": 1, "chain_name": "Ethereum",
+        "vault_address": VAULT, "symbol": string(call(VAULT, SEL["symbol"], blk)) or "GMACL",
+        "is_active": bool(shares), "nav_usd": gav / 10 ** dec, "share_price_usd": price,
+        "all_time_return_pct": float(f"{(ratio - 1) * 100:.10g}"),
+        "annualised_return_pct": float(f"{(ratio ** (1 / years) - 1) * 100:.10g}") if ratio > 0 else -100.0,
+        "inception_date": INCEPTION, "age_years": round(years, 2),
+        "observed_block": int(blk, 16),
+        "upstream_updated_at": int(now.timestamp()), "upstream_updated_source": "chain_read_time",
+        "ingestion_date": now.strftime("%Y-%m-%d"),
+        "fetched_at": now.strftime("%Y-%m-%dT%H:%M:%S.%f") + "+00:00",
+    }
+    if shares is not None:
+        rec["shares_outstanding"] = shares / 1e18
+    if denom:
+        rec["denomination_symbol"] = string(call(denom, SEL["symbol"], blk))
+    if held:
+        rec["tracked_assets"] = held
+    sys.stdout.write(json.dumps(rec, separators=(",", ":")) + "\\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+` }] }] };
+  }
+});
+
 // node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/codegen/code.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.regexpCode = exports.getEsmExportName = exports.getProperty = exports.safeStringify = exports.stringify = exports.strConcat = exports.addCodeArg = exports.str = exports._ = exports.nil = exports._Code = exports.Name = exports.IDENTIFIER = exports._CodeOrName = void 0;
     var _CodeOrName = class {
@@ -199,6 +1095,7 @@ var require_code = __commonJS({
 var require_scope = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/codegen/scope.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
     var code_1 = require_code();
@@ -344,6 +1241,7 @@ var require_scope = __commonJS({
 var require_codegen = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/codegen/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
     var code_1 = require_code();
@@ -1064,6 +1962,7 @@ var require_codegen = __commonJS({
 var require_util = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/util.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.checkStrictMode = exports.getErrorPath = exports.Type = exports.useFunc = exports.setEvaluated = exports.evaluatedPropsToName = exports.mergeEvaluated = exports.eachItem = exports.unescapeJsonPointer = exports.escapeJsonPointer = exports.escapeFragment = exports.unescapeFragment = exports.schemaRefOrVal = exports.schemaHasRulesButRef = exports.schemaHasRules = exports.checkUnknownRules = exports.alwaysValidSchema = exports.toHash = void 0;
     var codegen_1 = require_codegen();
@@ -1231,6 +2130,7 @@ var require_util = __commonJS({
 var require_names = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/names.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var names = {
@@ -1270,6 +2170,7 @@ var require_names = __commonJS({
 var require_errors = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/errors.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.extendErrors = exports.resetErrorsCount = exports.reportExtraError = exports.reportError = exports.keyword$DataError = exports.keywordError = void 0;
     var codegen_1 = require_codegen();
@@ -1392,6 +2293,7 @@ var require_errors = __commonJS({
 var require_boolSchema = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/boolSchema.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.boolOrEmptySchema = exports.topBoolOrEmptySchema = void 0;
     var errors_1 = require_errors();
@@ -1443,6 +2345,7 @@ var require_boolSchema = __commonJS({
 var require_rules = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/rules.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getRules = exports.isJSONType = void 0;
     var _jsonTypes = ["string", "number", "integer", "boolean", "null", "object", "array"];
@@ -1474,6 +2377,7 @@ var require_rules = __commonJS({
 var require_applicability = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/applicability.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.shouldUseRule = exports.shouldUseGroup = exports.schemaHasRulesForType = void 0;
     function schemaHasRulesForType({ schema, self: self2 }, type) {
@@ -1497,6 +2401,7 @@ var require_applicability = __commonJS({
 var require_dataType = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/dataType.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.reportTypeError = exports.checkDataTypes = exports.checkDataType = exports.coerceAndCheckDataType = exports.getJSONTypes = exports.getSchemaTypes = exports.DataType = void 0;
     var rules_1 = require_rules();
@@ -1681,6 +2586,7 @@ var require_dataType = __commonJS({
 var require_defaults = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/defaults.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.assignDefaults = void 0;
     var codegen_1 = require_codegen();
@@ -1718,6 +2624,7 @@ var require_defaults = __commonJS({
 var require_code2 = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/code.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateUnion = exports.validateArray = exports.usePattern = exports.callValidateCode = exports.schemaProperties = exports.allSchemaProperties = exports.noPropertyInData = exports.propertyInData = exports.isOwnProperty = exports.hasPropFunc = exports.reportMissingProp = exports.checkMissingProp = exports.checkReportMissingProp = void 0;
     var codegen_1 = require_codegen();
@@ -1851,6 +2758,7 @@ var require_code2 = __commonJS({
 var require_keyword = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/keyword.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateKeywordUsage = exports.validSchemaType = exports.funcKeywordCode = exports.macroKeywordCode = void 0;
     var codegen_1 = require_codegen();
@@ -1969,6 +2877,7 @@ var require_keyword = __commonJS({
 var require_subschema = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/subschema.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.extendSubschemaMode = exports.extendSubschemaData = exports.getSubschema = void 0;
     var codegen_1 = require_codegen();
@@ -2052,6 +2961,7 @@ var require_subschema = __commonJS({
 var require_fast_deep_equal = __commonJS({
   "node_modules/fast-deep-equal/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = function equal(a, b) {
       if (a === b) return true;
       if (a && b && typeof a == "object" && typeof b == "object") {
@@ -2087,6 +2997,7 @@ var require_fast_deep_equal = __commonJS({
 var require_json_schema_traverse = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/json-schema-traverse/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var traverse = module.exports = function(schema, opts, cb) {
       if (typeof opts == "function") {
         cb = opts;
@@ -2175,6 +3086,7 @@ var require_json_schema_traverse = __commonJS({
 var require_resolve = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/resolve.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getSchemaRefs = exports.resolveUrl = exports.normalizeId = exports._getFullPath = exports.getFullPath = exports.inlineRef = void 0;
     var util_1 = require_util();
@@ -2331,6 +3243,7 @@ var require_resolve = __commonJS({
 var require_validate = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getData = exports.KeywordCxt = exports.validateFunctionCode = void 0;
     var boolSchema_1 = require_boolSchema();
@@ -2839,6 +3752,7 @@ var require_validate = __commonJS({
 var require_validation_error = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/runtime/validation_error.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var ValidationError = class extends Error {
       constructor(errors) {
@@ -2855,6 +3769,7 @@ var require_validation_error = __commonJS({
 var require_ref_error = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/ref_error.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var resolve_1 = require_resolve();
     var MissingRefError = class extends Error {
@@ -2872,6 +3787,7 @@ var require_ref_error = __commonJS({
 var require_compile = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.resolveSchema = exports.getCompilingSchema = exports.resolveRef = exports.compileSchema = exports.SchemaEnv = void 0;
     var codegen_1 = require_codegen();
@@ -3115,6 +4031,7 @@ var require_data = __commonJS({
 var require_utils = __commonJS({
   "node_modules/fast-uri/lib/utils.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var isUUID = RegExp.prototype.test.bind(/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu);
     var isIPv4 = RegExp.prototype.test.bind(/^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)$/u);
     var isHexPair = RegExp.prototype.test.bind(/^[\da-f]{2}$/iu);
@@ -3428,6 +4345,7 @@ var require_utils = __commonJS({
 var require_schemes = __commonJS({
   "node_modules/fast-uri/lib/schemes.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var { isUUID } = require_utils();
     var URN_REG = /([\da-z][\d\-a-z]{0,31}):((?:[\w!$'()*+,\-.:;=@]|%[\da-f]{2})+)/iu;
     var supportedSchemeNames = (
@@ -3638,6 +4556,7 @@ var require_schemes = __commonJS({
 var require_fast_uri = __commonJS({
   "node_modules/fast-uri/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizePercentEncoding, normalizePathEncoding, escapePreservingEscapes, reescapeHostDelimiters, isIPv4, nonSimpleDomain } = require_utils();
     var { SCHEMES, getSchemeHandler } = require_schemes();
     function normalize(uri, options) {
@@ -3924,6 +4843,7 @@ var require_fast_uri = __commonJS({
 var require_uri = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/runtime/uri.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var uri = require_fast_uri();
     uri.code = 'require("ajv/dist/runtime/uri").default';
@@ -3935,6 +4855,7 @@ var require_uri = __commonJS({
 var require_core = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/core.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = void 0;
     var validate_1 = require_validate();
@@ -4546,6 +5467,7 @@ var require_core = __commonJS({
 var require_id = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/core/id.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var def = {
       keyword: "id",
@@ -4561,6 +5483,7 @@ var require_id = __commonJS({
 var require_ref = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/core/ref.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.callRef = exports.getValidate = void 0;
     var ref_error_1 = require_ref_error();
@@ -4683,6 +5606,7 @@ var require_ref = __commonJS({
 var require_core2 = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/core/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var id_1 = require_id();
     var ref_1 = require_ref();
@@ -4704,6 +5628,7 @@ var require_core2 = __commonJS({
 var require_limitNumber = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/limitNumber.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var ops = codegen_1.operators;
@@ -4736,6 +5661,7 @@ var require_limitNumber = __commonJS({
 var require_multipleOf = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/multipleOf.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var error2 = {
@@ -4764,6 +5690,7 @@ var require_multipleOf = __commonJS({
 var require_ucs2length = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/runtime/ucs2length.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     function ucs2length(str) {
       const len = str.length;
@@ -4790,6 +5717,7 @@ var require_ucs2length = __commonJS({
 var require_limitLength = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/limitLength.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
@@ -4822,6 +5750,7 @@ var require_limitLength = __commonJS({
 var require_pattern = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/pattern.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
     var util_1 = require_util();
@@ -4859,6 +5788,7 @@ var require_pattern = __commonJS({
 var require_limitProperties = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/limitProperties.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var error2 = {
@@ -4888,6 +5818,7 @@ var require_limitProperties = __commonJS({
 var require_required = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/required.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
     var codegen_1 = require_codegen();
@@ -4970,6 +5901,7 @@ var require_required = __commonJS({
 var require_limitItems = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/limitItems.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var error2 = {
@@ -4999,6 +5931,7 @@ var require_limitItems = __commonJS({
 var require_equal = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/runtime/equal.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var equal = require_fast_deep_equal();
     equal.code = 'require("ajv/dist/runtime/equal").default';
@@ -5010,6 +5943,7 @@ var require_equal = __commonJS({
 var require_uniqueItems = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/uniqueItems.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var dataType_1 = require_dataType();
     var codegen_1 = require_codegen();
@@ -5077,6 +6011,7 @@ var require_uniqueItems = __commonJS({
 var require_const = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/const.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
@@ -5106,6 +6041,7 @@ var require_const = __commonJS({
 var require_enum = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/enum.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
@@ -5155,6 +6091,7 @@ var require_enum = __commonJS({
 var require_validation = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var limitNumber_1 = require_limitNumber();
     var multipleOf_1 = require_multipleOf();
@@ -5193,6 +6130,7 @@ var require_validation = __commonJS({
 var require_additionalItems = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/additionalItems.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateAdditionalItems = void 0;
     var codegen_1 = require_codegen();
@@ -5246,6 +6184,7 @@ var require_additionalItems = __commonJS({
 var require_items = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/items.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateTuple = void 0;
     var codegen_1 = require_codegen();
@@ -5303,6 +6242,7 @@ var require_items = __commonJS({
 var require_prefixItems = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/prefixItems.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var items_1 = require_items();
     var def = {
@@ -5320,6 +6260,7 @@ var require_prefixItems = __commonJS({
 var require_items2020 = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/items2020.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
@@ -5355,6 +6296,7 @@ var require_items2020 = __commonJS({
 var require_contains = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/contains.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
@@ -5449,6 +6391,7 @@ var require_contains = __commonJS({
 var require_dependencies = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/dependencies.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateSchemaDeps = exports.validatePropertyDeps = exports.error = void 0;
     var codegen_1 = require_codegen();
@@ -5543,6 +6486,7 @@ var require_dependencies = __commonJS({
 var require_propertyNames = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/propertyNames.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
@@ -5586,6 +6530,7 @@ var require_propertyNames = __commonJS({
 var require_additionalProperties = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
     var codegen_1 = require_codegen();
@@ -5692,6 +6637,7 @@ var require_additionalProperties = __commonJS({
 var require_properties = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/properties.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var validate_1 = require_validate();
     var code_1 = require_code2();
@@ -5750,6 +6696,7 @@ var require_properties = __commonJS({
 var require_patternProperties = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/patternProperties.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
     var codegen_1 = require_codegen();
@@ -5824,6 +6771,7 @@ var require_patternProperties = __commonJS({
 var require_not = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/not.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var util_1 = require_util();
     var def = {
@@ -5855,6 +6803,7 @@ var require_not = __commonJS({
 var require_anyOf = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/anyOf.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
     var def = {
@@ -5872,6 +6821,7 @@ var require_anyOf = __commonJS({
 var require_oneOf = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/oneOf.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
@@ -5930,6 +6880,7 @@ var require_oneOf = __commonJS({
 var require_allOf = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/allOf.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var util_1 = require_util();
     var def = {
@@ -5957,6 +6908,7 @@ var require_allOf = __commonJS({
 var require_if = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/if.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
@@ -6026,6 +6978,7 @@ var require_if = __commonJS({
 var require_thenElse = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/thenElse.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var util_1 = require_util();
     var def = {
@@ -6044,6 +6997,7 @@ var require_thenElse = __commonJS({
 var require_applicator = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var additionalItems_1 = require_additionalItems();
     var prefixItems_1 = require_prefixItems();
@@ -6092,6 +7046,7 @@ var require_applicator = __commonJS({
 var require_format = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/format/format.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var error2 = {
@@ -6182,6 +7137,7 @@ var require_format = __commonJS({
 var require_format2 = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/format/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var format_1 = require_format();
     var format = [format_1.default];
@@ -6193,6 +7149,7 @@ var require_format2 = __commonJS({
 var require_metadata = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/metadata.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.contentVocabulary = exports.metadataVocabulary = void 0;
     exports.metadataVocabulary = [
@@ -6216,6 +7173,7 @@ var require_metadata = __commonJS({
 var require_draft7 = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/draft7.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var core_1 = require_core2();
     var validation_1 = require_validation();
@@ -6238,6 +7196,7 @@ var require_draft7 = __commonJS({
 var require_types = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/discriminator/types.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.DiscrError = void 0;
     var DiscrError;
@@ -6252,6 +7211,7 @@ var require_types = __commonJS({
 var require_discriminator = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/discriminator/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var types_1 = require_types();
@@ -6514,6 +7474,7 @@ var require_json_schema_draft_07 = __commonJS({
 var require_ajv = __commonJS({
   "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/ajv.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.MissingRefError = exports.ValidationError = exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = exports.Ajv = void 0;
     var core_1 = require_core();
@@ -6584,6 +7545,7 @@ var require_ajv = __commonJS({
 var require_formats = __commonJS({
   "node_modules/ajv-formats/dist/formats.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatNames = exports.fastFormats = exports.fullFormats = void 0;
     function fmtDef(validate, compare) {
@@ -6787,6 +7749,7 @@ var require_formats = __commonJS({
 var require_code3 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/codegen/code.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.regexpCode = exports.getEsmExportName = exports.getProperty = exports.safeStringify = exports.stringify = exports.strConcat = exports.addCodeArg = exports.str = exports._ = exports.nil = exports._Code = exports.Name = exports.IDENTIFIER = exports._CodeOrName = void 0;
     var _CodeOrName = class {
@@ -6941,6 +7904,7 @@ var require_code3 = __commonJS({
 var require_scope2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/codegen/scope.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
     var code_1 = require_code3();
@@ -7086,6 +8050,7 @@ var require_scope2 = __commonJS({
 var require_codegen2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/codegen/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
     var code_1 = require_code3();
@@ -7806,6 +8771,7 @@ var require_codegen2 = __commonJS({
 var require_util2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/util.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.checkStrictMode = exports.getErrorPath = exports.Type = exports.useFunc = exports.setEvaluated = exports.evaluatedPropsToName = exports.mergeEvaluated = exports.eachItem = exports.unescapeJsonPointer = exports.escapeJsonPointer = exports.escapeFragment = exports.unescapeFragment = exports.schemaRefOrVal = exports.schemaHasRulesButRef = exports.schemaHasRules = exports.checkUnknownRules = exports.alwaysValidSchema = exports.toHash = void 0;
     var codegen_1 = require_codegen2();
@@ -7973,6 +8939,7 @@ var require_util2 = __commonJS({
 var require_names2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/names.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen2();
     var names = {
@@ -8012,6 +8979,7 @@ var require_names2 = __commonJS({
 var require_errors2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/errors.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.extendErrors = exports.resetErrorsCount = exports.reportExtraError = exports.reportError = exports.keyword$DataError = exports.keywordError = void 0;
     var codegen_1 = require_codegen2();
@@ -8134,6 +9102,7 @@ var require_errors2 = __commonJS({
 var require_boolSchema2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/boolSchema.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.boolOrEmptySchema = exports.topBoolOrEmptySchema = void 0;
     var errors_1 = require_errors2();
@@ -8185,6 +9154,7 @@ var require_boolSchema2 = __commonJS({
 var require_rules2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/rules.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getRules = exports.isJSONType = void 0;
     var _jsonTypes = ["string", "number", "integer", "boolean", "null", "object", "array"];
@@ -8216,6 +9186,7 @@ var require_rules2 = __commonJS({
 var require_applicability2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/applicability.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.shouldUseRule = exports.shouldUseGroup = exports.schemaHasRulesForType = void 0;
     function schemaHasRulesForType({ schema, self: self2 }, type) {
@@ -8239,6 +9210,7 @@ var require_applicability2 = __commonJS({
 var require_dataType2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/dataType.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.reportTypeError = exports.checkDataTypes = exports.checkDataType = exports.coerceAndCheckDataType = exports.getJSONTypes = exports.getSchemaTypes = exports.DataType = void 0;
     var rules_1 = require_rules2();
@@ -8423,6 +9395,7 @@ var require_dataType2 = __commonJS({
 var require_defaults2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/defaults.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.assignDefaults = void 0;
     var codegen_1 = require_codegen2();
@@ -8460,6 +9433,7 @@ var require_defaults2 = __commonJS({
 var require_code4 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/code.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateUnion = exports.validateArray = exports.usePattern = exports.callValidateCode = exports.schemaProperties = exports.allSchemaProperties = exports.noPropertyInData = exports.propertyInData = exports.isOwnProperty = exports.hasPropFunc = exports.reportMissingProp = exports.checkMissingProp = exports.checkReportMissingProp = void 0;
     var codegen_1 = require_codegen2();
@@ -8593,6 +9567,7 @@ var require_code4 = __commonJS({
 var require_keyword2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/keyword.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateKeywordUsage = exports.validSchemaType = exports.funcKeywordCode = exports.macroKeywordCode = void 0;
     var codegen_1 = require_codegen2();
@@ -8711,6 +9686,7 @@ var require_keyword2 = __commonJS({
 var require_subschema2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/subschema.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.extendSubschemaMode = exports.extendSubschemaData = exports.getSubschema = void 0;
     var codegen_1 = require_codegen2();
@@ -8794,6 +9770,7 @@ var require_subschema2 = __commonJS({
 var require_json_schema_traverse2 = __commonJS({
   "node_modules/ajv-formats/node_modules/json-schema-traverse/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var traverse = module.exports = function(schema, opts, cb) {
       if (typeof opts == "function") {
         cb = opts;
@@ -8882,6 +9859,7 @@ var require_json_schema_traverse2 = __commonJS({
 var require_resolve2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/resolve.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getSchemaRefs = exports.resolveUrl = exports.normalizeId = exports._getFullPath = exports.getFullPath = exports.inlineRef = void 0;
     var util_1 = require_util2();
@@ -9038,6 +10016,7 @@ var require_resolve2 = __commonJS({
 var require_validate2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getData = exports.KeywordCxt = exports.validateFunctionCode = void 0;
     var boolSchema_1 = require_boolSchema2();
@@ -9546,6 +10525,7 @@ var require_validate2 = __commonJS({
 var require_validation_error2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/runtime/validation_error.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var ValidationError = class extends Error {
       constructor(errors) {
@@ -9562,6 +10542,7 @@ var require_validation_error2 = __commonJS({
 var require_ref_error2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/ref_error.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var resolve_1 = require_resolve2();
     var MissingRefError = class extends Error {
@@ -9579,6 +10560,7 @@ var require_ref_error2 = __commonJS({
 var require_compile2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/compile/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.resolveSchema = exports.getCompilingSchema = exports.resolveRef = exports.compileSchema = exports.SchemaEnv = void 0;
     var codegen_1 = require_codegen2();
@@ -9822,6 +10804,7 @@ var require_data2 = __commonJS({
 var require_uri2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/runtime/uri.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var uri = require_fast_uri();
     uri.code = 'require("ajv/dist/runtime/uri").default';
@@ -9833,6 +10816,7 @@ var require_uri2 = __commonJS({
 var require_core3 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/core.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = void 0;
     var validate_1 = require_validate2();
@@ -10444,6 +11428,7 @@ var require_core3 = __commonJS({
 var require_id2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/core/id.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var def = {
       keyword: "id",
@@ -10459,6 +11444,7 @@ var require_id2 = __commonJS({
 var require_ref2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/core/ref.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.callRef = exports.getValidate = void 0;
     var ref_error_1 = require_ref_error2();
@@ -10581,6 +11567,7 @@ var require_ref2 = __commonJS({
 var require_core4 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/core/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var id_1 = require_id2();
     var ref_1 = require_ref2();
@@ -10602,6 +11589,7 @@ var require_core4 = __commonJS({
 var require_limitNumber2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/limitNumber.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen2();
     var ops = codegen_1.operators;
@@ -10634,6 +11622,7 @@ var require_limitNumber2 = __commonJS({
 var require_multipleOf2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/multipleOf.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen2();
     var error2 = {
@@ -10662,6 +11651,7 @@ var require_multipleOf2 = __commonJS({
 var require_ucs2length2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/runtime/ucs2length.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     function ucs2length(str) {
       const len = str.length;
@@ -10688,6 +11678,7 @@ var require_ucs2length2 = __commonJS({
 var require_limitLength2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/limitLength.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen2();
     var util_1 = require_util2();
@@ -10720,6 +11711,7 @@ var require_limitLength2 = __commonJS({
 var require_pattern2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/pattern.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code4();
     var util_1 = require_util2();
@@ -10757,6 +11749,7 @@ var require_pattern2 = __commonJS({
 var require_limitProperties2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/limitProperties.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen2();
     var error2 = {
@@ -10786,6 +11779,7 @@ var require_limitProperties2 = __commonJS({
 var require_required2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/required.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code4();
     var codegen_1 = require_codegen2();
@@ -10868,6 +11862,7 @@ var require_required2 = __commonJS({
 var require_limitItems2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/limitItems.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen2();
     var error2 = {
@@ -10897,6 +11892,7 @@ var require_limitItems2 = __commonJS({
 var require_equal2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/runtime/equal.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var equal = require_fast_deep_equal();
     equal.code = 'require("ajv/dist/runtime/equal").default';
@@ -10908,6 +11904,7 @@ var require_equal2 = __commonJS({
 var require_uniqueItems2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/uniqueItems.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var dataType_1 = require_dataType2();
     var codegen_1 = require_codegen2();
@@ -10975,6 +11972,7 @@ var require_uniqueItems2 = __commonJS({
 var require_const2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/const.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen2();
     var util_1 = require_util2();
@@ -11004,6 +12002,7 @@ var require_const2 = __commonJS({
 var require_enum2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/enum.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen2();
     var util_1 = require_util2();
@@ -11053,6 +12052,7 @@ var require_enum2 = __commonJS({
 var require_validation2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var limitNumber_1 = require_limitNumber2();
     var multipleOf_1 = require_multipleOf2();
@@ -11091,6 +12091,7 @@ var require_validation2 = __commonJS({
 var require_additionalItems2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/additionalItems.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateAdditionalItems = void 0;
     var codegen_1 = require_codegen2();
@@ -11144,6 +12145,7 @@ var require_additionalItems2 = __commonJS({
 var require_items2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/items.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateTuple = void 0;
     var codegen_1 = require_codegen2();
@@ -11201,6 +12203,7 @@ var require_items2 = __commonJS({
 var require_prefixItems2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/prefixItems.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var items_1 = require_items2();
     var def = {
@@ -11218,6 +12221,7 @@ var require_prefixItems2 = __commonJS({
 var require_items20202 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/items2020.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen2();
     var util_1 = require_util2();
@@ -11253,6 +12257,7 @@ var require_items20202 = __commonJS({
 var require_contains2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/contains.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen2();
     var util_1 = require_util2();
@@ -11347,6 +12352,7 @@ var require_contains2 = __commonJS({
 var require_dependencies2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/dependencies.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateSchemaDeps = exports.validatePropertyDeps = exports.error = void 0;
     var codegen_1 = require_codegen2();
@@ -11441,6 +12447,7 @@ var require_dependencies2 = __commonJS({
 var require_propertyNames2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/propertyNames.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen2();
     var util_1 = require_util2();
@@ -11484,6 +12491,7 @@ var require_propertyNames2 = __commonJS({
 var require_additionalProperties2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code4();
     var codegen_1 = require_codegen2();
@@ -11590,6 +12598,7 @@ var require_additionalProperties2 = __commonJS({
 var require_properties2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/properties.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var validate_1 = require_validate2();
     var code_1 = require_code4();
@@ -11648,6 +12657,7 @@ var require_properties2 = __commonJS({
 var require_patternProperties2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/patternProperties.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code4();
     var codegen_1 = require_codegen2();
@@ -11722,6 +12732,7 @@ var require_patternProperties2 = __commonJS({
 var require_not2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/not.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var util_1 = require_util2();
     var def = {
@@ -11753,6 +12764,7 @@ var require_not2 = __commonJS({
 var require_anyOf2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/anyOf.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code4();
     var def = {
@@ -11770,6 +12782,7 @@ var require_anyOf2 = __commonJS({
 var require_oneOf2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/oneOf.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen2();
     var util_1 = require_util2();
@@ -11828,6 +12841,7 @@ var require_oneOf2 = __commonJS({
 var require_allOf2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/allOf.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var util_1 = require_util2();
     var def = {
@@ -11855,6 +12869,7 @@ var require_allOf2 = __commonJS({
 var require_if2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/if.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen2();
     var util_1 = require_util2();
@@ -11924,6 +12939,7 @@ var require_if2 = __commonJS({
 var require_thenElse2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/thenElse.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var util_1 = require_util2();
     var def = {
@@ -11942,6 +12958,7 @@ var require_thenElse2 = __commonJS({
 var require_applicator2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var additionalItems_1 = require_additionalItems2();
     var prefixItems_1 = require_prefixItems2();
@@ -11990,6 +13007,7 @@ var require_applicator2 = __commonJS({
 var require_format3 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/format/format.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen2();
     var error2 = {
@@ -12080,6 +13098,7 @@ var require_format3 = __commonJS({
 var require_format4 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/format/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var format_1 = require_format3();
     var format = [format_1.default];
@@ -12091,6 +13110,7 @@ var require_format4 = __commonJS({
 var require_metadata2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/metadata.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.contentVocabulary = exports.metadataVocabulary = void 0;
     exports.metadataVocabulary = [
@@ -12114,6 +13134,7 @@ var require_metadata2 = __commonJS({
 var require_draft72 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/draft7.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var core_1 = require_core4();
     var validation_1 = require_validation2();
@@ -12136,6 +13157,7 @@ var require_draft72 = __commonJS({
 var require_types2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/discriminator/types.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.DiscrError = void 0;
     var DiscrError;
@@ -12150,6 +13172,7 @@ var require_types2 = __commonJS({
 var require_discriminator2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/discriminator/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen2();
     var types_1 = require_types2();
@@ -12412,6 +13435,7 @@ var require_json_schema_draft_072 = __commonJS({
 var require_ajv2 = __commonJS({
   "node_modules/ajv-formats/node_modules/ajv/dist/ajv.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.MissingRefError = exports.ValidationError = exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = exports.Ajv = void 0;
     var core_1 = require_core3();
@@ -12482,6 +13506,7 @@ var require_ajv2 = __commonJS({
 var require_limit = __commonJS({
   "node_modules/ajv-formats/dist/limit.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatLimitDefinition = void 0;
     var ajv_1 = require_ajv2();
@@ -12554,6 +13579,7 @@ var require_limit = __commonJS({
 var require_dist = __commonJS({
   "node_modules/ajv-formats/dist/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var formats_1 = require_formats();
     var limit_1 = require_limit();
@@ -13023,6 +14049,7 @@ function __disposeResources(env) {
 var extendStatics, __assign, __createBinding, __setModuleDefault, _SuppressedError, tslib_es6_default;
 var init_tslib_es6 = __esm({
   "node_modules/tslib/tslib.es6.mjs"() {
+    init_define_GDEX_SKILL_REGISTRY();
     extendStatics = function(d, b) {
       extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(d2, b2) {
         d2.__proto__ = b2;
@@ -13099,6 +14126,7 @@ var init_tslib_es6 = __esm({
 var require_version = __commonJS({
   "node_modules/ethers/lib.commonjs/_version.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.version = void 0;
     exports.version = "6.16.0";
@@ -13109,6 +14137,7 @@ var require_version = __commonJS({
 var require_properties3 = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/properties.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.defineProperties = exports.resolveProperties = void 0;
     function checkType2(value, type, name) {
@@ -13159,6 +14188,7 @@ var require_properties3 = __commonJS({
 var require_errors3 = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/errors.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.assertPrivate = exports.assertNormalize = exports.assertArgumentCount = exports.assertArgument = exports.assert = exports.makeError = exports.isCallException = exports.isError = void 0;
     var _version_js_1 = require_version();
@@ -13335,6 +14365,7 @@ var require_errors3 = __commonJS({
 var require_data3 = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/data.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.zeroPadBytes = exports.zeroPadValue = exports.stripZerosLeft = exports.dataSlice = exports.dataLength = exports.concat = exports.hexlify = exports.isBytesLike = exports.isHexString = exports.getBytesCopy = exports.getBytes = void 0;
     var errors_js_1 = require_errors3();
@@ -13454,6 +14485,7 @@ var require_data3 = __commonJS({
 var require_maths = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/maths.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toQuantity = exports.toBeArray = exports.toBeHex = exports.toNumber = exports.getNumber = exports.toBigInt = exports.getUint = exports.getBigInt = exports.mask = exports.toTwos = exports.fromTwos = void 0;
     var data_js_1 = require_data3();
@@ -13649,6 +14681,7 @@ var require_maths = __commonJS({
 var require_base58 = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/base58.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.decodeBase58 = exports.encodeBase58 = void 0;
     var data_js_1 = require_data3();
@@ -13702,6 +14735,7 @@ var require_base58 = __commonJS({
 var require_base64 = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/base64.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.encodeBase64 = exports.decodeBase64 = void 0;
     var data_js_1 = require_data3();
@@ -13720,6 +14754,7 @@ var require_base64 = __commonJS({
 var require_events = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/events.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.EventPayload = void 0;
     var properties_js_1 = require_properties3();
@@ -13759,6 +14794,7 @@ var require_events = __commonJS({
 var require_utf8 = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/utf8.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toUtf8CodePoints = exports.toUtf8String = exports.toUtf8Bytes = exports.Utf8ErrorFuncs = void 0;
     var data_js_1 = require_data3();
@@ -13919,6 +14955,7 @@ var require_utf8 = __commonJS({
 var require_geturl = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/geturl.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getUrl = exports.createGetUrl = void 0;
     var tslib_1 = (init_tslib_es6(), __toCommonJS(tslib_es6_exports));
@@ -14039,6 +15076,7 @@ var require_geturl = __commonJS({
 var require_fetch = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/fetch.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FetchResponse = exports.FetchRequest = exports.FetchCancelSignal = void 0;
     var base64_js_1 = require_base64();
@@ -14845,6 +15883,7 @@ var require_fetch = __commonJS({
 var require_fixednumber = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/fixednumber.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FixedNumber = void 0;
     var data_js_1 = require_data3();
@@ -15344,6 +16383,7 @@ var require_fixednumber = __commonJS({
 var require_rlp_decode = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/rlp-decode.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.decodeRlp = void 0;
     var data_js_1 = require_data3();
@@ -15429,6 +16469,7 @@ var require_rlp_decode = __commonJS({
 var require_rlp_encode = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/rlp-encode.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.encodeRlp = void 0;
     var data_js_1 = require_data3();
@@ -15482,6 +16523,7 @@ var require_rlp_encode = __commonJS({
 var require_units = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/units.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.parseEther = exports.formatEther = exports.parseUnits = exports.formatUnits = void 0;
     var errors_js_1 = require_errors3();
@@ -15536,6 +16578,7 @@ var require_units = __commonJS({
 var require_uuid = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/uuid.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.uuidV4 = void 0;
     var data_js_1 = require_data3();
@@ -15560,6 +16603,7 @@ var require_uuid = __commonJS({
 var require_utils2 = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toUtf8String = exports.toUtf8CodePoints = exports.toUtf8Bytes = exports.parseUnits = exports.formatUnits = exports.parseEther = exports.formatEther = exports.encodeRlp = exports.decodeRlp = exports.defineProperties = exports.resolveProperties = exports.toQuantity = exports.toBeArray = exports.toBeHex = exports.toNumber = exports.toBigInt = exports.getUint = exports.getNumber = exports.getBigInt = exports.mask = exports.toTwos = exports.fromTwos = exports.FixedNumber = exports.FetchCancelSignal = exports.FetchResponse = exports.FetchRequest = exports.EventPayload = exports.makeError = exports.assertNormalize = exports.assertPrivate = exports.assertArgumentCount = exports.assertArgument = exports.assert = exports.isError = exports.isCallException = exports.zeroPadBytes = exports.zeroPadValue = exports.stripZerosLeft = exports.dataSlice = exports.dataLength = exports.concat = exports.hexlify = exports.isBytesLike = exports.isHexString = exports.getBytesCopy = exports.getBytes = exports.encodeBase64 = exports.decodeBase64 = exports.encodeBase58 = exports.decodeBase58 = void 0;
     exports.uuidV4 = exports.Utf8ErrorFuncs = void 0;
@@ -15740,6 +16784,7 @@ var require_utils2 = __commonJS({
 var require_abstract_coder = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/coders/abstract-coder.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Reader = exports.Writer = exports.Coder = exports.checkResultErrors = exports.Result = exports.WordSize = void 0;
     var index_js_1 = require_utils2();
@@ -16176,6 +17221,7 @@ var require_abstract_coder = __commonJS({
 var require_crypto = __commonJS({
   "node_modules/ethers/lib.commonjs/crypto/crypto.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.randomBytes = exports.pbkdf2Sync = exports.createHmac = exports.createHash = void 0;
     var crypto_1 = __require("crypto");
@@ -16198,6 +17244,7 @@ var require_crypto = __commonJS({
 var require_hmac = __commonJS({
   "node_modules/ethers/lib.commonjs/crypto/hmac.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.computeHmac = void 0;
     var crypto_js_1 = require_crypto();
@@ -16231,6 +17278,7 @@ var require_hmac = __commonJS({
 var require_assert = __commonJS({
   "node_modules/@noble/hashes/_assert.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.output = exports.exists = exports.hash = exports.bytes = exports.bool = exports.number = void 0;
     function number4(n) {
@@ -16281,6 +17329,7 @@ var require_assert = __commonJS({
 var require_u64 = __commonJS({
   "node_modules/@noble/hashes/_u64.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.add5L = exports.add5H = exports.add4H = exports.add4L = exports.add3H = exports.add3L = exports.add = exports.rotlBL = exports.rotlBH = exports.rotlSL = exports.rotlSH = exports.rotr32L = exports.rotr32H = exports.rotrBL = exports.rotrBH = exports.rotrSL = exports.rotrSH = exports.shrSL = exports.shrSH = exports.toBig = exports.split = exports.fromBig = void 0;
     var U32_MASK643 = /* @__PURE__ */ BigInt(2 ** 32 - 1);
@@ -16376,6 +17425,7 @@ var require_u64 = __commonJS({
 var require_cryptoNode = __commonJS({
   "node_modules/@noble/hashes/cryptoNode.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.crypto = void 0;
     var nc2 = __require("node:crypto");
@@ -16387,6 +17437,7 @@ var require_cryptoNode = __commonJS({
 var require_utils3 = __commonJS({
   "node_modules/@noble/hashes/utils.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.randomBytes = exports.wrapXOFConstructorWithOpts = exports.wrapConstructorWithOpts = exports.wrapConstructor = exports.checkOpts = exports.Hash = exports.concatBytes = exports.toBytes = exports.utf8ToBytes = exports.asyncLoop = exports.nextTick = exports.hexToBytes = exports.bytesToHex = exports.isLE = exports.rotr = exports.createView = exports.u32 = exports.u8 = void 0;
     var crypto_1 = require_cryptoNode();
@@ -16528,6 +17579,7 @@ var require_utils3 = __commonJS({
 var require_sha3 = __commonJS({
   "node_modules/@noble/hashes/sha3.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.shake256 = exports.shake128 = exports.keccak_512 = exports.keccak_384 = exports.keccak_256 = exports.keccak_224 = exports.sha3_512 = exports.sha3_384 = exports.sha3_256 = exports.sha3_224 = exports.Keccak = exports.keccakP = void 0;
     var _assert_js_1 = require_assert();
@@ -16720,6 +17772,7 @@ var require_sha3 = __commonJS({
 var require_keccak = __commonJS({
   "node_modules/ethers/lib.commonjs/crypto/keccak.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.keccak256 = void 0;
     var sha3_1 = require_sha3();
@@ -16752,6 +17805,7 @@ var require_keccak = __commonJS({
 var require_sha2 = __commonJS({
   "node_modules/@noble/hashes/_sha2.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.SHA2 = void 0;
     var _assert_js_1 = require_assert();
@@ -16862,6 +17916,7 @@ var require_sha2 = __commonJS({
 var require_ripemd160 = __commonJS({
   "node_modules/@noble/hashes/ripemd160.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ripemd160 = exports.RIPEMD160 = void 0;
     var _sha2_js_1 = require_sha2();
@@ -16969,6 +18024,7 @@ var require_ripemd160 = __commonJS({
 var require_ripemd1602 = __commonJS({
   "node_modules/ethers/lib.commonjs/crypto/ripemd160.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ripemd160 = void 0;
     var ripemd160_1 = require_ripemd160();
@@ -17001,6 +18057,7 @@ var require_ripemd1602 = __commonJS({
 var require_pbkdf2 = __commonJS({
   "node_modules/ethers/lib.commonjs/crypto/pbkdf2.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.pbkdf2 = void 0;
     var crypto_js_1 = require_crypto();
@@ -17034,6 +18091,7 @@ var require_pbkdf2 = __commonJS({
 var require_random = __commonJS({
   "node_modules/ethers/lib.commonjs/crypto/random.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.randomBytes = void 0;
     var crypto_js_1 = require_crypto();
@@ -17064,6 +18122,7 @@ var require_random = __commonJS({
 var require_sha256 = __commonJS({
   "node_modules/@noble/hashes/sha256.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.sha224 = exports.sha256 = void 0;
     var _sha2_js_1 = require_sha2();
@@ -17240,6 +18299,7 @@ var require_sha256 = __commonJS({
 var require_hmac2 = __commonJS({
   "node_modules/@noble/hashes/hmac.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.hmac = exports.HMAC = void 0;
     var _assert_js_1 = require_assert();
@@ -17316,6 +18376,7 @@ var require_hmac2 = __commonJS({
 var require_pbkdf22 = __commonJS({
   "node_modules/@noble/hashes/pbkdf2.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.pbkdf2Async = exports.pbkdf2 = void 0;
     var _assert_js_1 = require_assert();
@@ -17392,6 +18453,7 @@ var require_pbkdf22 = __commonJS({
 var require_scrypt = __commonJS({
   "node_modules/@noble/hashes/scrypt.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.scryptAsync = exports.scrypt = void 0;
     var _assert_js_1 = require_assert();
@@ -17581,6 +18643,7 @@ var require_scrypt = __commonJS({
 var require_scrypt2 = __commonJS({
   "node_modules/ethers/lib.commonjs/crypto/scrypt.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.scryptSync = exports.scrypt = void 0;
     var scrypt_1 = require_scrypt();
@@ -17636,6 +18699,7 @@ var require_scrypt2 = __commonJS({
 var require_sha22 = __commonJS({
   "node_modules/ethers/lib.commonjs/crypto/sha2.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.sha512 = exports.sha256 = void 0;
     var crypto_js_1 = require_crypto();
@@ -17689,6 +18753,7 @@ var require_sha22 = __commonJS({
 var require_utils4 = __commonJS({
   "node_modules/@noble/curves/abstract/utils.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateObject = exports.createHmacDrbg = exports.bitMask = exports.bitSet = exports.bitGet = exports.bitLen = exports.utf8ToBytes = exports.equalBytes = exports.concatBytes = exports.ensureBytes = exports.numberToVarBytesBE = exports.numberToBytesLE = exports.numberToBytesBE = exports.bytesToNumberLE = exports.bytesToNumberBE = exports.hexToBytes = exports.hexToNumber = exports.numberToHexUnpadded = exports.bytesToHex = void 0;
     var _0n8 = BigInt(0);
@@ -17908,6 +18973,7 @@ var require_utils4 = __commonJS({
 var require_modular = __commonJS({
   "node_modules/@noble/curves/abstract/modular.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.mapHashToField = exports.getMinHashLength = exports.getFieldBytesLength = exports.hashToPrivateScalar = exports.FpSqrtEven = exports.FpSqrtOdd = exports.Field = exports.nLength = exports.FpIsSquare = exports.FpDiv = exports.FpInvertBatch = exports.FpPow = exports.validateField = exports.isNegativeLE = exports.FpSqrt = exports.tonelliShanks = exports.invert = exports.pow2 = exports.pow = exports.mod = void 0;
     var utils_js_1 = require_utils4();
@@ -18234,6 +19300,7 @@ var require_modular = __commonJS({
 var require_curve = __commonJS({
   "node_modules/@noble/curves/abstract/curve.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateBasic = exports.wNAF = void 0;
     var modular_js_1 = require_modular();
@@ -18363,6 +19430,7 @@ var require_curve = __commonJS({
 var require_weierstrass = __commonJS({
   "node_modules/@noble/curves/abstract/weierstrass.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.mapToCurveSimpleSWU = exports.SWUFpSqrtRatio = exports.weierstrass = exports.weierstrassPoints = exports.DER = void 0;
     var mod2 = require_modular();
@@ -19269,6 +20337,7 @@ var require_weierstrass = __commonJS({
 var require_hash_to_curve = __commonJS({
   "node_modules/@noble/curves/abstract/hash-to-curve.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.createHasher = exports.isogenyMap = exports.hash_to_field = exports.expand_message_xof = exports.expand_message_xmd = void 0;
     var modular_js_1 = require_modular();
@@ -19424,6 +20493,7 @@ var require_hash_to_curve = __commonJS({
 var require_shortw_utils = __commonJS({
   "node_modules/@noble/curves/_shortw_utils.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.createCurve = exports.getHash = void 0;
     var hmac_1 = require_hmac2();
@@ -19449,6 +20519,7 @@ var require_shortw_utils = __commonJS({
 var require_secp256k1 = __commonJS({
   "node_modules/@noble/curves/secp256k1.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.encodeToCurve = exports.hashToCurve = exports.schnorr = exports.secp256k1 = void 0;
     var sha256_1 = require_sha256();
@@ -19681,6 +20752,7 @@ var require_secp256k1 = __commonJS({
 var require_addresses = __commonJS({
   "node_modules/ethers/lib.commonjs/constants/addresses.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ZeroAddress = void 0;
     exports.ZeroAddress = "0x0000000000000000000000000000000000000000";
@@ -19691,6 +20763,7 @@ var require_addresses = __commonJS({
 var require_hashes = __commonJS({
   "node_modules/ethers/lib.commonjs/constants/hashes.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ZeroHash = void 0;
     exports.ZeroHash = "0x0000000000000000000000000000000000000000000000000000000000000000";
@@ -19701,6 +20774,7 @@ var require_hashes = __commonJS({
 var require_numbers = __commonJS({
   "node_modules/ethers/lib.commonjs/constants/numbers.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.MaxInt256 = exports.MinInt256 = exports.MaxUint256 = exports.WeiPerEther = exports.N = void 0;
     exports.N = BigInt("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
@@ -19715,6 +20789,7 @@ var require_numbers = __commonJS({
 var require_strings = __commonJS({
   "node_modules/ethers/lib.commonjs/constants/strings.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.MessagePrefix = exports.EtherSymbol = void 0;
     exports.EtherSymbol = "\u039E";
@@ -19726,6 +20801,7 @@ var require_strings = __commonJS({
 var require_constants = __commonJS({
   "node_modules/ethers/lib.commonjs/constants/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.MessagePrefix = exports.EtherSymbol = exports.MaxInt256 = exports.MinInt256 = exports.MaxUint256 = exports.WeiPerEther = exports.N = exports.ZeroHash = exports.ZeroAddress = void 0;
     var addresses_js_1 = require_addresses();
@@ -19766,6 +20842,7 @@ var require_constants = __commonJS({
 var require_signature = __commonJS({
   "node_modules/ethers/lib.commonjs/crypto/signature.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Signature = void 0;
     var index_js_1 = require_constants();
@@ -20116,6 +21193,7 @@ var require_signature = __commonJS({
 var require_signing_key = __commonJS({
   "node_modules/ethers/lib.commonjs/crypto/signing-key.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.SigningKey = void 0;
     var secp256k1_1 = require_secp256k1();
@@ -20286,6 +21364,7 @@ var require_signing_key = __commonJS({
 var require_crypto2 = __commonJS({
   "node_modules/ethers/lib.commonjs/crypto/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.lock = exports.Signature = exports.SigningKey = exports.scryptSync = exports.scrypt = exports.pbkdf2 = exports.sha512 = exports.sha256 = exports.ripemd160 = exports.keccak256 = exports.randomBytes = exports.computeHmac = void 0;
     var hmac_js_1 = require_hmac();
@@ -20350,6 +21429,7 @@ var require_crypto2 = __commonJS({
 var require_address = __commonJS({
   "node_modules/ethers/lib.commonjs/address/address.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getIcapAddress = exports.getAddress = void 0;
     var index_js_1 = require_crypto2();
@@ -20451,6 +21531,7 @@ var require_address = __commonJS({
 var require_contract_address = __commonJS({
   "node_modules/ethers/lib.commonjs/address/contract-address.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getCreate2Address = exports.getCreateAddress = void 0;
     var index_js_1 = require_crypto2();
@@ -20486,6 +21567,7 @@ var require_contract_address = __commonJS({
 var require_checks = __commonJS({
   "node_modules/ethers/lib.commonjs/address/checks.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.resolveAddress = exports.isAddress = exports.isAddressable = void 0;
     var index_js_1 = require_utils2();
@@ -20533,6 +21615,7 @@ var require_checks = __commonJS({
 var require_address2 = __commonJS({
   "node_modules/ethers/lib.commonjs/address/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.resolveAddress = exports.isAddress = exports.isAddressable = exports.getCreate2Address = exports.getCreateAddress = exports.getIcapAddress = exports.getAddress = void 0;
     var address_js_1 = require_address();
@@ -20566,6 +21649,7 @@ var require_address2 = __commonJS({
 var require_typed = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/typed.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Typed = void 0;
     var index_js_1 = require_utils2();
@@ -21356,6 +22440,7 @@ var require_typed = __commonJS({
 var require_address3 = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/coders/address.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.AddressCoder = void 0;
     var index_js_1 = require_address2();
@@ -21390,6 +22475,7 @@ var require_address3 = __commonJS({
 var require_anonymous = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/coders/anonymous.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.AnonymousCoder = void 0;
     var abstract_coder_js_1 = require_abstract_coder();
@@ -21417,6 +22503,7 @@ var require_anonymous = __commonJS({
 var require_array = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/coders/array.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ArrayCoder = exports.unpack = exports.pack = void 0;
     var index_js_1 = require_utils2();
@@ -21561,6 +22648,7 @@ var require_array = __commonJS({
 var require_boolean = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/coders/boolean.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.BooleanCoder = void 0;
     var typed_js_1 = require_typed();
@@ -21588,6 +22676,7 @@ var require_boolean = __commonJS({
 var require_bytes = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/coders/bytes.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.BytesCoder = exports.DynamicBytesCoder = void 0;
     var index_js_1 = require_utils2();
@@ -21626,6 +22715,7 @@ var require_bytes = __commonJS({
 var require_fixed_bytes = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/coders/fixed-bytes.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FixedBytesCoder = void 0;
     var index_js_1 = require_utils2();
@@ -21660,6 +22750,7 @@ var require_fixed_bytes = __commonJS({
 var require_null = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/coders/null.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.NullCoder = void 0;
     var abstract_coder_js_1 = require_abstract_coder();
@@ -21690,6 +22781,7 @@ var require_null = __commonJS({
 var require_number = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/coders/number.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.NumberCoder = void 0;
     var index_js_1 = require_utils2();
@@ -21739,6 +22831,7 @@ var require_number = __commonJS({
 var require_string = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/coders/string.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.StringCoder = void 0;
     var utf8_js_1 = require_utf8();
@@ -21766,6 +22859,7 @@ var require_string = __commonJS({
 var require_tuple = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/coders/tuple.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.TupleCoder = void 0;
     var properties_js_1 = require_properties3();
@@ -21833,6 +22927,7 @@ var require_tuple = __commonJS({
 var require_accesslist = __commonJS({
   "node_modules/ethers/lib.commonjs/transaction/accesslist.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.accessListify = void 0;
     var index_js_1 = require_address2();
@@ -21876,6 +22971,7 @@ var require_accesslist = __commonJS({
 var require_authorization = __commonJS({
   "node_modules/ethers/lib.commonjs/transaction/authorization.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.authorizationify = void 0;
     var index_js_1 = require_address2();
@@ -21897,6 +22993,7 @@ var require_authorization = __commonJS({
 var require_address4 = __commonJS({
   "node_modules/ethers/lib.commonjs/transaction/address.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.recoverAddress = exports.computeAddress = void 0;
     var index_js_1 = require_address2();
@@ -21922,6 +23019,7 @@ var require_address4 = __commonJS({
 var require_transaction = __commonJS({
   "node_modules/ethers/lib.commonjs/transaction/transaction.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Transaction = exports.splitBlobCells = void 0;
     var index_js_1 = require_address2();
@@ -23159,6 +24257,7 @@ var require_transaction = __commonJS({
 var require_transaction2 = __commonJS({
   "node_modules/ethers/lib.commonjs/transaction/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Transaction = exports.recoverAddress = exports.computeAddress = exports.authorizationify = exports.accessListify = void 0;
     var accesslist_js_1 = require_accesslist();
@@ -23187,6 +24286,7 @@ var require_transaction2 = __commonJS({
 var require_authorization2 = __commonJS({
   "node_modules/ethers/lib.commonjs/hash/authorization.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.verifyAuthorization = exports.hashAuthorization = void 0;
     var index_js_1 = require_address2();
@@ -23216,6 +24316,7 @@ var require_authorization2 = __commonJS({
 var require_id3 = __commonJS({
   "node_modules/ethers/lib.commonjs/hash/id.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.id = void 0;
     var index_js_1 = require_crypto2();
@@ -23231,6 +24332,7 @@ var require_id3 = __commonJS({
 var require_dist2 = __commonJS({
   "node_modules/@adraffy/ens-normalize/dist/index.cjs"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var COMPRESSED$1 = "AEEUdwmgDS8BxQKKAP4BOgDjATAAngDUAIMAoABoAOAAagCOAEQAhABMAHIAOwA9ACsANgAmAGIAHgAuACgAJwAXAC0AGgAjAB8ALwAUACkAEgAeAAkAGwARABkAFgA5ACgALQArADcAFQApABAAHgAiABAAGgAeABMAGAUhBe8BFxREN8sF2wC5AK5HAW8ArQkDzQCuhzc3NzcBP68NEfMABQdHBuw5BV8FYAA9MzkI9r4ZBg7QyQAWA9CeOwLNCjcCjqkChuA/lm+RAsXTAoP6ASfnEQDytQFJAjWVCkeXAOsA6godAB/cwdAUE0WlBCN/AQUCQRjFD/MRBjHxDQSJbw0jBzUAswBxme+tnIcAYwabAysG8QAjAEMMmxcDqgPKQyDXCMMxA7kUQwD3NXOrAKmFIAAfBC0D3x4BJQDBGdUFAhEgVD8JnwmQJiNWYUzrg0oAGwAUAB0AFnNcACkAFgBP9h3gPfsDOWDKneY2ChglX1UDYD30ABsAFAAdABZzIGRAnwDD8wAjAEEMzRbDqgMB2sAFYwXqAtCnAsS4AwpUJKRtFHsadUz9AMMVbwLpABM1NJEX0ZkCgYMBEyMAxRVvAukAEzUBUFAtmUwSAy4DBTER33EftQHfSwB5MxJ/AjkWKQLzL8E/cwBB6QH9LQDPDtO9ASNriQC5DQANAwCK21EFI91zHwCoL9kBqQcHBwcHKzUDowBvAQohPvU3fAQgHwCyAc8CKQMA5zMSezr7ULgFmDp/LzVQBgEGAi8FYQVgt8AFcTtlQhpCWEmfe5tmZ6IAExsDzQ8t+X8rBKtTAltbAn0jsy8Bl6utPWMDTR8Ei2kRANkDBrNHNysDBzECQWUAcwFpJ3kAiyUhAJ0BUb8AL3EfAbfNAz81KUsFWwF3YQZtAm0A+VEfAzEJDQBRSQCzAQBlAHsAM70GD/v3IZWHBwARKQAxALsjTwHZAeMPEzmXgIHwABIAGQA8AEUAQDt3gdvIEGcQZAkGTRFMdEIVEwK0D64L7REdDNkq09PgADSxB/MDWwfzA1sDWwfzB/MDWwfzA1sDWwNbA1scEvAi28gQZw9QBHUFlgWTBN4IiyZREYkHMAjaVBV0JhxPA00BBCMtSSQ7mzMTJUpMFE0LCAQ2SmyvfUADTzGzVP2QqgPTMlc5dAkGHnkSqAAyD3skNb1OhnpPcagKU0+2tYdJak5vAsY6sEAACikJm2/Dd1YGRRAfJ6kQ+ww3AbkBPw3xS9wE9QY/BM0fgRkdD9GVoAipLeEM8SbnLqWAXiP5KocF8Uv4POELUVFsD10LaQnnOmeBUgMlAREijwrhDT0IcRD3Cs1vDekRSQc9A9lJngCpBwULFR05FbkmFGKwCw05ewb/GvoLkyazEy17AAXXGiUGUQEtGwMA0y7rhbRaNVwgT2MGBwspI8sUrFAkDSlAu3hMGh8HGSWtApVDdEqLUToelyH6PEENai4XUYAH+TwJGVMLhTyiRq9FEhHWPpE9TCJNTDAEOYMsMyePCdMPiQy9fHYBXQklCbUMdRM1ERs3yQg9Bx0xlygnGQglRplgngT7owP3E9UDDwVDCUUHFwO5HDETMhUtBRGBKNsC9zbZLrcCk1aEARsFzw8pH+MQVEfkDu0InwJpA4cl7wAxFSUAGyKfCEdnAGOP3FMJLs8Iy2pwI3gDaxTrZRF3B5UOWwerHDcVwxzlcMxeD4YMKKezCV8BeQmdAWME5wgNNV+MpCBFZ1eLXBifIGVBQ14AAjUMaRWjRMGHfAKPD28SHwE5AXcHPQ0FAnsR8RFvEJkI74YINbkz/DopBFMhhyAVCisDU2zSCysm/Qz8bQGnEmYDEDRBd/Jnr2C6KBgBBx0yyUFkIfULlk/RDKAaxRhGVDIZ6AfDA/ca9yfuQVsGAwOnBxc6UTPyBMELbQiPCUMATQ6nGwfbGG4KdYzUATWPAbudA1uVhwJzkwY7Bw8Aaw+LBX3pACECqwinAAkA0wNbAD0CsQehAB0AiUUBQQMrMwEl6QKTA5cINc8BmTMB9y0EH8cMGQD7O25OAsO1AoBuZqYF4VwCkgJNOQFRKQQJUktVA7N15QDfAE8GF+NLARmvTs8e50cB43MvAMsA/wAJOQcJRQHRAfdxALsBYws1Caa3uQFR7S0AhwAZbwHbAo0A4QA5AIP1AVcAUQVd/QXXAlNNARU1HC9bZQG/AyMBNwERAH0Gz5GpzQsjBHEH1wIQHxXlAu8yB7kFAyLjE9FCyQK94lkAMhoKPAqrCqpgX2Q3CjV2PVQAEh+sPss/UgVVO1c7XDtXO1w7VztcO1c7XDtXO1wDm8Pmw+YKcF9JYe8Mqg3YRMw6TRPfYFVgNhPMLbsUxRXSJVoZQRrAJwkl6FUNDwgt12Y0CDA0eRfAAEMpbINFY4oeNApPHOtTlVT8LR8AtUumM7MNsBsZREQFS3XxYi4WEgomAmSFAmJGX1GzAV83JAKh+wJonAJmDQKfiDgfDwJmPwJmKgRyBIMDfxcDfpY5Cjl7GzmGOicnAmwhAjI6OA4CbcsCbbLzjgM3a0kvAWsA4gDlAE4JB5wMkQECD8YAEbkCdzMCdqZDAnlPRwJ4viFg30WyRvcCfEMCeswCfQ0CfPRIBEiBZygALxlJXEpfGRtK0ALRBQLQ0EsrA4hTA4fqRMmRNgLypV0HAwOyS9JMMSkH001QTbMCi0MCitzFHwshR2sJuwKOOwKOYESbhQKO3QKOYHxRuFM5AQ5S2FSJApP/ApMQAO0AIFUiVbNV1AosHymZijLleGpFPz0Cl6MC77ZYJawAXSkClpMCloCgAK1ZsFoNhVEAPwKWuQKWUlxIXNUCmc8CmWhczl0LHQKcnznGOqECnBoCn58CnryOACETNS4TAp31Ap6WALlBYThh8wKe1wKgcgGtAp6jIwKeUqljzGQrKS8CJ7MCJoICoP8CoFDbAqYzAqXSAqgDAIECp/ZogGi1AAdNaiBq1QKs5wKssgKtawKtBgJXIQJV4AKx5dsDH1JsmwKywRECsuwbbORtZ21MYwMl0QK2YD9DbpQDKUkCuGICuUsZArkue3A6cOUCvR0DLbYDMhUCvoxyBgMzdQK+HnMmc1MCw88CwwhzhnRPOUl05AM8qwEDPJ4DPcMCxYACxksCxhSNAshtVQLISALJUwLJMgJkoQLd1nh9ZXiyeSlL1AMYp2cGAmH4GfeVKHsPXpZevxUCz28Cz3AzT1fW9xejAMqxAs93AS3uA04Wfk8JAtwrAtuOAtJTA1JgA1NjAQUDVZCAjUMEzxrxZEl5A4LSg5EC2ssC2eKEFIRNp0ADhqkAMwNkEoZ1Xf0AWQLfaQLevHd7AuIz7RgB8zQrAfSfAfLWiwLr9wLpdH0DAur9AuroAP1LAb0C7o0C66CWrpcHAu5DA4XkmH1w5HGlAvMHAG0DjhqZlwL3FwORcgOSiwL3nAL53QL4apogmq+/O5siA52HAv7+AR8APZ8gAZ+3AwWRA6ZuA6bdANXJAwZuoYyiCQ0DDE0BEwEjB3EGZb1rCQC/BG/DFY8etxEAG3k9ACcDNxJRA42DAWcrJQCM8wAlAOanC6OVCLsGI6fJBgCvBRnDBvElRUYFFoAFcD9GSDNCKUK8X3kZX8QAls0FOgCQVCGbwTsuYDoZutcONxjOGJHJ/gVfBWAFXwVgBWsFYAVfBWAFXwVgBV8FYAVfBWBOHQjfjW8KCgoKbF7xMwTRA7kGN8PDAMMEr8MA70gxFroFTj5xPnhCR0K+X30/X/AAWBkzswCNBsxzzASm70aCRS4rDDMeLz49fnXfcsH5GcoscQFz13Y4HwVnBXLJycnACNdRYwgICAqEXoWTxgA7P4kACxbZBu21Kw0AjMsTAwkVAOVtJUUsJ1JCuULESUArXy9gPi9AKwnJRQYKTD9LPoA+iT54PnkCkULEUUpDX9NWV3JVEjQAc1w3A3IBE3YnX+g7QiMJb6MKaiszRCUuQrNCxDPMCcwEX9EWJzYREBEEBwIHKn6l33JCNVIfybPJtAltydPUCmhBZw/tEKsZAJOVJU1CLRuxbUHOQAo7P0s+eEJHHA8SJVRPdGM0NVrpvBoKhfUlM0JHHGUQUhEWO1xLSj8MO0ucNAqJIzVCRxv9EFsqKyA4OQgNj2nwZgp5ZNFgE2A1K3YHS2AhQQojJmC7DgpzGG1WYFUZCQYHZO9gHWCdYIVgu2BTYJlwFh8GvRbcXbG8YgtDHrMBwzPVyQonHQgkCyYBgQJ0Ajc4nVqIAwGSCsBPIgDsK3SWEtIVBa5N8gGjAo+kVwVIZwD/AEUSCDweX4ITrRQsJ8K3TwBXFDwEAB0TvzVcAtoTS20RIwDgVgZ9BBImYgA5AL4Coi8LFnezOkCnIQFjAY4KBAPh9RcGsgZSBsEAJctdsWIRu2kTkQstRw7DAcMBKgpPBGIGMDAwKCYnKTQaLg4AKRSVAFwCdl+YUZ0JdicFD3lPAdt1F9ZZKCGxuE3yBxkFVGcA/wBFEgiCBwAOLHQSjxOtQDg1z7deFRMAZ8QTAGtKb1ApIiPHADkAvgKiLy1DFtYCmBiDAlDDWNB0eo7fpaMO/aEVRRv0ATEQZBIODyMEAc8JQhCbDRgzFD4TAEMAu9YBCgCsAOkAm5I3ABwAYxvONnR+MhXJAxgKQyxL2+kkJhMbhQKDBMkSsvF0AD9BNQ6uQC7WqSQHwxEAEEIu1hkhAH2z4iQPwyJPHNWpdyYBRSpnJALzoBAEVPPsH20MxA0CCEQKRgAFyAtFAlMNwwjEDUQJRArELtapMg7DDZgJIw+TGukEIwvDFkMAqAtDEMMMBhioe+QAO3MMRAACrgnEBSPY9Q0FDnbSBoMAB8MSYxkSxAEJAPIJAAB8FWMOFtMc/HcXwxhDAC7DAvOowwAewwJdKDKHAAHDAALrFUQVwwAbwyvzpWMWv8wA/ABpAy++bcYDUKPD0KhDCwKmJ1MAAmMA5+UZwxAagwipBRL/eADfw6fDGOMCGsOjk3l6BwOpo4sAEsMOGxMAA5sAbcMOAAvDp0MJGkMDwgipnNIPAwfIqUMGAOGDAAPzABXDAAcDAAnDAGmTABrDAA7DChjDjnEWAwABYwAOcwAuUyYABsMAF8MIKQANUgC6wy4AA8MADqMq8wCyYgAcIwAB8wqpAAXOCx0V4wAHowBCwwEKAGnDAAuDAB3DAAjDCakABdIAbqcZ3QCZCCkABdIAAAFDAAfjAB2jCCkABqIACYMAGzMAbSMA5sOIAAhjAAhDABTDBAkpAAbSAOOTAAlDC6kOzPtnAAdDAG6kQFAATwAKwwwAA0MACbUDPwAHIwAZgwACE6cDAAojAApDAAoDp/MGwwAJIwADEwAQQwgAFEMAEXMAD5MADfMADcMAGRMOFiMAFUMAbqMWuwHDAMIAE0MLAGkzEgDhUwACQwAEWgAXgwUjAAbYABjDBSYBgzBaAEFNALcQBxUMegAwMngBrA0IZgJ0KxQHBREPd1N0ZzKRJwaIHAZqNT4DqQq8BwngAB4DAwt2AX56T1ocKQNXAh1GATQGC3tOxYNagkgAMQA5CQADAQEAWxLjAIOYNAEzAH7tFRk6TglSAF8NAAlYAQ+S1ACAQwQorQBiAN4dAJ1wPyeTANVzuQDX3AIeEMp9eyMgXiUAEdkBkJizKltbVVAaRMqRAAEAhyQ/SDEz6BmfVwB6ATEsOClKIRcDOF0E/832AFNt5AByAnkCRxGCOs94NjXdAwINGBonDBwPALW2AwICAgAAAAAAAAYDBQMDARrUAwAtAAAAAgEGBgYGBgYFBQUFBQUEBQYHCAkEBQUFBQQAAAICAAAAIgCNAJAAlT0A6gC7ANwApEQAwgCyAK0AqADuAKYA2gCjAOcBCAEDAMcAgQBiANIA1AEDAN4A8gCQAKkBMQDqAN8A3AsBCQ8yO9ra2tq8xuLT1tRJOB0BUgFcNU0BWgFpAWgBWwFMUUlLbhMBUxsNEAs6PhMOACcUKy0vMj5AQENDQ0RFFEYGJFdXV1dZWVhZL1pbXVxcI2NnZ2ZoZypsbnZ1eHh4eHh4enp6enp6enp6enp8fH18e2IARPIASQCaAHgAMgBm+ACOAFcAVwA3AnbvAIsABfj4AGQAk/IAnwBPAGIAZP//sACFAIUAaQBWALEAJAC2AIMCQAJDAPwA5wD+AP4A6AD/AOkA6QDoAOYALwJ7AVEBQAE+AVQBPgE+AT4BOQE4ATgBOAEcAVgXADEQCAEAUx8SHgsdHhYAjgCWAKYAUQBqIAIxAHYAbwCXAxUDJzIDIUlGTzEAkQJPAMcCVwKkAMAClgKWApYClgKWApYCiwKWApYClgKWApYClgKVApUCmAKgApcClgKWApQClAKUApQCkgKVAnUB1AKXAp8ClgKWApUeAIETBQD+DQOfAmECOh8BVBg9AuIZEjMbAU4/G1WZAXusRAFpYQEFA0FPAQYAmTEeIJdyADFoAHEANgCRA5zMk/C2jGINwjMWygIZCaXdfDILBCs5dAE7YnQBugDlhoiHhoiGiYqKhouOjIaNkI6Ij4qQipGGkoaThpSSlYaWhpeKmIaZhpqGm4aci52QnoqfhuIC4XTpAt90AIp0LHSoAIsAdHQEQwRABEIERQRDBEkERgRBBEcESQRIBEQERgRJAJ5udACrA490ALxuAQ10ANFZdHQA13QCFHQA/mJ0AP4BIQD+APwA/AD9APwDhGZ03ASMK23HAP4A/AD8AP0A/CR0dACRYnQA/gCRASEA/gCRAvQA/gCRA4RmdNwEjCttxyR0AP9idAEhAP4A/gD8APwA/QD8AP8A/AD8AP0A/AOEZnTcBIwrbcckdHQAkWJ0ASEA/gCRAP4AkQL0AP4AkQOEZnTcBIwrbcckdAJLAT50AlIBQXQCU8l0dAJfdHQDpgL0A6YDpgOnA6cDpwOnA4RmdNwEjCttxyR0dACRYnQBIQOmAJEDpgCRAvQDpgCRA4RmdNwEjCttxyR0BDh0AJEEOQCRDpU5dSgCADR03gV2CwArdAEFAM5iCnR0AF1iAAYcOgp0dACRCnQAXAEIwWZ0CnRmdHQAkWZ0CnRmdEXgAFF03gp0dEY0tlT2u3SOAQTwscwhjZZKrhYcBSfFp9XNbKiVDOD2b+cpe4/Z17mQnbtzzhaeQtE2GGj0IDNTjRUSyTxxw/RPHW/+vS7d1NfRt9z9QPZg4X7QFfhCnkvgNPIItOsC2eV6hPannZNHlZ9xrwZXIMOlu3jSoQSq78WEjwLjw1ELSlF1aBvfzwk5ZX7AUvQzjPQKbDuQ+sm4wNOp4A6AdVuRS0t1y/DZpg4R6m7FNjM9HgvW7Bi88zaMjOo6lM8wtBBdj8LP4ylv3zCXPhebMKJc066o9sF71oFW/8JXu86HJbwDID5lzw5GWLR/LhT0Qqnp2JQxNZNfcbLIzPy+YypqRm/lBmGmex+82+PisxUumSeJkALIT6rJezxMH+CTJmQtt5uwTVbL3ptmjDUQzlSIvWi8Tl7ng1NpuRn1Ng4n14Qc+3Iil7OwkvNWogLSPkn3pihIFytyIGmMhOe3n1tWsuMy9BdKyqF4Z3v2SgggTL9KVvMXPnCbRe+oOuFFP3HejBG/w9gvmfNYvg6JuWia2lcSSN1uIjBktzoIazOHPJZ7kKHPz8mRWVdW3lA8WGF9dQF6Bm673boov3BUWDU2JNcahR23GtfHKLOz/viZ+rYnZFaIznXO67CYEJ1fXuTRpZhYZkKe54xeoagkNGLs+NTZHE0rX45/XvQ2RGADX6vcAvdxIUBV27wxGm2zjZo4X3ILgAlrOFheuZ6wtsvaIj4yLY7qqawlliaIcrz2G+c3vscAnCkCuMzMmZvMfu9lLwTvfX+3cVSyPdN9ZwgDZhfjRgNJcLiJ67b9xx8JHswprbiE3v9UphotAPIgnXVIN5KmMc0piXhc6cChPnN+MRhG9adtdttQTTwSIpl8I4/j//d3sz1326qTBTpPRM/Hgh3kzqEXs8ZAk4ErQhNO8hzrQ0DLkWMA/N+91tn2MdOJnWC2FCZehkQrwzwbKOjhvZsbM95QoeL9skYyMf4srVPVJSgg7pOLUtr/n9eT99oe9nLtFRpjA9okV2Kj8h9k5HaC0oivRD8VyXkJ81tcd4fHNXPCfloIQasxsuO18/46dR2jgul/UIet2G0kRvnyONMKhHs6J26FEoqSqd+rfYjeEGwHWVDpX1fh1jBBcKGMqRepju9Y00mDVHC+Xdij/j44rKfvfjGinNs1jO/0F3jB83XCDINN/HB84axlP+3E/klktRo+vl3U/aiyMJbIodE1XSsDn6UAzIoMtUObY2+k/4gY/l+AkZJ5Sj2vQrkyLm3FoxjhDX+31UXBFf9XrAH31fFqoBmDEZvhvvpnZ87N+oZEu7U9O/nnk+QWj3x8uyoRbEnf+O5UMr9i0nHP38IF5AvzrBW8YWBUR0mIAzIvndQq9N3v/Jto3aPjPXUPl8ASdPPyAp7jENf8bk7VMM9ol9XGmlBmeDMuGqt+WzuL6CXAxXjIhCPM5vACchgMJ/8XBGLO/D1isVvGhwwHHr1DLaI5mn2Jr/b1pUD90uciDaS8cXNDzCWvNmT/PhQe5e8nTnnnkt8Ds/SIjibcum/fqDhKopxAY8AkSrPn+IGDEKOO+U3XOP6djFs2H5N9+orhOahiQk5KnEUWa+CzkVzhp8bMHRbg81qhjjXuIKbHjSLSIBKWqockGtKinY+z4/RdBUF6pcc3JmnlxVcNgrI4SEzKUZSwcD2QCyxzKve+gAmg6ZuSRkpPFa6mfThu7LJNu3H5K42uCpNvPAsoedolKV/LHe/eJ+BbaG5MG0NaSGVPRUmNFMFFSSpXEcXwbVh7UETOZZtoVNRGOIbbkig3McEtR68cG0RZAoJevWYo7Dg/lZ1CQzblWeUvVHmr8fY4Nqd9JJiH/zEX24mJviH60fAyFr0A3c4bC1j3yZU60VgJxXn8JgJXLUIsiBnmKmMYz+7yBQFBvqb2eYnuW59joZBf56/wXvWIR4R8wTmV80i1mZy+S4+BUES+hzjk0uXpC///z/IlqHZ1monzlXp8aCfhGKMti73FI1KbL1q6IKO4fuBuZ59gagjn5xU79muMpHXg6S+e+gDM/U9BKLHbl9l6o8czQKl4RUkJJiqftQG2i3BMg/TQlUYFkJDYBOOvAugYuzYSDnZbDDd/aSd9x0Oe6F+bJcHfl9+gp6L5/TgA+BdFFovbfCrQ40s5vMPw8866pNX8zyFGeFWdxIpPVp9Rg1UPOVFbFZrvaFq/YAzHQgqMWpahMYfqHpmwXfHL1/kpYmGuHFwT55mQu0dylfNuq2Oq0hTMCPwqfxnuBIPLXfci4Y1ANy+1CUipQxld/izVh16WyG2Q0CQQ9NqtAnx1HCHwDj7sYxOSB0wopZSnOzxQOcExmxrVTF2BkOthVpGfuhaGECfCJpJKpjnihY+xOT2QJxN61+9K6QSqtv2Shr82I3jgJrqBg0wELFZPjvHpvzTtaJnLK6Vb97Yn933koO/saN7fsjwNKzp4l2lJVx2orjCGzC/4ZL4zCver6aQYtC5sdoychuFE6ufOiog+VWi5UDkbmvmtah/3aArEBIi39s5ILUnlFLgilcGuz9CQshEY7fw2ouoILAYPVT/gyAIq3TFAIwVsl+ktkRz/qGfnCDGrm5gsl/l9QdvCWGsjPz3dU7XuqKfdUrr/6XIgjp4rey6AJBmCmUJMjITHVdFb5m1p+dLMCL8t55zD42cmftmLEJC0Da04YiRCVUBLLa8D071/N5UBNBXDh0LFsmhV/5B5ExOB4j3WVG/S3lfK5o+V6ELHvy6RR9n4ac+VsK4VE4yphPvV+kG9FegTBH4ZRXL2HytUHCduJazB/KykjfetYxOXTLws267aGOd+I+JhKP//+VnXmS90OD/jvLcVu0asyqcuYN1mSb6XTlCkqv1vigZPIYwNF/zpWcT1GR/6aEIRjkh0yhg4LXJfaGobYJTY4JI58KiAKgmmgAKWdl5nYCeLqavRJGQNuYuZtZFGx+IkI4w4NS2xwbetNMunOjBu/hmKCI/w7tfiiyUd//4rbTeWt4izBY8YvGIN6vyKYmP/8X8wHKCeN+WRcKM70+tXKNGyevU9H2Dg5BsljnTf8YbsJ1TmMs74Ce2XlHisleguhyeg44rQOHZuw/6HTkhnnurK2d62q6yS7210SsAIaR+jXMQA+svkrLpsUY+F30Uw89uOdGAR6vo4FIME0EfVVeHTu6eKicfhSqOeXJhbftcd08sWEnNUL1C9fnprTgd83IMut8onVUF0hvqzZfHduPjbjwEXIcoYmy+P6tcJZHmeOv6VrvEdkHDJecjHuHeWANe79VG662qTjA/HCvumVv3qL+LrOcpqGps2ZGwQdFJ7PU4iuyRlBrwfO+xnPyr47s2cXVbWzAyznDiBGjCM3ksxjjqM62GE9C8f5U38kB3VjtabKp/nRdvMESPGDG90bWRLAt1Qk5DyLuazRR1YzdC1c+hZXvAWV8xA72S4A8B67vjVhbba3MMop293FeEXpe7zItMWrJG/LOH9ByOXmYnNJfjmfuX9KbrpgLOba4nZ+fl8Gbdv/ihv+6wFGKHCYrVwmhFC0J3V2bn2tIB1wCc1CST3d3X2OyxhguXcs4sm679UngzofuSeBewMFJboIQHbUh/m2JhW2hG9DIvG2t7yZIzKBTz9wBtnNC+2pCRYhSIuQ1j8xsz5VvqnyUIthvuoyyu7fNIrg/KQUVmGQaqkqZk/Vx5b33/gsEs8yX7SC1J+NV4icz6bvIE7C5G6McBaI8rVg56q5QBJWxn/87Q1sPK4+sQa8fLU5gXo4paaq4cOcQ4wR0VBHPGjKh+UlPCbA1nLXyEUX45qZ8J7/Ln4FPJE2TdzD0Z8MLSNQiykMMmSyOCiFfy84Rq60emYB2vD09KjYwsoIpeDcBDTElBbXxND72yhd9pC/1CMid/5HUMvAL27OtcIJDzNKpRPNqPOpyt2aPGz9QWIs9hQ9LiX5s8m9hjTUu/f7MyIatjjd+tSfQ3ufZxPpmJhTaBtZtKLUcfOCUqADuO+QoH8B9v6U+P0HV1GLQmtoNFTb3s74ivZgjES0qfK+8RdGgBbcCMSy8eBvh98+et1KIFqSe1KQPyXULBMTsIYnysIwiZBJYdI20vseV+wuJkcqGemehKjaAb9L57xZm3g2zX0bZ2xk/fU+bCo7TlnbW7JuF1YdURo/2Gw7VclDG1W7LOtas2LX4upifZ/23rzpsnY/ALfRgrcWP5hYmV9VxVOQA1fZvp9F2UNU+7d7xRyVm5wiLp3/0dlV7vdw1PMiZrbDAYzIVqEjRY2YU03sJhPnlwIPcZUG5ltL6S8XCxU1eYS5cjr34veBmXAvy7yN4ZjArIG0dfD/5UpBNlX1ZPoxJOwyqRi3wQWtOzd4oNKh0LkoTm8cwqgIfKhqqGOhwo71I+zXnMemTv2B2AUzABWyFztGgGULjDDzWYwJUVBTjKCn5K2QGMK1CQT7SzziOjo+BhAmqBjzuc3xYym2eedGeOIRJVyTwDw37iCMe4g5Vbnsb5ZBdxOAnMT7HU4DHpxWGuQ7GeiY30Cpbvzss55+5Km1YsbD5ea3NI9QNYIXol5apgSu9dZ8f8xS5dtHpido5BclDuLWY4lhik0tbJa07yJhH0BOyEut/GRbYTS6RfiTYWGMCkNpfSHi7HvdiTglEVHKZXaVhezH4kkXiIvKopYAlPusftpE4a5IZwvw1x/eLvoDIh/zpo9FiQInsTb2SAkKHV42XYBjpJDg4374XiVb3ws4qM0s9eSQ5HzsMU4OZJKuopFjBM+dAZEl8RUMx5uU2N486Kr141tVsGQfGjORYMCJAMsxELeNT4RmWjRcpdTGBwcx6XN9drWqPmJzcrGrH4+DRc7+n1w3kPZwu0BkNr6hQrqgo7JTB9A5kdJ/H7P4cWBMwsmuixAzJB3yrQpnGIq90lxAXLzDCdn1LPibsRt7rHNjgQBklRgPZ8vTbjXdgXrTWQsK5MdrXXQVPp0Rinq3frzZKJ0qD6Qhc40VzAraUXlob1gvkhK3vpmHgI6FRlQZNx6eRqkp0zy4AQlX813fAPtL3jMRaitGFFjo0zmErloC+h+YYdVQ6k4F/epxAoF0BmqEoKNTt6j4vQZNQ2BoqF9Vj53TOIoNmDiu9Xp15RkIgQIGcoLpfoIbenzpGUAtqFJp5W+LLnx38jHeECTJ/navKY1NWfN0sY1T8/pB8kIH3DU3DX+u6W3YwpypBMYOhbSxGjq84RZ84fWJow8pyHqn4S/9J15EcCMsXqrfwyd9mhiu3+rEo9pPpoJkdZqHjra4NvzFwuThNKy6hao/SlLw3ZADUcUp3w3SRVfW2rhl80zOgTYnKE0Hs2qp1J6H3xqPqIkvUDRMFDYyRbsFI3M9MEyovPk8rlw7/0a81cDVLmBsR2ze2pBuKb23fbeZC0uXoIvDppfTwIDxk1Oq2dGesGc+oJXWJLGkOha3CX+DUnzgAp9HGH9RsPZN63Hn4RMA5eSVhPHO+9RcRb/IOgtW31V1Q5IPGtoxPjC+MEJbVlIMYADd9aHYWUIQKopuPOHmoqSkubnAKnzgKHqgIOfW5RdAgotN6BN+O2ZYHkuemLnvQ8U9THVrS1RtLmKbcC7PeeDsYznvqzeg6VCNwmr0Yyx1wnLjyT84BZz3EJyCptD3yeueAyDWIs0L2qs/VQ3HUyqfrja0V1LdDzqAikeWuV4sc7RLIB69jEIBjCkyZedoUHqCrOvShVzyd73OdrJW0hPOuQv2qOoHDc9xVb6Yu6uq3Xqp2ZaH46A7lzevbxQEmfrzvAYSJuZ4WDk1Hz3QX1LVdiUK0EvlAGAYlG3Md30r7dcPN63yqBCIj25prpvZP0nI4+EgWoFG95V596CurXpKRBGRjQlHCvy5Ib/iW8nZJWwrET3mgd6mEhfP4KCuaLjopWs7h+MdXFdIv8dHQJgg1xi1eYqB0uDYjxwVmri0Sv5XKut/onqapC+FQiC2C1lvYJ9MVco6yDYsS3AANUfMtvtbYI2hfwZatiSsnoUeMZd34GVjkMMKA+XnjJpXgRW2SHTZplVowPmJsvXy6w3cfO1AK2dvtZEKTkC/TY9LFiKHCG0DnrMQdGm2lzlBHM9iEYynH2UcVMhUEjsc0oDBTgo2ZSQ1gzkAHeWeBXYFjYLuuf8yzTCy7/RFR81WDjXMbq2BOH5dURnxo6oivmxL3cKzKInlZkD31nvpHB9Kk7GfcfE1t+1V64b9LtgeJGlpRFxQCAqWJ5DoY77ski8gsOEOr2uywZaoO/NGa0X0y1pNQHBi3b2SUGNpcZxDT7rLbBf1FSnQ8guxGW3W+36BW0gBje4DOz6Ba6SVk0xiKgt+q2JOFyr4SYfnu+Ic1QZYIuwHBrgzr6UvOcSCzPTOo7D6IC4ISeS7zkl4h+2VoeHpnG/uWR3+ysNgPcOIXQbv0n4mr3BwQcdKJxgPSeyuP/z1Jjg4e9nUvoXegqQVIE30EHx5GHv+FAVUNTowYDJgyFhf5IvlYmEqRif6+WN1MkEJmDcQITx9FX23a4mxy1AQRsOHO/+eImX9l8EMJI3oPWzVXxSOeHU1dUWYr2uAA7AMb+vAEZSbU3qob9ibCyXeypEMpZ6863o6QPqlqGHZkuWABSTVNd4cOh9hv3qEpSx2Zy/DJMP6cItEmiBJ5PFqQnDEIt3NrA3COlOSgz43D7gpNFNJ5MBh4oFzhDPiglC2ypsNU4ISywY2erkyb1NC3Qh/IfWj0eDgZI4/ln8WPfBsT3meTjq1Uqt1E7Zl/qftqkx6aM9KueMCekSnMrcHj1CqTWWzEzPsZGcDe3Ue4Ws+XFYVxNbOFF8ezkvQGR6ZOtOLU2lQEnMBStx47vE6Pb7AYMBRj2OOfZXfisjJnpTfSNjo6sZ6qSvNxZNmDeS7Gk3yYyCk1HtKN2UnhMIjOXUzAqDv90lx9O/q/AT1ZMnit5XQe9wmQxnE/WSH0CqZ9/2Hy+Sfmpeg8RwsHI5Z8kC8H293m/LHVVM/BA7HaTJYg5Enk7M/xWpq0192ACfBai2LA/qrCjCr6Dh1BIMzMXINBmX96MJ5Hn2nxln/RXPFhwHxUmSV0EV2V0jm86/dxxuYSU1W7sVkEbN9EzkG0QFwPhyHKyb3t+Fj5WoUUTErcazE/N6EW6Lvp0d//SDPj7EV9UdJN+Amnf3Wwk3A0SlJ9Z00yvXZ7n3z70G47Hfsow8Wq1JXcfwnA+Yxa5mFsgV464KKP4T31wqIgzFPd3eCe3j5ory5fBF2hgCFyVFrLzI9eetNXvM7oQqyFgDo4CTp/hDV9NMX9JDHQ/nyHTLvZLNLF6ftn2OxjGm8+PqOwhxnPHWipkE/8wbtyri80Sr7pMNkQGMfo4ZYK9OcCC4ESVFFbLMIvlxSoRqWie0wxqnLfcLSXMSpMMQEJYDVObYsXIQNv4TGNwjq1kvT1UOkicTrG3IaBZ3XdScS3u8sgeZPVpOLkbiF940FjbCeNRINNvDbd01EPBrTCPpm12m43ze1bBB59Ia6Ovhnur/Nvx3IxwSWol+3H2qfCJR8df6aQf4v6WiONxkK+IqT4pKQrZK/LplgDI/PJZbOep8dtbV7oCr6CgfpWa8NczOkPx81iSHbsNhVSJBOtrLIMrL31LK9TqHqAbAHe0RLmmV806kRLDLNEhUEJfm9u0sxpkL93Zgd6rw+tqBfTMi59xqXHLXSHwSbSBl0EK0+loECOPtrl+/nsaFe197di4yUgoe4jKoAJDXc6DGDjrQOoFDWZJ9HXwt8xDrQP+7aRwWKWI1GF8s8O4KzxWBBcwnl3vnl1Oez3oh6Ea1vjR7/z7DDTrFtqU2W/KAEzAuXDNZ7MY73MF216dzdSbWmUp4lcm7keJfWaMHgut9x5C9mj66Z0lJ+yhsjVvyiWrfk1lzPOTdhG15Y7gQlXtacvI7qv/XNSscDwqkgwHT/gUsD5yB7LdRRvJxQGYINn9hTpodKFVSTPrtGvyQw+HlRFXIkodErAGu9Iy1YpfSPc3jkFh5CX3lPxv7aqjE/JAfTIpEjGb/H7MO0e2vsViSW1qa/Lmi4/n4DEI3g7lYrcanspDfEpKkdV1OjSLOy0BCUqVoECaB55vs06rXl4jqmLsPsFM/7vYJ0vrBhDCm/00A/H81l1uekJ/6Lml3Hb9+NKiLqATJmDpyzfYZFHumEjC662L0Bwkxi7E9U4cQA0XMVDuMYAIeLMPgQaMVOd8fmt5SflFIfuBoszeAw7ow5gXPE2Y/yBc/7jExARUf/BxIHQBF5Sn3i61w4z5xJdCyO1F1X3+3ax+JSvMeZ7S6QSKp1Fp/sjYz6Z+VgCZzibGeEoujryfMulH7Rai5kAft9ebcW50DyJr2uo2z97mTWIu45YsSnNSMrrNUuG1XsYBtD9TDYzQffKB87vWbkM4EbPAFgoBV4GQS+vtFDUqOFAoi1nTtmIOvg38N4hT2Sn8r8clmBCXspBlMBYTnrqFJGBT3wZOzAyJDre9dHH7+x7qaaKDOB4UQALD5ecS0DE4obubQEiuJZ0EpBVpLuYcce8Aa4PYd/V4DLDAJBYKQPCWTcrEaZ5HYbJi11Gd6hjGom1ii18VHYnG28NKpkz2UKVPxlhYSp8uZr367iOmoy7zsxehW9wzcy2zG0a80PBMCRQMb32hnaHeOR8fnNDzZhaNYhkOdDsBUZ3loDMa1YP0uS0cjUP3b/6DBlqmZOeNABDsLl5BI5QJups8uxAuWJdkUB/pO6Zax6tsg7fN5mjjDgMGngO+DPcKqiHIDbFIGudxtPTIyDi9SFMKBDcfdGQRv41q1AqmxgkVfJMnP8w/Bc7N9/TR6C7mGObFqFkIEom8sKi2xYqJLTCHK7cxzaZvqODo22c3wisBCP4HeAgcRbNPAsBkNRhSmD48dHupdBRw4mIvtS5oeF6zeT1KMCyhMnmhpkFAGWnGscoNkwvQ8ZM5lE/vgTHFYL99OuNxdFBxTEDd5v2qLR8y9WkXsWgG6kZNndFG+pO/UAkOCipqIhL3hq7cRSdrCq7YhUsTocEcnaFa6nVkhnSeRYUA1YO0z5itF9Sly3VlxYDw239TJJH6f3EUfYO5lb7bcFcz8Bp7Oo8QmnsUHOz/fagVUBtKEw1iT88j+aKkv8cscKNkMxjYr8344D1kFoZ7/td1W6LCNYN594301tUGRmFjAzeRg5vyoM1F6+bJZ/Q54jN/k8SFd3DxPTYaAUsivsBfgTn7Mx8H2SpPt4GOdYRnEJOH6jHM2p6SgB0gzIRq6fHxGMmSmqaPCmlfwxiuloaVIitLGN8wie2CDWhkzLoCJcODh7KIOAqbHEvXdUxaS4TTTs07Clzj/6GmVs9kiZDerMxEnhUB6QQPlcfqkG9882RqHoLiHGBoHfQuXIsAG8GTAtao2KVwRnvvam8jo1e312GQAKWEa4sUVEAMG4G6ckcONDwRcg1e2D3+ohXgY4UAWF8wHKQMrSnzCgfFpsxh+aHXMGtPQroQasRY4U6UdG0rz1Vjbka0MekOGRZQEvqQFlxseFor8zWFgHek3v29+WqN6gaK5gZOTOMZzpQIC1201LkMCXild3vWXSc5UX9xcFYfbRPzGFa1FDcPfPB/jUEq/FeGt419CI3YmBlVoHsa4KdcwQP5ZSwHHhFJ7/Ph/Rap/4vmG91eDwPP0lDfCDRCLszTqfzM71xpmiKi2HwS4WlqvGNwtvwF5Dqpn6KTq8ax00UMPkxDcZrEEEsIvHiUXXEphdb4GB4FymlPwBz4Gperqq5pW7TQ6/yNRhW8VT5NhuP0udlxo4gILq5ZxAZk8ZGh3g4CqxJlPKY7AQxupfUcVpWT5VItp1+30UqoyP4wWsRo3olRRgkWZZ2ZN6VC3OZFeXB8NbnUrSdikNptD1QiGuKkr8EmSR/AK9Rw+FF3s5uwuPbvHGiPeFOViltMK7AUaOsq9+x9cndk3iJEE5LKZRlWJbKOZweROzmPNVPkjE3K/TyA57Rs68TkZ3MR8akKpm7cFjnjPd/DdkWjgYoKHSr5Wu5ssoBYU4acRs5g2DHxUmdq8VXOXRbunD8QN0LhgkssgahcdoYsNvuXGUK/KXD/7oFb+VGdhqIn02veuM5bLudJOc2Ky0GMaG4W/xWBxIJcL7yliJOXOpx0AkBqUgzlDczmLT4iILXDxxtRR1oZa2JWFgiAb43obrJnG/TZC2KSK2wqOzRZTXavZZFMb1f3bXvVaNaK828w9TO610gk8JNf3gMfETzXXsbcvRGCG9JWQZ6+cDPqc4466Yo2RcKH+PILeKOqtnlbInR3MmBeGG3FH10yzkybuqEC2HSQwpA0An7d9+73BkDUTm30bZmoP/RGbgFN+GrCOfADgqr0WbI1a1okpFms8iHYw9hm0zUvlEMivBRxModrbJJ+9/p3jUdQQ9BCtQdxnOGrT5dzRUmw0593/mbRSdBg0nRvRZM5/E16m7ZHmDEtWhwvfdZCZ8J8M12W0yRMszXamWfQTwIZ4ayYktrnscQuWr8idp3PjT2eF/jmtdhIfcpMnb+IfZY2FebW6UY/AK3jP4u3Tu4zE4qlnQgLFbM19EBIsNf7KhjdbqQ/D6yiDb+NlEi2SKD+ivXVUK8ib0oBo366gXkR8ZxGjpJIDcEgZPa9TcYe0TIbiPl/rPUQDu3XBJ9X/GNq3FAUsKsll57DzaGMrjcT+gctp+9MLYXCq+sqP81eVQ0r9lt+gcQfZbACRbEjvlMskztZG8gbC8Qn9tt26Q7y7nDrbZq/LEz7kR6Jc6pg3N9rVX8Y5MJrGlML9p9lU4jbTkKqCveeZUJjHB03m2KRKR2TytoFkTXOLg7keU1s1lrPMQJpoOKLuAAC+y1HlJucU6ysB5hsXhvSPPLq5J7JtnqHKZ4vYjC4Vy8153QY+6780xDuGARsGbOs1WqzH0QS765rnSKEbbKlkO8oI/VDwUd0is13tKpqILu1mDJFNy/iJAWcvDgjxvusIT+PGz3ST/J9r9Mtfd0jpaGeiLYIqXc7DiHSS8TcjFVksi66PEkxW1z6ujbLLUGNNYnzOWpH8BZGK4bCK7iR+MbIv8ncDAz1u4StN3vTTzewr9IQjk9wxFxn+6N1ddKs0vffJiS08N3a4G1SVrlZ97Q/M+8G9fe5AP6d9/Qq4WRnORVhofPIKEdCr3llspUfE0oKIIYoByBRPh+bX1HLS3JWGJRhIvE1aW4NTd8ePi4Z+kXb+Z8snYfSNcqijhAgVsx4RCM54cXUiYkjeBmmC4ajOHrChoELscJJC7+9jjMjw5BagZKlgRMiSNYz7h7vvZIoQqbtQmspc0cUk1G/73iXtSpROl5wtLgQi0mW2Ex8i3WULhcggx6E1LMVHUsdc9GHI1PH3U2Ko0PyGdn9KdVOLm7FPBui0i9a0HpA60MsewVE4z8CAt5d401Gv6zXlIT5Ybit1VIA0FCs7wtvYreru1fUyW3oLAZ/+aTnZrOcYRNVA8spoRtlRoWflsRClFcgzkqiHOrf0/SVw+EpVaFlJ0g4Kxq1MMOmiQdpMNpte8lMMQqm6cIFXlnGbfJllysKDi+0JJMotkqgIxOSQgU9dn/lWkeVf8nUm3iwX2Nl3WDw9i6AUK3vBAbZZrcJpDQ/N64AVwjT07Jef30GSSmtNu2WlW7YoyW2FlWfZFQUwk867EdLYKk9VG6JgEnBiBxkY7LMo4YLQJJlAo9l/oTvJkSARDF/XtyAzM8O2t3eT/iXa6wDN3WewNmQHdPfsxChU/KtLG2Mn8i4ZqKdSlIaBZadxJmRzVS/o4yA65RTSViq60oa395Lqw0pzY4SipwE0SXXsKV+GZraGSkr/RW08wPRvqvSUkYBMA9lPx4m24az+IHmCbXA+0faxTRE9wuGeO06DIXa6QlKJ3puIyiuAVfPr736vzo2pBirS+Vxel3TMm3JKhz9o2ZoRvaFVpIkykb0Hcm4oHFBMcNSNj7/4GJt43ogonY2Vg4nsDQIWxAcorpXACzgBqQPjYsE/VUpXpwNManEru4NwMCFPkXvMoqvoeLN3qyu/N1eWEHttMD65v19l/0kH2mR35iv/FI+yjoHJ9gPMz67af3Mq/BoWXqu3rphiWMXVkmnPSEkpGpUI2h1MThideGFEOK6YZHPwYzMBvpNC7+ZHxPb7epfefGyIB4JzO9DTNEYnDLVVHdQyvOEVefrk6Uv5kTQYVYWWdqrdcIl7yljwwIWdfQ/y+2QB3eR/qxYObuYyB4gTbo2in4PzarU1sO9nETkmj9/AoxDA+JM3GMqQtJR4jtduHtnoCLxd1gQUscHRB/MoRYIEsP2pDZ9KvHgtlk1iTbWWbHhohwFEYX7y51fUV2nuUmnoUcqnWIQAAgl9LTVX+Bc0QGNEhChxHR4YjfE51PUdGfsSFE6ck7BL3/hTf9jLq4G1IafINxOLKeAtO7quulYvH5YOBc+zX7CrMgWnW47/jfRsWnJjYYoE7xMfWV2HN2iyIqLI";
     var FENCED = /* @__PURE__ */ new Map([[8217, "apostrophe"], [8260, "fraction slash"], [12539, "middle dot"]]);
     var NSM_MAX = 4;
@@ -24165,6 +25267,7 @@ var require_dist2 = __commonJS({
 var require_namehash = __commonJS({
   "node_modules/ethers/lib.commonjs/hash/namehash.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.dnsEncode = exports.namehash = exports.isValidName = exports.ensNormalize = void 0;
     var index_js_1 = require_crypto2();
@@ -24243,6 +25346,7 @@ var require_namehash = __commonJS({
 var require_message = __commonJS({
   "node_modules/ethers/lib.commonjs/hash/message.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.verifyMessage = exports.hashMessage = void 0;
     var index_js_1 = require_crypto2();
@@ -24272,6 +25376,7 @@ var require_message = __commonJS({
 var require_solidity = __commonJS({
   "node_modules/ethers/lib.commonjs/hash/solidity.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.solidityPackedSha256 = exports.solidityPackedKeccak256 = exports.solidityPacked = void 0;
     var index_js_1 = require_address2();
@@ -24358,6 +25463,7 @@ var require_solidity = __commonJS({
 var require_typed_data = __commonJS({
   "node_modules/ethers/lib.commonjs/hash/typed-data.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.verifyTypedData = exports.TypedDataEncoder = void 0;
     var index_js_1 = require_address2();
@@ -24843,6 +25949,7 @@ var require_typed_data = __commonJS({
 var require_hash = __commonJS({
   "node_modules/ethers/lib.commonjs/hash/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.verifyTypedData = exports.TypedDataEncoder = exports.solidityPackedSha256 = exports.solidityPackedKeccak256 = exports.solidityPacked = exports.verifyMessage = exports.hashMessage = exports.dnsEncode = exports.namehash = exports.isValidName = exports.ensNormalize = exports.id = exports.verifyAuthorization = exports.hashAuthorization = void 0;
     var authorization_js_1 = require_authorization2();
@@ -24900,6 +26007,7 @@ var require_hash = __commonJS({
 var require_fragments = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/fragments.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.StructFragment = exports.FunctionFragment = exports.FallbackFragment = exports.ConstructorFragment = exports.EventFragment = exports.ErrorFragment = exports.NamedFragment = exports.Fragment = exports.ParamType = void 0;
     var index_js_1 = require_utils2();
@@ -26166,6 +27274,7 @@ var require_fragments = __commonJS({
 var require_abi_coder = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/abi-coder.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.AbiCoder = void 0;
     var index_js_1 = require_utils2();
@@ -26358,6 +27467,7 @@ var require_abi_coder = __commonJS({
 var require_bytes32 = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/bytes32.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.decodeBytes32String = exports.encodeBytes32String = void 0;
     var index_js_1 = require_utils2();
@@ -26391,6 +27501,7 @@ var require_bytes32 = __commonJS({
 var require_interface = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/interface.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Interface = exports.Indexed = exports.ErrorDescription = exports.TransactionDescription = exports.LogDescription = exports.Result = exports.checkResultErrors = void 0;
     var index_js_1 = require_crypto2();
@@ -27424,6 +28535,7 @@ var require_interface = __commonJS({
 var require_abi = __commonJS({
   "node_modules/ethers/lib.commonjs/abi/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Typed = exports.Result = exports.TransactionDescription = exports.LogDescription = exports.ErrorDescription = exports.Interface = exports.Indexed = exports.checkResultErrors = exports.StructFragment = exports.ParamType = exports.NamedFragment = exports.FunctionFragment = exports.Fragment = exports.FallbackFragment = exports.EventFragment = exports.ErrorFragment = exports.ConstructorFragment = exports.encodeBytes32String = exports.decodeBytes32String = exports.AbiCoder = void 0;
     var abi_coder_js_1 = require_abi_coder();
@@ -27498,6 +28610,7 @@ var require_abi = __commonJS({
 var require_provider = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.TransactionResponse = exports.TransactionReceipt = exports.Log = exports.Block = exports.copyRequest = exports.FeeData = void 0;
     var index_js_1 = require_utils2();
@@ -28804,6 +29917,7 @@ var require_provider = __commonJS({
 var require_wrappers = __commonJS({
   "node_modules/ethers/lib.commonjs/contract/wrappers.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ContractEventPayload = exports.ContractUnknownEventPayload = exports.ContractTransactionResponse = exports.ContractTransactionReceipt = exports.UndecodedEventLog = exports.EventLog = void 0;
     var provider_js_1 = require_provider();
@@ -28974,6 +30088,7 @@ var require_wrappers = __commonJS({
 var require_contract = __commonJS({
   "node_modules/ethers/lib.commonjs/contract/contract.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Contract = exports.BaseContract = exports.resolveArgs = exports.copyOverrides = void 0;
     var index_js_1 = require_abi();
@@ -29867,6 +30982,7 @@ var require_contract = __commonJS({
 var require_factory = __commonJS({
   "node_modules/ethers/lib.commonjs/contract/factory.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ContractFactory = void 0;
     var index_js_1 = require_abi();
@@ -29982,6 +31098,7 @@ var require_factory = __commonJS({
 var require_contract2 = __commonJS({
   "node_modules/ethers/lib.commonjs/contract/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.UndecodedEventLog = exports.EventLog = exports.ContractTransactionResponse = exports.ContractTransactionReceipt = exports.ContractUnknownEventPayload = exports.ContractEventPayload = exports.ContractFactory = exports.Contract = exports.BaseContract = void 0;
     var contract_js_1 = require_contract();
@@ -30021,6 +31138,7 @@ var require_contract2 = __commonJS({
 var require_ens_resolver = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/ens-resolver.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.EnsResolver = exports.BasicMulticoinProviderPlugin = exports.MulticoinProviderPlugin = void 0;
     var index_js_1 = require_address2();
@@ -30463,6 +31581,7 @@ var require_ens_resolver = __commonJS({
 var require_format5 = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/format.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatTransactionResponse = exports.formatTransactionReceipt = exports.formatReceiptLog = exports.formatBlock = exports.formatLog = exports.formatUint256 = exports.formatHash = exports.formatData = exports.formatBoolean = exports.object = exports.arrayOf = exports.allowNull = void 0;
     var index_js_1 = require_address2();
@@ -30728,6 +31847,7 @@ var require_format5 = __commonJS({
 var require_plugins_network = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/plugins-network.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FetchUrlFeeDataNetworkPlugin = exports.FeeDataNetworkPlugin = exports.EnsPlugin = exports.GasCostPlugin = exports.NetworkPlugin = void 0;
     var properties_js_1 = require_properties3();
@@ -30908,6 +32028,7 @@ var require_plugins_network = __commonJS({
 var require_network = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/network.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Network = void 0;
     var index_js_1 = require_transaction2();
@@ -31239,6 +32360,7 @@ var require_network = __commonJS({
 var require_subscriber_polling = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/subscriber-polling.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.PollingEventSubscriber = exports.PollingTransactionSubscriber = exports.PollingOrphanSubscriber = exports.PollingBlockTagSubscriber = exports.OnBlockSubscriber = exports.PollingBlockSubscriber = exports.getPollingSubscriber = void 0;
     var index_js_1 = require_utils2();
@@ -31507,6 +32629,7 @@ var require_subscriber_polling = __commonJS({
 var require_abstract_provider = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/abstract-provider.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.AbstractProvider = exports.UnmanagedSubscriber = void 0;
     var index_js_1 = require_address2();
@@ -32856,6 +33979,7 @@ var require_abstract_provider = __commonJS({
 var require_abstract_signer = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/abstract-signer.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.VoidSigner = exports.AbstractSigner = void 0;
     var index_js_1 = require_address2();
@@ -33056,6 +34180,7 @@ var require_abstract_signer = __commonJS({
 var require_community = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/community.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.showThrottleMessage = void 0;
     var shown = /* @__PURE__ */ new Set();
@@ -33085,6 +34210,7 @@ var require_community = __commonJS({
 var require_subscriber_filterid = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/subscriber-filterid.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FilterIdPendingSubscriber = exports.FilterIdEventSubscriber = exports.FilterIdSubscriber = void 0;
     var index_js_1 = require_utils2();
@@ -33246,6 +34372,7 @@ var require_subscriber_filterid = __commonJS({
 var require_provider_jsonrpc = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider-jsonrpc.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.JsonRpcProvider = exports.JsonRpcApiPollingProvider = exports.JsonRpcApiProvider = exports.JsonRpcSigner = void 0;
     var index_js_1 = require_abi();
@@ -34124,6 +35251,7 @@ var require_provider_jsonrpc = __commonJS({
 var require_provider_ankr = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider-ankr.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.AnkrProvider = void 0;
     var index_js_1 = require_utils2();
@@ -34237,6 +35365,7 @@ var require_provider_ankr = __commonJS({
 var require_provider_alchemy = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider-alchemy.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.AlchemyProvider = void 0;
     var index_js_1 = require_utils2();
@@ -34358,6 +35487,7 @@ var require_provider_alchemy = __commonJS({
 var require_provider_chainstack = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider-chainstack.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ChainstackProvider = void 0;
     var index_js_1 = require_utils2();
@@ -34447,6 +35577,7 @@ var require_provider_chainstack = __commonJS({
 var require_provider_cloudflare = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider-cloudflare.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CloudflareProvider = void 0;
     var index_js_1 = require_utils2();
@@ -34470,6 +35601,7 @@ var require_provider_cloudflare = __commonJS({
 var require_provider_etherscan = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider-etherscan.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.EtherscanProvider = exports.EtherscanPlugin = void 0;
     var index_js_1 = require_abi();
@@ -35010,6 +36142,7 @@ var require_provider_etherscan = __commonJS({
 var require_constants2 = __commonJS({
   "node_modules/ws/lib/constants.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = {
       BINARY_TYPES: ["nodebuffer", "arraybuffer", "fragments"],
       EMPTY_BUFFER: Buffer.alloc(0),
@@ -35028,6 +36161,7 @@ var require_constants2 = __commonJS({
 var require_buffer_util = __commonJS({
   "node_modules/ws/lib/buffer-util.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var { EMPTY_BUFFER } = require_constants2();
     var FastBuffer = Buffer[Symbol.species];
     function concat2(list, totalLength) {
@@ -35103,6 +36237,7 @@ var require_buffer_util = __commonJS({
 var require_limiter = __commonJS({
   "node_modules/ws/lib/limiter.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var kDone = Symbol("kDone");
     var kRun = Symbol("kRun");
     var Limiter = class {
@@ -35153,6 +36288,7 @@ var require_limiter = __commonJS({
 var require_permessage_deflate = __commonJS({
   "node_modules/ws/lib/permessage-deflate.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var zlib = __require("zlib");
     var bufferUtil = require_buffer_util();
     var Limiter = require_limiter();
@@ -35532,6 +36668,7 @@ var require_permessage_deflate = __commonJS({
 var require_validation3 = __commonJS({
   "node_modules/ws/lib/validation.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var { isUtf8 } = __require("buffer");
     var tokenChars = [
       0,
@@ -35728,6 +36865,7 @@ var require_validation3 = __commonJS({
 var require_receiver = __commonJS({
   "node_modules/ws/lib/receiver.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var { Writable } = __require("stream");
     var PerMessageDeflate = require_permessage_deflate();
     var {
@@ -36318,6 +37456,7 @@ var require_receiver = __commonJS({
 var require_sender = __commonJS({
   "node_modules/ws/lib/sender.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var { Duplex } = __require("stream");
     var { randomFillSync } = __require("crypto");
     var PerMessageDeflate = require_permessage_deflate();
@@ -36736,6 +37875,7 @@ var require_sender = __commonJS({
 var require_event_target = __commonJS({
   "node_modules/ws/lib/event-target.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var { kForOnEventAttribute, kListener } = require_constants2();
     var kCode = Symbol("kCode");
     var kData = Symbol("kData");
@@ -36965,6 +38105,7 @@ var require_event_target = __commonJS({
 var require_extension = __commonJS({
   "node_modules/ws/lib/extension.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var { tokenChars } = require_validation3();
     function push(dest, name, elem) {
       if (dest[name] === void 0) dest[name] = [elem];
@@ -37118,6 +38259,7 @@ var require_extension = __commonJS({
 var require_websocket = __commonJS({
   "node_modules/ws/lib/websocket.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var EventEmitter = __require("events");
     var https = __require("https");
     var http = __require("http");
@@ -37977,6 +39119,7 @@ var require_websocket = __commonJS({
 var require_stream = __commonJS({
   "node_modules/ws/lib/stream.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var { Duplex } = __require("stream");
     function emitClose(stream) {
       stream.emit("close");
@@ -38074,6 +39217,7 @@ var require_stream = __commonJS({
 var require_subprotocol = __commonJS({
   "node_modules/ws/lib/subprotocol.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var { tokenChars } = require_validation3();
     function parse3(header) {
       const protocols = /* @__PURE__ */ new Set();
@@ -38119,6 +39263,7 @@ var require_subprotocol = __commonJS({
 var require_websocket_server = __commonJS({
   "node_modules/ws/lib/websocket-server.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var EventEmitter = __require("events");
     var http = __require("http");
     var { Duplex } = __require("stream");
@@ -38506,6 +39651,7 @@ var require_websocket_server = __commonJS({
 var require_ws = __commonJS({
   "node_modules/ws/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var WebSocket2 = require_websocket();
     WebSocket2.createWebSocketStream = require_stream();
     WebSocket2.Server = require_websocket_server();
@@ -38521,6 +39667,7 @@ var require_ws = __commonJS({
 var require_ws2 = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/ws.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.WebSocket = void 0;
     var ws_1 = require_ws();
@@ -38534,6 +39681,7 @@ var require_ws2 = __commonJS({
 var require_provider_socket = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider-socket.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.SocketProvider = exports.SocketEventSubscriber = exports.SocketPendingSubscriber = exports.SocketBlockSubscriber = exports.SocketSubscriber = void 0;
     var abstract_provider_js_1 = require_abstract_provider();
@@ -38804,6 +39952,7 @@ var require_provider_socket = __commonJS({
 var require_provider_websocket = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider-websocket.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.WebSocketProvider = void 0;
     var ws_js_1 = require_ws2();
@@ -38862,6 +40011,7 @@ var require_provider_websocket = __commonJS({
 var require_provider_infura = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider-infura.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.InfuraProvider = exports.InfuraWebSocketProvider = void 0;
     var index_js_1 = require_utils2();
@@ -39027,6 +40177,7 @@ var require_provider_infura = __commonJS({
 var require_provider_quicknode = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider-quicknode.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.QuickNodeProvider = void 0;
     var index_js_1 = require_utils2();
@@ -39132,6 +40283,7 @@ var require_provider_quicknode = __commonJS({
 var require_provider_fallback = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider-fallback.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FallbackProvider = void 0;
     var index_js_1 = require_utils2();
@@ -39694,6 +40846,7 @@ var require_provider_fallback = __commonJS({
 var require_default_provider = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/default-provider.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getDefaultProvider = void 0;
     var index_js_1 = require_utils2();
@@ -39822,6 +40975,7 @@ var require_default_provider = __commonJS({
 var require_signer_noncemanager = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/signer-noncemanager.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.NonceManager = void 0;
     var index_js_1 = require_utils2();
@@ -39898,6 +41052,7 @@ var require_signer_noncemanager = __commonJS({
 var require_provider_browser = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider-browser.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.BrowserProvider = void 0;
     var index_js_1 = require_utils2();
@@ -40081,6 +41236,7 @@ var require_provider_browser = __commonJS({
 var require_provider_blockscout = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider-blockscout.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.BlockscoutProvider = void 0;
     var index_js_1 = require_utils2();
@@ -40196,6 +41352,7 @@ var require_provider_blockscout = __commonJS({
 var require_provider_pocket = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider-pocket.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.PocketProvider = void 0;
     var index_js_1 = require_utils2();
@@ -40288,6 +41445,7 @@ var require_provider_pocket = __commonJS({
 var require_provider_ipcsocket = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/provider-ipcsocket.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.IpcSocketProvider = void 0;
     var net_1 = __require("net");
@@ -40358,6 +41516,7 @@ var require_provider_ipcsocket = __commonJS({
 var require_providers = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.SocketEventSubscriber = exports.SocketPendingSubscriber = exports.SocketBlockSubscriber = exports.SocketSubscriber = exports.WebSocketProvider = exports.SocketProvider = exports.IpcSocketProvider = exports.QuickNodeProvider = exports.PocketProvider = exports.InfuraWebSocketProvider = exports.InfuraProvider = exports.EtherscanPlugin = exports.EtherscanProvider = exports.ChainstackProvider = exports.CloudflareProvider = exports.AnkrProvider = exports.BlockscoutProvider = exports.AlchemyProvider = exports.BrowserProvider = exports.JsonRpcSigner = exports.JsonRpcProvider = exports.JsonRpcApiProvider = exports.FallbackProvider = exports.copyRequest = exports.TransactionResponse = exports.TransactionReceipt = exports.Log = exports.FeeData = exports.Block = exports.FetchUrlFeeDataNetworkPlugin = exports.FeeDataNetworkPlugin = exports.EnsPlugin = exports.GasCostPlugin = exports.NetworkPlugin = exports.NonceManager = exports.Network = exports.MulticoinProviderPlugin = exports.EnsResolver = exports.getDefaultProvider = exports.showThrottleMessage = exports.VoidSigner = exports.AbstractSigner = exports.UnmanagedSubscriber = exports.AbstractProvider = void 0;
     var abstract_provider_js_1 = require_abstract_provider();
@@ -40524,6 +41683,7 @@ var require_providers = __commonJS({
 var require_base_wallet = __commonJS({
   "node_modules/ethers/lib.commonjs/wallet/base-wallet.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.BaseWallet = void 0;
     var index_js_1 = require_address2();
@@ -40646,6 +41806,7 @@ var require_base_wallet = __commonJS({
 var require_decode_owl = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/decode-owl.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.decodeOwl = exports.decode = void 0;
     var index_js_1 = require_utils2();
@@ -40698,6 +41859,7 @@ var require_decode_owl = __commonJS({
 var require_wordlist = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/wordlist.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Wordlist = void 0;
     var index_js_1 = require_utils2();
@@ -40744,6 +41906,7 @@ var require_wordlist = __commonJS({
 var require_wordlist_owl = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/wordlist-owl.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.WordlistOwl = void 0;
     var index_js_1 = require_hash();
@@ -40804,6 +41967,7 @@ var require_wordlist_owl = __commonJS({
 var require_lang_en = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/lang-en.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.LangEn = void 0;
     var wordlist_owl_js_1 = require_wordlist_owl();
@@ -40841,6 +42005,7 @@ var require_lang_en = __commonJS({
 var require_mnemonic = __commonJS({
   "node_modules/ethers/lib.commonjs/wallet/mnemonic.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Mnemonic = void 0;
     var index_js_1 = require_crypto2();
@@ -41002,6 +42167,7 @@ var require_mnemonic = __commonJS({
 var require_aes = __commonJS({
   "node_modules/aes-js/lib.commonjs/aes.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __classPrivateFieldGet6 = exports && exports.__classPrivateFieldGet || function(receiver, state, kind, f2) {
       if (kind === "a" && !f2) throw new TypeError("Private accessor was defined without a getter");
       if (typeof state === "function" ? receiver !== state || !f2 : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
@@ -41172,6 +42338,7 @@ var require_aes = __commonJS({
 var require_mode = __commonJS({
   "node_modules/aes-js/lib.commonjs/mode.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ModeOfOperation = void 0;
     var aes_js_1 = require_aes();
@@ -41194,6 +42361,7 @@ var require_mode = __commonJS({
 var require_mode_cbc = __commonJS({
   "node_modules/aes-js/lib.commonjs/mode-cbc.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __classPrivateFieldSet5 = exports && exports.__classPrivateFieldSet || function(receiver, state, value, kind, f2) {
       if (kind === "m") throw new TypeError("Private method is not writable");
       if (kind === "a" && !f2) throw new TypeError("Private accessor was defined without a setter");
@@ -41266,6 +42434,7 @@ var require_mode_cbc = __commonJS({
 var require_mode_cfb = __commonJS({
   "node_modules/aes-js/lib.commonjs/mode-cfb.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __classPrivateFieldSet5 = exports && exports.__classPrivateFieldSet || function(receiver, state, value, kind, f2) {
       if (kind === "m") throw new TypeError("Private method is not writable");
       if (kind === "a" && !f2) throw new TypeError("Private accessor was defined without a setter");
@@ -41353,6 +42522,7 @@ var require_mode_cfb = __commonJS({
 var require_mode_ctr = __commonJS({
   "node_modules/aes-js/lib.commonjs/mode-ctr.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __classPrivateFieldSet5 = exports && exports.__classPrivateFieldSet || function(receiver, state, value, kind, f2) {
       if (kind === "m") throw new TypeError("Private method is not writable");
       if (kind === "a" && !f2) throw new TypeError("Private accessor was defined without a setter");
@@ -41443,6 +42613,7 @@ var require_mode_ctr = __commonJS({
 var require_mode_ecb = __commonJS({
   "node_modules/aes-js/lib.commonjs/mode-ecb.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ECB = void 0;
     var mode_js_1 = require_mode();
@@ -41479,6 +42650,7 @@ var require_mode_ecb = __commonJS({
 var require_mode_ofb = __commonJS({
   "node_modules/aes-js/lib.commonjs/mode-ofb.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __classPrivateFieldSet5 = exports && exports.__classPrivateFieldSet || function(receiver, state, value, kind, f2) {
       if (kind === "m") throw new TypeError("Private method is not writable");
       if (kind === "a" && !f2) throw new TypeError("Private accessor was defined without a setter");
@@ -41547,6 +42719,7 @@ var require_mode_ofb = __commonJS({
 var require_padding = __commonJS({
   "node_modules/aes-js/lib.commonjs/padding.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.pkcs7Strip = exports.pkcs7Pad = void 0;
     function pkcs7Pad2(data) {
@@ -41583,6 +42756,7 @@ var require_padding = __commonJS({
 var require_lib = __commonJS({
   "node_modules/aes-js/lib.commonjs/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.pkcs7Strip = exports.pkcs7Pad = exports.OFB = exports.ECB = exports.CTR = exports.CFB = exports.CBC = exports.ModeOfOperation = exports.AES = void 0;
     var aes_js_1 = require_aes();
@@ -41627,6 +42801,7 @@ var require_lib = __commonJS({
 var require_utils5 = __commonJS({
   "node_modules/ethers/lib.commonjs/wallet/utils.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.spelunk = exports.getPassword = exports.zpad = exports.looseArrayify = void 0;
     var index_js_1 = require_utils2();
@@ -41718,6 +42893,7 @@ var require_utils5 = __commonJS({
 var require_json_keystore = __commonJS({
   "node_modules/ethers/lib.commonjs/wallet/json-keystore.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.encryptKeystoreJson = exports.encryptKeystoreJsonSync = exports.decryptKeystoreJson = exports.decryptKeystoreJsonSync = exports.isKeystoreJson = void 0;
     var aes_js_1 = require_lib();
@@ -41953,6 +43129,7 @@ var require_json_keystore = __commonJS({
 var require_hdwallet = __commonJS({
   "node_modules/ethers/lib.commonjs/wallet/hdwallet.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getIndexedAccountPath = exports.getAccountPath = exports.HDNodeVoidWallet = exports.HDNodeWallet = exports.defaultPath = void 0;
     var index_js_1 = require_crypto2();
@@ -42405,6 +43582,7 @@ var require_hdwallet = __commonJS({
 var require_json_crowdsale = __commonJS({
   "node_modules/ethers/lib.commonjs/wallet/json-crowdsale.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.decryptCrowdsaleJson = exports.isCrowdsaleJson = void 0;
     var aes_js_1 = require_lib();
@@ -42449,6 +43627,7 @@ var require_json_crowdsale = __commonJS({
 var require_wallet = __commonJS({
   "node_modules/ethers/lib.commonjs/wallet/wallet.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Wallet = void 0;
     var index_js_1 = require_crypto2();
@@ -42593,6 +43772,7 @@ var require_wallet = __commonJS({
 var require_wallet2 = __commonJS({
   "node_modules/ethers/lib.commonjs/wallet/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Wallet = exports.Mnemonic = exports.encryptKeystoreJsonSync = exports.encryptKeystoreJson = exports.decryptKeystoreJson = exports.decryptKeystoreJsonSync = exports.isKeystoreJson = exports.decryptCrowdsaleJson = exports.isCrowdsaleJson = exports.HDNodeVoidWallet = exports.HDNodeWallet = exports.getIndexedAccountPath = exports.getAccountPath = exports.defaultPath = exports.BaseWallet = void 0;
     var base_wallet_js_1 = require_base_wallet();
@@ -42653,6 +43833,7 @@ var require_wallet2 = __commonJS({
 var require_bit_reader = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/bit-reader.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.decodeBits = void 0;
     var Base64 = ")!@#$%^&*(ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_";
@@ -42685,6 +43866,7 @@ var require_bit_reader = __commonJS({
 var require_decode_owla = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/decode-owla.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.decodeOwlA = void 0;
     var index_js_1 = require_utils2();
@@ -42718,6 +43900,7 @@ var require_decode_owla = __commonJS({
 var require_wordlist_owla = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/wordlist-owla.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.WordlistOwlA = void 0;
     var wordlist_owl_js_1 = require_wordlist_owl();
@@ -42753,6 +43936,7 @@ var require_wordlist_owla = __commonJS({
 var require_lang_cz = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/lang-cz.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.LangCz = void 0;
     var wordlist_owl_js_1 = require_wordlist_owl();
@@ -42790,6 +43974,7 @@ var require_lang_cz = __commonJS({
 var require_lang_es = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/lang-es.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.LangEs = void 0;
     var wordlist_owla_js_1 = require_wordlist_owla();
@@ -42828,6 +44013,7 @@ var require_lang_es = __commonJS({
 var require_lang_fr = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/lang-fr.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.LangFr = void 0;
     var wordlist_owla_js_1 = require_wordlist_owla();
@@ -42866,6 +44052,7 @@ var require_lang_fr = __commonJS({
 var require_lang_ja = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/lang-ja.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.LangJa = void 0;
     var index_js_1 = require_hash();
@@ -43007,6 +44194,7 @@ var require_lang_ja = __commonJS({
 var require_lang_ko = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/lang-ko.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.LangKo = void 0;
     var index_js_1 = require_hash();
@@ -43095,6 +44283,7 @@ var require_lang_ko = __commonJS({
 var require_lang_it = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/lang-it.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.LangIt = void 0;
     var wordlist_owl_js_1 = require_wordlist_owl();
@@ -43132,6 +44321,7 @@ var require_lang_it = __commonJS({
 var require_lang_pt = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/lang-pt.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.LangPt = void 0;
     var wordlist_owl_js_1 = require_wordlist_owl();
@@ -43169,6 +44359,7 @@ var require_lang_pt = __commonJS({
 var require_lang_zh = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/lang-zh.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.LangZh = void 0;
     var index_js_1 = require_hash();
@@ -43263,6 +44454,7 @@ var require_lang_zh = __commonJS({
 var require_wordlists = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/wordlists.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wordlists = void 0;
     var lang_cz_js_1 = require_lang_cz();
@@ -43293,6 +44485,7 @@ var require_wordlists = __commonJS({
 var require_wordlists2 = __commonJS({
   "node_modules/ethers/lib.commonjs/wordlists/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wordlists = exports.WordlistOwlA = exports.WordlistOwl = exports.LangEn = exports.Wordlist = void 0;
     var wordlist_js_1 = require_wordlist();
@@ -43322,6 +44515,7 @@ var require_wordlists2 = __commonJS({
 var require_ethers = __commonJS({
   "node_modules/ethers/lib.commonjs/ethers.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ripemd160 = exports.keccak256 = exports.randomBytes = exports.computeHmac = exports.UndecodedEventLog = exports.EventLog = exports.ContractUnknownEventPayload = exports.ContractTransactionResponse = exports.ContractTransactionReceipt = exports.ContractEventPayload = exports.ContractFactory = exports.Contract = exports.BaseContract = exports.MessagePrefix = exports.EtherSymbol = exports.ZeroHash = exports.N = exports.MaxInt256 = exports.MinInt256 = exports.MaxUint256 = exports.WeiPerEther = exports.ZeroAddress = exports.resolveAddress = exports.isAddress = exports.isAddressable = exports.getCreate2Address = exports.getCreateAddress = exports.getIcapAddress = exports.getAddress = exports.Typed = exports.TransactionDescription = exports.Result = exports.LogDescription = exports.Interface = exports.Indexed = exports.ErrorDescription = exports.checkResultErrors = exports.StructFragment = exports.ParamType = exports.NamedFragment = exports.FunctionFragment = exports.FallbackFragment = exports.Fragment = exports.EventFragment = exports.ErrorFragment = exports.ConstructorFragment = exports.AbiCoder = exports.encodeBytes32String = exports.decodeBytes32String = exports.version = void 0;
     exports.WebSocketProvider = exports.SocketProvider = exports.IpcSocketProvider = exports.QuickNodeProvider = exports.PocketProvider = exports.InfuraWebSocketProvider = exports.InfuraProvider = exports.EtherscanProvider = exports.CloudflareProvider = exports.ChainstackProvider = exports.BlockscoutProvider = exports.AnkrProvider = exports.AlchemyProvider = exports.BrowserProvider = exports.JsonRpcSigner = exports.JsonRpcProvider = exports.JsonRpcApiProvider = exports.FallbackProvider = exports.AbstractProvider = exports.VoidSigner = exports.NonceManager = exports.AbstractSigner = exports.TransactionResponse = exports.TransactionReceipt = exports.Log = exports.FeeData = exports.Block = exports.getDefaultProvider = exports.verifyTypedData = exports.TypedDataEncoder = exports.solidityPackedSha256 = exports.solidityPackedKeccak256 = exports.solidityPacked = exports.verifyMessage = exports.hashMessage = exports.verifyAuthorization = exports.hashAuthorization = exports.dnsEncode = exports.namehash = exports.isValidName = exports.ensNormalize = exports.id = exports.SigningKey = exports.Signature = exports.lock = exports.scryptSync = exports.scrypt = exports.pbkdf2 = exports.sha512 = exports.sha256 = void 0;
@@ -43925,6 +45119,7 @@ var require_ethers = __commonJS({
 var require_lib2 = __commonJS({
   "node_modules/ethers/lib.commonjs/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ethers = void 0;
     var tslib_1 = (init_tslib_es6(), __toCommonJS(tslib_es6_exports));
@@ -43938,6 +45133,7 @@ var require_lib2 = __commonJS({
 var require_walletGeneration = __commonJS({
   "dist/utils/walletGeneration.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.generateEvmWallet = generateEvmWallet;
     function generateEvmWallet() {
@@ -43964,6 +45160,7 @@ var require_walletGeneration = __commonJS({
 var require_slippage = __commonJS({
   "dist/utils/slippage.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toBackendSlippage = toBackendSlippage;
     function toBackendSlippage(percent) {
@@ -43975,6 +45172,7 @@ var require_slippage = __commonJS({
 // node_modules/delayed-stream/lib/delayed_stream.js
 var require_delayed_stream = __commonJS({
   "node_modules/delayed-stream/lib/delayed_stream.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     var Stream = __require("stream").Stream;
     var util2 = __require("util");
     module.exports = DelayedStream;
@@ -44066,6 +45264,7 @@ var require_delayed_stream = __commonJS({
 // node_modules/combined-stream/lib/combined_stream.js
 var require_combined_stream = __commonJS({
   "node_modules/combined-stream/lib/combined_stream.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     var util2 = __require("util");
     var Stream = __require("stream").Stream;
     var DelayedStream = require_delayed_stream();
@@ -52760,6 +53959,7 @@ var require_db = __commonJS({
 // node_modules/mime-db/index.js
 var require_mime_db = __commonJS({
   "node_modules/mime-db/index.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = require_db();
   }
 });
@@ -52768,6 +53968,7 @@ var require_mime_db = __commonJS({
 var require_mime_types = __commonJS({
   "node_modules/mime-types/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var db = require_mime_db();
     var extname = __require("path").extname;
     var EXTRACT_TYPE_REGEXP = /^\s*([^;\s]*)(?:;|\s|$)/;
@@ -52857,6 +54058,7 @@ var require_mime_types = __commonJS({
 // node_modules/asynckit/lib/defer.js
 var require_defer = __commonJS({
   "node_modules/asynckit/lib/defer.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = defer;
     function defer(fn) {
       var nextTick3 = typeof setImmediate == "function" ? setImmediate : typeof process == "object" && typeof process.nextTick == "function" ? process.nextTick : null;
@@ -52872,6 +54074,7 @@ var require_defer = __commonJS({
 // node_modules/asynckit/lib/async.js
 var require_async = __commonJS({
   "node_modules/asynckit/lib/async.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     var defer = require_defer();
     module.exports = async;
     function async(callback) {
@@ -52895,6 +54098,7 @@ var require_async = __commonJS({
 // node_modules/asynckit/lib/abort.js
 var require_abort = __commonJS({
   "node_modules/asynckit/lib/abort.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = abort;
     function abort(state) {
       Object.keys(state.jobs).forEach(clean2.bind(state));
@@ -52911,6 +54115,7 @@ var require_abort = __commonJS({
 // node_modules/asynckit/lib/iterate.js
 var require_iterate = __commonJS({
   "node_modules/asynckit/lib/iterate.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     var async = require_async();
     var abort = require_abort();
     module.exports = iterate;
@@ -52944,6 +54149,7 @@ var require_iterate = __commonJS({
 // node_modules/asynckit/lib/state.js
 var require_state = __commonJS({
   "node_modules/asynckit/lib/state.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = state;
     function state(list, sortMethod) {
       var isNamedList = !Array.isArray(list), initState = {
@@ -52966,6 +54172,7 @@ var require_state = __commonJS({
 // node_modules/asynckit/lib/terminator.js
 var require_terminator = __commonJS({
   "node_modules/asynckit/lib/terminator.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     var abort = require_abort();
     var async = require_async();
     module.exports = terminator;
@@ -52983,6 +54190,7 @@ var require_terminator = __commonJS({
 // node_modules/asynckit/parallel.js
 var require_parallel = __commonJS({
   "node_modules/asynckit/parallel.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     var iterate = require_iterate();
     var initState = require_state();
     var terminator = require_terminator();
@@ -53010,6 +54218,7 @@ var require_parallel = __commonJS({
 // node_modules/asynckit/serialOrdered.js
 var require_serialOrdered = __commonJS({
   "node_modules/asynckit/serialOrdered.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     var iterate = require_iterate();
     var initState = require_state();
     var terminator = require_terminator();
@@ -53044,6 +54253,7 @@ var require_serialOrdered = __commonJS({
 // node_modules/asynckit/serial.js
 var require_serial = __commonJS({
   "node_modules/asynckit/serial.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     var serialOrdered = require_serialOrdered();
     module.exports = serial;
     function serial(list, iterator, callback) {
@@ -53055,6 +54265,7 @@ var require_serial = __commonJS({
 // node_modules/asynckit/index.js
 var require_asynckit = __commonJS({
   "node_modules/asynckit/index.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = {
       parallel: require_parallel(),
       serial: require_serial(),
@@ -53067,6 +54278,7 @@ var require_asynckit = __commonJS({
 var require_es_object_atoms = __commonJS({
   "node_modules/es-object-atoms/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = Object;
   }
 });
@@ -53075,6 +54287,7 @@ var require_es_object_atoms = __commonJS({
 var require_es_errors = __commonJS({
   "node_modules/es-errors/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = Error;
   }
 });
@@ -53083,6 +54296,7 @@ var require_es_errors = __commonJS({
 var require_eval = __commonJS({
   "node_modules/es-errors/eval.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = EvalError;
   }
 });
@@ -53091,6 +54305,7 @@ var require_eval = __commonJS({
 var require_range = __commonJS({
   "node_modules/es-errors/range.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = RangeError;
   }
 });
@@ -53099,6 +54314,7 @@ var require_range = __commonJS({
 var require_ref3 = __commonJS({
   "node_modules/es-errors/ref.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = ReferenceError;
   }
 });
@@ -53107,6 +54323,7 @@ var require_ref3 = __commonJS({
 var require_syntax = __commonJS({
   "node_modules/es-errors/syntax.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = SyntaxError;
   }
 });
@@ -53115,6 +54332,7 @@ var require_syntax = __commonJS({
 var require_type = __commonJS({
   "node_modules/es-errors/type.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = TypeError;
   }
 });
@@ -53123,6 +54341,7 @@ var require_type = __commonJS({
 var require_uri3 = __commonJS({
   "node_modules/es-errors/uri.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = URIError;
   }
 });
@@ -53131,6 +54350,7 @@ var require_uri3 = __commonJS({
 var require_abs = __commonJS({
   "node_modules/math-intrinsics/abs.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = Math.abs;
   }
 });
@@ -53139,6 +54359,7 @@ var require_abs = __commonJS({
 var require_floor = __commonJS({
   "node_modules/math-intrinsics/floor.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = Math.floor;
   }
 });
@@ -53147,6 +54368,7 @@ var require_floor = __commonJS({
 var require_max = __commonJS({
   "node_modules/math-intrinsics/max.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = Math.max;
   }
 });
@@ -53155,6 +54377,7 @@ var require_max = __commonJS({
 var require_min = __commonJS({
   "node_modules/math-intrinsics/min.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = Math.min;
   }
 });
@@ -53163,6 +54386,7 @@ var require_min = __commonJS({
 var require_pow = __commonJS({
   "node_modules/math-intrinsics/pow.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = Math.pow;
   }
 });
@@ -53171,6 +54395,7 @@ var require_pow = __commonJS({
 var require_round = __commonJS({
   "node_modules/math-intrinsics/round.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = Math.round;
   }
 });
@@ -53179,6 +54404,7 @@ var require_round = __commonJS({
 var require_isNaN = __commonJS({
   "node_modules/math-intrinsics/isNaN.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = Number.isNaN || function isNaN2(a) {
       return a !== a;
     };
@@ -53189,6 +54415,7 @@ var require_isNaN = __commonJS({
 var require_sign = __commonJS({
   "node_modules/math-intrinsics/sign.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var $isNaN = require_isNaN();
     module.exports = function sign(number4) {
       if ($isNaN(number4) || number4 === 0) {
@@ -53203,6 +54430,7 @@ var require_sign = __commonJS({
 var require_gOPD = __commonJS({
   "node_modules/gopd/gOPD.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = Object.getOwnPropertyDescriptor;
   }
 });
@@ -53211,6 +54439,7 @@ var require_gOPD = __commonJS({
 var require_gopd = __commonJS({
   "node_modules/gopd/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var $gOPD = require_gOPD();
     if ($gOPD) {
       try {
@@ -53227,6 +54456,7 @@ var require_gopd = __commonJS({
 var require_es_define_property = __commonJS({
   "node_modules/es-define-property/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var $defineProperty = Object.defineProperty || false;
     if ($defineProperty) {
       try {
@@ -53243,6 +54473,7 @@ var require_es_define_property = __commonJS({
 var require_shams = __commonJS({
   "node_modules/has-symbols/shams.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = function hasSymbols() {
       if (typeof Symbol !== "function" || typeof Object.getOwnPropertySymbols !== "function") {
         return false;
@@ -53298,6 +54529,7 @@ var require_shams = __commonJS({
 var require_has_symbols = __commonJS({
   "node_modules/has-symbols/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var origSymbol = typeof Symbol !== "undefined" && Symbol;
     var hasSymbolSham = require_shams();
     module.exports = function hasNativeSymbols() {
@@ -53322,6 +54554,7 @@ var require_has_symbols = __commonJS({
 var require_Reflect_getPrototypeOf = __commonJS({
   "node_modules/get-proto/Reflect.getPrototypeOf.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = typeof Reflect !== "undefined" && Reflect.getPrototypeOf || null;
   }
 });
@@ -53330,6 +54563,7 @@ var require_Reflect_getPrototypeOf = __commonJS({
 var require_Object_getPrototypeOf = __commonJS({
   "node_modules/get-proto/Object.getPrototypeOf.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var $Object = require_es_object_atoms();
     module.exports = $Object.getPrototypeOf || null;
   }
@@ -53339,6 +54573,7 @@ var require_Object_getPrototypeOf = __commonJS({
 var require_implementation = __commonJS({
   "node_modules/function-bind/implementation.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var ERROR_MESSAGE = "Function.prototype.bind called on incompatible ";
     var toStr2 = Object.prototype.toString;
     var max = Math.max;
@@ -53415,6 +54650,7 @@ var require_implementation = __commonJS({
 var require_function_bind = __commonJS({
   "node_modules/function-bind/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var implementation = require_implementation();
     module.exports = Function.prototype.bind || implementation;
   }
@@ -53424,6 +54660,7 @@ var require_function_bind = __commonJS({
 var require_functionCall = __commonJS({
   "node_modules/call-bind-apply-helpers/functionCall.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = Function.prototype.call;
   }
 });
@@ -53432,6 +54669,7 @@ var require_functionCall = __commonJS({
 var require_functionApply = __commonJS({
   "node_modules/call-bind-apply-helpers/functionApply.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = Function.prototype.apply;
   }
 });
@@ -53440,6 +54678,7 @@ var require_functionApply = __commonJS({
 var require_reflectApply = __commonJS({
   "node_modules/call-bind-apply-helpers/reflectApply.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = typeof Reflect !== "undefined" && Reflect && Reflect.apply;
   }
 });
@@ -53448,6 +54687,7 @@ var require_reflectApply = __commonJS({
 var require_actualApply = __commonJS({
   "node_modules/call-bind-apply-helpers/actualApply.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var bind = require_function_bind();
     var $apply = require_functionApply();
     var $call = require_functionCall();
@@ -53460,6 +54700,7 @@ var require_actualApply = __commonJS({
 var require_call_bind_apply_helpers = __commonJS({
   "node_modules/call-bind-apply-helpers/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var bind = require_function_bind();
     var $TypeError = require_type();
     var $call = require_functionCall();
@@ -53477,6 +54718,7 @@ var require_call_bind_apply_helpers = __commonJS({
 var require_get = __commonJS({
   "node_modules/dunder-proto/get.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var callBind = require_call_bind_apply_helpers();
     var gOPD = require_gopd();
     var hasProtoAccessor;
@@ -53508,6 +54750,7 @@ var require_get = __commonJS({
 var require_get_proto = __commonJS({
   "node_modules/get-proto/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var reflectGetProto = require_Reflect_getPrototypeOf();
     var originalGetProto = require_Object_getPrototypeOf();
     var getDunderProto = require_get();
@@ -53528,6 +54771,7 @@ var require_get_proto = __commonJS({
 var require_hasown = __commonJS({
   "node_modules/hasown/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var call = Function.prototype.call;
     var $hasOwn = Object.prototype.hasOwnProperty;
     var bind = require_function_bind();
@@ -53539,6 +54783,7 @@ var require_hasown = __commonJS({
 var require_get_intrinsic = __commonJS({
   "node_modules/get-intrinsic/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var undefined2;
     var $Object = require_es_object_atoms();
     var $Error = require_es_errors();
@@ -53870,6 +55115,7 @@ var require_get_intrinsic = __commonJS({
 var require_shams2 = __commonJS({
   "node_modules/has-tostringtag/shams.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var hasSymbols = require_shams();
     module.exports = function hasToStringTagShams() {
       return hasSymbols() && !!Symbol.toStringTag;
@@ -53881,6 +55127,7 @@ var require_shams2 = __commonJS({
 var require_es_set_tostringtag = __commonJS({
   "node_modules/es-set-tostringtag/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var GetIntrinsic = require_get_intrinsic();
     var $defineProperty = GetIntrinsic("%Object.defineProperty%", true);
     var hasToStringTag = require_shams2()();
@@ -53913,6 +55160,7 @@ var require_es_set_tostringtag = __commonJS({
 var require_populate = __commonJS({
   "node_modules/form-data/lib/populate.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = function(dst, src) {
       Object.keys(src).forEach(function(prop) {
         dst[prop] = dst[prop] || src[prop];
@@ -53926,6 +55174,7 @@ var require_populate = __commonJS({
 var require_form_data = __commonJS({
   "node_modules/form-data/lib/form_data.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var CombinedStream = require_combined_stream();
     var util2 = __require("util");
     var path2 = __require("path");
@@ -54244,6 +55493,7 @@ var require_form_data = __commonJS({
 // node_modules/ms/index.js
 var require_ms = __commonJS({
   "node_modules/ms/index.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     var s = 1e3;
     var m = s * 60;
     var h = m * 60;
@@ -54360,6 +55610,7 @@ var require_ms = __commonJS({
 // node_modules/debug/src/common.js
 var require_common = __commonJS({
   "node_modules/debug/src/common.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     function setup(env) {
       createDebug.debug = createDebug;
       createDebug.default = createDebug;
@@ -54537,6 +55788,7 @@ var require_common = __commonJS({
 // node_modules/debug/src/browser.js
 var require_browser = __commonJS({
   "node_modules/debug/src/browser.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     exports.formatArgs = formatArgs;
     exports.save = save2;
     exports.load = load;
@@ -54708,6 +55960,7 @@ var require_browser = __commonJS({
 var require_has_flag = __commonJS({
   "node_modules/has-flag/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     module.exports = (flag, argv = process.argv) => {
       const prefix = flag.startsWith("-") ? "" : flag.length === 1 ? "-" : "--";
       const position = argv.indexOf(prefix + flag);
@@ -54721,6 +55974,7 @@ var require_has_flag = __commonJS({
 var require_supports_color = __commonJS({
   "node_modules/supports-color/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var os2 = __require("os");
     var tty = __require("tty");
     var hasFlag = require_has_flag();
@@ -54822,6 +56076,7 @@ var require_supports_color = __commonJS({
 // node_modules/debug/src/node.js
 var require_node = __commonJS({
   "node_modules/debug/src/node.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     var tty = __require("tty");
     var util2 = __require("util");
     exports.init = init;
@@ -54996,6 +56251,7 @@ var require_node = __commonJS({
 // node_modules/debug/src/index.js
 var require_src = __commonJS({
   "node_modules/debug/src/index.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     if (typeof process === "undefined" || process.type === "renderer" || process.browser === true || process.__nwjs) {
       module.exports = require_browser();
     } else {
@@ -55008,6 +56264,7 @@ var require_src = __commonJS({
 var require_promisify = __commonJS({
   "node_modules/agent-base/dist/src/promisify.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     function promisify(fn) {
       return function(req, opts) {
@@ -55030,6 +56287,7 @@ var require_promisify = __commonJS({
 var require_src2 = __commonJS({
   "node_modules/agent-base/dist/src/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __importDefault2 = exports && exports.__importDefault || function(mod2) {
       return mod2 && mod2.__esModule ? mod2 : { "default": mod2 };
     };
@@ -55213,6 +56471,7 @@ var require_src2 = __commonJS({
 var require_parse_proxy_response = __commonJS({
   "node_modules/https-proxy-agent/dist/parse-proxy-response.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __importDefault2 = exports && exports.__importDefault || function(mod2) {
       return mod2 && mod2.__esModule ? mod2 : { "default": mod2 };
     };
@@ -55279,6 +56538,7 @@ var require_parse_proxy_response = __commonJS({
 var require_agent = __commonJS({
   "node_modules/https-proxy-agent/dist/agent.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __awaiter2 = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
       function adopt(value) {
         return value instanceof P ? value : new P(function(resolve2) {
@@ -55439,6 +56699,7 @@ var require_agent = __commonJS({
 var require_dist3 = __commonJS({
   "node_modules/https-proxy-agent/dist/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __importDefault2 = exports && exports.__importDefault || function(mod2) {
       return mod2 && mod2.__esModule ? mod2 : { "default": mod2 };
     };
@@ -55457,6 +56718,7 @@ var require_dist3 = __commonJS({
 // node_modules/follow-redirects/debug.js
 var require_debug = __commonJS({
   "node_modules/follow-redirects/debug.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     var debug;
     module.exports = function() {
       if (!debug) {
@@ -55477,6 +56739,7 @@ var require_debug = __commonJS({
 // node_modules/follow-redirects/index.js
 var require_follow_redirects = __commonJS({
   "node_modules/follow-redirects/index.js"(exports, module) {
+    init_define_GDEX_SKILL_REGISTRY();
     var url = __require("url");
     var URL2 = url.URL;
     var http = __require("http");
@@ -55989,6 +57252,7 @@ var require_follow_redirects = __commonJS({
 var require_axios = __commonJS({
   "node_modules/axios/dist/node/axios.cjs"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var FormData$1 = require_form_data();
     var crypto2 = __require("crypto");
     var url = __require("url");
@@ -60232,6 +61496,7 @@ var require_axios = __commonJS({
 var require_is_retry_allowed = __commonJS({
   "node_modules/is-retry-allowed/index.js"(exports, module) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var denyList = /* @__PURE__ */ new Set([
       "ENOTFOUND",
       "ENETUNREACH",
@@ -60273,6 +61538,7 @@ var require_is_retry_allowed = __commonJS({
 var require_cjs = __commonJS({
   "node_modules/axios-retry/dist/cjs/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __awaiter2 = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
       function adopt(value) {
         return value instanceof P ? value : new P(function(resolve2) {
@@ -60513,6 +61779,7 @@ var require_cjs = __commonJS({
 var require_common2 = __commonJS({
   "dist/types/common.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GdexErrorCode = exports.ChainId = void 0;
     var ChainId;
@@ -60561,6 +61828,7 @@ var require_common2 = __commonJS({
 var require_trading = __commonJS({
   "dist/types/trading.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
@@ -60569,6 +61837,7 @@ var require_trading = __commonJS({
 var require_portfolio = __commonJS({
   "dist/types/portfolio.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
@@ -60577,6 +61846,7 @@ var require_portfolio = __commonJS({
 var require_token = __commonJS({
   "dist/types/token.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
@@ -60585,6 +61855,7 @@ var require_token = __commonJS({
 var require_orders = __commonJS({
   "dist/types/orders.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
@@ -60593,6 +61864,7 @@ var require_orders = __commonJS({
 var require_perp = __commonJS({
   "dist/types/perp.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
@@ -60601,6 +61873,7 @@ var require_perp = __commonJS({
 var require_copyTrade = __commonJS({
   "dist/types/copyTrade.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
@@ -60609,6 +61882,7 @@ var require_copyTrade = __commonJS({
 var require_hlCopyTrade = __commonJS({
   "dist/types/hlCopyTrade.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
@@ -60617,6 +61891,7 @@ var require_hlCopyTrade = __commonJS({
 var require_bridge = __commonJS({
   "dist/types/bridge.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
@@ -60625,6 +61900,7 @@ var require_bridge = __commonJS({
 var require_managed = __commonJS({
   "dist/types/managed.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
@@ -60633,6 +61909,7 @@ var require_managed = __commonJS({
 var require_types3 = __commonJS({
   "dist/types/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -60667,6 +61944,7 @@ var require_types3 = __commonJS({
 var require_errors4 = __commonJS({
   "dist/utils/errors.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GdexRateLimitError = exports.GdexSubmissionUnknownError = exports.GdexNetworkError = exports.GdexApiError = exports.GdexValidationError = exports.GdexAuthError = exports.GdexError = void 0;
     var common_1 = require_common2();
@@ -60737,6 +62015,7 @@ var require_errors4 = __commonJS({
 var require_client = __commonJS({
   "dist/client/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __importDefault2 = exports && exports.__importDefault || function(mod2) {
       return mod2 && mod2.__esModule ? mod2 : { "default": mod2 };
     };
@@ -60962,6 +62241,7 @@ var require_client = __commonJS({
 var require_endpoints = __commonJS({
   "dist/client/endpoints.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.COPY_TRADE_DEXES_LIST = exports.COPY_TRADE_GEMS = exports.COPY_TRADE_CUSTOM_WALLETS = exports.COPY_TRADE_WALLETS = exports.COPY_TRADE_UPDATE = exports.COPY_TRADE_CREATE = exports.COPY_TRADE_TX_LIST = exports.COPY_TRADE_LIST = exports.HL_USDC_BALANCE = exports.HL_DEPOSIT_TOKENS = exports.HL_META_AND_ASSET_CTXS = exports.HL_OPEN_ORDERS_ALL = exports.HL_OPEN_ORDERS = exports.HL_CLEARINGHOUSE_STATE_ALL = exports.HL_CLEARINGHOUSE_STATE = exports.HL_ALL_ASSETS = exports.HL_PERP_DEXES = exports.HL_TOP_TRADERS_BY_PNL = exports.HL_TOP_TRADERS = exports.HL_COPY_UPDATE = exports.HL_COPY_CREATE = exports.HL_COPY_TX_LIST = exports.HL_COPY_LIST = exports.HL_USER_STATS = exports.HL_GBOT_USDC_BALANCE = exports.HL_UPDATE_LEVERAGE = exports.HL_CANCEL_ORDER = exports.HL_CLOSE_ALL = exports.HL_PLACE_ORDER = exports.HL_CREATE_ORDER = exports.HL_WITHDRAW = exports.HL_DEPOSIT = exports.UPDATE_ORDER = exports.LIMIT_SELL = exports.LIMIT_BUY = exports.ORDERS = exports.USER_HISTORY = exports.PORTFOLIO = exports.tradeStatusPath = exports.TRADE_STATUS_BASE = exports.SELL_V2 = exports.PURCHASE_V2 = exports.ADMIN_ADD = exports.ADMIN_STATS = exports.USER_SWITCH_CHAIN = exports.USER_CONFIG = exports.USER_PROFILE = exports.AUTH_ASSOCIATE_EMAIL = exports.AUTH_OAUTH_LOGIN = exports.AUTH_SIGN_IN = void 0;
     exports.TOKEN_XSTOCKS = exports.TOKEN_TRADES = exports.TOKEN_TOP_TOKENS = exports.tokenLiveStatusPath = exports.TOKEN_LIVE_STATUS_BASE = exports.TOKEN_CURRENTLY_LIVE = exports.TOKEN_NEWEST = exports.tokenBigBuysPath = exports.TOKEN_BIGBUYS_BASE = exports.REFERRAL_REQUEST_CLAIM = exports.REFERRAL_INFO = exports.GENERATE_PNL = exports.NATIVE_PRICES = exports.NOF1_ANALYTICS = exports.WALLET_PERFORMANCE = exports.IMPORT_TOKEN = exports.CHANGE_WATCH_LIST = exports.WATCH_LIST = exports.VOTE_SENTIMENT = exports.COMMENTS = exports.ADD_COMMENT = exports.TRANSFER_TOKEN = exports.TRANSFER_NATIVE = exports.TOP_TRADERS = exports.BRIDGE_ORDERS = exports.BRIDGE_REQUEST = exports.BRIDGE_ESTIMATE = exports.USDC_BRIDGE_ORDERS = exports.USDC_BRIDGE_STATUS = exports.USDC_BRIDGE_EXECUTE = exports.USDC_BRIDGE_ESTIMATE = exports.USDC_CONVERT = exports.USDC_CONVERT_QUOTE = exports.USDC_FUNDING_STATUS = exports.USDC_TRADE_DEFERRED = exports.USDC_TRADE_PENDING = exports.USDC_TRADE_RETRY_SELL = exports.USDC_TRADE_PURCHASE_NATIVE = exports.USDC_TRADE_SELL = exports.USDC_TRADE_PURCHASE = exports.USDC_TRADE_QUOTE = exports.USDC_BALANCES = exports.tradingViewMarksPath = exports.tradingViewHistoryPath = exports.tradingViewSymbolsPath = exports.tradingViewConfigPath = exports.OHLCV = exports.TOKEN_TOP_TRADERS = exports.TOKEN_SEARCH = exports.TOKEN_DETAILS = void 0;
@@ -61105,6 +62385,7 @@ var require_endpoints = __commonJS({
 var require_gdexManagedCrypto = __commonJS({
   "dist/utils/gdexManagedCrypto.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.USDC_ACTION_ABI = void 0;
     exports.deriveGdexAesMaterial = deriveGdexAesMaterial;
@@ -61647,6 +62928,7 @@ var require_gdexManagedCrypto = __commonJS({
 var require_chains = __commonJS({
   "dist/config/chains.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.HYPERLIQUID_DEFAULT_ASSETS = exports.CHAIN_CONFIGS = void 0;
     exports.getChainConfig = getChainConfig;
@@ -61987,6 +63269,7 @@ var require_chains = __commonJS({
 var require_validation4 = __commonJS({
   "dist/utils/validation.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateAddress = validateAddress;
     exports.validateTokenAddress = validateTokenAddress;
@@ -62123,6 +63406,7 @@ var require_validation4 = __commonJS({
 var require_apiAliases = __commonJS({
   "dist/utils/apiAliases.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toWireChain = toWireChain;
     exports.buildChainAliases = buildChainAliases;
@@ -62189,6 +63473,7 @@ var require_apiAliases = __commonJS({
 var require_spotTrade = __commonJS({
   "dist/actions/spotTrade.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -62302,6 +63587,7 @@ var require_spotTrade = __commonJS({
 var require_hlCopyTrade2 = __commonJS({
   "dist/actions/hlCopyTrade.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -62491,6 +63777,7 @@ var require_hlCopyTrade2 = __commonJS({
 // node_modules/valibot/dist/index.cjs
 var require_dist4 = __commonJS({
   "node_modules/valibot/dist/index.cjs"(exports) {
+    init_define_GDEX_SKILL_REGISTRY();
     var store$4;
     function setGlobalConfig(config$1) {
       store$4 = {
@@ -68602,6 +69889,7 @@ var require_dist4 = __commonJS({
 var require_base = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/_base.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -68674,6 +69962,7 @@ var require_base = __commonJS({
 var require_base2 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/transport/_base.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.TransportError = void 0;
     var _base_js_1 = require_base();
@@ -68691,6 +69980,7 @@ var require_base2 = __commonJS({
 var require_polyfills = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/transport/_polyfills.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CustomEvent_ = exports.AbortSignal_ = exports.DOMException_ = exports.Promise_ = void 0;
     exports.Promise_ = (() => {
@@ -68750,6 +70040,7 @@ var require_polyfills = __commonJS({
 var require_mod = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/transport/http/mod.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.HttpTransport = exports.HttpRequestError = exports.TESTNET_RPC_URL = exports.MAINNET_RPC_URL = exports.TESTNET_API_URL = exports.MAINNET_API_URL = void 0;
     var _base_js_1 = require_base2();
@@ -68887,6 +70178,7 @@ var require_mod = __commonJS({
 var require_mod2 = __commonJS({
   "node_modules/@nktkas/rews/script/mod.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ReconnectingWebSocket = exports.ReconnectingWebSocketError = void 0;
     var ReconnectingWebSocketError = class extends Error {
@@ -69258,6 +70550,7 @@ var require_mod2 = __commonJS({
 var require_hyperliquidEventTarget = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/transport/websocket/_hyperliquidEventTarget.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.HyperliquidEventTarget = void 0;
     var _polyfills_js_1 = require_polyfills();
@@ -69301,6 +70594,7 @@ var require_hyperliquidEventTarget = __commonJS({
 var require_postRequest = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/transport/websocket/_postRequest.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.WebSocketPostRequest = exports.WebSocketRequestError = void 0;
     var _base_js_1 = require_base2();
@@ -69492,6 +70786,7 @@ var require_postRequest = __commonJS({
 var require_subscriptionManager = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/transport/websocket/_subscriptionManager.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.WebSocketSubscriptionManager = void 0;
     var _postRequest_js_1 = require_postRequest();
@@ -69622,6 +70917,7 @@ var require_subscriptionManager = __commonJS({
 var require_mod3 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/transport/websocket/mod.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.WebSocketTransport = exports.TESTNET_RPC_WS_URL = exports.MAINNET_RPC_WS_URL = exports.TESTNET_API_WS_URL = exports.MAINNET_API_WS_URL = exports.WebSocketRequestError = void 0;
     var rews_1 = require_mod2();
@@ -69787,6 +71083,7 @@ var require_mod3 = __commonJS({
 var require_mod4 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/transport/mod.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -69814,6 +71111,7 @@ var require_mod4 = __commonJS({
 var require_format6 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/utils/_format.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatPrice = formatPrice;
     exports.formatSize = formatSize;
@@ -69933,6 +71231,7 @@ var require_format6 = __commonJS({
 var require_schemas = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/_schemas.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -70032,6 +71331,7 @@ var require_schemas = __commonJS({
 var require_commonSchemas = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/_base/commonSchemas.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -70108,6 +71408,7 @@ function split(lst, le = false) {
 var U32_MASK64, _32n, rotlSH, rotlSL, rotlBH, rotlBL;
 var init_u64 = __esm({
   "node_modules/@nktkas/hyperliquid/node_modules/@noble/hashes/_u64.js"() {
+    init_define_GDEX_SKILL_REGISTRY();
     U32_MASK64 = /* @__PURE__ */ BigInt(2 ** 32 - 1);
     _32n = /* @__PURE__ */ BigInt(32);
     rotlSH = (h, l, s) => h << s | l >>> 32 - s;
@@ -70318,6 +71619,7 @@ function randomBytes2(bytesLength = 32) {
 var isLE, swap8IfBE, swap32IfBE, hasHexBuiltin, hexes, asciis, nextTick, oidNist;
 var init_utils = __esm({
   "node_modules/@nktkas/hyperliquid/node_modules/@noble/hashes/utils.js"() {
+    init_define_GDEX_SKILL_REGISTRY();
     isLE = /* @__PURE__ */ (() => new Uint8Array(new Uint32Array([287454020]).buffer)[0] === 68)();
     swap8IfBE = isLE ? (n) => n : (n) => byteSwap(n);
     swap32IfBE = isLE ? (u) => u : byteSwap32;
@@ -70396,6 +71698,7 @@ function keccakP(s, rounds = 24) {
 var _0n, _1n, _2n, _7n, _256n, _0x71n, SHA3_PI, SHA3_ROTL, _SHA3_IOTA, IOTAS, SHA3_IOTA_H, SHA3_IOTA_L, rotlH, rotlL, Keccak, genKeccak, sha3_224, sha3_256, sha3_384, sha3_512, keccak_224, keccak_256, keccak_384, keccak_512, genShake, shake128, shake256, shake128_32, shake256_64;
 var init_sha3 = __esm({
   "node_modules/@nktkas/hyperliquid/node_modules/@noble/hashes/sha3.js"() {
+    init_define_GDEX_SKILL_REGISTRY();
     init_u64();
     init_utils();
     _0n = BigInt(0);
@@ -70580,6 +71883,7 @@ var init_sha3 = __esm({
 var require_concat = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/deps/jsr.io/@std/bytes/1.0.6/concat.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.concat = concat2;
     function concat2(buffers) {
@@ -70602,6 +71906,7 @@ var require_concat = __commonJS({
 var require_encode = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/deps/jsr.io/@std/msgpack/1.0.3/encode.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.encode = encode;
     var concat_js_1 = require_concat();
@@ -70805,6 +72110,7 @@ var require_encode = __commonJS({
 var require_abstractWallet = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/signing/_abstractWallet.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.AbstractWalletError = void 0;
     exports.signTypedData = signTypedData;
@@ -70924,6 +72230,7 @@ var require_abstractWallet = __commonJS({
 var require_mod5 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/signing/mod.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getWalletChainId = exports.getWalletAddress = exports.AbstractWalletError = void 0;
     exports.createL1ActionHash = createL1ActionHash;
@@ -71082,6 +72389,7 @@ var require_mod5 = __commonJS({
 var require_nonce = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/_base/_nonce.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.globalNonceManager = void 0;
     var NonceManager = class {
@@ -71110,6 +72418,7 @@ var require_nonce = __commonJS({
 var require_unstable_semaphore = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/deps/jsr.io/@std/async/1.1.1/unstable_semaphore.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Semaphore = void 0;
     var Semaphore = class {
@@ -71237,6 +72546,7 @@ var require_unstable_semaphore = __commonJS({
 var require_semaphore = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/_base/_semaphore.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.withLock = withLock;
     var unstable_semaphore_js_1 = require_unstable_semaphore();
@@ -71302,6 +72612,7 @@ var require_semaphore = __commonJS({
 var require_errors5 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/_base/errors.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ApiRequestError = void 0;
     exports.assertSuccessResponse = assertSuccessResponse;
@@ -71369,6 +72680,7 @@ var require_errors5 = __commonJS({
 var require_execute = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/_base/execute.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -71573,6 +72885,7 @@ var require_execute = __commonJS({
 var require_agentEnableDexAbstraction = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/agentEnableDexAbstraction.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -71647,6 +72960,7 @@ var require_agentEnableDexAbstraction = __commonJS({
 var require_agentSetAbstraction = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/agentSetAbstraction.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -71728,6 +73042,7 @@ var require_agentSetAbstraction = __commonJS({
 var require_approveAgent = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/approveAgent.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -71824,6 +73139,7 @@ var require_approveAgent = __commonJS({
 var require_approveBuilderFee = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/approveBuilderFee.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -71914,6 +73230,7 @@ var require_approveBuilderFee = __commonJS({
 var require_batchModify = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/batchModify.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -72037,6 +73354,7 @@ var require_batchModify = __commonJS({
 var require_borrowLend = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/borrowLend.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -72119,6 +73437,7 @@ var require_borrowLend = __commonJS({
 var require_cancel = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/cancel.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -72202,6 +73521,7 @@ var require_cancel = __commonJS({
 var require_cancelByCloid = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/cancelByCloid.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -72285,6 +73605,7 @@ var require_cancelByCloid = __commonJS({
 var require_cDeposit = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/cDeposit.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -72372,6 +73693,7 @@ var require_cDeposit = __commonJS({
 var require_claimRewards = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/claimRewards.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -72446,6 +73768,7 @@ var require_claimRewards = __commonJS({
 var require_convertToMultiSigUser = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/convertToMultiSigUser.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -72551,6 +73874,7 @@ var require_convertToMultiSigUser = __commonJS({
 var require_createSubAccount = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/createSubAccount.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -72627,6 +73951,7 @@ var require_createSubAccount = __commonJS({
 var require_createVault = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/createVault.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -72710,6 +74035,7 @@ var require_createVault = __commonJS({
 var require_cSignerAction = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/cSignerAction.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -72794,6 +74120,7 @@ var require_cSignerAction = __commonJS({
 var require_cValidatorAction = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/cValidatorAction.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -72925,6 +74252,7 @@ var require_cValidatorAction = __commonJS({
 var require_cWithdraw = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/cWithdraw.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -73012,6 +74340,7 @@ var require_cWithdraw = __commonJS({
 var require_evmUserModify = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/evmUserModify.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -73088,6 +74417,7 @@ var require_evmUserModify = __commonJS({
 var require_linkStakingUser = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/linkStakingUser.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -73186,6 +74516,7 @@ var require_linkStakingUser = __commonJS({
 var require_modify = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/modify.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -73306,6 +74637,7 @@ var require_modify = __commonJS({
 var require_noop = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/noop.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -73380,6 +74712,7 @@ var require_noop = __commonJS({
 var require_order = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/order.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -73512,6 +74845,7 @@ var require_order = __commonJS({
 var require_perpDeploy = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/perpDeploy.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -73769,6 +75103,7 @@ var require_perpDeploy = __commonJS({
 var require_registerReferrer = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/registerReferrer.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -73845,6 +75180,7 @@ var require_registerReferrer = __commonJS({
 var require_reserveRequestWeight = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/reserveRequestWeight.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -73922,6 +75258,7 @@ var require_reserveRequestWeight = __commonJS({
 var require_scheduleCancel = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/scheduleCancel.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -74008,6 +75345,7 @@ var require_scheduleCancel = __commonJS({
 var require_sendAsset = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/sendAsset.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -74110,6 +75448,7 @@ var require_sendAsset = __commonJS({
 var require_sendToEvmWithData = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/sendToEvmWithData.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -74218,6 +75557,7 @@ var require_sendToEvmWithData = __commonJS({
 var require_setDisplayName = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/setDisplayName.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -74297,6 +75637,7 @@ var require_setDisplayName = __commonJS({
 var require_setReferrer = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/setReferrer.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -74373,6 +75714,7 @@ var require_setReferrer = __commonJS({
 var require_spotDeploy = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/spotDeploy.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -74548,6 +75890,7 @@ var require_spotDeploy = __commonJS({
 var require_spotSend = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/spotSend.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -74641,6 +75984,7 @@ var require_spotSend = __commonJS({
 var require_spotUser = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/spotUser.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -74720,6 +76064,7 @@ var require_spotUser = __commonJS({
 var require_subAccountModify = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/subAccountModify.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -74798,6 +76143,7 @@ var require_subAccountModify = __commonJS({
 var require_subAccountSpotTransfer = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/subAccountSpotTransfer.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -74880,6 +76226,7 @@ var require_subAccountSpotTransfer = __commonJS({
 var require_subAccountTransfer = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/subAccountTransfer.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -74960,6 +76307,7 @@ var require_subAccountTransfer = __commonJS({
 var require_tokenDelegate = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/tokenDelegate.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -75053,6 +76401,7 @@ var require_tokenDelegate = __commonJS({
 var require_topUpIsolatedOnlyMargin = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/topUpIsolatedOnlyMargin.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -75133,6 +76482,7 @@ var require_topUpIsolatedOnlyMargin = __commonJS({
 var require_twapCancel = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/twapCancel.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -75213,6 +76563,7 @@ var require_twapCancel = __commonJS({
 var require_twapOrder = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/twapOrder.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -75304,6 +76655,7 @@ var require_twapOrder = __commonJS({
 var require_updateIsolatedMargin = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/updateIsolatedMargin.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -75386,6 +76738,7 @@ var require_updateIsolatedMargin = __commonJS({
 var require_updateLeverage = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/updateLeverage.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -75468,6 +76821,7 @@ var require_updateLeverage = __commonJS({
 var require_usdClassTransfer = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/usdClassTransfer.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -75558,6 +76912,7 @@ var require_usdClassTransfer = __commonJS({
 var require_usdSend = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/usdSend.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -75648,6 +77003,7 @@ var require_usdSend = __commonJS({
 var require_userDexAbstraction = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/userDexAbstraction.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -75738,6 +77094,7 @@ var require_userDexAbstraction = __commonJS({
 var require_userPortfolioMargin = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/userPortfolioMargin.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -75828,6 +77185,7 @@ var require_userPortfolioMargin = __commonJS({
 var require_userSetAbstraction = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/userSetAbstraction.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -75918,6 +77276,7 @@ var require_userSetAbstraction = __commonJS({
 var require_validatorL1Stream = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/validatorL1Stream.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -75994,6 +77353,7 @@ var require_validatorL1Stream = __commonJS({
 var require_vaultDistribute = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/vaultDistribute.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -76075,6 +77435,7 @@ var require_vaultDistribute = __commonJS({
 var require_vaultModify = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/vaultModify.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -76155,6 +77516,7 @@ var require_vaultModify = __commonJS({
 var require_vaultTransfer = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/vaultTransfer.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -76235,6 +77597,7 @@ var require_vaultTransfer = __commonJS({
 var require_withdraw3 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/withdraw3.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -76325,6 +77688,7 @@ var require_withdraw3 = __commonJS({
 var require_client2 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/client.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ApiRequestError = exports.ExchangeClient = void 0;
     var agentEnableDexAbstraction_js_1 = require_agentEnableDexAbstraction();
@@ -78020,6 +79384,7 @@ var require_client2 = __commonJS({
 var require_activeAssetData = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/activeAssetData.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -78087,6 +79452,7 @@ var require_activeAssetData = __commonJS({
 var require_alignedQuoteTokenInfo = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/alignedQuoteTokenInfo.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -78152,6 +79518,7 @@ var require_alignedQuoteTokenInfo = __commonJS({
 var require_allBorrowLendReserveStates = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/allBorrowLendReserveStates.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -78213,6 +79580,7 @@ var require_allBorrowLendReserveStates = __commonJS({
 var require_allMids = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/allMids.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -78279,6 +79647,7 @@ var require_allMids = __commonJS({
 var require_allPerpMetas = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/allPerpMetas.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -78340,6 +79709,7 @@ var require_allPerpMetas = __commonJS({
 var require_approvedBuilders = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/approvedBuilders.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -78405,6 +79775,7 @@ var require_approvedBuilders = __commonJS({
 var require_blockDetails = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/blockDetails.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -78470,6 +79841,7 @@ var require_blockDetails = __commonJS({
 var require_borrowLendReserveState = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/borrowLendReserveState.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -78535,6 +79907,7 @@ var require_borrowLendReserveState = __commonJS({
 var require_borrowLendUserState = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/borrowLendUserState.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -78600,6 +79973,7 @@ var require_borrowLendUserState = __commonJS({
 var require_candleSnapshot = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/candleSnapshot.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -78674,6 +80048,7 @@ var require_candleSnapshot = __commonJS({
 var require_clearinghouseState = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/clearinghouseState.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -78741,6 +80116,7 @@ var require_clearinghouseState = __commonJS({
 var require_delegations = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/delegations.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -78806,6 +80182,7 @@ var require_delegations = __commonJS({
 var require_delegatorHistory = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/delegatorHistory.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -78871,6 +80248,7 @@ var require_delegatorHistory = __commonJS({
 var require_delegatorRewards = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/delegatorRewards.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -78936,6 +80314,7 @@ var require_delegatorRewards = __commonJS({
 var require_delegatorSummary = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/delegatorSummary.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79001,6 +80380,7 @@ var require_delegatorSummary = __commonJS({
 var require_exchangeStatus = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/exchangeStatus.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79062,6 +80442,7 @@ var require_exchangeStatus = __commonJS({
 var require_extraAgents = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/extraAgents.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79127,6 +80508,7 @@ var require_extraAgents = __commonJS({
 var require_frontendOpenOrders = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/frontendOpenOrders.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79194,6 +80576,7 @@ var require_frontendOpenOrders = __commonJS({
 var require_fundingHistory = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/fundingHistory.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79263,6 +80646,7 @@ var require_fundingHistory = __commonJS({
 var require_gossipRootIps = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/gossipRootIps.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79324,6 +80708,7 @@ var require_gossipRootIps = __commonJS({
 var require_historicalOrders = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/historicalOrders.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79389,6 +80774,7 @@ var require_historicalOrders = __commonJS({
 var require_isVip = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/isVip.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79454,6 +80840,7 @@ var require_isVip = __commonJS({
 var require_l2Book = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/l2Book.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79522,6 +80909,7 @@ var require_l2Book = __commonJS({
 var require_leadingVaults = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/leadingVaults.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79587,6 +80975,7 @@ var require_leadingVaults = __commonJS({
 var require_legalCheck = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/legalCheck.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79652,6 +81041,7 @@ var require_legalCheck = __commonJS({
 var require_liquidatable = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/liquidatable.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79713,6 +81103,7 @@ var require_liquidatable = __commonJS({
 var require_marginTable = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/marginTable.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79778,6 +81169,7 @@ var require_marginTable = __commonJS({
 var require_maxBuilderFee = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/maxBuilderFee.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79845,6 +81237,7 @@ var require_maxBuilderFee = __commonJS({
 var require_maxMarketOrderNtls = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/maxMarketOrderNtls.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79906,6 +81299,7 @@ var require_maxMarketOrderNtls = __commonJS({
 var require_meta = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/meta.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -79972,6 +81366,7 @@ var require_meta = __commonJS({
 var require_metaAndAssetCtxs = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/metaAndAssetCtxs.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80038,6 +81433,7 @@ var require_metaAndAssetCtxs = __commonJS({
 var require_openOrders = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/openOrders.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80105,6 +81501,7 @@ var require_openOrders = __commonJS({
 var require_orderStatus = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/orderStatus.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80172,6 +81569,7 @@ var require_orderStatus = __commonJS({
 var require_outcomeMeta = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/outcomeMeta.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80233,6 +81631,7 @@ var require_outcomeMeta = __commonJS({
 var require_perpAnnotation = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/perpAnnotation.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80297,6 +81696,7 @@ var require_perpAnnotation = __commonJS({
 var require_perpCategories = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/perpCategories.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80358,6 +81758,7 @@ var require_perpCategories = __commonJS({
 var require_perpConciseAnnotations = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/perpConciseAnnotations.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80419,6 +81820,7 @@ var require_perpConciseAnnotations = __commonJS({
 var require_perpDeployAuctionStatus = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/perpDeployAuctionStatus.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80480,6 +81882,7 @@ var require_perpDeployAuctionStatus = __commonJS({
 var require_perpDexLimits = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/perpDexLimits.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80544,6 +81947,7 @@ var require_perpDexLimits = __commonJS({
 var require_perpDexs = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/perpDexs.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80605,6 +82009,7 @@ var require_perpDexs = __commonJS({
 var require_perpDexStatus = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/perpDexStatus.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80669,6 +82074,7 @@ var require_perpDexStatus = __commonJS({
 var require_perpsAtOpenInterestCap = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/perpsAtOpenInterestCap.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80735,6 +82141,7 @@ var require_perpsAtOpenInterestCap = __commonJS({
 var require_portfolio2 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/portfolio.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80800,6 +82207,7 @@ var require_portfolio2 = __commonJS({
 var require_predictedFundings = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/predictedFundings.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80861,6 +82269,7 @@ var require_predictedFundings = __commonJS({
 var require_preTransferCheck = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/preTransferCheck.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80928,6 +82337,7 @@ var require_preTransferCheck = __commonJS({
 var require_recentTrades = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/recentTrades.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80992,6 +82402,7 @@ var require_recentTrades = __commonJS({
 var require_referral = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/referral.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -81057,6 +82468,7 @@ var require_referral = __commonJS({
 var require_spotClearinghouseState = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/spotClearinghouseState.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -81124,6 +82536,7 @@ var require_spotClearinghouseState = __commonJS({
 var require_spotDeployState = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/spotDeployState.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -81189,6 +82602,7 @@ var require_spotDeployState = __commonJS({
 var require_spotMeta = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/spotMeta.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -81250,6 +82664,7 @@ var require_spotMeta = __commonJS({
 var require_spotMetaAndAssetCtxs = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/spotMetaAndAssetCtxs.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -81311,6 +82726,7 @@ var require_spotMetaAndAssetCtxs = __commonJS({
 var require_spotPairDeployAuctionStatus = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/spotPairDeployAuctionStatus.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -81372,6 +82788,7 @@ var require_spotPairDeployAuctionStatus = __commonJS({
 var require_subAccounts = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/subAccounts.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -81437,6 +82854,7 @@ var require_subAccounts = __commonJS({
 var require_subAccounts2 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/subAccounts2.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -81502,6 +82920,7 @@ var require_subAccounts2 = __commonJS({
 var require_tokenDetails = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/tokenDetails.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -81567,6 +82986,7 @@ var require_tokenDetails = __commonJS({
 var require_twapHistory = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/twapHistory.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -81632,6 +83052,7 @@ var require_twapHistory = __commonJS({
 var require_txDetails = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/txDetails.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -81697,6 +83118,7 @@ var require_txDetails = __commonJS({
 var require_userAbstraction = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/userAbstraction.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -81762,6 +83184,7 @@ var require_userAbstraction = __commonJS({
 var require_userBorrowLendInterest = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/userBorrowLendInterest.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -81831,6 +83254,7 @@ var require_userBorrowLendInterest = __commonJS({
 var require_userDetails = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/userDetails.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -81896,6 +83320,7 @@ var require_userDetails = __commonJS({
 var require_userDexAbstraction2 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/userDexAbstraction.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -81961,6 +83386,7 @@ var require_userDexAbstraction2 = __commonJS({
 var require_userFees = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/userFees.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -82026,6 +83452,7 @@ var require_userFees = __commonJS({
 var require_userFills = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/userFills.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -82093,6 +83520,7 @@ var require_userFills = __commonJS({
 var require_userFillsByTime = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/userFillsByTime.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -82166,6 +83594,7 @@ var require_userFillsByTime = __commonJS({
 var require_userFunding = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/userFunding.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -82235,6 +83664,7 @@ var require_userFunding = __commonJS({
 var require_userNonFundingLedgerUpdates = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/userNonFundingLedgerUpdates.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -82304,6 +83734,7 @@ var require_userNonFundingLedgerUpdates = __commonJS({
 var require_userRateLimit = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/userRateLimit.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -82369,6 +83800,7 @@ var require_userRateLimit = __commonJS({
 var require_userRole = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/userRole.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -82434,6 +83866,7 @@ var require_userRole = __commonJS({
 var require_userToMultiSigSigners = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/userToMultiSigSigners.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -82499,6 +83932,7 @@ var require_userToMultiSigSigners = __commonJS({
 var require_userTwapSliceFills = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/userTwapSliceFills.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -82564,6 +83998,7 @@ var require_userTwapSliceFills = __commonJS({
 var require_userTwapSliceFillsByTime = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/userTwapSliceFillsByTime.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -82635,6 +84070,7 @@ var require_userTwapSliceFillsByTime = __commonJS({
 var require_userVaultEquities = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/userVaultEquities.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -82700,6 +84136,7 @@ var require_userVaultEquities = __commonJS({
 var require_validatorL1Votes = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/validatorL1Votes.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -82761,6 +84198,7 @@ var require_validatorL1Votes = __commonJS({
 var require_validatorSummaries = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/validatorSummaries.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -82822,6 +84260,7 @@ var require_validatorSummaries = __commonJS({
 var require_vaultDetails = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/vaultDetails.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -82889,6 +84328,7 @@ var require_vaultDetails = __commonJS({
 var require_vaultSummaries = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/vaultSummaries.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -82950,6 +84390,7 @@ var require_vaultSummaries = __commonJS({
 var require_webData2 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/webData2.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -83015,6 +84456,7 @@ var require_webData2 = __commonJS({
 var require_client3 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/client.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.InfoClient = void 0;
     var activeAssetData_js_1 = require_activeAssetData();
@@ -84965,6 +86407,7 @@ var require_client3 = __commonJS({
 var require_activeAssetCtx = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/activeAssetCtx.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -85030,6 +86473,7 @@ var require_activeAssetCtx = __commonJS({
 var require_activeAssetData2 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/activeAssetData.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -85098,6 +86542,7 @@ var require_activeAssetData2 = __commonJS({
 var require_activeSpotAssetCtx = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/activeSpotAssetCtx.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -85163,6 +86608,7 @@ var require_activeSpotAssetCtx = __commonJS({
 var require_allDexsAssetCtxs = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/allDexsAssetCtxs.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -85226,6 +86672,7 @@ var require_allDexsAssetCtxs = __commonJS({
 var require_allDexsClearinghouseState = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/allDexsClearinghouseState.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -85295,6 +86742,7 @@ var require_allDexsClearinghouseState = __commonJS({
 var require_allMids2 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/allMids.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -85367,6 +86815,7 @@ var require_allMids2 = __commonJS({
 var require_assetCtxs = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/assetCtxs.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -85439,6 +86888,7 @@ var require_assetCtxs = __commonJS({
 var require_bbo = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/bbo.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -85504,6 +86954,7 @@ var require_bbo = __commonJS({
 var require_candle = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/candle.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -85571,6 +87022,7 @@ var require_candle = __commonJS({
 var require_clearinghouseState2 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/clearinghouseState.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -85644,6 +87096,7 @@ var require_clearinghouseState2 = __commonJS({
 var require_explorerBlock = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/explorerBlock.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -85705,6 +87158,7 @@ var require_explorerBlock = __commonJS({
 var require_explorerTxs = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/explorerTxs.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -85766,6 +87220,7 @@ var require_explorerTxs = __commonJS({
 var require_l2Book2 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/l2Book.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -85840,6 +87295,7 @@ var require_l2Book2 = __commonJS({
 var require_notification = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/notification.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -85904,6 +87360,7 @@ var require_notification = __commonJS({
 var require_openOrders2 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/openOrders.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -85977,6 +87434,7 @@ var require_openOrders2 = __commonJS({
 var require_orderUpdates = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/orderUpdates.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -86041,6 +87499,7 @@ var require_orderUpdates = __commonJS({
 var require_spotAssetCtxs = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/spotAssetCtxs.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -86102,6 +87561,7 @@ var require_spotAssetCtxs = __commonJS({
 var require_spotState = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/spotState.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -86170,6 +87630,7 @@ var require_spotState = __commonJS({
 var require_trades = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/trades.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -86235,6 +87696,7 @@ var require_trades = __commonJS({
 var require_twapStates = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/twapStates.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -86308,6 +87770,7 @@ var require_twapStates = __commonJS({
 var require_userEvents = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/userEvents.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -86372,6 +87835,7 @@ var require_userEvents = __commonJS({
 var require_userFills2 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/userFills.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -86444,6 +87908,7 @@ var require_userFills2 = __commonJS({
 var require_userFundings = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/userFundings.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -86510,6 +87975,7 @@ var require_userFundings = __commonJS({
 var require_userHistoricalOrders = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/userHistoricalOrders.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -86576,6 +88042,7 @@ var require_userHistoricalOrders = __commonJS({
 var require_userNonFundingLedgerUpdates2 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/userNonFundingLedgerUpdates.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -86642,6 +88109,7 @@ var require_userNonFundingLedgerUpdates2 = __commonJS({
 var require_userTwapHistory = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/userTwapHistory.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -86708,6 +88176,7 @@ var require_userTwapHistory = __commonJS({
 var require_userTwapSliceFills2 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/userTwapSliceFills.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -86774,6 +88243,7 @@ var require_userTwapSliceFills2 = __commonJS({
 var require_webData22 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/webData2.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -86840,6 +88310,7 @@ var require_webData22 = __commonJS({
 var require_webData3 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/_methods/webData3.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -86906,6 +88377,7 @@ var require_webData3 = __commonJS({
 var require_client4 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/subscription/client.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.SubscriptionClient = void 0;
     var activeAssetCtx_js_1 = require_activeAssetCtx();
@@ -87700,6 +89172,7 @@ var require_client4 = __commonJS({
 var require_mod6 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/mod.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -87729,6 +89202,7 @@ var require_mod6 = __commonJS({
 var require_cryptoNode2 = __commonJS({
   "node_modules/@scure/bip32/node_modules/@noble/hashes/cryptoNode.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.crypto = void 0;
     var nc2 = __require("node:crypto");
@@ -87740,6 +89214,7 @@ var require_cryptoNode2 = __commonJS({
 var require_utils6 = __commonJS({
   "node_modules/@scure/bip32/node_modules/@noble/hashes/utils.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wrapXOFConstructorWithOpts = exports.wrapConstructorWithOpts = exports.wrapConstructor = exports.Hash = exports.nextTick = exports.swap32IfBE = exports.byteSwapIfBE = exports.swap8IfBE = exports.isLE = void 0;
     exports.isBytes = isBytes2;
@@ -87982,6 +89457,7 @@ var require_utils6 = __commonJS({
 var require_utils7 = __commonJS({
   "node_modules/@scure/bip32/node_modules/@noble/curves/utils.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.notImplemented = exports.bitMask = exports.utf8ToBytes = exports.randomBytes = exports.isBytes = exports.hexToBytes = exports.concatBytes = exports.bytesToUtf8 = exports.bytesToHex = exports.anumber = exports.abytes = void 0;
     exports.abool = abool;
@@ -88265,6 +89741,7 @@ var require_utils7 = __commonJS({
 var require_modular2 = __commonJS({
   "node_modules/@scure/bip32/node_modules/@noble/curves/abstract/modular.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.isNegativeLE = void 0;
     exports.mod = mod2;
@@ -88671,6 +90148,7 @@ var require_modular2 = __commonJS({
 var require_md = __commonJS({
   "node_modules/@scure/bip32/node_modules/@noble/hashes/_md.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.SHA512_IV = exports.SHA384_IV = exports.SHA224_IV = exports.SHA256_IV = exports.HashMD = void 0;
     exports.setBigUint64 = setBigUint642;
@@ -88849,6 +90327,7 @@ var require_md = __commonJS({
 var require_u642 = __commonJS({
   "node_modules/@scure/bip32/node_modules/@noble/hashes/_u64.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toBig = exports.shrSL = exports.shrSH = exports.rotrSL = exports.rotrSH = exports.rotrBL = exports.rotrBH = exports.rotr32L = exports.rotr32H = exports.rotlSL = exports.rotlSH = exports.rotlBL = exports.rotlBH = exports.add5L = exports.add5H = exports.add4L = exports.add4H = exports.add3L = exports.add3H = void 0;
     exports.add = add;
@@ -88945,6 +90424,7 @@ var require_u642 = __commonJS({
 var require_sha23 = __commonJS({
   "node_modules/@scure/bip32/node_modules/@noble/hashes/sha2.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.sha512_224 = exports.sha512_256 = exports.sha384 = exports.sha512 = exports.sha224 = exports.sha256 = exports.SHA512_256 = exports.SHA512_224 = exports.SHA384 = exports.SHA512 = exports.SHA224 = exports.SHA256 = void 0;
     var _md_ts_1 = require_md();
@@ -89415,6 +90895,7 @@ var require_sha23 = __commonJS({
 var require_hmac3 = __commonJS({
   "node_modules/@scure/bip32/node_modules/@noble/hashes/hmac.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.hmac = exports.HMAC = void 0;
     var utils_ts_1 = require_utils6();
@@ -89493,6 +90974,7 @@ var require_hmac3 = __commonJS({
 var require_curve2 = __commonJS({
   "node_modules/@scure/bip32/node_modules/@noble/curves/abstract/curve.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wNAF = void 0;
     exports.negateCt = negateCt;
@@ -89841,6 +91323,7 @@ var require_curve2 = __commonJS({
 var require_weierstrass2 = __commonJS({
   "node_modules/@scure/bip32/node_modules/@noble/curves/abstract/weierstrass.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.DER = exports.DERErr = void 0;
     exports._splitEndoScalar = _splitEndoScalar;
@@ -91007,6 +92490,7 @@ var require_weierstrass2 = __commonJS({
 var require_shortw_utils2 = __commonJS({
   "node_modules/@scure/bip32/node_modules/@noble/curves/_shortw_utils.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getHash = getHash2;
     exports.createCurve = createCurve2;
@@ -91025,6 +92509,7 @@ var require_shortw_utils2 = __commonJS({
 var require_hash_to_curve2 = __commonJS({
   "node_modules/@scure/bip32/node_modules/@noble/curves/abstract/hash-to-curve.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports._DST_scalar = void 0;
     exports.expand_message_xmd = expand_message_xmd;
@@ -91200,6 +92685,7 @@ var require_hash_to_curve2 = __commonJS({
 var require_secp256k12 = __commonJS({
   "node_modules/@scure/bip32/node_modules/@noble/curves/secp256k1.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.encodeToCurve = exports.hashToCurve = exports.secp256k1_hasher = exports.schnorr = exports.secp256k1 = void 0;
     var sha2_js_1 = require_sha23();
@@ -91425,6 +92911,7 @@ var require_secp256k12 = __commonJS({
 var require_legacy = __commonJS({
   "node_modules/@scure/bip32/node_modules/@noble/hashes/legacy.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ripemd160 = exports.RIPEMD160 = exports.md5 = exports.MD5 = exports.sha1 = exports.SHA1 = void 0;
     var _md_ts_1 = require_md();
@@ -91693,6 +93180,7 @@ var require_legacy = __commonJS({
 var require_lib3 = __commonJS({
   "node_modules/@scure/base/lib/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.bytes = exports.stringToBytes = exports.str = exports.bytesToString = exports.hex = exports.utf8 = exports.bech32m = exports.bech32 = exports.base58check = exports.createBase58check = exports.base58xmr = exports.base58xrp = exports.base58flickr = exports.base58 = exports.base64urlnopad = exports.base64url = exports.base64nopad = exports.base64 = exports.base32crockford = exports.base32hexnopad = exports.base32hex = exports.base32nopad = exports.base32 = exports.base16 = exports.utils = void 0;
     function isBytes2(a) {
@@ -92213,6 +93701,7 @@ var require_lib3 = __commonJS({
 var require_lib4 = __commonJS({
   "node_modules/@scure/bip32/lib/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.HDKey = exports.HARDENED_OFFSET = void 0;
     var modular_1 = require_modular2();
@@ -92473,6 +93962,7 @@ var require_lib4 = __commonJS({
 var require_version2 = __commonJS({
   "node_modules/viem/_cjs/errors/version.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.version = void 0;
     exports.version = "2.52.2";
@@ -92483,6 +93973,7 @@ var require_version2 = __commonJS({
 var require_base3 = __commonJS({
   "node_modules/viem/_cjs/errors/base.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.BaseError = void 0;
     exports.setErrorConfig = setErrorConfig;
@@ -92580,6 +94071,7 @@ var require_base3 = __commonJS({
 var require_encoding = __commonJS({
   "node_modules/viem/_cjs/errors/encoding.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.SizeOverflowError = exports.InvalidHexValueError = exports.InvalidHexBooleanError = exports.InvalidBytesBooleanError = exports.IntegerOutOfRangeError = void 0;
     var base_js_1 = require_base3();
@@ -92622,6 +94114,7 @@ var require_encoding = __commonJS({
 var require_data4 = __commonJS({
   "node_modules/viem/_cjs/errors/data.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.InvalidBytesLengthError = exports.SizeExceedsPaddingSizeError = exports.SliceOffsetOutOfBoundsError = void 0;
     var base_js_1 = require_base3();
@@ -92650,6 +94143,7 @@ var require_data4 = __commonJS({
 var require_pad = __commonJS({
   "node_modules/viem/_cjs/utils/data/pad.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.pad = pad;
     exports.padHex = padHex;
@@ -92695,6 +94189,7 @@ var require_pad = __commonJS({
 var require_isHex = __commonJS({
   "node_modules/viem/_cjs/utils/data/isHex.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.isHex = isHex;
     function isHex(value, { strict = true } = {}) {
@@ -92711,6 +94206,7 @@ var require_isHex = __commonJS({
 var require_size = __commonJS({
   "node_modules/viem/_cjs/utils/data/size.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.size = size;
     var isHex_js_1 = require_isHex();
@@ -92726,6 +94222,7 @@ var require_size = __commonJS({
 var require_trim = __commonJS({
   "node_modules/viem/_cjs/utils/data/trim.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.trim = trim;
     function trim(hexOrBytes, { dir = "left" } = {}) {
@@ -92752,6 +94249,7 @@ var require_trim = __commonJS({
 var require_toBytes = __commonJS({
   "node_modules/viem/_cjs/utils/encoding/toBytes.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toBytes = toBytes2;
     exports.boolToBytes = boolToBytes;
@@ -92839,6 +94337,7 @@ var require_toBytes = __commonJS({
 var require_fromHex = __commonJS({
   "node_modules/viem/_cjs/utils/encoding/fromHex.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.assertSize = assertSize;
     exports.fromHex = fromHex;
@@ -92923,6 +94422,7 @@ var require_fromHex = __commonJS({
 var require_toHex = __commonJS({
   "node_modules/viem/_cjs/utils/encoding/toHex.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toHex = toHex;
     exports.boolToHex = boolToHex;
@@ -93003,6 +94503,7 @@ var require_toHex = __commonJS({
 var require_formatBlockParameter = __commonJS({
   "node_modules/viem/_cjs/utils/block/formatBlockParameter.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatBlockParameter = formatBlockParameter;
     var base_js_1 = require_base3();
@@ -93024,6 +94525,7 @@ var require_formatBlockParameter = __commonJS({
 var require_getTransactionCount = __commonJS({
   "node_modules/viem/_cjs/actions/public/getTransactionCount.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getTransactionCount = getTransactionCount;
     var formatBlockParameter_js_1 = require_formatBlockParameter();
@@ -93050,6 +94552,7 @@ var require_getTransactionCount = __commonJS({
 var require_lru = __commonJS({
   "node_modules/viem/_cjs/utils/lru.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.LruMap = void 0;
     var LruMap = class extends Map {
@@ -93091,6 +94594,7 @@ var require_lru = __commonJS({
 var require_nonceManager = __commonJS({
   "node_modules/viem/_cjs/utils/nonceManager.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.nonceManager = void 0;
     exports.createNonceManager = createNonceManager;
@@ -93173,6 +94677,7 @@ var require_nonceManager = __commonJS({
 var require_cryptoNode3 = __commonJS({
   "node_modules/viem/node_modules/@noble/hashes/cryptoNode.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.crypto = void 0;
     var nc2 = __require("node:crypto");
@@ -93184,6 +94689,7 @@ var require_cryptoNode3 = __commonJS({
 var require_utils8 = __commonJS({
   "node_modules/viem/node_modules/@noble/hashes/utils.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wrapXOFConstructorWithOpts = exports.wrapConstructorWithOpts = exports.wrapConstructor = exports.Hash = exports.nextTick = exports.swap32IfBE = exports.byteSwapIfBE = exports.swap8IfBE = exports.isLE = void 0;
     exports.isBytes = isBytes2;
@@ -93426,6 +94932,7 @@ var require_utils8 = __commonJS({
 var require_md2 = __commonJS({
   "node_modules/viem/node_modules/@noble/hashes/_md.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.SHA512_IV = exports.SHA384_IV = exports.SHA224_IV = exports.SHA256_IV = exports.HashMD = void 0;
     exports.setBigUint64 = setBigUint642;
@@ -93604,6 +95111,7 @@ var require_md2 = __commonJS({
 var require_u643 = __commonJS({
   "node_modules/viem/node_modules/@noble/hashes/_u64.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toBig = exports.shrSL = exports.shrSH = exports.rotrSL = exports.rotrSH = exports.rotrBL = exports.rotrBH = exports.rotr32L = exports.rotr32H = exports.rotlSL = exports.rotlSH = exports.rotlBL = exports.rotlBH = exports.add5L = exports.add5H = exports.add4L = exports.add4H = exports.add3L = exports.add3H = void 0;
     exports.add = add;
@@ -93700,6 +95208,7 @@ var require_u643 = __commonJS({
 var require_sha24 = __commonJS({
   "node_modules/viem/node_modules/@noble/hashes/sha2.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.sha512_224 = exports.sha512_256 = exports.sha384 = exports.sha512 = exports.sha224 = exports.sha256 = exports.SHA512_256 = exports.SHA512_224 = exports.SHA384 = exports.SHA512 = exports.SHA224 = exports.SHA256 = void 0;
     var _md_ts_1 = require_md2();
@@ -94170,6 +95679,7 @@ var require_sha24 = __commonJS({
 var require_hmac4 = __commonJS({
   "node_modules/viem/node_modules/@noble/hashes/hmac.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.hmac = exports.HMAC = void 0;
     var utils_ts_1 = require_utils8();
@@ -94248,6 +95758,7 @@ var require_hmac4 = __commonJS({
 var require_utils9 = __commonJS({
   "node_modules/viem/node_modules/@noble/curves/abstract/utils.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.notImplemented = exports.bitMask = void 0;
     exports.isBytes = isBytes2;
@@ -94527,6 +96038,7 @@ var require_utils9 = __commonJS({
 var require_modular3 = __commonJS({
   "node_modules/viem/node_modules/@noble/curves/abstract/modular.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.isNegativeLE = void 0;
     exports.mod = mod2;
@@ -94863,6 +96375,7 @@ var require_modular3 = __commonJS({
 var require_curve3 = __commonJS({
   "node_modules/viem/node_modules/@noble/curves/abstract/curve.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wNAF = wNAF2;
     exports.pippenger = pippenger;
@@ -95145,6 +96658,7 @@ var require_curve3 = __commonJS({
 var require_weierstrass3 = __commonJS({
   "node_modules/viem/node_modules/@noble/curves/abstract/weierstrass.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.DER = exports.DERErr = void 0;
     exports.weierstrassPoints = weierstrassPoints2;
@@ -96146,6 +97660,7 @@ var require_weierstrass3 = __commonJS({
 var require_shortw_utils3 = __commonJS({
   "node_modules/viem/node_modules/@noble/curves/_shortw_utils.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getHash = getHash2;
     exports.createCurve = createCurve2;
@@ -96170,6 +97685,7 @@ var require_shortw_utils3 = __commonJS({
 var require_hash_to_curve3 = __commonJS({
   "node_modules/viem/node_modules/@noble/curves/abstract/hash-to-curve.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.expand_message_xmd = expand_message_xmd;
     exports.expand_message_xof = expand_message_xof;
@@ -96331,6 +97847,7 @@ var require_hash_to_curve3 = __commonJS({
 var require_secp256k13 = __commonJS({
   "node_modules/viem/node_modules/@noble/curves/secp256k1.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.encodeToCurve = exports.hashToCurve = exports.secp256k1_hasher = exports.schnorr = exports.secp256k1 = void 0;
     var sha2_1 = require_sha24();
@@ -96556,6 +98073,7 @@ var require_secp256k13 = __commonJS({
 var require_serializeSignature = __commonJS({
   "node_modules/viem/_cjs/utils/signature/serializeSignature.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.serializeSignature = serializeSignature;
     var secp256k1_1 = require_secp256k13();
@@ -96581,6 +98099,7 @@ var require_serializeSignature = __commonJS({
 var require_cryptoNode4 = __commonJS({
   "node_modules/@scure/bip39/node_modules/@noble/hashes/cryptoNode.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.crypto = void 0;
     var nc2 = __require("node:crypto");
@@ -96592,6 +98111,7 @@ var require_cryptoNode4 = __commonJS({
 var require_utils10 = __commonJS({
   "node_modules/@scure/bip39/node_modules/@noble/hashes/utils.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wrapXOFConstructorWithOpts = exports.wrapConstructorWithOpts = exports.wrapConstructor = exports.Hash = exports.nextTick = exports.swap32IfBE = exports.byteSwapIfBE = exports.swap8IfBE = exports.isLE = void 0;
     exports.isBytes = isBytes2;
@@ -96834,6 +98354,7 @@ var require_utils10 = __commonJS({
 var require_hmac5 = __commonJS({
   "node_modules/@scure/bip39/node_modules/@noble/hashes/hmac.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.hmac = exports.HMAC = void 0;
     var utils_ts_1 = require_utils10();
@@ -96912,6 +98433,7 @@ var require_hmac5 = __commonJS({
 var require_pbkdf23 = __commonJS({
   "node_modules/@scure/bip39/node_modules/@noble/hashes/pbkdf2.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.pbkdf2 = pbkdf23;
     exports.pbkdf2Async = pbkdf2Async;
@@ -96986,6 +98508,7 @@ var require_pbkdf23 = __commonJS({
 var require_md3 = __commonJS({
   "node_modules/@scure/bip39/node_modules/@noble/hashes/_md.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.SHA512_IV = exports.SHA384_IV = exports.SHA224_IV = exports.SHA256_IV = exports.HashMD = void 0;
     exports.setBigUint64 = setBigUint642;
@@ -97164,6 +98687,7 @@ var require_md3 = __commonJS({
 var require_u644 = __commonJS({
   "node_modules/@scure/bip39/node_modules/@noble/hashes/_u64.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toBig = exports.shrSL = exports.shrSH = exports.rotrSL = exports.rotrSH = exports.rotrBL = exports.rotrBH = exports.rotr32L = exports.rotr32H = exports.rotlSL = exports.rotlSH = exports.rotlBL = exports.rotlBH = exports.add5L = exports.add5H = exports.add4L = exports.add4H = exports.add3L = exports.add3H = void 0;
     exports.add = add;
@@ -97260,6 +98784,7 @@ var require_u644 = __commonJS({
 var require_sha25 = __commonJS({
   "node_modules/@scure/bip39/node_modules/@noble/hashes/sha2.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.sha512_224 = exports.sha512_256 = exports.sha384 = exports.sha512 = exports.sha224 = exports.sha256 = exports.SHA512_256 = exports.SHA512_224 = exports.SHA384 = exports.SHA512 = exports.SHA224 = exports.SHA256 = void 0;
     var _md_ts_1 = require_md3();
@@ -97730,6 +99255,7 @@ var require_sha25 = __commonJS({
 var require_bip39 = __commonJS({
   "node_modules/@scure/bip39/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.generateMnemonic = generateMnemonic;
     exports.mnemonicToEntropy = mnemonicToEntropy2;
@@ -97809,6 +99335,7 @@ var require_bip39 = __commonJS({
 var require_generateMnemonic = __commonJS({
   "node_modules/viem/_cjs/accounts/generateMnemonic.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.generateMnemonic = generateMnemonic;
     var bip39_1 = require_bip39();
@@ -97822,6 +99349,7 @@ var require_generateMnemonic = __commonJS({
 var require_generatePrivateKey = __commonJS({
   "node_modules/viem/_cjs/accounts/generatePrivateKey.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.generatePrivateKey = generatePrivateKey;
     var secp256k1_1 = require_secp256k13();
@@ -97836,6 +99364,7 @@ var require_generatePrivateKey = __commonJS({
 var require_address5 = __commonJS({
   "node_modules/viem/_cjs/errors/address.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.InvalidAddressError = void 0;
     var base_js_1 = require_base3();
@@ -97858,6 +99387,7 @@ var require_address5 = __commonJS({
 var require_sha32 = __commonJS({
   "node_modules/viem/node_modules/@noble/hashes/sha3.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.shake256 = exports.shake128 = exports.keccak_512 = exports.keccak_384 = exports.keccak_256 = exports.keccak_224 = exports.sha3_512 = exports.sha3_384 = exports.sha3_256 = exports.sha3_224 = exports.Keccak = void 0;
     exports.keccakP = keccakP3;
@@ -98060,6 +99590,7 @@ var require_sha32 = __commonJS({
 var require_keccak256 = __commonJS({
   "node_modules/viem/_cjs/utils/hash/keccak256.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.keccak256 = keccak2562;
     var sha3_1 = require_sha32();
@@ -98080,6 +99611,7 @@ var require_keccak256 = __commonJS({
 var require_getAddress = __commonJS({
   "node_modules/viem/_cjs/utils/address/getAddress.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.checksumAddress = checksumAddress;
     exports.getAddress = getAddress2;
@@ -98119,6 +99651,7 @@ var require_getAddress = __commonJS({
 var require_isAddress = __commonJS({
   "node_modules/viem/_cjs/utils/address/isAddress.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.isAddressCache = void 0;
     exports.isAddress = isAddress2;
@@ -98150,6 +99683,7 @@ var require_isAddress = __commonJS({
 var require_toAccount = __commonJS({
   "node_modules/viem/_cjs/accounts/toAccount.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toAccount = toAccount;
     var address_js_1 = require_address5();
@@ -98184,6 +99718,7 @@ var require_toAccount = __commonJS({
 var require_publicKeyToAddress = __commonJS({
   "node_modules/viem/_cjs/accounts/utils/publicKeyToAddress.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.publicKeyToAddress = publicKeyToAddress;
     var getAddress_js_1 = require_getAddress();
@@ -98199,6 +99734,7 @@ var require_publicKeyToAddress = __commonJS({
 var require_sign2 = __commonJS({
   "node_modules/viem/_cjs/accounts/utils/sign.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.setSignEntropy = setSignEntropy;
     exports.sign = sign;
@@ -98237,6 +99773,7 @@ var require_sign2 = __commonJS({
 var require_concat2 = __commonJS({
   "node_modules/viem/_cjs/utils/data/concat.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.concat = concat2;
     exports.concatBytes = concatBytes4;
@@ -98269,6 +99806,7 @@ var require_concat2 = __commonJS({
 var require_cursor = __commonJS({
   "node_modules/viem/_cjs/errors/cursor.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.RecursiveReadLimitExceededError = exports.PositionOutOfBoundsError = exports.NegativeOffsetError = void 0;
     var base_js_1 = require_base3();
@@ -98299,6 +99837,7 @@ var require_cursor = __commonJS({
 var require_cursor2 = __commonJS({
   "node_modules/viem/_cjs/utils/cursor.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.createCursor = createCursor;
     var cursor_js_1 = require_cursor();
@@ -98476,6 +100015,7 @@ var require_cursor2 = __commonJS({
 var require_toRlp = __commonJS({
   "node_modules/viem/_cjs/utils/encoding/toRlp.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toRlp = toRlp;
     exports.bytesToRlp = bytesToRlp;
@@ -98584,6 +100124,7 @@ var require_toRlp = __commonJS({
 var require_hashAuthorization = __commonJS({
   "node_modules/viem/_cjs/utils/authorization/hashAuthorization.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.hashAuthorization = hashAuthorization2;
     var concat_js_1 = require_concat2();
@@ -98613,6 +100154,7 @@ var require_hashAuthorization = __commonJS({
 var require_signAuthorization = __commonJS({
   "node_modules/viem/_cjs/accounts/utils/signAuthorization.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.signAuthorization = signAuthorization;
     var hashAuthorization_js_1 = require_hashAuthorization();
@@ -98641,6 +100183,7 @@ var require_signAuthorization = __commonJS({
 var require_strings2 = __commonJS({
   "node_modules/viem/_cjs/constants/strings.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.presignMessagePrefix = void 0;
     exports.presignMessagePrefix = "Ethereum Signed Message:\n";
@@ -98651,6 +100194,7 @@ var require_strings2 = __commonJS({
 var require_toPrefixedMessage = __commonJS({
   "node_modules/viem/_cjs/utils/signature/toPrefixedMessage.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toPrefixedMessage = toPrefixedMessage;
     var strings_js_1 = require_strings2();
@@ -98675,6 +100219,7 @@ var require_toPrefixedMessage = __commonJS({
 var require_hashMessage = __commonJS({
   "node_modules/viem/_cjs/utils/signature/hashMessage.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.hashMessage = hashMessage2;
     var keccak256_js_1 = require_keccak256();
@@ -98689,6 +100234,7 @@ var require_hashMessage = __commonJS({
 var require_signMessage = __commonJS({
   "node_modules/viem/_cjs/accounts/utils/signMessage.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.signMessage = signMessage;
     var hashMessage_js_1 = require_hashMessage();
@@ -98703,6 +100249,7 @@ var require_signMessage = __commonJS({
 var require_unit = __commonJS({
   "node_modules/viem/_cjs/constants/unit.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.weiUnits = exports.gweiUnits = exports.etherUnits = void 0;
     exports.etherUnits = {
@@ -98724,6 +100271,7 @@ var require_unit = __commonJS({
 var require_formatUnits = __commonJS({
   "node_modules/viem/_cjs/utils/unit/formatUnits.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatUnits = formatUnits;
     function formatUnits(value, decimals) {
@@ -98746,6 +100294,7 @@ var require_formatUnits = __commonJS({
 var require_formatEther = __commonJS({
   "node_modules/viem/_cjs/utils/unit/formatEther.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatEther = formatEther;
     var unit_js_1 = require_unit();
@@ -98760,6 +100309,7 @@ var require_formatEther = __commonJS({
 var require_formatGwei = __commonJS({
   "node_modules/viem/_cjs/utils/unit/formatGwei.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatGwei = formatGwei;
     var unit_js_1 = require_unit();
@@ -98774,6 +100324,7 @@ var require_formatGwei = __commonJS({
 var require_transaction3 = __commonJS({
   "node_modules/viem/_cjs/errors/transaction.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.WaitForTransactionReceiptTimeoutError = exports.TransactionReceiptRevertedError = exports.TransactionReceiptNotFoundError = exports.TransactionNotFoundError = exports.TransactionExecutionError = exports.InvalidStorageKeySizeError = exports.InvalidSerializedTransactionError = exports.InvalidSerializedTransactionTypeError = exports.InvalidSerializableTransactionError = exports.InvalidLegacyVError = exports.FeeConflictError = void 0;
     exports.prettyPrint = prettyPrint;
@@ -98970,6 +100521,7 @@ var require_transaction3 = __commonJS({
 var require_serializeAuthorizationList = __commonJS({
   "node_modules/viem/_cjs/utils/authorization/serializeAuthorizationList.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.serializeAuthorizationList = serializeAuthorizationList;
     var toHex_js_1 = require_toHex();
@@ -98997,6 +100549,7 @@ var require_serializeAuthorizationList = __commonJS({
 var require_blobsToCommitments = __commonJS({
   "node_modules/viem/_cjs/utils/blob/blobsToCommitments.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.blobsToCommitments = blobsToCommitments;
     var toBytes_js_1 = require_toBytes();
@@ -99017,6 +100570,7 @@ var require_blobsToCommitments = __commonJS({
 var require_blobsToProofs = __commonJS({
   "node_modules/viem/_cjs/utils/blob/blobsToProofs.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.blobsToProofs = blobsToProofs;
     var toBytes_js_1 = require_toBytes();
@@ -99041,6 +100595,7 @@ var require_blobsToProofs = __commonJS({
 var require_sha2562 = __commonJS({
   "node_modules/viem/node_modules/@noble/hashes/sha256.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.sha224 = exports.SHA224 = exports.sha256 = exports.SHA256 = void 0;
     var sha2_ts_1 = require_sha24();
@@ -99055,6 +100610,7 @@ var require_sha2562 = __commonJS({
 var require_sha2563 = __commonJS({
   "node_modules/viem/_cjs/utils/hash/sha256.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.sha256 = sha2563;
     var sha256_1 = require_sha2562();
@@ -99075,6 +100631,7 @@ var require_sha2563 = __commonJS({
 var require_commitmentToVersionedHash = __commonJS({
   "node_modules/viem/_cjs/utils/blob/commitmentToVersionedHash.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.commitmentToVersionedHash = commitmentToVersionedHash;
     var toHex_js_1 = require_toHex();
@@ -99093,6 +100650,7 @@ var require_commitmentToVersionedHash = __commonJS({
 var require_commitmentsToVersionedHashes = __commonJS({
   "node_modules/viem/_cjs/utils/blob/commitmentsToVersionedHashes.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.commitmentsToVersionedHashes = commitmentsToVersionedHashes;
     var commitmentToVersionedHash_js_1 = require_commitmentToVersionedHash();
@@ -99116,6 +100674,7 @@ var require_commitmentsToVersionedHashes = __commonJS({
 var require_blob = __commonJS({
   "node_modules/viem/_cjs/constants/blob.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.maxBytesPerTransaction = exports.bytesPerBlob = exports.fieldElementsPerBlob = exports.bytesPerFieldElement = void 0;
     var blobsPerTransaction = 6;
@@ -99130,6 +100689,7 @@ var require_blob = __commonJS({
 var require_kzg = __commonJS({
   "node_modules/viem/_cjs/constants/kzg.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.versionedHashVersionKzg = void 0;
     exports.versionedHashVersionKzg = 1;
@@ -99140,6 +100700,7 @@ var require_kzg = __commonJS({
 var require_blob2 = __commonJS({
   "node_modules/viem/_cjs/errors/blob.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.InvalidVersionedHashVersionError = exports.InvalidVersionedHashSizeError = exports.EmptyBlobError = exports.BlobSizeTooLargeError = void 0;
     var kzg_js_1 = require_kzg();
@@ -99187,6 +100748,7 @@ var require_blob2 = __commonJS({
 var require_toBlobs = __commonJS({
   "node_modules/viem/_cjs/utils/blob/toBlobs.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toBlobs = toBlobs;
     var blob_js_1 = require_blob();
@@ -99235,6 +100797,7 @@ var require_toBlobs = __commonJS({
 var require_toBlobSidecars = __commonJS({
   "node_modules/viem/_cjs/utils/blob/toBlobSidecars.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toBlobSidecars = toBlobSidecars;
     var blobsToCommitments_js_1 = require_blobsToCommitments();
@@ -99261,6 +100824,7 @@ var require_toBlobSidecars = __commonJS({
 var require_number2 = __commonJS({
   "node_modules/viem/_cjs/constants/number.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.minInt144 = exports.minInt136 = exports.minInt128 = exports.minInt120 = exports.minInt112 = exports.minInt104 = exports.minInt96 = exports.minInt88 = exports.minInt80 = exports.minInt72 = exports.minInt64 = exports.minInt56 = exports.minInt48 = exports.minInt40 = exports.minInt32 = exports.minInt24 = exports.minInt16 = exports.minInt8 = exports.maxInt256 = exports.maxInt248 = exports.maxInt240 = exports.maxInt232 = exports.maxInt224 = exports.maxInt216 = exports.maxInt208 = exports.maxInt200 = exports.maxInt192 = exports.maxInt184 = exports.maxInt176 = exports.maxInt168 = exports.maxInt160 = exports.maxInt152 = exports.maxInt144 = exports.maxInt136 = exports.maxInt128 = exports.maxInt120 = exports.maxInt112 = exports.maxInt104 = exports.maxInt96 = exports.maxInt88 = exports.maxInt80 = exports.maxInt72 = exports.maxInt64 = exports.maxInt56 = exports.maxInt48 = exports.maxInt40 = exports.maxInt32 = exports.maxInt24 = exports.maxInt16 = exports.maxInt8 = void 0;
     exports.maxUint256 = exports.maxUint248 = exports.maxUint240 = exports.maxUint232 = exports.maxUint224 = exports.maxUint216 = exports.maxUint208 = exports.maxUint200 = exports.maxUint192 = exports.maxUint184 = exports.maxUint176 = exports.maxUint168 = exports.maxUint160 = exports.maxUint152 = exports.maxUint144 = exports.maxUint136 = exports.maxUint128 = exports.maxUint120 = exports.maxUint112 = exports.maxUint104 = exports.maxUint96 = exports.maxUint88 = exports.maxUint80 = exports.maxUint72 = exports.maxUint64 = exports.maxUint56 = exports.maxUint48 = exports.maxUint40 = exports.maxUint32 = exports.maxUint24 = exports.maxUint16 = exports.maxUint8 = exports.minInt256 = exports.minInt248 = exports.minInt240 = exports.minInt232 = exports.minInt224 = exports.minInt216 = exports.minInt208 = exports.minInt200 = exports.minInt192 = exports.minInt184 = exports.minInt176 = exports.minInt168 = exports.minInt160 = exports.minInt152 = void 0;
@@ -99367,6 +100931,7 @@ var require_number2 = __commonJS({
 var require_chain = __commonJS({
   "node_modules/viem/_cjs/errors/chain.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.InvalidChainIdError = exports.ClientChainNotConfiguredError = exports.ChainNotFoundError = exports.ChainMismatchError = exports.ChainDoesNotSupportContract = void 0;
     var base_js_1 = require_base3();
@@ -99430,6 +100995,7 @@ var require_chain = __commonJS({
 var require_node2 = __commonJS({
   "node_modules/viem/_cjs/errors/node.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.UnknownNodeError = exports.TipAboveFeeCapError = exports.TransactionTypeNotSupportedError = exports.IntrinsicGasTooLowError = exports.IntrinsicGasTooHighError = exports.InsufficientFundsError = exports.NonceMaxValueError = exports.NonceTooLowError = exports.NonceTooHighError = exports.FeeCapTooLowError = exports.FeeCapTooHighError = exports.ExecutionRevertedError = void 0;
     var formatGwei_js_1 = require_formatGwei();
@@ -99630,6 +101196,7 @@ var require_node2 = __commonJS({
 var require_slice = __commonJS({
   "node_modules/viem/_cjs/utils/data/slice.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.slice = slice;
     exports.sliceBytes = sliceBytes;
@@ -99684,6 +101251,7 @@ var require_slice = __commonJS({
 var require_assertTransaction = __commonJS({
   "node_modules/viem/_cjs/utils/transaction/assertTransaction.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.assertTransactionEIP7702 = assertTransactionEIP7702;
     exports.assertTransactionEIP4844 = assertTransactionEIP4844;
@@ -99774,6 +101342,7 @@ var require_assertTransaction = __commonJS({
 var require_getTransactionType = __commonJS({
   "node_modules/viem/_cjs/utils/transaction/getTransactionType.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getTransactionType = getTransactionType;
     var transaction_js_1 = require_transaction3();
@@ -99801,6 +101370,7 @@ var require_getTransactionType = __commonJS({
 var require_serializeAccessList = __commonJS({
   "node_modules/viem/_cjs/utils/transaction/serializeAccessList.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.serializeAccessList = serializeAccessList;
     var address_js_1 = require_address5();
@@ -99831,6 +101401,7 @@ var require_serializeAccessList = __commonJS({
 var require_serializeTransaction = __commonJS({
   "node_modules/viem/_cjs/utils/transaction/serializeTransaction.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.serializeTransaction = serializeTransaction;
     exports.toYParitySignatureArray = toYParitySignatureArray;
@@ -100046,6 +101617,7 @@ var require_serializeTransaction = __commonJS({
 var require_signTransaction = __commonJS({
   "node_modules/viem/_cjs/accounts/utils/signTransaction.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.signTransaction = signTransaction;
     var keccak256_js_1 = require_keccak256();
@@ -100074,6 +101646,7 @@ var require_signTransaction = __commonJS({
 var require_formatAbiItem = __commonJS({
   "node_modules/viem/_cjs/utils/abi/formatAbiItem.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatAbiItem = formatAbiItem;
     exports.formatAbiParams = formatAbiParams;
@@ -100101,6 +101674,7 @@ var require_formatAbiItem = __commonJS({
 var require_abi2 = __commonJS({
   "node_modules/viem/_cjs/errors/abi.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.UnsupportedPackedAbiType = exports.InvalidDefinitionTypeError = exports.InvalidArrayError = exports.InvalidAbiDecodingTypeError = exports.InvalidAbiEncodingTypeError = exports.DecodeLogTopicsMismatch = exports.DecodeLogDataMismatch = exports.BytesSizeMismatchError = exports.AbiItemAmbiguityError = exports.AbiFunctionSignatureNotFoundError = exports.AbiFunctionOutputsNotFoundError = exports.AbiFunctionNotFoundError = exports.AbiEventNotFoundError = exports.AbiEventSignatureNotFoundError = exports.AbiEventSignatureEmptyTopicsError = exports.AbiErrorSignatureNotFoundError = exports.AbiErrorNotFoundError = exports.AbiErrorInputsNotFoundError = exports.AbiEncodingLengthMismatchError = exports.AbiEncodingBytesSizeMismatchError = exports.AbiEncodingArrayLengthMismatchError = exports.AbiDecodingZeroDataError = exports.AbiDecodingDataSizeTooSmallError = exports.AbiDecodingDataSizeInvalidError = exports.AbiConstructorParamsNotFoundError = exports.AbiConstructorNotFoundError = void 0;
     var formatAbiItem_js_1 = require_formatAbiItem();
@@ -100458,6 +102032,7 @@ var require_abi2 = __commonJS({
 var require_regex = __commonJS({
   "node_modules/viem/_cjs/utils/regex.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.integerRegex = exports.bytesRegex = exports.arrayRegex = void 0;
     exports.arrayRegex = /^(.*)\[([0-9]*)\]$/;
@@ -100470,6 +102045,7 @@ var require_regex = __commonJS({
 var require_encodeAbiParameters = __commonJS({
   "node_modules/viem/_cjs/utils/abi/encodeAbiParameters.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.encodeAbiParameters = encodeAbiParameters;
     exports.getArrayComponents = getArrayComponents;
@@ -100700,6 +102276,7 @@ var require_encodeAbiParameters = __commonJS({
 var require_stringify = __commonJS({
   "node_modules/viem/_cjs/utils/stringify.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.stringify = void 0;
     var stringify2 = (value, replacer, space) => JSON.stringify(value, (key, value_) => {
@@ -100714,6 +102291,7 @@ var require_stringify = __commonJS({
 var require_typedData = __commonJS({
   "node_modules/viem/_cjs/errors/typedData.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.InvalidStructTypeError = exports.InvalidPrimaryTypeError = exports.InvalidDomainError = void 0;
     var stringify_js_1 = require_stringify();
@@ -100751,6 +102329,7 @@ var require_typedData = __commonJS({
 var require_typedData2 = __commonJS({
   "node_modules/viem/_cjs/utils/typedData.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.serializeTypedData = serializeTypedData;
     exports.validateTypedData = validateTypedData;
@@ -100868,6 +102447,7 @@ var require_typedData2 = __commonJS({
 var require_hashTypedData = __commonJS({
   "node_modules/viem/_cjs/utils/signature/hashTypedData.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.hashTypedData = hashTypedData;
     exports.hashDomain = hashDomain;
@@ -100993,6 +102573,7 @@ var require_hashTypedData = __commonJS({
 var require_signTypedData = __commonJS({
   "node_modules/viem/_cjs/accounts/utils/signTypedData.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.signTypedData = signTypedData;
     var hashTypedData_js_1 = require_hashTypedData();
@@ -101012,6 +102593,7 @@ var require_signTypedData = __commonJS({
 var require_privateKeyToAccount = __commonJS({
   "node_modules/viem/_cjs/accounts/privateKeyToAccount.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.privateKeyToAccount = privateKeyToAccount;
     var secp256k1_1 = require_secp256k13();
@@ -101059,6 +102641,7 @@ var require_privateKeyToAccount = __commonJS({
 var require_hdKeyToAccount = __commonJS({
   "node_modules/viem/_cjs/accounts/hdKeyToAccount.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.hdKeyToAccount = hdKeyToAccount;
     var toHex_js_1 = require_toHex();
@@ -101079,6 +102662,7 @@ var require_hdKeyToAccount = __commonJS({
 var require_mnemonicToAccount = __commonJS({
   "node_modules/viem/_cjs/accounts/mnemonicToAccount.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.mnemonicToAccount = mnemonicToAccount;
     var bip32_1 = require_lib4();
@@ -101095,6 +102679,7 @@ var require_mnemonicToAccount = __commonJS({
 var require_parseAccount = __commonJS({
   "node_modules/viem/_cjs/accounts/utils/parseAccount.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.parseAccount = parseAccount;
     function parseAccount(account) {
@@ -101109,6 +102694,7 @@ var require_parseAccount = __commonJS({
 var require_privateKeyToAddress = __commonJS({
   "node_modules/viem/_cjs/accounts/utils/privateKeyToAddress.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.privateKeyToAddress = privateKeyToAddress;
     var secp256k1_1 = require_secp256k13();
@@ -101125,6 +102711,7 @@ var require_privateKeyToAddress = __commonJS({
 var require_czech = __commonJS({
   "node_modules/@scure/bip39/wordlists/czech.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wordlist = void 0;
     exports.wordlist = `abdikace
@@ -103182,6 +104769,7 @@ zvyk`.split("\n");
 var require_english = __commonJS({
   "node_modules/@scure/bip39/wordlists/english.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wordlist = void 0;
     exports.wordlist = `abandon
@@ -105239,6 +106827,7 @@ zoo`.split("\n");
 var require_french = __commonJS({
   "node_modules/@scure/bip39/wordlists/french.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wordlist = void 0;
     exports.wordlist = `abaisser
@@ -107296,6 +108885,7 @@ zoologie`.split("\n");
 var require_italian = __commonJS({
   "node_modules/@scure/bip39/wordlists/italian.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wordlist = void 0;
     exports.wordlist = `abaco
@@ -109353,6 +110943,7 @@ zuppa`.split("\n");
 var require_japanese = __commonJS({
   "node_modules/@scure/bip39/wordlists/japanese.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wordlist = void 0;
     exports.wordlist = `\u3042\u3044\u3053\u304F\u3057\u3093
@@ -111410,6 +113001,7 @@ var require_japanese = __commonJS({
 var require_korean = __commonJS({
   "node_modules/@scure/bip39/wordlists/korean.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wordlist = void 0;
     exports.wordlist = `\u1100\u1161\u1100\u1167\u11A8
@@ -113467,6 +115059,7 @@ var require_korean = __commonJS({
 var require_portuguese = __commonJS({
   "node_modules/@scure/bip39/wordlists/portuguese.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wordlist = void 0;
     exports.wordlist = `abacate
@@ -115524,6 +117117,7 @@ zumbido`.split("\n");
 var require_simplified_chinese = __commonJS({
   "node_modules/@scure/bip39/wordlists/simplified-chinese.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wordlist = void 0;
     exports.wordlist = `\u7684
@@ -117581,6 +119175,7 @@ var require_simplified_chinese = __commonJS({
 var require_spanish = __commonJS({
   "node_modules/@scure/bip39/wordlists/spanish.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wordlist = void 0;
     exports.wordlist = `a\u0301baco
@@ -119638,6 +121233,7 @@ zurdo`.split("\n");
 var require_traditional_chinese = __commonJS({
   "node_modules/@scure/bip39/wordlists/traditional-chinese.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.wordlist = void 0;
     exports.wordlist = `\u7684
@@ -121695,6 +123291,7 @@ var require_traditional_chinese = __commonJS({
 var require_wordlists3 = __commonJS({
   "node_modules/viem/_cjs/accounts/wordlists.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.traditionalChinese = exports.spanish = exports.simplifiedChinese = exports.portuguese = exports.korean = exports.japanese = exports.italian = exports.french = exports.english = exports.czech = void 0;
     var czech_1 = require_czech();
@@ -121744,6 +123341,7 @@ var require_wordlists3 = __commonJS({
 var require_accounts = __commonJS({
   "node_modules/viem/_cjs/accounts/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.traditionalChinese = exports.spanish = exports.simplifiedChinese = exports.portuguese = exports.korean = exports.japanese = exports.italian = exports.french = exports.english = exports.czech = exports.signTypedData = exports.signTransaction = exports.signMessage = exports.signAuthorization = exports.sign = exports.setSignEntropy = exports.publicKeyToAddress = exports.privateKeyToAddress = exports.parseAccount = exports.toAccount = exports.privateKeyToAccount = exports.mnemonicToAccount = exports.hdKeyToAccount = exports.generatePrivateKey = exports.generateMnemonic = exports.serializeSignature = exports.signatureToHex = exports.nonceManager = exports.createNonceManager = exports.HDKey = void 0;
     var bip32_1 = require_lib4();
@@ -121861,6 +123459,7 @@ var require_accounts = __commonJS({
 var require_HyperLiquidTrading = __commonJS({
   "node_modules/@gdexsdk/hyper-liquid-trader/lib/src/HyperLiquidTrading.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __awaiter2 = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
       function adopt(value) {
         return value instanceof P ? value : new P(function(resolve2) {
@@ -122349,6 +123948,7 @@ var require_HyperLiquidTrading = __commonJS({
 var require_src3 = __commonJS({
   "node_modules/@gdexsdk/hyper-liquid-trader/lib/src/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -122374,6 +123974,7 @@ var require_src3 = __commonJS({
 var require_perpTrade = __commonJS({
   "dist/actions/perpTrade.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -122887,6 +124488,7 @@ var require_perpTrade = __commonJS({
 var require_limitOrders = __commonJS({
   "dist/actions/limitOrders.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -123018,6 +124620,7 @@ var require_limitOrders = __commonJS({
 var require_copyTrade2 = __commonJS({
   "dist/actions/copyTrade.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -123160,6 +124763,7 @@ var require_copyTrade2 = __commonJS({
 var require_portfolio3 = __commonJS({
   "dist/actions/portfolio.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -123255,6 +124859,7 @@ var require_portfolio3 = __commonJS({
 var require_tokenInfo = __commonJS({
   "dist/actions/tokenInfo.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -123360,6 +124965,7 @@ var require_tokenInfo = __commonJS({
 var require_topTraders = __commonJS({
   "dist/actions/topTraders.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -123429,6 +125035,7 @@ var require_topTraders = __commonJS({
 var require_bridge2 = __commonJS({
   "dist/actions/bridge.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -123531,6 +125138,7 @@ var require_bridge2 = __commonJS({
 var require_wallet3 = __commonJS({
   "dist/actions/wallet.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -123599,6 +125207,7 @@ var require_wallet3 = __commonJS({
 var require_transfers = __commonJS({
   "dist/actions/transfers.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -123688,6 +125297,7 @@ var require_transfers = __commonJS({
 var require_usdc = __commonJS({
   "dist/actions/usdc.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -124037,6 +125647,7 @@ var require_usdc = __commonJS({
 var require_social = __commonJS({
   "dist/actions/social.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -124183,6 +125794,7 @@ var require_social = __commonJS({
 var require_analytics = __commonJS({
   "dist/actions/analytics.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -124271,6 +125883,7 @@ var require_analytics = __commonJS({
 var require_tokenDiscovery = __commonJS({
   "dist/actions/tokenDiscovery.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -124381,6 +125994,7 @@ var require_tokenDiscovery = __commonJS({
 var require_hlOutcomes = __commonJS({
   "dist/actions/hlOutcomes.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -124511,6 +126125,7 @@ var require_hlOutcomes = __commonJS({
 var require_hlOutcomeVolume = __commonJS({
   "dist/actions/hlOutcomeVolume.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.outcomeSideCoin = outcomeSideCoin;
     exports.fetchHlOutcomeVolumes = fetchHlOutcomeVolumes;
@@ -124594,6 +126209,7 @@ var require_hlOutcomeVolume = __commonJS({
 var require_hlReferral = __commonJS({
   "dist/actions/hlReferral.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -124651,6 +126267,7 @@ var require_hlReferral = __commonJS({
 var require_trending = __commonJS({
   "dist/actions/trending.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -124721,6 +126338,7 @@ var require_trending = __commonJS({
 var require_retailer = __commonJS({
   "dist/actions/retailer.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -124771,6 +126389,7 @@ var require_retailer = __commonJS({
 var require_hlExtras = __commonJS({
   "dist/actions/hlExtras.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -124892,6 +126511,7 @@ var require_hlExtras = __commonJS({
 var require_auth = __commonJS({
   "dist/actions/auth.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -124957,6 +126577,7 @@ var require_auth = __commonJS({
 var require_apiKeys = __commonJS({
   "dist/config/apiKeys.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GDEX_API_KEY_SECONDARY = exports.GDEX_API_KEY_PRIMARY = exports.GDEX_API_KEYS = void 0;
     exports.GDEX_API_KEYS = [
@@ -124972,6 +126593,7 @@ var require_apiKeys = __commonJS({
 var require_formatting = __commonJS({
   "dist/utils/formatting.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getChainName = getChainName;
     exports.getNativeToken = getNativeToken;
@@ -125084,6 +126706,7 @@ var require_formatting = __commonJS({
 var require_dist5 = __commonJS({
   "dist/index.js"(exports) {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -126371,10 +127994,26 @@ var import_gdex_skill, _sdk;
 var init_sdk = __esm({
   "mcp-server/src/sdk.ts"() {
     "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
     import_gdex_skill = __toESM(require_dist5(), 1);
     _sdk = null;
   }
 });
+
+// mcp-server/src/index.ts
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/index.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
+init_define_GDEX_SKILL_REGISTRY();
 
 // node_modules/zod/v3/external.js
 var external_exports = {};
@@ -126487,8 +128126,19 @@ __export(external_exports, {
   util: () => util,
   void: () => voidType
 });
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/zod/v3/errors.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/zod/v3/locales/en.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/zod/v3/ZodError.js
+init_define_GDEX_SKILL_REGISTRY();
 
 // node_modules/zod/v3/helpers/util.js
+init_define_GDEX_SKILL_REGISTRY();
 var util;
 (function(util2) {
   util2.assertEqual = (_) => {
@@ -126853,6 +128503,7 @@ function getErrorMap() {
 }
 
 // node_modules/zod/v3/helpers/parseUtil.js
+init_define_GDEX_SKILL_REGISTRY();
 var makeIssue = (params) => {
   const { data, path: path2, errorMaps, issueData } = params;
   const fullPath = [...path2, ...issueData.path || []];
@@ -126962,7 +128613,11 @@ var isDirty = (x) => x.status === "dirty";
 var isValid = (x) => x.status === "valid";
 var isAsync = (x) => typeof Promise !== "undefined" && x instanceof Promise;
 
+// node_modules/zod/v3/types.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/zod/v3/helpers/errorUtil.js
+init_define_GDEX_SKILL_REGISTRY();
 var errorUtil;
 (function(errorUtil2) {
   errorUtil2.errToObj = (message) => typeof message === "string" ? { message } : message || {};
@@ -130417,7 +132072,14 @@ var coerce = {
 };
 var NEVER = INVALID;
 
+// node_modules/zod/v4/mini/external.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/zod/v4/core/index.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/zod/v4/core/core.js
+init_define_GDEX_SKILL_REGISTRY();
 var NEVER2 = Object.freeze({
   status: "aborted"
 });
@@ -130477,6 +132139,12 @@ function config(newConfig) {
   return globalConfig;
 }
 
+// node_modules/zod/v4/core/parse.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/zod/v4/core/errors.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/zod/v4/core/util.js
 var util_exports = {};
 __export(util_exports, {
@@ -130530,6 +132198,7 @@ __export(util_exports, {
   stringifyPrimitive: () => stringifyPrimitive,
   unwrapMessage: () => unwrapMessage
 });
+init_define_GDEX_SKILL_REGISTRY();
 function assertEqual(val) {
   return val;
 }
@@ -131125,7 +132794,14 @@ var _safeParseAsync = (_Err) => async (schema, value, _ctx) => {
 };
 var safeParseAsync = /* @__PURE__ */ _safeParseAsync($ZodRealError);
 
+// node_modules/zod/v4/core/schemas.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/zod/v4/core/checks.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/zod/v4/core/regexes.js
+init_define_GDEX_SKILL_REGISTRY();
 var cuid = /^[cC][^\s-]{8,}$/;
 var cuid2 = /^[0-9a-z]+$/;
 var ulid = /^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$/;
@@ -131569,6 +133245,7 @@ var $ZodCheckOverwrite = /* @__PURE__ */ $constructor("$ZodCheckOverwrite", (ins
 });
 
 // node_modules/zod/v4/core/doc.js
+init_define_GDEX_SKILL_REGISTRY();
 var Doc = class {
   constructor(args2 = []) {
     this.content = [];
@@ -131605,6 +133282,7 @@ var Doc = class {
 };
 
 // node_modules/zod/v4/core/versions.js
+init_define_GDEX_SKILL_REGISTRY();
 var version = {
   major: 4,
   minor: 0,
@@ -132850,6 +134528,7 @@ function handleRefineResult(result, payload, input, inst) {
 }
 
 // node_modules/zod/v4/locales/en.js
+init_define_GDEX_SKILL_REGISTRY();
 var parsedType = (data) => {
   const t = typeof data;
   switch (t) {
@@ -132968,6 +134647,7 @@ function en_default2() {
 }
 
 // node_modules/zod/v4/core/registries.js
+init_define_GDEX_SKILL_REGISTRY();
 var $output = Symbol("ZodOutput");
 var $input = Symbol("ZodInput");
 var $ZodRegistry = class {
@@ -133018,6 +134698,7 @@ function registry() {
 var globalRegistry = /* @__PURE__ */ registry();
 
 // node_modules/zod/v4/core/api.js
+init_define_GDEX_SKILL_REGISTRY();
 function _string(Class2, params) {
   return new Class2({
     type: "string",
@@ -133457,6 +135138,7 @@ function _refine(Class2, fn, _params) {
 }
 
 // node_modules/zod/v4/core/to-json-schema.js
+init_define_GDEX_SKILL_REGISTRY();
 var JSONSchemaGenerator = class {
   constructor(params) {
     this.counter = 0;
@@ -134223,7 +135905,11 @@ function isTransforming(_schema, _ctx) {
   throw new Error(`Unknown schema type: ${def.type}`);
 }
 
+// node_modules/zod/v4/mini/parse.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/zod/v4/mini/schemas.js
+init_define_GDEX_SKILL_REGISTRY();
 var ZodMiniType = /* @__PURE__ */ $constructor("ZodMiniType", (inst, def) => {
   if (!inst._zod)
     throw new Error("Uninitialized schema in ZodMiniType.");
@@ -134413,6 +136099,18 @@ function getLiteralValue(schema) {
   return void 0;
 }
 
+// node_modules/@modelcontextprotocol/sdk/dist/esm/types.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/zod/v4/classic/external.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/zod/v4/classic/schemas.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/zod/v4/classic/checks.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/zod/v4/classic/iso.js
 var iso_exports2 = {};
 __export(iso_exports2, {
@@ -134425,6 +136123,7 @@ __export(iso_exports2, {
   duration: () => duration2,
   time: () => time2
 });
+init_define_GDEX_SKILL_REGISTRY();
 var ZodISODateTime = /* @__PURE__ */ $constructor("ZodISODateTime", (inst, def) => {
   $ZodISODateTime.init(inst, def);
   ZodStringFormat.init(inst, def);
@@ -134454,7 +136153,11 @@ function duration2(params) {
   return _isoDuration(ZodISODuration, params);
 }
 
+// node_modules/zod/v4/classic/parse.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/zod/v4/classic/errors.js
+init_define_GDEX_SKILL_REGISTRY();
 var initializer2 = (inst, issues) => {
   $ZodError.init(inst, issues);
   inst.name = "ZodError";
@@ -136640,11 +138343,19 @@ var UrlElicitationRequiredError = class extends McpError {
 };
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/interfaces.js
+init_define_GDEX_SKILL_REGISTRY();
 function isTerminal(status) {
   return status === "completed" || status === "failed" || status === "cancelled";
 }
 
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-json-schema-compat.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/zod-to-json-schema/dist/esm/index.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/zod-to-json-schema/dist/esm/Options.js
+init_define_GDEX_SKILL_REGISTRY();
 var ignoreOverride = Symbol("Let zodToJsonSchema decide on which parser to use");
 var defaultOptions = {
   name: void 0,
@@ -136679,6 +138390,7 @@ var getDefaultOptions = (options) => typeof options === "string" ? {
 };
 
 // node_modules/zod-to-json-schema/dist/esm/Refs.js
+init_define_GDEX_SKILL_REGISTRY();
 var getRefs = (options) => {
   const _options = getDefaultOptions(options);
   const currentPath = _options.name !== void 0 ? [..._options.basePath, _options.definitionPath, _options.name] : _options.basePath;
@@ -136700,6 +138412,7 @@ var getRefs = (options) => {
 };
 
 // node_modules/zod-to-json-schema/dist/esm/errorMessages.js
+init_define_GDEX_SKILL_REGISTRY();
 function addErrorMessage(res, key, errorMessage, refs) {
   if (!refs?.errorMessages)
     return;
@@ -136716,6 +138429,7 @@ function setResponseValueAndErrors(res, key, value, errorMessage, refs) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/getRelativePath.js
+init_define_GDEX_SKILL_REGISTRY();
 var getRelativePath = (pathA, pathB) => {
   let i = 0;
   for (; i < pathA.length && i < pathB.length; i++) {
@@ -136725,7 +138439,14 @@ var getRelativePath = (pathA, pathB) => {
   return [(pathA.length - i).toString(), ...pathB.slice(i)].join("/");
 };
 
+// node_modules/zod-to-json-schema/dist/esm/parseDef.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/zod-to-json-schema/dist/esm/selectParser.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/zod-to-json-schema/dist/esm/parsers/any.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseAnyDef(refs) {
   if (refs.target !== "openAi") {
     return {};
@@ -136742,6 +138463,7 @@ function parseAnyDef(refs) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/array.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseArrayDef(def, refs) {
   const res = {
     type: "array"
@@ -136766,6 +138488,7 @@ function parseArrayDef(def, refs) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/bigint.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseBigintDef(def, refs) {
   const res = {
     type: "integer",
@@ -136812,6 +138535,7 @@ function parseBigintDef(def, refs) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/boolean.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseBooleanDef() {
   return {
     type: "boolean"
@@ -136819,16 +138543,19 @@ function parseBooleanDef() {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/branded.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseBrandedDef(_def, refs) {
   return parseDef(_def.type._def, refs);
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/catch.js
+init_define_GDEX_SKILL_REGISTRY();
 var parseCatchDef = (def, refs) => {
   return parseDef(def.innerType._def, refs);
 };
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/date.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseDateDef(def, refs, overrideDateStrategy) {
   const strategy = overrideDateStrategy ?? refs.dateStrategy;
   if (Array.isArray(strategy)) {
@@ -136888,6 +138615,7 @@ var integerDateParser = (def, refs) => {
 };
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/default.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseDefaultDef(_def, refs) {
   return {
     ...parseDef(_def.innerType._def, refs),
@@ -136896,11 +138624,13 @@ function parseDefaultDef(_def, refs) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/effects.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseEffectsDef(_def, refs) {
   return refs.effectStrategy === "input" ? parseDef(_def.schema._def, refs) : parseAnyDef(refs);
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/enum.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseEnumDef(def) {
   return {
     type: "string",
@@ -136909,6 +138639,7 @@ function parseEnumDef(def) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/intersection.js
+init_define_GDEX_SKILL_REGISTRY();
 var isJsonSchema7AllOfType = (type) => {
   if ("type" in type && type.type === "string")
     return false;
@@ -136951,6 +138682,7 @@ function parseIntersectionDef(def, refs) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/literal.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseLiteralDef(def, refs) {
   const parsedType2 = typeof def.value;
   if (parsedType2 !== "bigint" && parsedType2 !== "number" && parsedType2 !== "boolean" && parsedType2 !== "string") {
@@ -136970,7 +138702,14 @@ function parseLiteralDef(def, refs) {
   };
 }
 
+// node_modules/zod-to-json-schema/dist/esm/parsers/map.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/record.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/zod-to-json-schema/dist/esm/parsers/string.js
+init_define_GDEX_SKILL_REGISTRY();
 var emojiRegex2 = void 0;
 var zodPatterns = {
   /**
@@ -137373,6 +139112,7 @@ function parseMapDef(def, refs) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/nativeEnum.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseNativeEnumDef(def) {
   const object3 = def.values;
   const actualKeys = Object.keys(def.values).filter((key) => {
@@ -137387,6 +139127,7 @@ function parseNativeEnumDef(def) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/never.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseNeverDef(refs) {
   return refs.target === "openAi" ? void 0 : {
     not: parseAnyDef({
@@ -137397,6 +139138,7 @@ function parseNeverDef(refs) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/null.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseNullDef(refs) {
   return refs.target === "openApi3" ? {
     enum: ["null"],
@@ -137406,7 +139148,11 @@ function parseNullDef(refs) {
   };
 }
 
+// node_modules/zod-to-json-schema/dist/esm/parsers/nullable.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/zod-to-json-schema/dist/esm/parsers/union.js
+init_define_GDEX_SKILL_REGISTRY();
 var primitiveMappings = {
   ZodString: "string",
   ZodNumber: "number",
@@ -137507,6 +139253,7 @@ function parseNullableDef(def, refs) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/number.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseNumberDef(def, refs) {
   const res = {
     type: "number"
@@ -137556,6 +139303,7 @@ function parseNumberDef(def, refs) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/object.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseObjectDef(def, refs) {
   const forceOptionalIntoNullable = refs.target === "openAi";
   const result = {
@@ -137626,6 +139374,7 @@ function safeIsOptional(schema) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/optional.js
+init_define_GDEX_SKILL_REGISTRY();
 var parseOptionalDef = (def, refs) => {
   if (refs.currentPath.toString() === refs.propertyPath?.toString()) {
     return parseDef(def.innerType._def, refs);
@@ -137645,6 +139394,7 @@ var parseOptionalDef = (def, refs) => {
 };
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/pipeline.js
+init_define_GDEX_SKILL_REGISTRY();
 var parsePipelineDef = (def, refs) => {
   if (refs.pipeStrategy === "input") {
     return parseDef(def.in._def, refs);
@@ -137665,11 +139415,13 @@ var parsePipelineDef = (def, refs) => {
 };
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/promise.js
+init_define_GDEX_SKILL_REGISTRY();
 function parsePromiseDef(def, refs) {
   return parseDef(def.type._def, refs);
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/set.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseSetDef(def, refs) {
   const items = parseDef(def.valueType._def, {
     ...refs,
@@ -137690,6 +139442,7 @@ function parseSetDef(def, refs) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/tuple.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseTupleDef(def, refs) {
   if (def.rest) {
     return {
@@ -137718,6 +139471,7 @@ function parseTupleDef(def, refs) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/undefined.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseUndefinedDef(refs) {
   return {
     not: parseAnyDef(refs)
@@ -137725,11 +139479,13 @@ function parseUndefinedDef(refs) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/unknown.js
+init_define_GDEX_SKILL_REGISTRY();
 function parseUnknownDef(refs) {
   return parseAnyDef(refs);
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/readonly.js
+init_define_GDEX_SKILL_REGISTRY();
 var parseReadonlyDef = (def, refs) => {
   return parseDef(def.innerType._def, refs);
 };
@@ -137866,7 +139622,11 @@ var addMeta = (def, refs, jsonSchema) => {
   return jsonSchema;
 };
 
+// node_modules/zod-to-json-schema/dist/esm/parseTypes.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/zod-to-json-schema/dist/esm/zodToJsonSchema.js
+init_define_GDEX_SKILL_REGISTRY();
 var zodToJsonSchema = (schema, options) => {
   const refs = getRefs(options);
   let definitions = typeof options === "object" && options.definitions ? Object.entries(options.definitions).reduce((acc, [name2, schema2]) => ({
@@ -138925,6 +140685,7 @@ function mergeCapabilities(base, additional) {
 }
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/validation/ajv-provider.js
+init_define_GDEX_SKILL_REGISTRY();
 var import_ajv = __toESM(require_ajv(), 1);
 var import_ajv_formats = __toESM(require_dist(), 1);
 function createDefaultAjvInstance() {
@@ -138993,6 +140754,7 @@ var AjvJsonSchemaValidator = class {
 };
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
+init_define_GDEX_SKILL_REGISTRY();
 var ExperimentalServerTasks = class {
   constructor(_server) {
     this._server = _server;
@@ -139206,6 +140968,7 @@ var ExperimentalServerTasks = class {
 };
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/helpers.js
+init_define_GDEX_SKILL_REGISTRY();
 function assertToolsCallTaskCapability(requests, method, entityName) {
   if (!requests) {
     throw new Error(`${entityName} does not support task creation (required for ${method})`);
@@ -139621,6 +141384,7 @@ var Server = class extends Protocol {
 };
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/completable.js
+init_define_GDEX_SKILL_REGISTRY();
 var COMPLETABLE_SYMBOL = Symbol.for("mcp.completable");
 function isCompletable(schema) {
   return !!schema && typeof schema === "object" && COMPLETABLE_SYMBOL in schema;
@@ -139634,7 +141398,11 @@ var McpZodTypeKind;
   McpZodTypeKind2["Completable"] = "McpCompletable";
 })(McpZodTypeKind || (McpZodTypeKind = {}));
 
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/uriTemplate.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/@modelcontextprotocol/sdk/dist/esm/shared/toolNameValidation.js
+init_define_GDEX_SKILL_REGISTRY();
 var TOOL_NAME_REGEX = /^[A-Za-z0-9._-]{1,128}$/;
 function validateToolName(name) {
   const warnings = [];
@@ -139693,6 +141461,7 @@ function validateAndWarnToolName(name) {
 }
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/mcp-server.js
+init_define_GDEX_SKILL_REGISTRY();
 var ExperimentalMcpServerTasks = class {
   constructor(_mcpServer) {
     this._mcpServer = _mcpServer;
@@ -139706,6 +141475,9 @@ var ExperimentalMcpServerTasks = class {
     return mcpServerInternal._createRegisteredTool(name, config2.title, config2.description, config2.inputSchema, config2.outputSchema, config2.annotations, execution, config2._meta, handler);
   }
 };
+
+// node_modules/zod/index.js
+init_define_GDEX_SKILL_REGISTRY();
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js
 var McpServer = class {
@@ -140500,9 +142272,11 @@ var EMPTY_COMPLETION_RESULT = {
 };
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
+init_define_GDEX_SKILL_REGISTRY();
 import process2 from "node:process";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/shared/stdio.js
+init_define_GDEX_SKILL_REGISTRY();
 var ReadBuffer = class {
   append(chunk) {
     this._buffer = this._buffer ? Buffer.concat([this._buffer, chunk]) : chunk;
@@ -140595,11 +142369,16 @@ var StdioServerTransport = class {
 import { readFileSync } from "node:fs";
 
 // mcp-server/src/knowledge.ts
+init_define_GDEX_SKILL_REGISTRY();
 import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 var __dirname = fileURLToPath(new URL(".", import.meta.url));
 var cachedSkills = null;
+var knowledgeSource = "none";
+function bundledRegistry() {
+  return typeof define_GDEX_SKILL_REGISTRY_default !== "undefined" && define_GDEX_SKILL_REGISTRY_default ? define_GDEX_SKILL_REGISTRY_default : null;
+}
 function getSkillsDir() {
   return resolve(__dirname, "..", "..", "skills");
 }
@@ -140645,6 +142424,20 @@ function parseSections(body) {
   }
   return sections;
 }
+async function readCompanionFiles(dir, prefix = "") {
+  const files = /* @__PURE__ */ new Map();
+  const entries = await readdir(dir, { withFileTypes: true });
+  for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      if (entry.name === "__pycache__" || entry.name === "node_modules") continue;
+      for (const [k, v] of await readCompanionFiles(join(dir, entry.name), rel)) files.set(k, v);
+    } else if (entry.isFile() && rel !== "SKILL.md" && !/\.(pyc|pyo|png|jpe?g|gif|webp|ico|zip|gz|tgz)$/i.test(rel)) {
+      files.set(rel, await readFile(join(dir, entry.name), "utf-8"));
+    }
+  }
+  return files;
+}
 async function findSkillDirs(dir) {
   const dirs = [];
   try {
@@ -140663,10 +142456,21 @@ async function findSkillDirs(dir) {
   }
   return dirs;
 }
-async function loadSkills() {
-  if (cachedSkills) return cachedSkills;
+function fromRegistry(registry2) {
   const skills2 = /* @__PURE__ */ new Map();
-  const skillsDir = getSkillsDir();
+  for (const entry of registry2.skills) {
+    skills2.set(entry.name, {
+      name: entry.name,
+      description: entry.description,
+      content: entry.content,
+      sections: parseSections(entry.content),
+      files: new Map(entry.files.map((f2) => [f2.path, f2.content]))
+    });
+  }
+  return skills2;
+}
+async function fromFilesystem(skillsDir, rootSkillPath) {
+  const skills2 = /* @__PURE__ */ new Map();
   const skillDirs = await findSkillDirs(skillsDir);
   for (const dir of skillDirs) {
     const content = await readFile(join(dir, "SKILL.md"), "utf-8");
@@ -140676,20 +142480,41 @@ async function loadSkills() {
         name,
         description,
         content: body,
-        sections: parseSections(body)
+        sections: parseSections(body),
+        files: await readCompanionFiles(dir)
       });
     }
   }
   try {
-    const rootContent = await readFile(getRootSkillPath(), "utf-8");
+    const rootContent = await readFile(rootSkillPath, "utf-8");
     const { name, description, body } = parseFrontmatter(rootContent);
     skills2.set("gdex-root", {
-      name: name || "gdex-root",
-      description: description || "Root skill router",
+      name: "gdex-root",
+      description: description || name || "Root skill router",
       content: body,
-      sections: parseSections(body)
+      sections: parseSections(body),
+      files: /* @__PURE__ */ new Map()
     });
   } catch {
+  }
+  return skills2;
+}
+async function loadSkills(options = {}) {
+  if (cachedSkills) return cachedSkills;
+  const registry2 = options.registry !== void 0 ? options.registry : bundledRegistry();
+  const skillsDir = options.skillsDir ?? getSkillsDir();
+  let skills2;
+  if (registry2 && registry2.skills.length > 0) {
+    skills2 = fromRegistry(registry2);
+    knowledgeSource = "bundled";
+  } else {
+    skills2 = await fromFilesystem(skillsDir, options.skillsDir ? join(skillsDir, "..", "SKILL.md") : getRootSkillPath());
+    knowledgeSource = skills2.size > 0 ? "filesystem" : "none";
+  }
+  if (skills2.size === 0) {
+    console.error(
+      `[gdex-mcp-server] warning: no GDEX skill documentation available (no bundled registry and no skills at ${skillsDir}). search_gdex_docs, get_trading_guide, get_sdk_pattern, explain_workflow and the other doc tools will return no content. Rebuild with \`npm run build:mcp\` to embed skills/.`
+    );
   }
   cachedSkills = skills2;
   return skills2;
@@ -140725,17 +142550,192 @@ function getSkillContent(skills2, skillName) {
   const skill = skills2.get(skillName);
   return skill ? skill.content : null;
 }
+function getSkillFile(skills2, skillName, path2) {
+  const skill = skills2.get(skillName);
+  if (!skill) return null;
+  return skill.files.get(path2.replace(/^\.\//, "")) ?? null;
+}
 function listSkills(skills2) {
   return Array.from(skills2.values()).filter((s) => s.name !== "gdex-root").map((s) => ({ name: s.name, description: s.description }));
 }
 
+// mcp-server/src/workflowGuides.ts
+init_define_GDEX_SKILL_REGISTRY();
+var MCP_CREDENTIALS = `**Credentials (MCP):** run \`gdex_connect\` once (\`{ keyFile: "~/wallet.json" }\` or \`{ create: true }\`)
+and pass the returned \`accountRef\` to every trading tool. It fills \`apiKey\`, \`walletAddress\`,
+\`sessionPrivateKey\` and session \`data\` locally, so no secret enters the chat.`;
+var SDK_SIGN_IN = `\`\`\`typescript
+import { ethers } from 'ethers';
+import {
+  GdexSkill, GDEX_API_KEY_PRIMARY,
+  generateGdexSessionKeyPair, buildGdexSignInMessage, buildGdexSignInComputedData,
+} from '@gemachdao/gdex-skill';
+
+const skill = new GdexSkill();
+const apiKey = GDEX_API_KEY_PRIMARY;
+skill.loginWithApiKey(apiKey);
+
+// Managed-custody sign-in: the control wallet signs once, the session key signs every trade.
+const control = new ethers.Wallet(process.env.CONTROL_PRIVATE_KEY!);
+const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
+const nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));
+const signature = await control.signMessage(buildGdexSignInMessage(control.address, nonce, sessionKey));
+const signIn = buildGdexSignInComputedData({ apiKey, userId: control.address, sessionKey, nonce, signature });
+await skill.signInWithComputedData({ computedData: signIn.computedData, chainId: 1 }); // 1 = EVM/HL, 622112261 = Solana
+
+// walletAddress is ALWAYS the control wallet, never the managed wallet (code 103 otherwise)
+const creds = { apiKey, walletAddress: control.address, sessionPrivateKey };
+\`\`\``;
+var WORKFLOW_GUIDES = {
+  "spot-trade": `# Spot Trading Workflow
+
+${MCP_CREDENTIALS}
+
+**MCP:** \`buy_token\` \`{ accountRef, chain: 8453, tokenAddress, amount: "0.01" }\`, then
+\`sell_token\` \`{ chain: 8453, tokenAddress, amount: "50%" }\`. To pay with or sell into USDC on any
+chain use \`usdc_buy\` / \`usdc_sell\` (see explain_workflow 'usdc-wallet').
+
+**SDK:**
+
+1. **Install:** \`npm install @gemachdao/gdex-skill\`
+2. **Initialize and sign in:**
+${SDK_SIGN_IN}
+3. **Buy a token** (EVM buys with \`sessionPrivateKey\` + \`apiKey\` go through the managed purchase_v2 flow):
+\`\`\`typescript
+const buy = await skill.buyToken({
+  chain: 8453,                 // Base; 'solana', 'sui' or any ChainId number
+  tokenAddress: 'TOKEN_ADDRESS',
+  amount: '0.01',              // native token to spend (0.01 ETH)
+  slippage: 1,
+  ...creds,
+});
+\`\`\`
+4. **Sell a token:**
+\`\`\`typescript
+const sell = await skill.sellToken({
+  chain: 8453,
+  tokenAddress: 'TOKEN_ADDRESS',
+  amount: '50%',               // or an absolute token amount like '100'
+  slippage: 1,
+  walletAddress: creds.walletAddress,
+});
+\`\`\`
+
+**Key notes:**
+- Solana chainId is \`622112261\`, not \`900\`
+- Meteora-routed Solana tokens fail; Raydium-routed tokens work
+- The first Solana trade on a token needs ~0.01 SOL for ATA rent and fees
+- Full reference: get_trading_guide { type: 'spot' }`,
+  "perp-trade": `# Perpetual Futures Workflow (HyperLiquid)
+
+${MCP_CREDENTIALS}
+
+**MCP:** \`perp_deposit\` \`{ accountRef, tokenAddress: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", amount: "100" }\` \u2192
+\`open_perp_position\` \`{ accountRef, coin: "BTC", isLong: true, price: "0", size: "0.001", isMarket: true, leverage: 5 }\` \u2192
+\`get_perp_positions\` \u2192 \`close_perp_position\` \`{ accountRef, coin: "BTC" }\`.
+
+**SDK:**
+
+1. **Install and sign in** (sign-in chainId \`1\`):
+${SDK_SIGN_IN}
+2. **Deposit USDC from Arbitrum** (min 10 USDC, lands in ~10 min; the managed wallet needs amount \xD7 1.01):
+\`\`\`typescript
+await skill.perpDeposit({
+  tokenAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', // USDC on Arbitrum
+  amount: '100',
+  chainId: 42161,
+  ...creds,
+});
+\`\`\`
+3. **Open a position** with \`hlCreateOrder\` (there is no \`openPerpPosition\` method):
+\`\`\`typescript
+const mark = await skill.getHlMarkPrice('BTC');
+await skill.hlCreateOrder({
+  coin: 'BTC',
+  isLong: true,
+  price: String(mark),   // market orders: mark price (the slippage bound); '0' also resolves to mark
+  size: '0.001',         // size in contracts (coin units), not USD; min order value $11
+  isMarket: true,
+  tpPrice: '110000',     // '' to skip
+  slPrice: '95000',      // '' to skip
+  leverage: 5,           // sent as a top-level field with the order
+  ...creds,
+});
+\`\`\`
+4. **Read positions** (positions live on the managed EVM wallet from sign-in):
+\`\`\`typescript
+const positions = await skill.getPerpPositions({ walletAddress: managedEvmAddress });
+\`\`\`
+5. **Close a position** (side and size are read from the live position; omit \`size\` for a full close):
+\`\`\`typescript
+await skill.closePerpPosition({ coin: 'BTC', positionAddress: managedEvmAddress, ...creds });
+\`\`\`
+
+**Key notes:**
+- Leverage is set per order via \`leverage\` on \`hlCreateOrder\` / \`open_perp_position\`; omitted, HL uses its 20x default.
+  The standalone \`hlUpdateLeverage\` / \`set_leverage\` endpoint has returned 404 in live tests.
+- \`hlCloseAll\` / \`close_all_positions\` is unreliable \u2014 close per coin with \`closePerpPosition\` / \`close_perp_position\`
+- Writes take \`walletAddress\` = control wallet; position reads take the managed wallet
+- Builder markets (stocks, commodities) use \`dex:ASSET\`, e.g. \`xyz:NVDA\`
+- Full reference: get_trading_guide { type: 'perp' }`,
+  "auth": `# Authentication Workflow
+
+**Option A \u2014 MCP (recommended for agents):** call \`gdex_connect\` with a local key file
+(\`{ keyFile: "~/wallet.json" }\`) or \`{ create: true }\` for a new wallet. The server signs in, keeps the
+keys under \`~/.gdex/accounts\` and returns an \`accountRef\`. Pass \`accountRef\` to every trading tool.
+\`gdex_accounts\` lists connected accounts, \`gdex_disconnect\` forgets one. Never paste a private key
+or seed phrase into the chat.
+
+**Option B \u2014 SDK managed-custody sign-in:**
+${SDK_SIGN_IN}
+
+\`loginWithApiKey\` alone is enough for read-only calls (token details, trending, OHLCV, top traders).
+Every trade also needs the session key from the sign-in above.
+
+**Resolve the managed wallets** (they receive funds and hold positions):
+\`\`\`typescript
+import { buildGdexUserSessionData } from '@gemachdao/gdex-skill';
+const data = buildGdexUserSessionData(sessionKey, apiKey);
+const evm = await skill.getManagedUser({ userId: control.address, data, chainId: 1 });
+const sol = await skill.getManagedUser({ userId: control.address, data, chainId: 622112261 });
+\`\`\`
+
+**Key concepts:**
+- Control wallet: signs in once; it is the \`userId\` / \`walletAddress\` in every call
+- Managed wallet: server-side wallet per chain family that executes trades on-chain
+- Session key: secp256k1 keypair registered at sign-in; signs every trade payload
+- Payloads are AES-256-CBC encrypted \`computedData\` (key/IV derived from the API key)
+- Full reference: get_sdk_pattern { operation: 'auth' }`,
+  "full-trading-app": `# Full Trading App Workflow
+
+1. **Set up React/Next.js project:** Load \`gdex-ui-install-setup\`
+2. **Add SDK context provider:** Wrap app in \`GdexProvider\`
+3. **Add wallet connection:** Load \`gdex-ui-wallet-connection\`
+4. **Add trading components:** Load \`gdex-ui-trading-components\`
+5. **Add portfolio dashboard:** Load \`gdex-ui-portfolio-dashboard\`
+6. **Add theming:** Load \`gdex-ui-theming\`
+7. **Compose pages:** Load \`gdex-ui-page-layouts\`
+
+See the Frontend skills for complete component patterns and code examples.`
+};
+var WORKFLOW_SKILLS = {
+  "copy-trade": "gdex-copy-trading",
+  "perp-copy-trade": "gdex-perp-copy-trading",
+  "bridge": "gdex-bridge",
+  "limit-order": "gdex-limit-orders",
+  "perp-funding": "gdex-perp-funding",
+  "usdc-wallet": "gdex-usdc-wallet"
+};
+
 // mcp-server/src/init.ts
+init_define_GDEX_SKILL_REGISTRY();
 import { mkdir, readFile as readFile2, writeFile, rename, copyFile, stat, realpath, unlink } from "node:fs/promises";
 import { dirname, join as join2 } from "node:path";
 import { existsSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 
 // mcp-server/src/jsonc.ts
+init_define_GDEX_SKILL_REGISTRY();
 var ConfigParseError = class extends Error {
 };
 function skipTrivia(t, i, comments) {
@@ -140863,6 +142863,7 @@ function setJsonMember(t, containerKey, name, value, comments, eol) {
 }
 
 // mcp-server/src/tomlLite.ts
+init_define_GDEX_SKILL_REGISTRY();
 var BARE_KEY = /^[A-Za-z0-9_-]+/;
 var DATETIME = /^(\d{4}-\d{2}-\d{2}([Tt ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?([Zz]|[+-]\d{2}:\d{2})?)?|\d{2}:\d{2}:\d{2}(\.\d+)?)/;
 var NUMBER = /^([+-]?(inf|nan)|0x[0-9A-Fa-f](_?[0-9A-Fa-f])*|0o[0-7](_?[0-7])*|0b[01](_?[01])*|[+-]?(0|[1-9](_?\d)*)(\.\d(_?\d)*)?([eE][+-]?\d(_?\d)*)?)/;
@@ -141153,7 +143154,21 @@ function mcpEntry() {
     env: { GDEX_API_KEY: SHARED_API_KEY }
   };
 }
-function getTarget(client) {
+function openCodeTarget(cwd) {
+  const path2 = cwd && existsSync(join2(cwd, "opencode.jsonc")) && !existsSync(join2(cwd, "opencode.json")) ? "opencode.jsonc" : "opencode.json";
+  const { command, args: args2, env } = mcpEntry();
+  return {
+    format: "json",
+    path: path2,
+    containerKey: "mcp",
+    comments: true,
+    // OpenCode parses its config as JSONC
+    entry: { type: "local", command: [command, ...args2], environment: env, enabled: true },
+    freshTopLevel: { $schema: "https://opencode.ai/config.json" }
+  };
+}
+var LEGACY_OPENCODE_PATH = ".opencode/mcp.json";
+function getTarget(client, cwd) {
   switch (client) {
     case "claude":
       return { format: "json", path: ".mcp.json", containerKey: "mcpServers", comments: false, entry: mcpEntry() };
@@ -141170,7 +143185,7 @@ function getTarget(client) {
     case "codex":
       return { format: "toml", path: ".codex/config.toml", tablePath: ["mcp_servers", SERVER_NAME], entry: mcpEntry() };
     case "opencode":
-      return { format: "json", path: ".opencode/mcp.json", containerKey: "mcpServers", comments: false, entry: mcpEntry() };
+      return openCodeTarget(cwd);
   }
 }
 function isPlainObject3(v) {
@@ -141219,7 +143234,7 @@ async function atomicWrite(fullPath, content, backup) {
 }
 var eolOf = (text) => text.includes("\r\n") ? "\r\n" : "\n";
 function planJson(target, original) {
-  const fresh = () => JSON.stringify({ [target.containerKey]: { [SERVER_NAME]: target.entry } }, null, 2) + "\n";
+  const fresh = () => JSON.stringify({ ...target.freshTopLevel, [target.containerKey]: { [SERVER_NAME]: target.entry } }, null, 2) + "\n";
   if (original === void 0 || original.trim() === "") {
     return { build: fresh, verify: () => true };
   }
@@ -141320,7 +143335,7 @@ function planToml(target, original) {
 }
 async function initClientConfig(opts) {
   const cwd = opts.cwd ?? process.cwd();
-  const target = getTarget(opts.client);
+  const target = getTarget(opts.client, cwd);
   const fullPath = join2(cwd, target.path);
   const base = { path: target.path, fullPath };
   const original = existsSync(fullPath) ? await readFile2(fullPath, "utf-8") : void 0;
@@ -141363,7 +143378,9 @@ ${newEntry}`
   }
   const backupPath = await atomicWrite(fullPath, content, original !== void 0);
   if (original === void 0) {
-    return { ...base, status: "created", message: `Created ${target.path} for ${opts.client}` };
+    const legacy = opts.client === "opencode" && existsSync(join2(cwd, LEGACY_OPENCODE_PATH)) ? `
+Note: ${LEGACY_OPENCODE_PATH} (written by older versions of init) is not read by OpenCode; you can delete it.` : "";
+    return { ...base, status: "created", message: `Created ${target.path} for ${opts.client}${legacy}` };
   }
   if (plan.existing !== void 0) {
     return {
@@ -141387,7 +143404,7 @@ function printUsage(log) {
   log("  cursor    - Cursor (.cursor/mcp.json)");
   log("  vscode    - VS Code (.vscode/mcp.json)");
   log("  codex     - Codex (.codex/config.toml)");
-  log("  opencode  - OpenCode (.opencode/mcp.json)");
+  log("  opencode  - OpenCode (opencode.json, or an existing opencode.jsonc)");
   log("\nOptions:");
   log(`  --force   Replace an existing ${SERVER_NAME} entry that differs from the default`);
 }
@@ -141445,10 +143462,13 @@ GDEX MCP server configured! Available tools:`);
   console.log("  - get_trading_guide      Spot, perp, or limit trading guides");
   console.log("  - get_copy_trade_guide   Copy trading guides");
   console.log("  - get_component_guide    React UI component patterns");
+  console.log("  - get_skill_file         Files shipped with a skill (scripts, data)");
+  console.log("  ...plus 128 trading and account tools. Connect an account with gdex_connect.");
   return 0;
 }
 
 // mcp-server/src/tools/auth.ts
+init_define_GDEX_SKILL_REGISTRY();
 init_sdk();
 function registerAuthTools(server2) {
   server2.tool(
@@ -141502,6 +143522,7 @@ function registerAuthTools(server2) {
 }
 
 // mcp-server/src/tools/spotTrade.ts
+init_define_GDEX_SKILL_REGISTRY();
 init_sdk();
 var DECIMAL_AMOUNT = /^\d+(\.\d+)?$/;
 var DECIMAL_OR_PERCENT_AMOUNT = /^\d+(\.\d+)?%?$/;
@@ -141549,6 +143570,7 @@ function registerSpotTradeTools(server2) {
 }
 
 // mcp-server/src/tools/perpTrade.ts
+init_define_GDEX_SKILL_REGISTRY();
 init_sdk();
 var hlCredentials = {
   apiKey: external_exports.string().describe("GDEX API key for AES encryption"),
@@ -141694,6 +143716,7 @@ function registerPerpTradeTools(server2) {
 }
 
 // mcp-server/src/tools/perpRead.ts
+init_define_GDEX_SKILL_REGISTRY();
 init_sdk();
 function registerPerpReadTools(server2) {
   server2.tool(
@@ -141801,6 +143824,7 @@ function registerPerpReadTools(server2) {
 }
 
 // mcp-server/src/tools/directExec.ts
+init_define_GDEX_SKILL_REGISTRY();
 init_sdk();
 function registerDirectExecTools(server2) {
   server2.tool(
@@ -141928,6 +143952,7 @@ function registerDirectExecTools(server2) {
 }
 
 // mcp-server/src/tools/limitOrders.ts
+init_define_GDEX_SKILL_REGISTRY();
 init_sdk();
 function registerLimitOrderTools(server2) {
   server2.tool(
@@ -142002,6 +144027,7 @@ function registerLimitOrderTools(server2) {
 }
 
 // mcp-server/src/tools/copyTrade.ts
+init_define_GDEX_SKILL_REGISTRY();
 init_sdk();
 function registerCopyTradeTools(server2) {
   server2.tool(
@@ -142116,6 +144142,7 @@ function registerCopyTradeTools(server2) {
 }
 
 // mcp-server/src/tools/hlCopyTrade.ts
+init_define_GDEX_SKILL_REGISTRY();
 init_sdk();
 function registerHlCopyTradeTools(server2) {
   server2.tool(
@@ -142269,6 +144296,7 @@ function registerHlCopyTradeTools(server2) {
 }
 
 // mcp-server/src/tools/portfolio.ts
+init_define_GDEX_SKILL_REGISTRY();
 init_sdk();
 function registerPortfolioTools(server2) {
   server2.tool(
@@ -142394,6 +144422,7 @@ function registerPortfolioTools(server2) {
 }
 
 // mcp-server/src/tools/bridge.ts
+init_define_GDEX_SKILL_REGISTRY();
 init_sdk();
 function registerBridgeTools(server2) {
   server2.tool(
@@ -142440,6 +144469,7 @@ function registerBridgeTools(server2) {
 }
 
 // mcp-server/src/tools/managed.ts
+init_define_GDEX_SKILL_REGISTRY();
 init_sdk();
 function registerManagedTools(server2) {
   server2.tool(
@@ -142511,6 +144541,7 @@ function registerManagedTools(server2) {
 }
 
 // mcp-server/src/tools/v110.ts
+init_define_GDEX_SKILL_REGISTRY();
 init_sdk();
 function registerV110Tools(server2) {
   server2.tool(
@@ -142918,6 +144949,7 @@ function registerV110Tools(server2) {
 }
 
 // mcp-server/src/tools/usdc.ts
+init_define_GDEX_SKILL_REGISTRY();
 var import_gdex_skill2 = __toESM(require_dist5(), 1);
 init_sdk();
 var usdcCredentials = {
@@ -143109,18 +145141,37 @@ function registerUsdcTools(server2) {
 }
 
 // mcp-server/src/tools/account.ts
+init_define_GDEX_SKILL_REGISTRY();
 init_sdk();
 
 // mcp-server/src/credentials.ts
+init_define_GDEX_SKILL_REGISTRY();
 import { createHash as createHash2 } from "crypto";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
 
+// node_modules/ethers/lib.esm/ethers.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/ethers/lib.esm/_version.js
+init_define_GDEX_SKILL_REGISTRY();
 var version2 = "6.16.0";
 
+// node_modules/ethers/lib.esm/utils/index.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/ethers/lib.esm/utils/base58.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/ethers/lib.esm/utils/data.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/ethers/lib.esm/utils/errors.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/ethers/lib.esm/utils/properties.js
+init_define_GDEX_SKILL_REGISTRY();
 function checkType(value, type, name) {
   const types = type.split("|").map((t) => t.trim());
   for (let i = 0; i < types.length; i++) {
@@ -143389,6 +145440,7 @@ function zeroPadValue(data, length) {
 }
 
 // node_modules/ethers/lib.esm/utils/maths.js
+init_define_GDEX_SKILL_REGISTRY();
 var BN_0 = BigInt(0);
 var BN_1 = BigInt(1);
 var maxValue = 9007199254740991;
@@ -143588,6 +145640,7 @@ function decodeBase58(value) {
 }
 
 // node_modules/ethers/lib.esm/utils/utf8.js
+init_define_GDEX_SKILL_REGISTRY();
 function errorFunc(reason, offset, bytes2, output2, badCodepoint) {
   assertArgument(false, `invalid codepoint at offset ${offset}; ${reason}`, "bytes", bytes2);
 }
@@ -143654,6 +145707,7 @@ function toUtf8Bytes(str, form) {
 }
 
 // node_modules/ethers/lib.esm/utils/rlp-decode.js
+init_define_GDEX_SKILL_REGISTRY();
 function hexlifyByte(value) {
   let result = value.toString(16);
   while (result.length < 2) {
@@ -143728,6 +145782,7 @@ function decodeRlp(_data) {
 }
 
 // node_modules/ethers/lib.esm/utils/rlp-encode.js
+init_define_GDEX_SKILL_REGISTRY();
 function arrayifyInteger(value) {
   const result = [];
   while (value) {
@@ -143772,6 +145827,7 @@ function encodeRlp(object3) {
 }
 
 // node_modules/ethers/lib.esm/utils/uuid.js
+init_define_GDEX_SKILL_REGISTRY();
 function uuidV4(randomBytes6) {
   const bytes2 = getBytes(randomBytes6, "randomBytes");
   bytes2[6] = bytes2[6] & 15 | 64;
@@ -143786,7 +145842,20 @@ function uuidV4(randomBytes6) {
   ].join("-");
 }
 
+// node_modules/ethers/lib.esm/address/index.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/ethers/lib.esm/address/address.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/ethers/lib.esm/crypto/index.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/ethers/lib.esm/crypto/hmac.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/ethers/lib.esm/crypto/crypto.js
+init_define_GDEX_SKILL_REGISTRY();
 import { createHash, createHmac, pbkdf2Sync, randomBytes as randomBytes3 } from "crypto";
 
 // node_modules/ethers/lib.esm/crypto/hmac.js
@@ -143812,7 +145881,14 @@ computeHmac.register = function(func) {
 };
 Object.freeze(computeHmac);
 
+// node_modules/ethers/lib.esm/crypto/keccak.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/@noble/hashes/esm/sha3.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/@noble/hashes/esm/_assert.js
+init_define_GDEX_SKILL_REGISTRY();
 function number3(n) {
   if (!Number.isSafeInteger(n) || n < 0)
     throw new Error(`Wrong positive integer: ${n}`);
@@ -143844,6 +145920,7 @@ function output(out, instance) {
 }
 
 // node_modules/@noble/hashes/esm/_u64.js
+init_define_GDEX_SKILL_REGISTRY();
 var U32_MASK642 = /* @__PURE__ */ BigInt(2 ** 32 - 1);
 var _32n2 = /* @__PURE__ */ BigInt(32);
 function fromBig2(n, le = false) {
@@ -143865,7 +145942,11 @@ var rotlSL2 = (h, l, s) => l << s | h >>> 32 - s;
 var rotlBH2 = (h, l, s) => l << s - 32 | h >>> 64 - s;
 var rotlBL2 = (h, l, s) => h << s - 32 | l >>> 64 - s;
 
+// node_modules/@noble/hashes/esm/utils.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/@noble/hashes/esm/cryptoNode.js
+init_define_GDEX_SKILL_REGISTRY();
 import * as nc from "node:crypto";
 var crypto = nc && typeof nc === "object" && "webcrypto" in nc ? nc.webcrypto : void 0;
 
@@ -144151,7 +146232,14 @@ keccak256.register = function(func) {
 };
 Object.freeze(keccak256);
 
+// node_modules/ethers/lib.esm/crypto/ripemd160.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/@noble/hashes/esm/ripemd160.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/@noble/hashes/esm/_sha2.js
+init_define_GDEX_SKILL_REGISTRY();
 function setBigUint64(view, byteOffset, value, isLE3) {
   if (typeof view.setBigUint64 === "function")
     return view.setBigUint64(byteOffset, value, isLE3);
@@ -144371,6 +146459,7 @@ ripemd1602.register = function(func) {
 Object.freeze(ripemd1602);
 
 // node_modules/ethers/lib.esm/crypto/pbkdf2.js
+init_define_GDEX_SKILL_REGISTRY();
 var locked4 = false;
 var _pbkdf2 = function(password, salt, iterations, keylen, algo) {
   return pbkdf2Sync(password, salt, iterations, keylen, algo);
@@ -144394,6 +146483,7 @@ pbkdf2.register = function(func) {
 Object.freeze(pbkdf2);
 
 // node_modules/ethers/lib.esm/crypto/random.js
+init_define_GDEX_SKILL_REGISTRY();
 var locked5 = false;
 var _randomBytes = function(length) {
   return new Uint8Array(randomBytes3(length));
@@ -144414,7 +146504,14 @@ randomBytes5.register = function(func) {
 };
 Object.freeze(randomBytes5);
 
+// node_modules/ethers/lib.esm/crypto/scrypt.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/@noble/hashes/esm/scrypt.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/@noble/hashes/esm/sha256.js
+init_define_GDEX_SKILL_REGISTRY();
 var Chi = (a, b, c) => a & b ^ ~a & c;
 var Maj = (a, b, c) => a & b ^ a & c ^ b & c;
 var SHA256_K = /* @__PURE__ */ new Uint32Array([
@@ -144566,7 +146663,11 @@ var SHA256 = class extends SHA2 {
 };
 var sha256 = /* @__PURE__ */ wrapConstructor(() => new SHA256());
 
+// node_modules/@noble/hashes/esm/pbkdf2.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/@noble/hashes/esm/hmac.js
+init_define_GDEX_SKILL_REGISTRY();
 var HMAC = class extends Hash {
   constructor(hash2, _key) {
     super();
@@ -144897,6 +146998,7 @@ scryptSync.register = function(func) {
 Object.freeze(scryptSync);
 
 // node_modules/ethers/lib.esm/crypto/sha2.js
+init_define_GDEX_SKILL_REGISTRY();
 var _sha256 = function(data) {
   return createHash("sha256").update(data).digest();
 };
@@ -144938,6 +147040,15 @@ sha512.register = function(func) {
 };
 Object.freeze(sha2562);
 
+// node_modules/ethers/lib.esm/crypto/signing-key.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/@noble/curves/esm/secp256k1.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/@noble/curves/esm/abstract/modular.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/@noble/curves/esm/abstract/utils.js
 var utils_exports2 = {};
 __export(utils_exports2, {
@@ -144961,6 +147072,7 @@ __export(utils_exports2, {
   utf8ToBytes: () => utf8ToBytes3,
   validateObject: () => validateObject
 });
+init_define_GDEX_SKILL_REGISTRY();
 var _0n3 = BigInt(0);
 var _1n3 = BigInt(1);
 var _2n3 = BigInt(2);
@@ -145419,7 +147531,11 @@ function mapHashToField(key, fieldOrder, isLE3 = false) {
   return isLE3 ? numberToBytesLE(reduced, fieldLen) : numberToBytesBE(reduced, fieldLen);
 }
 
+// node_modules/@noble/curves/esm/abstract/weierstrass.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/@noble/curves/esm/abstract/curve.js
+init_define_GDEX_SKILL_REGISTRY();
 var _0n5 = BigInt(0);
 var _1n5 = BigInt(1);
 function wNAF(c, bits) {
@@ -146330,6 +148446,7 @@ function weierstrass(curveDef) {
 }
 
 // node_modules/@noble/curves/esm/_shortw_utils.js
+init_define_GDEX_SKILL_REGISTRY();
 function getHash(hash2) {
   return {
     hash: hash2,
@@ -146416,13 +148533,22 @@ var secp256k1 = createCurve({
 var _0n7 = BigInt(0);
 var Point = secp256k1.ProjectivePoint;
 
+// node_modules/ethers/lib.esm/crypto/signature.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/ethers/lib.esm/constants/index.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/ethers/lib.esm/constants/addresses.js
+init_define_GDEX_SKILL_REGISTRY();
 var ZeroAddress = "0x0000000000000000000000000000000000000000";
 
 // node_modules/ethers/lib.esm/constants/hashes.js
+init_define_GDEX_SKILL_REGISTRY();
 var ZeroHash = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
 // node_modules/ethers/lib.esm/constants/strings.js
+init_define_GDEX_SKILL_REGISTRY();
 var MessagePrefix = "Ethereum Signed Message:\n";
 
 // node_modules/ethers/lib.esm/crypto/signature.js
@@ -147008,6 +149134,7 @@ function getAddress(address) {
 }
 
 // node_modules/ethers/lib.esm/address/checks.js
+init_define_GDEX_SKILL_REGISTRY();
 function isAddressable(value) {
   return value && typeof value.getAddress === "function";
 }
@@ -147034,7 +149161,17 @@ function resolveAddress(target, resolver) {
   assertArgument(false, "unsupported addressable value", "target", target);
 }
 
+// node_modules/ethers/lib.esm/hash/index.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/ethers/lib.esm/hash/authorization.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/ethers/lib.esm/transaction/index.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/ethers/lib.esm/transaction/accesslist.js
+init_define_GDEX_SKILL_REGISTRY();
 function accessSetify(addr, storageKeys) {
   return {
     address: getAddress(addr),
@@ -147068,6 +149205,7 @@ function accessListify(value) {
 }
 
 // node_modules/ethers/lib.esm/transaction/authorization.js
+init_define_GDEX_SKILL_REGISTRY();
 function authorizationify(auth) {
   return {
     address: getAddress(auth.address),
@@ -147078,6 +149216,7 @@ function authorizationify(auth) {
 }
 
 // node_modules/ethers/lib.esm/transaction/address.js
+init_define_GDEX_SKILL_REGISTRY();
 function computeAddress(key) {
   let pubkey;
   if (typeof key === "string") {
@@ -147092,6 +149231,7 @@ function recoverAddress(digest, signature) {
 }
 
 // node_modules/ethers/lib.esm/transaction/transaction.js
+init_define_GDEX_SKILL_REGISTRY();
 var BN_05 = BigInt(0);
 var BN_22 = BigInt(2);
 var BN_272 = BigInt(27);
@@ -148314,11 +150454,13 @@ function hashAuthorization(auth) {
 }
 
 // node_modules/ethers/lib.esm/hash/id.js
+init_define_GDEX_SKILL_REGISTRY();
 function id(value) {
   return keccak256(toUtf8Bytes(value));
 }
 
 // node_modules/ethers/lib.esm/hash/message.js
+init_define_GDEX_SKILL_REGISTRY();
 function hashMessage(message) {
   if (typeof message === "string") {
     message = toUtf8Bytes(message);
@@ -148331,6 +150473,7 @@ function hashMessage(message) {
 }
 
 // node_modules/ethers/lib.esm/hash/typed-data.js
+init_define_GDEX_SKILL_REGISTRY();
 var padding = new Uint8Array(32);
 padding.fill(0);
 var BN__1 = BigInt(-1);
@@ -148799,6 +150942,7 @@ var TypedDataEncoder = class _TypedDataEncoder {
 };
 
 // node_modules/ethers/lib.esm/providers/provider.js
+init_define_GDEX_SKILL_REGISTRY();
 var BN_07 = BigInt(0);
 function copyRequest(req) {
   const result = {};
@@ -148860,7 +151004,11 @@ function copyRequest(req) {
   return result;
 }
 
+// node_modules/ethers/lib.esm/providers/index.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/ethers/lib.esm/providers/abstract-signer.js
+init_define_GDEX_SKILL_REGISTRY();
 function checkProvider(signer, operation) {
   if (signer.provider) {
     return signer.provider;
@@ -149047,7 +151195,11 @@ var VoidSigner = class _VoidSigner extends AbstractSigner {
   }
 };
 
+// node_modules/ethers/lib.esm/wallet/index.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/ethers/lib.esm/wallet/base-wallet.js
+init_define_GDEX_SKILL_REGISTRY();
 var BaseWallet = class _BaseWallet extends AbstractSigner {
   /**
    *  The wallet address.
@@ -149156,7 +151308,17 @@ var BaseWallet = class _BaseWallet extends AbstractSigner {
   }
 };
 
+// node_modules/ethers/lib.esm/wallet/hdwallet.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/ethers/lib.esm/wordlists/lang-en.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/ethers/lib.esm/wordlists/wordlist-owl.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/ethers/lib.esm/wordlists/decode-owl.js
+init_define_GDEX_SKILL_REGISTRY();
 var subsChrs = " !#$%&'()*+,-./<=>?@[]^_`{|}~";
 var Word = /^[a-z]*$/i;
 function unfold(words2, sep) {
@@ -149199,6 +151361,7 @@ function decodeOwl(data) {
 }
 
 // node_modules/ethers/lib.esm/wordlists/wordlist.js
+init_define_GDEX_SKILL_REGISTRY();
 var Wordlist = class {
   locale;
   /**
@@ -149312,6 +151475,7 @@ var LangEn = class _LangEn extends WordlistOwl {
 };
 
 // node_modules/ethers/lib.esm/wallet/mnemonic.js
+init_define_GDEX_SKILL_REGISTRY();
 function getUpperMask(bits) {
   return (1 << bits) - 1 << 8 - bits & 255;
 }
@@ -149461,7 +151625,14 @@ var Mnemonic = class _Mnemonic {
   }
 };
 
+// node_modules/ethers/lib.esm/wallet/json-keystore.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/aes-js/lib.esm/index.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/aes-js/lib.esm/aes.js
+init_define_GDEX_SKILL_REGISTRY();
 var __classPrivateFieldGet2 = function(receiver, state, kind, f2) {
   if (kind === "a" && !f2) throw new TypeError("Private accessor was defined without a getter");
   if (typeof state === "function" ? receiver !== state || !f2 : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
@@ -149624,6 +151795,7 @@ var AES = class _AES {
 _AES_key = /* @__PURE__ */ new WeakMap(), _AES_Kd = /* @__PURE__ */ new WeakMap(), _AES_Ke = /* @__PURE__ */ new WeakMap();
 
 // node_modules/aes-js/lib.esm/mode.js
+init_define_GDEX_SKILL_REGISTRY();
 var ModeOfOperation = class {
   constructor(name, key, cls) {
     if (cls && !(this instanceof cls)) {
@@ -149637,6 +151809,7 @@ var ModeOfOperation = class {
 };
 
 // node_modules/aes-js/lib.esm/mode-cbc.js
+init_define_GDEX_SKILL_REGISTRY();
 var __classPrivateFieldSet3 = function(receiver, state, value, kind, f2) {
   if (kind === "m") throw new TypeError("Private method is not writable");
   if (kind === "a" && !f2) throw new TypeError("Private accessor was defined without a setter");
@@ -149700,6 +151873,7 @@ var CBC = class _CBC extends ModeOfOperation {
 _CBC_iv = /* @__PURE__ */ new WeakMap(), _CBC_lastBlock = /* @__PURE__ */ new WeakMap();
 
 // node_modules/aes-js/lib.esm/mode-cfb.js
+init_define_GDEX_SKILL_REGISTRY();
 var __classPrivateFieldGet4 = function(receiver, state, kind, f2) {
   if (kind === "a" && !f2) throw new TypeError("Private accessor was defined without a getter");
   if (typeof state === "function" ? receiver !== state || !f2 : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
@@ -149716,6 +151890,7 @@ _CFB_iv = /* @__PURE__ */ new WeakMap(), _CFB_shiftRegister = /* @__PURE__ */ ne
 };
 
 // node_modules/aes-js/lib.esm/mode-ctr.js
+init_define_GDEX_SKILL_REGISTRY();
 var __classPrivateFieldSet4 = function(receiver, state, value, kind, f2) {
   if (kind === "m") throw new TypeError("Private method is not writable");
   if (kind === "a" && !f2) throw new TypeError("Private accessor was defined without a setter");
@@ -149796,13 +151971,18 @@ var CTR = class _CTR extends ModeOfOperation {
 };
 _CTR_remaining = /* @__PURE__ */ new WeakMap(), _CTR_remainingIndex = /* @__PURE__ */ new WeakMap(), _CTR_counter = /* @__PURE__ */ new WeakMap();
 
+// node_modules/aes-js/lib.esm/mode-ecb.js
+init_define_GDEX_SKILL_REGISTRY();
+
 // node_modules/aes-js/lib.esm/mode-ofb.js
+init_define_GDEX_SKILL_REGISTRY();
 var _OFB_iv;
 var _OFB_lastPrecipher;
 var _OFB_lastPrecipherIndex;
 _OFB_iv = /* @__PURE__ */ new WeakMap(), _OFB_lastPrecipher = /* @__PURE__ */ new WeakMap(), _OFB_lastPrecipherIndex = /* @__PURE__ */ new WeakMap();
 
 // node_modules/aes-js/lib.esm/padding.js
+init_define_GDEX_SKILL_REGISTRY();
 function pkcs7Strip(data) {
   if (data.length < 16) {
     throw new TypeError("PKCS#7 invalid length");
@@ -149821,6 +152001,7 @@ function pkcs7Strip(data) {
 }
 
 // node_modules/ethers/lib.esm/wallet/utils.js
+init_define_GDEX_SKILL_REGISTRY();
 function looseArrayify(hexString) {
   if (typeof hexString === "string" && !hexString.startsWith("0x")) {
     hexString = "0x" + hexString;
@@ -150539,6 +152720,7 @@ var HDNodeVoidWallet = class _HDNodeVoidWallet extends VoidSigner {
 };
 
 // node_modules/ethers/lib.esm/wallet/json-crowdsale.js
+init_define_GDEX_SKILL_REGISTRY();
 function isCrowdsaleJson(json) {
   try {
     const data = JSON.parse(json);
@@ -150568,6 +152750,7 @@ function decryptCrowdsaleJson(json, _password) {
 }
 
 // node_modules/ethers/lib.esm/wallet/wallet.js
+init_define_GDEX_SKILL_REGISTRY();
 function stall2(duration3) {
   return new Promise((resolve2) => {
     setTimeout(() => {
@@ -150949,14 +153132,38 @@ ${listSkills(skills).map((s) => `- ${s.name}: ${s.description}`).join("\n")}` }]
     }
     const output2 = results.slice(0, 5).map((r) => {
       const matchSections = r.matches.slice(0, 3).join(", ");
+      const files = r.skill.files.size > 0 ? `
+
+Companion files (read with get_skill_file): ${[...r.skill.files.keys()].join(", ")}` : "";
       return `### ${r.skill.name}
 ${r.skill.description}
 
 Matching sections: ${matchSections}
 
-${r.skill.content.slice(0, 1500)}${r.skill.content.length > 1500 ? "\n...(truncated)" : ""}`;
+${r.skill.content.slice(0, 1500)}${r.skill.content.length > 1500 ? "\n...(truncated)" : ""}${files}`;
     }).join("\n\n---\n\n");
     return { content: [{ type: "text", text: output2 }] };
+  }
+);
+server.tool(
+  "get_skill_file",
+  "Read a file that ships with a GDEX skill (e.g. gdex-token-risk scripts/token_risk.py). Omit path to list the skill's files.",
+  {
+    skill: external_exports.string().describe('Skill name, e.g. "gdex-hl-anomaly"'),
+    path: external_exports.string().optional().describe('File path relative to the skill directory, e.g. "scripts/hl_anomaly.py"')
+  },
+  async ({ skill, path: path2 }) => {
+    const entry = skills.get(skill);
+    if (!entry) {
+      return { content: [{ type: "text", text: `Unknown skill "${skill}". Available skills:
+${listSkills(skills).map((s) => `- ${s.name}`).join("\n")}` }] };
+    }
+    const file = path2 ? getSkillFile(skills, skill, path2) : null;
+    if (file !== null) return { content: [{ type: "text", text: file }] };
+    const list = [...entry.files.keys()];
+    const prefix = path2 ? `No file "${path2}" in ${skill}. ` : "";
+    return { content: [{ type: "text", text: `${prefix}${list.length ? `Files in ${skill}:
+${list.map((f2) => `- ${f2}`).join("\n")}` : `${skill} ships no companion files.`}` }] };
   }
 );
 var SDK_OPERATIONS = [
@@ -151051,107 +153258,10 @@ server.tool(
   "Explain an end-to-end GDEX trading workflow with step-by-step instructions and code.",
   { workflow: external_exports.enum(WORKFLOWS).describe("The workflow to explain") },
   async ({ workflow }) => {
-    const workflowGuides = {
-      "spot-trade": `# Spot Trading Workflow
-
-1. **Install SDK:** \`npm install @gemachdao/gdex-skill\`
-2. **Initialize & authenticate:**
-\`\`\`typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
-const skill = new GdexSkill();
-skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
-\`\`\`
-3. **Buy a token:**
-\`\`\`typescript
-const result = await skill.buyToken({
-  chain: 'solana',
-  tokenAddress: 'TOKEN_ADDRESS',
-  amount: '0.1',  // 0.1 SOL
-  slippage: 1,
-});
-\`\`\`
-4. **Sell a token:**
-\`\`\`typescript
-const result = await skill.sellToken({
-  chain: 'solana',
-  tokenAddress: 'TOKEN_ADDRESS',
-  amount: '50%',  // sell 50% of holdings
-  slippage: 1,
-});
-\`\`\`
-
-**Key notes:**
-- Solana chainId is \`622112261\`, not \`900\`
-- Meteora-routed tokens are broken \u2014 use Raydium
-- First Solana trade needs ~0.01 SOL for ATA creation`,
-      "perp-trade": `# Perpetual Futures Workflow
-
-1. **Install & auth** (same as spot)
-2. **Deposit USDC to HyperLiquid:**
-\`\`\`typescript
-await skill.perpDeposit({ amount: '100', chainId: 42161 }); // 100 USDC
-\`\`\`
-3. **Open a position:**
-\`\`\`typescript
-await skill.openPerpPosition({
-  coin: 'BTC', side: 'long', sizeUsd: '1000',
-  leverage: 10, takeProfitPrice: '110000', stopLossPrice: '95000',
-});
-\`\`\`
-4. **Close a position:**
-\`\`\`typescript
-await skill.closePerpPosition({ coin: 'BTC' }); // close 100%
-\`\`\`
-
-**Key notes:**
-- \`hlCloseAll\` is unreliable \u2014 use \`closePerpPosition\` per-coin instead
-- Leverage is set automatically by the backend, not via API
-- All operations use \`walletAddress\` = control wallet (NOT managed)`,
-      "auth": `# Authentication Workflow
-
-**Option A: Shared API Key (recommended for agents)**
-\`\`\`typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
-const skill = new GdexSkill();
-skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
-// Ready to trade immediately
-\`\`\`
-
-**Option B: Wallet-based auth**
-1. Generate or import a control wallet (see gdex-wallet-setup)
-2. Sign in with the control wallet
-3. Backend provisions a managed wallet
-4. All trades use encrypted computedData payloads (AES-256-CBC)
-
-**Key concepts:**
-- Control wallet: signs in, used as \`userId\` in API calls
-- Managed wallet: server-side, executes trades on-chain
-- Session key: secp256k1 keypair registered during sign-in, signs trade payloads
-- AES key derivation: \`SHA256(SHA256(SHA256(apiKey)))\``,
-      "full-trading-app": `# Full Trading App Workflow
-
-1. **Set up React/Next.js project:** Load \`gdex-ui-install-setup\`
-2. **Add SDK context provider:** Wrap app in \`GdexProvider\`
-3. **Add wallet connection:** Load \`gdex-ui-wallet-connection\`
-4. **Add trading components:** Load \`gdex-ui-trading-components\`
-5. **Add portfolio dashboard:** Load \`gdex-ui-portfolio-dashboard\`
-6. **Add theming:** Load \`gdex-ui-theming\`
-7. **Compose pages:** Load \`gdex-ui-page-layouts\`
-
-See the Frontend skills for complete component patterns and code examples.`
-    };
-    if (workflowGuides[workflow]) {
-      return { content: [{ type: "text", text: workflowGuides[workflow] }] };
+    if (WORKFLOW_GUIDES[workflow]) {
+      return { content: [{ type: "text", text: WORKFLOW_GUIDES[workflow] }] };
     }
-    const skillMap = {
-      "copy-trade": "gdex-copy-trading",
-      "perp-copy-trade": "gdex-perp-copy-trading",
-      "bridge": "gdex-bridge",
-      "limit-order": "gdex-limit-orders",
-      "perp-funding": "gdex-perp-funding",
-      "usdc-wallet": "gdex-usdc-wallet"
-    };
-    const skillName = skillMap[workflow];
+    const skillName = WORKFLOW_SKILLS[workflow];
     const content = getSkillContent(skills, skillName);
     if (!content) {
       return { content: [{ type: "text", text: `No workflow guide found for "${workflow}".` }] };
@@ -151190,7 +153300,7 @@ Aggregators: Raydium CPM/CLMM, Uniswap V2/V3, PancakeSwap V2/V3, SushiSwap V3, C
 **Critical notes:**
 - Solana chainId is \`622112261\`, NOT \`900\` (legacy synthetic id)
 - Sui chainId is \`1313131213\` (internal synthetic id)
-- For managed-custody sign-in: 900 = Solana, 101 = Sui, or standard EVM chain IDs
+- Managed-custody sign-in chainId: \`1\` for EVM / HyperLiquid, \`622112261\` for Solana (MCP: \`gdex_connect\` does this for you)
 - \`/v1/user\` returns different managed wallets per chainId
 - Solana copy trades require sign-in with \`chainId: 622112261\`
 - HL perp copy trades require sign-in with \`chainId: 1\`

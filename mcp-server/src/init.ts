@@ -23,6 +23,7 @@ type JsonTarget = {
   containerKey: string; // the client's server map
   comments: boolean; // client accepts JSONC (comments, trailing commas)
   entry: Record<string, unknown>;
+  freshTopLevel?: Record<string, unknown>; // extra top-level keys for a newly created file
 };
 type TomlTarget = {
   format: 'toml';
@@ -40,7 +41,30 @@ function mcpEntry(): Record<string, unknown> {
   };
 }
 
-export function getTarget(client: Client): Target {
+/**
+ * OpenCode reads `opencode.json` / `opencode.jsonc` in the project root, with servers under
+ * `mcp` as `{ type: 'local', command: [...], environment, enabled }` (https://opencode.ai/docs/mcp-servers/).
+ * An existing `opencode.jsonc` is preferred so we merge into it instead of adding a second file.
+ */
+function openCodeTarget(cwd?: string): JsonTarget {
+  const path = cwd && existsSync(join(cwd, 'opencode.jsonc')) && !existsSync(join(cwd, 'opencode.json'))
+    ? 'opencode.jsonc'
+    : 'opencode.json';
+  const { command, args, env } = mcpEntry() as { command: string; args: string[]; env: Record<string, string> };
+  return {
+    format: 'json',
+    path,
+    containerKey: 'mcp',
+    comments: true, // OpenCode parses its config as JSONC
+    entry: { type: 'local', command: [command, ...args], environment: env, enabled: true },
+    freshTopLevel: { $schema: 'https://opencode.ai/config.json' },
+  };
+}
+
+/** Config written by earlier versions of init for OpenCode; OpenCode never read it. */
+export const LEGACY_OPENCODE_PATH = '.opencode/mcp.json';
+
+export function getTarget(client: Client, cwd?: string): Target {
   switch (client) {
     case 'claude':
       return { format: 'json', path: '.mcp.json', containerKey: 'mcpServers', comments: false, entry: mcpEntry() };
@@ -57,7 +81,7 @@ export function getTarget(client: Client): Target {
     case 'codex':
       return { format: 'toml', path: '.codex/config.toml', tablePath: ['mcp_servers', SERVER_NAME], entry: mcpEntry() };
     case 'opencode':
-      return { format: 'json', path: '.opencode/mcp.json', containerKey: 'mcpServers', comments: false, entry: mcpEntry() };
+      return openCodeTarget(cwd);
   }
 }
 
@@ -144,7 +168,8 @@ interface Plan {
 }
 
 function planJson(target: JsonTarget, original: string | undefined): Plan {
-  const fresh = () => JSON.stringify({ [target.containerKey]: { [SERVER_NAME]: target.entry } }, null, 2) + '\n';
+  const fresh = () =>
+    JSON.stringify({ ...target.freshTopLevel, [target.containerKey]: { [SERVER_NAME]: target.entry } }, null, 2) + '\n';
   if (original === undefined || original.trim() === '') {
     return { build: fresh, verify: () => true };
   }
@@ -276,7 +301,7 @@ function planToml(target: TomlTarget, original: string | undefined): Plan {
  */
 export async function initClientConfig(opts: InitOptions): Promise<InitResult> {
   const cwd = opts.cwd ?? process.cwd();
-  const target = getTarget(opts.client);
+  const target = getTarget(opts.client, cwd);
   const fullPath = join(cwd, target.path);
   const base = { path: target.path, fullPath };
   const original = existsSync(fullPath) ? await readFile(fullPath, 'utf-8') : undefined;
@@ -325,7 +350,10 @@ export async function initClientConfig(opts: InitOptions): Promise<InitResult> {
 
   const backupPath = await atomicWrite(fullPath, content, original !== undefined);
   if (original === undefined) {
-    return { ...base, status: 'created', message: `Created ${target.path} for ${opts.client}` };
+    const legacy = opts.client === 'opencode' && existsSync(join(cwd, LEGACY_OPENCODE_PATH))
+      ? `\nNote: ${LEGACY_OPENCODE_PATH} (written by older versions of init) is not read by OpenCode; you can delete it.`
+      : '';
+    return { ...base, status: 'created', message: `Created ${target.path} for ${opts.client}${legacy}` };
   }
   if (plan.existing !== undefined) {
     return {
@@ -350,7 +378,7 @@ function printUsage(log: (msg: string) => void): void {
   log('  cursor    - Cursor (.cursor/mcp.json)');
   log('  vscode    - VS Code (.vscode/mcp.json)');
   log('  codex     - Codex (.codex/config.toml)');
-  log('  opencode  - OpenCode (.opencode/mcp.json)');
+  log('  opencode  - OpenCode (opencode.json, or an existing opencode.jsonc)');
   log('\nOptions:');
   log(`  --force   Replace an existing ${SERVER_NAME} entry that differs from the default`);
 }
@@ -402,5 +430,7 @@ export async function handleInit(args: string[], cwd: string = process.cwd()): P
   console.log('  - get_trading_guide      Spot, perp, or limit trading guides');
   console.log('  - get_copy_trade_guide   Copy trading guides');
   console.log('  - get_component_guide    React UI component patterns');
+  console.log('  - get_skill_file         Files shipped with a skill (scripts, data)');
+  console.log('  ...plus 128 trading and account tools. Connect an account with gdex_connect.');
   return 0;
 }
