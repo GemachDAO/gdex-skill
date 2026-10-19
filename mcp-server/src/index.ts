@@ -2,7 +2,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { readFileSync } from 'node:fs';
-import { loadSkills, searchSkills, getSkillContent, listSkills } from './knowledge.js';
+import { loadSkills, searchSkills, getSkillContent, getSkillFile, listSkills } from './knowledge.js';
+import { WORKFLOW_GUIDES, WORKFLOW_SKILLS } from './workflowGuides.js';
 import { handleInit } from './init.js';
 
 // Execution tool registrations
@@ -67,10 +68,34 @@ server.tool(
 
     const output = results.slice(0, 5).map(r => {
       const matchSections = r.matches.slice(0, 3).join(', ');
-      return `### ${r.skill.name}\n${r.skill.description}\n\nMatching sections: ${matchSections}\n\n${r.skill.content.slice(0, 1500)}${r.skill.content.length > 1500 ? '\n...(truncated)' : ''}`;
+      const files = r.skill.files.size > 0
+        ? `\n\nCompanion files (read with get_skill_file): ${[...r.skill.files.keys()].join(', ')}`
+        : '';
+      return `### ${r.skill.name}\n${r.skill.description}\n\nMatching sections: ${matchSections}\n\n${r.skill.content.slice(0, 1500)}${r.skill.content.length > 1500 ? '\n...(truncated)' : ''}${files}`;
     }).join('\n\n---\n\n');
 
     return { content: [{ type: 'text', text: output }] };
+  },
+);
+
+// --- Tool: get_skill_file ---
+server.tool(
+  'get_skill_file',
+  'Read a file that ships with a GDEX skill (e.g. gdex-token-risk scripts/token_risk.py). Omit path to list the skill\'s files.',
+  {
+    skill: z.string().describe('Skill name, e.g. "gdex-hl-anomaly"'),
+    path: z.string().optional().describe('File path relative to the skill directory, e.g. "scripts/hl_anomaly.py"'),
+  },
+  async ({ skill, path }) => {
+    const entry = skills.get(skill);
+    if (!entry) {
+      return { content: [{ type: 'text', text: `Unknown skill "${skill}". Available skills:\n${listSkills(skills).map(s => `- ${s.name}`).join('\n')}` }] };
+    }
+    const file = path ? getSkillFile(skills, skill, path) : null;
+    if (file !== null) return { content: [{ type: 'text', text: file }] };
+    const list = [...entry.files.keys()];
+    const prefix = path ? `No file "${path}" in ${skill}. ` : '';
+    return { content: [{ type: 'text', text: `${prefix}${list.length ? `Files in ${skill}:\n${list.map(f => `- ${f}`).join('\n')}` : `${skill} ships no companion files.`}` }] };
   },
 );
 
@@ -157,114 +182,12 @@ server.tool(
   'Explain an end-to-end GDEX trading workflow with step-by-step instructions and code.',
   { workflow: z.enum(WORKFLOWS).describe('The workflow to explain') },
   async ({ workflow }) => {
-    const workflowGuides: Record<string, string> = {
-      'spot-trade': `# Spot Trading Workflow
-
-1. **Install SDK:** \`npm install @gemachdao/gdex-skill\`
-2. **Initialize & authenticate:**
-\`\`\`typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
-const skill = new GdexSkill();
-skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
-\`\`\`
-3. **Buy a token:**
-\`\`\`typescript
-const result = await skill.buyToken({
-  chain: 'solana',
-  tokenAddress: 'TOKEN_ADDRESS',
-  amount: '0.1',  // 0.1 SOL
-  slippage: 1,
-});
-\`\`\`
-4. **Sell a token:**
-\`\`\`typescript
-const result = await skill.sellToken({
-  chain: 'solana',
-  tokenAddress: 'TOKEN_ADDRESS',
-  amount: '50%',  // sell 50% of holdings
-  slippage: 1,
-});
-\`\`\`
-
-**Key notes:**
-- Solana chainId is \`622112261\`, not \`900\`
-- Meteora-routed tokens are broken — use Raydium
-- First Solana trade needs ~0.01 SOL for ATA creation`,
-
-      'perp-trade': `# Perpetual Futures Workflow
-
-1. **Install & auth** (same as spot)
-2. **Deposit USDC to HyperLiquid:**
-\`\`\`typescript
-await skill.perpDeposit({ amount: '100', chainId: 42161 }); // 100 USDC
-\`\`\`
-3. **Open a position:**
-\`\`\`typescript
-await skill.openPerpPosition({
-  coin: 'BTC', side: 'long', sizeUsd: '1000',
-  leverage: 10, takeProfitPrice: '110000', stopLossPrice: '95000',
-});
-\`\`\`
-4. **Close a position:**
-\`\`\`typescript
-await skill.closePerpPosition({ coin: 'BTC' }); // close 100%
-\`\`\`
-
-**Key notes:**
-- \`hlCloseAll\` is unreliable — use \`closePerpPosition\` per-coin instead
-- Leverage is set automatically by the backend, not via API
-- All operations use \`walletAddress\` = control wallet (NOT managed)`,
-
-      'auth': `# Authentication Workflow
-
-**Option A: Shared API Key (recommended for agents)**
-\`\`\`typescript
-import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
-const skill = new GdexSkill();
-skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
-// Ready to trade immediately
-\`\`\`
-
-**Option B: Wallet-based auth**
-1. Generate or import a control wallet (see gdex-wallet-setup)
-2. Sign in with the control wallet
-3. Backend provisions a managed wallet
-4. All trades use encrypted computedData payloads (AES-256-CBC)
-
-**Key concepts:**
-- Control wallet: signs in, used as \`userId\` in API calls
-- Managed wallet: server-side, executes trades on-chain
-- Session key: secp256k1 keypair registered during sign-in, signs trade payloads
-- AES key derivation: \`SHA256(SHA256(SHA256(apiKey)))\``,
-
-      'full-trading-app': `# Full Trading App Workflow
-
-1. **Set up React/Next.js project:** Load \`gdex-ui-install-setup\`
-2. **Add SDK context provider:** Wrap app in \`GdexProvider\`
-3. **Add wallet connection:** Load \`gdex-ui-wallet-connection\`
-4. **Add trading components:** Load \`gdex-ui-trading-components\`
-5. **Add portfolio dashboard:** Load \`gdex-ui-portfolio-dashboard\`
-6. **Add theming:** Load \`gdex-ui-theming\`
-7. **Compose pages:** Load \`gdex-ui-page-layouts\`
-
-See the Frontend skills for complete component patterns and code examples.`,
-    };
-
-    // For workflows not in the map, pull from skill content
-    if (workflowGuides[workflow]) {
-      return { content: [{ type: 'text', text: workflowGuides[workflow] }] };
+    // Hand-written guides live in workflowGuides.ts (checked by tests/docs/docExamples.test.ts)
+    if (WORKFLOW_GUIDES[workflow]) {
+      return { content: [{ type: 'text', text: WORKFLOW_GUIDES[workflow] }] };
     }
 
-    const skillMap: Record<string, string> = {
-      'copy-trade': 'gdex-copy-trading',
-      'perp-copy-trade': 'gdex-perp-copy-trading',
-      'bridge': 'gdex-bridge',
-      'limit-order': 'gdex-limit-orders',
-      'perp-funding': 'gdex-perp-funding',
-      'usdc-wallet': 'gdex-usdc-wallet',
-    };
-
-    const skillName = skillMap[workflow];
+    const skillName = WORKFLOW_SKILLS[workflow];
     const content = getSkillContent(skills, skillName);
     if (!content) {
       return { content: [{ type: 'text', text: `No workflow guide found for "${workflow}".` }] };
@@ -304,7 +227,7 @@ Aggregators: Raydium CPM/CLMM, Uniswap V2/V3, PancakeSwap V2/V3, SushiSwap V3, C
 **Critical notes:**
 - Solana chainId is \`622112261\`, NOT \`900\` (legacy synthetic id)
 - Sui chainId is \`1313131213\` (internal synthetic id)
-- For managed-custody sign-in: 900 = Solana, 101 = Sui, or standard EVM chain IDs
+- Managed-custody sign-in chainId: \`1\` for EVM / HyperLiquid, \`622112261\` for Solana (MCP: \`gdex_connect\` does this for you)
 - \`/v1/user\` returns different managed wallets per chainId
 - Solana copy trades require sign-in with \`chainId: 622112261\`
 - HL perp copy trades require sign-in with \`chainId: 1\`
