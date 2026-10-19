@@ -199,35 +199,21 @@ When a trade fails, check in order:
 6. **Signature:** Is the session key signing (not control key)? Is the message format correct?
 7. **Balance:** Does the managed wallet have enough funds + gas?
 
-## Portfolio / Balances / Trade History Quirks (Live-Tested)
+## Portfolio / Balances / Trade History (Fixed in SDK)
 
-These are **critical for autonomous agents** — the high-level SDK methods have parameter mismatches:
+The high-level methods now send what the backend reads; no raw-client workaround is needed.
 
-| Endpoint | SDK Method Issue | Correct Raw Client Call |
-|----------|-----------------|------------------------|
-| Portfolio | `getPortfolio()` sends `walletAddress`+`chain` | `GET /v1/portfolio?userId=X&chainId=N&data=Y` |
-| Balances | `getBalances()` sends `walletAddress`+`chain` | `GET /v1/portfolio?userId=X&chainId=N&data=Y` (balances embedded under `portfolio.balances[]`) |
-| Trade History | `getTradeHistory()` sends `userId` | `GET /v1/user_history?user=X&chainId=900&data=Y` |
+| Method | Backend call |
+|--------|--------------|
+| `getPortfolio({ walletAddress, sessionPrivateKey, apiKey, chain })` | `GET /v1/portfolio?userId&data&chainId` → `{ holding: [] }` |
+| `getBalances({ ..., chain, tokenAddress? })` | same read, filtered |
+| `getTradingFunds({ ..., chain })` | `GET /v1/user?userId&data&chainId` → native `balance` |
+| `getTradeHistory({ walletAddress, chain, limit?, cursor? })` | `GET /v1/user_history?user&chainId&limit&cursor` (no session) |
 
-**Key differences:**
-- Portfolio/balances: Backend expects `userId` + `chainId` + `data` (encrypted session key), NOT `walletAddress` + `chain`. On v1.1.0 there is no separate `/v1/balances` endpoint — balances are embedded under `portfolio.balances[]`.
-- Trade history: Backend expects `user` (NOT `userId`) and `chainId: 900` for Solana (NOT `622112261`)
-- All three require the encrypted session key from `buildGdexUserSessionData()`
-
-```typescript
-import { buildGdexUserSessionData } from '@gemachdao/gdex-skill';
-const data = buildGdexUserSessionData(sessionKey, apiKey);
-
-// Correct portfolio call (balances are inside portfolio.balances[])
-const portfolio = await skill.client.get('/v1/portfolio', {
-  params: { userId: controlAddress, chainId: 622112261, data }
-});
-
-// Correct trade history call
-const history = await skill.client.get('/v1/user_history', {
-  params: { user: controlAddress, chainId: 900, data, page: 1, limit: 20 }
-});
-```
+- `walletAddress` / `userId` is the **control** wallet; `data` is derived from the session key.
+- A refused or malformed response throws (`GdexApiError`); `[]` only means the backend reported no holdings.
+- History pages with `cursor` (= `nextCursor`), at most 50 per page; `page`/`startTime`/`endTime` are rejected.
+- Solana history uses the same chain id as every other Solana read (`622112261`); older notes said `900`. If a live Solana history call comes back empty, compare both.
 
 ## Limit Order ABI Bug (Fixed in SDK)
 

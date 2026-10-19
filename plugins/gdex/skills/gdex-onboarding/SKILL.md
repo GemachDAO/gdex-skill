@@ -290,33 +290,16 @@ _Consolidated reference (migrated from the umbrella skill). Critical notes and a
 
 > **This section contains everything an autonomous AI agent needs to trade without human help.**
 
-### Portfolio / Balances — Backend Param Mismatch (Live-Tested)
-
-The high-level `getPortfolio()` and `getBalances()` methods send `walletAddress` + `chain`, but the backend expects `userId` + `chainId` + `data` (encrypted session key). **Workaround — use the raw client directly:**
+### Portfolio / Balances / History (Fixed in SDK)
 
 ```typescript
-import { buildGdexUserSessionData } from '@gemachdao/gdex-skill';
-const data = buildGdexUserSessionData(sessionKey, apiKey);
-
-// Portfolio (balances embedded under portfolio.balances[])
-const portfolio = await skill.client.get('/v1/portfolio', {
-  params: { userId: controlAddress, chainId: 622112261, data }
-});
-
-// Balances — read from /v1/portfolio (balances embedded under portfolio.balances[]).
-// There is no separate /v1/balances endpoint on backend v1.1.0.
-const balances = portfolio.balances ?? [];
+const session = { walletAddress: controlAddress, sessionPrivateKey, apiKey };
+const { holdings } = await skill.getPortfolio({ ...session, chain: 622112261 });   // per chain
+const funds = await skill.getTradingFunds({ ...session, chain: 622112261 });        // native balance
+const page = await skill.getTradeHistory({ walletAddress: controlAddress, chain: 622112261 });
 ```
 
-### Trade History — Different Param Names (Live-Tested)
-
-Backend expects `user` (not `userId`), and the managed Solana chainId for trade history is `900` (not `622112261`):
-
-```typescript
-const history = await skill.client.get('/v1/user_history', {
-  params: { user: controlAddress, chainId: 900, data, page: 1, limit: 20 }
-});
-```
+Failed or malformed reads throw instead of returning an empty, zero-balance account. See **gdex-portfolio**.
 
 ### OHLCV / TopTraders — Numeric chainId Required (Live-Tested)
 

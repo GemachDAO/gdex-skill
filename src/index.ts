@@ -34,7 +34,7 @@ import {
 } from './utils/gdexManagedCrypto';
 
 // Actions
-import { buyToken, sellToken } from './actions/spotTrade';
+import { buyToken, sellToken, waitForTrade } from './actions/spotTrade';
 import {
   getHlAccountState,
   getPerpPositions,
@@ -91,7 +91,7 @@ import {
   createHlCopyTrade,
   updateHlCopyTrade,
 } from './actions/hlCopyTrade';
-import { getPortfolio, getBalances, getTradeHistory } from './actions/portfolio';
+import { getPortfolio, getBalances, getTradeHistory, getTradingFunds } from './actions/portfolio';
 import { getTokenDetails, getTrendingTokens, getOHLCV } from './actions/tokenInfo';
 import { getTopTraders } from './actions/topTraders';
 import { estimateBridge, requestBridge, getBridgeOrders } from './actions/bridge';
@@ -229,7 +229,18 @@ import type {
 // Types
 export type { GdexSkillConfig, TransactionResult, SupportedChain, NonEvmChain } from './types/common';
 export { ChainId, GdexErrorCode } from './types/common';
-export type { BuyTokenParams, SellTokenParams, TradeResult, QuoteParams, QuoteResult } from './types/trading';
+export type {
+  BuyTokenParams,
+  SellTokenParams,
+  TradeResult,
+  QuoteParams,
+  QuoteResult,
+  ManagedSpotTradeResult,
+  ManagedTradeWaitResult,
+  WaitForTradeParams,
+} from './types/trading';
+export { MANAGED_BUY_CHAIN_IDS, MANAGED_SELL_CHAIN_IDS } from './actions/spotTrade';
+export { MANAGED_READ_CHAIN_IDS, normalizeHolding } from './actions/portfolio';
 export type {
   Portfolio,
   Balance,
@@ -237,6 +248,9 @@ export type {
   PortfolioParams,
   BalanceParams,
   TradeHistoryParams,
+  TradeHistoryPage,
+  TradingFunds,
+  ManagedReadCredentials,
 } from './types/portfolio';
 export type {
   TokenDetails,
@@ -485,8 +499,9 @@ export type {
 } from './actions/usdc';
 
 // Import parameter types for the GdexSkill class methods
-import type { BuyTokenParams, SellTokenParams, TradeResult } from './types/trading';
-import type { Portfolio, Balance, TradeRecord, PortfolioParams, BalanceParams, TradeHistoryParams } from './types/portfolio';
+import type { SupportedChain } from './types/common';
+import type { BuyTokenParams, SellTokenParams, ManagedSpotTradeResult, ManagedTradeWaitResult, WaitForTradeParams } from './types/trading';
+import type { Portfolio, Balance, PortfolioParams, BalanceParams, TradeHistoryParams, TradeHistoryPage, TradingFunds, ManagedReadCredentials } from './types/portfolio';
 import type { TokenDetails, TokenDetailsParams, TrendingToken, TrendingParams, OHLCVData, OHLCVParams } from './types/token';
 import type {
   LimitOrder,
@@ -759,47 +774,53 @@ export class GdexSkill {
   // ── Spot Trading ──────────────────────────────────────────────────────────
 
   /**
-   * Buy a token on any supported chain.
-   *
-   * Submits a market buy order to the backend trade queue.
-   * Supports Solana (Raydium/Orca), Sui (Cetus/Bluefin), and 12+ EVM chains.
-   *
-   * @param params - Buy parameters
-   * @returns Trade result with transaction hash and execution details
+   * Buy a token with the chain's native token through the managed account
+   * (session-signed `purchase_v2`). Returns the `requestId`; follow it with
+   * {@link waitForTrade}. Options the backend cannot honour are rejected
+   * before signing.
    *
    * @example
    * ```typescript
-   * const result = await skill.buyToken({
+   * const { requestId } = await skill.buyToken({
    *   chain: 'solana',
-   *   tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+   *   tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
    *   amount: '0.5', // 0.5 SOL
-   *   slippage: 1, // 1% slippage
+   *   slippage: 1, // Solana/Sui only
+   *   walletAddress, sessionPrivateKey, apiKey,
    * });
-   * console.log('Tx:', result.txHash);
+   * const done = await skill.waitForTrade({ requestId });
    * ```
    */
-  async buyToken(params: BuyTokenParams): Promise<TradeResult> {
+  async buyToken(params: BuyTokenParams): Promise<ManagedSpotTradeResult> {
     return buyToken(this.client, params);
   }
 
   /**
-   * Sell a token on any supported chain.
-   *
-   * @param params - Sell parameters (amount can be absolute or percentage like "50%")
-   * @returns Trade result with transaction hash and execution details
+   * Sell a token for the chain's native token through the managed account
+   * (session-signed `sell_v2`). `amount` is a token amount or a percentage of
+   * the held balance ("50%"), resolved from the managed holdings read.
    *
    * @example
    * ```typescript
-   * // Sell 50% of holdings
-   * const result = await skill.sellToken({
+   * const { requestId } = await skill.sellToken({
    *   chain: ChainId.BASE,
-   *   tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base
+   *   tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
    *   amount: '50%',
+   *   walletAddress, sessionPrivateKey, apiKey,
    * });
    * ```
    */
-  async sellToken(params: SellTokenParams): Promise<TradeResult> {
+  async sellToken(params: SellTokenParams): Promise<ManagedSpotTradeResult> {
     return sellToken(this.client, params);
+  }
+
+  /**
+   * Poll `/v1/trade-status/:requestId` until a managed spot trade is
+   * terminal. `outcome: 'pending'` after the timeout means it may still
+   * settle: never resubmit.
+   */
+  async waitForTrade(params: WaitForTradeParams): Promise<ManagedTradeWaitResult> {
+    return waitForTrade(this.client, params);
   }
 
   // ── Perpetual Trading (HyperLiquid) ────────────────────────────────────────
@@ -1203,34 +1224,36 @@ export class GdexSkill {
   // ── Portfolio ──────────────────────────────────────────────────────────────
 
   /**
-   * Get the full cross-chain portfolio for a wallet.
+   * Token holdings of a managed account on one chain (`GET /v1/portfolio`),
+   * authenticated with the control wallet and session. Throws on a refused or
+   * malformed response instead of returning an empty portfolio.
    *
-   * Returns all token balances with USD values across all supported chains.
-   *
-   * @param params - Portfolio query parameters
-   * @returns Portfolio with balances and positions
+   * @param params - Control wallet, session (`data`, or `sessionPrivateKey` + `apiKey`) and chain
    */
   async getPortfolio(params: PortfolioParams): Promise<Portfolio> {
     return getPortfolio(this.client, params);
   }
 
   /**
-   * Get token balances for a wallet on a specific chain.
-   *
-   * @param params - Balance query parameters
-   * @returns List of token balances
+   * Token balances of a managed account on one chain, optionally filtered to
+   * one token. `[]` means the backend reported no holdings; failures throw.
    */
   async getBalances(params: BalanceParams): Promise<Balance[]> {
     return getBalances(this.client, params);
   }
 
   /**
-   * Get trade history for a wallet.
-   *
-   * @param params - Trade history query parameters
-   * @returns List of historical trades
+   * Native funds the managed wallet can trade with on one chain (`GET /v1/user`).
    */
-  async getTradeHistory(params: TradeHistoryParams): Promise<TradeRecord[]> {
+  async getTradingFunds(params: ManagedReadCredentials & { chain: SupportedChain }): Promise<TradingFunds> {
+    return getTradingFunds(this.client, params);
+  }
+
+  /**
+   * One page of a managed account's successful trades on a chain
+   * (`GET /v1/user_history`, keyed by the control wallet).
+   */
+  async getTradeHistory(params: TradeHistoryParams): Promise<TradeHistoryPage> {
     return getTradeHistory(this.client, params);
   }
 

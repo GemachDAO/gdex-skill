@@ -1,6 +1,6 @@
 /**
  * E2E tests for portfolio tools (portfolio.ts)
- * Tools: get_portfolio, get_balances, get_trade_history, get_token_details, get_trending_tokens,
+ * Tools: get_portfolio, get_balances, get_trading_funds, get_trade_history, get_token_details, get_trending_tokens,
  *        get_ohlcv, get_top_traders, get_wallet_info, generate_evm_wallet
  */
 import { jest, describe, it, expect, beforeAll, beforeEach } from '@jest/globals';
@@ -35,56 +35,74 @@ describe('Portfolio Tools', () => {
   });
 
   describe('registration', () => {
-    it('should register all 9 portfolio tools', () => {
+    it('should register all 10 portfolio tools', () => {
       const tools = getTools();
       const expectedTools = [
-        'get_portfolio', 'get_balances', 'get_trade_history', 'get_token_details',
+        'get_portfolio', 'get_balances', 'get_trading_funds', 'get_trade_history', 'get_token_details',
         'get_trending_tokens', 'get_ohlcv', 'get_top_traders', 'get_wallet_info',
         'generate_evm_wallet',
       ];
       for (const name of expectedTools) {
         expect(tools.has(name)).toBe(true);
       }
-      expect(tools.size).toBe(9);
+      expect(tools.size).toBe(10);
     });
   });
 
+  const session = { walletAddress: '0xControl', sessionPrivateKey: '0x' + '11'.repeat(32), apiKey: 'key' };
+
+  it('managed reads declare session fields (accountRef applies) and history does too', () => {
+    for (const name of ['get_portfolio', 'get_balances', 'get_trading_funds']) {
+      const schema = getTools().get(name)!.schema as Record<string, unknown>;
+      for (const f of ['walletAddress', 'sessionPrivateKey', 'apiKey', 'data', 'chain']) expect(schema[f]).toBeDefined();
+    }
+    expect((getTools().get('get_trade_history')!.schema as Record<string, unknown>).sessionPrivateKey).toBeDefined();
+  });
+
   describe('get_portfolio', () => {
-    it('should call getPortfolio with wallet and optional chain', async () => {
-      const portfolio = { tokens: [{ symbol: 'SOL', balance: '10' }], perpPositions: [] };
+    it('passes session and chain to getPortfolio and returns the normalized shape', async () => {
+      const portfolio = { status: 'ok', mode: 'managed', userId: '0xControl', chainId: 8453, holdings: [{ tokenAddress: '0xT', rawBalance: '1', balance: '0.000001' }] };
       mockSdk.getPortfolio.mockResolvedValue(portfolio);
       const tool = getTools().get('get_portfolio')!;
-      const result = await expectMcpSuccess(tool.handler, { walletAddress: '0xW', chain: 'solana' });
+      const params = { ...session, chain: 8453 };
+      const result = await expectMcpSuccess(tool.handler, params);
+      expect(mockSdk.getPortfolio).toHaveBeenCalledWith(params);
       expect(result).toEqual(portfolio);
     });
 
-    it('should work without chain filter', async () => {
-      mockSdk.getPortfolio.mockResolvedValue({ tokens: [] });
-      const tool = getTools().get('get_portfolio')!;
-      await expectMcpSuccess(tool.handler, { walletAddress: '0xW' });
+    it('surfaces a failed read as an error, not an empty portfolio', async () => {
+      mockSdk.getPortfolio.mockRejectedValue(new Error('Malformed /v1/portfolio response'));
+      await expectMcpError(getTools().get('get_portfolio')!.handler, { ...session, chain: 8453 }, 'Malformed');
     });
   });
 
   describe('get_balances', () => {
     it('should call getBalances', async () => {
-      const balances = [{ token: 'USDC', balance: '5000' }];
+      const balances = [{ tokenAddress: '0xUSDC', symbol: 'USDC', rawBalance: '5000000000', balance: '5000' }];
       mockSdk.getBalances.mockResolvedValue(balances);
       const tool = getTools().get('get_balances')!;
-      const result = await expectMcpSuccess(tool.handler, {
-        walletAddress: '0xW',
-        chain: 42161,
-      });
+      const result = await expectMcpSuccess(tool.handler, { ...session, chain: 42161 });
       expect(result).toEqual(balances);
     });
   });
 
+  describe('get_trading_funds', () => {
+    it('should call getTradingFunds', async () => {
+      const funds = { status: 'ok', nativeBalance: '0.01', nativeSymbol: 'ETH', precision: 'approximate' };
+      mockSdk.getTradingFunds.mockResolvedValue(funds);
+      const params = { ...session, chain: 8453 };
+      expect(await expectMcpSuccess(getTools().get('get_trading_funds')!.handler, params)).toEqual(funds);
+      expect(mockSdk.getTradingFunds).toHaveBeenCalledWith(params);
+    });
+  });
+
   describe('get_trade_history', () => {
-    it('should call getTradeHistory with pagination', async () => {
-      const history = { trades: [], total: 0 };
+    it('should call getTradeHistory with limit and cursor, without the session key', async () => {
+      const history = { status: 'ok', trades: [], nextCursor: null };
       mockSdk.getTradeHistory.mockResolvedValue(history);
       const tool = getTools().get('get_trade_history')!;
-      const params = { walletAddress: '0xW', chain: 'solana', page: 1, limit: 20 };
-      const result = await expectMcpSuccess(tool.handler, params);
+      const params = { walletAddress: '0xW', chain: 'solana', limit: 20, cursor: 1700000000 };
+      const result = await expectMcpSuccess(tool.handler, { ...params, sessionPrivateKey: '0xsecret' });
       expect(result).toEqual(history);
       expect(mockSdk.getTradeHistory).toHaveBeenCalledWith(params);
     });
