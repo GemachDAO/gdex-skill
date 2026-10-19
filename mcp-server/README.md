@@ -1,6 +1,6 @@
 # GDEX MCP Server
 
-The official [Model Context Protocol](https://modelcontextprotocol.io) server for [GDEX](https://gdex.pro), Gemach DAO's multi-chain trading terminal. It gives AI agents **136 tools**: 128 that execute trades and read account state, plus 8 documentation tools.
+The official [Model Context Protocol](https://modelcontextprotocol.io) server for [GDEX](https://gdex.pro), Gemach DAO's multi-chain trading terminal. It gives AI agents **154 tools**: 145 that execute trades and read account state, plus 9 documentation tools.
 
 - Spot swaps on Solana, Sui and 10 EVM chains (`buy_token`, `sell_token`, `limit_buy`, `limit_sell`)
 - Hyperliquid perpetuals, including tokenized equities, FX and commodities (`open_perp_position`, `place_perp_order`, `close_perp_position`, `get_perp_positions`)
@@ -14,7 +14,8 @@ The official [Model Context Protocol](https://modelcontextprotocol.io) server fo
 |---|---|
 | [`src/index.ts`](src/index.ts) | Entry point: creates the `McpServer`, registers every tool, serves over stdio |
 | [`src/tools/`](src/tools) | Tool handlers by area: `spotTrade`, `perpTrade`, `perpRead`, `limitOrders`, `copyTrade`, `hlCopyTrade`, `bridge`, `portfolio`, `managed`, `directExec`, `auth`, `v110`, `usdc` |
-| [`src/knowledge.ts`](src/knowledge.ts) | Documentation tools: search and read the bundled GDEX skills |
+| [`src/knowledge.ts`](src/knowledge.ts) | Documentation tools: search and read the GDEX skills, which `build:mcp` embeds in `dist/index.js` (the npm package and Docker image ship no `skills/` directory) |
+| [`src/workflowGuides.ts`](src/workflowGuides.ts) | Hand-written `explain_workflow` guides (type-checked against the SDK by `tests/docs/docExamples.test.ts`) |
 | [`src/init.ts`](src/init.ts) | `init --client <name> [--force]`: merges the GDEX entry into the MCP config for Claude, Cursor, VS Code, Codex, OpenCode (JSONC helpers in `src/jsonc.ts`, TOML in `src/tomlLite.ts`) |
 | [`src/sdk.ts`](src/sdk.ts) | Shared GDEX SDK client (the SDK lives in [`../src`](../src)) |
 | [`tests/`](tests) | Jest tests |

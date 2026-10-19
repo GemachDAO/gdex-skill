@@ -193,12 +193,73 @@ export interface UpdateCopyTradeParams {
   profitPercent: string;
   copySell?: boolean;
   excludedDexNumbers?: number[];
-  /** Program IDs to exclude from copy trading */
+  /**
+   * Ignored by the backend: it derives excludedProgramIds from excludedDexNumbers
+   * (ServiceCopyTrade.update). Kept for source compatibility only.
+   */
   excludedProgramIds?: string[];
-  /** Set truthy to permanently delete this copy trade */
+  /**
+   * Permanently delete this configuration (CopyTradeSetting.deleteOne). Does NOT
+   * close copied positions or cancel the TP/SL limit orders already placed for
+   * them. Prefer {@link deleteCopyTrade}.
+   */
   isDelete?: boolean;
-  /** Set truthy to change active status (note: effectively deletes on current backend) */
+  /**
+   * TOGGLES isActive relative to the stored value (`isActive = !existing.isActive`
+   * in ServiceCopyTrade.update). It is not "pause" and not delete: sent twice it
+   * resumes. Prefer {@link pauseCopyTrade} / {@link resumeCopyTrade}, which read
+   * the current state first. Cannot be combined with isDelete.
+   */
   isChangeStatus?: boolean;
+}
+
+/**
+ * Settings update for an existing Solana copy trade. Never deletes and never
+ * changes the active state. The backend rewrites every field from the payload,
+ * so omitted fields are filled from the current configuration (read via the
+ * list endpoint) rather than reset to defaults.
+ */
+export interface UpdateCopyTradeSettingsParams {
+  apiKey: string;
+  /** Control wallet address */
+  userId: string;
+  sessionPrivateKey: string;
+  copyTradeId: string;
+  traderWallet?: string;
+  copyTradeName?: string;
+  gasPrice?: string;
+  buyMode?: 1 | 2;
+  copyBuyAmount?: string;
+  isBuyExistingToken?: boolean;
+  lossPercent?: string;
+  profitPercent?: string;
+  copySell?: boolean;
+  excludedDexNumbers?: number[];
+}
+
+/** Identifies one copy trade for delete / pause / resume. */
+export interface CopyTradeControlParams {
+  apiKey: string;
+  /** Control wallet address */
+  userId: string;
+  sessionPrivateKey: string;
+  copyTradeId: string;
+}
+
+/** Outcome of an explicit copy-trade control operation. */
+export interface CopyTradeControlResult {
+  operation: 'update_settings' | 'delete' | 'pause' | 'resume';
+  copyTradeId: string;
+  /** False when nothing was sent (already in the requested state). */
+  submitted: boolean;
+  /** isActive read from the list endpoint before acting. */
+  previousIsActive?: boolean;
+  /** isActive the backend should now hold (undefined after a delete). */
+  expectedIsActive?: boolean;
+  /** What this did and did not do to positions/orders. */
+  note: string;
+  /** Raw backend response when a request was sent. */
+  response?: { isSuccess: boolean; message?: string };
 }
 
 export interface UpdateCopyTradeResponse {

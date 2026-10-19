@@ -37,7 +37,7 @@ describe('HL Copy Trade Tools', () => {
   });
 
   describe('registration', () => {
-    it('should register all 12 HL copy trade tools', () => {
+    it('should register all 16 HL copy trade tools', () => {
       const tools = getTools();
       const expectedTools = [
         'get_hl_top_traders', 'get_hl_top_traders_by_pnl', 'get_hl_user_stats',
@@ -45,11 +45,12 @@ describe('HL Copy Trade Tools', () => {
         'get_hl_meta_and_asset_ctxs', 'get_hl_deposit_tokens',
         'get_hl_copy_trade_list', 'get_hl_copy_trade_tx_list',
         'create_hl_copy_trade', 'update_hl_copy_trade',
+        'update_hl_copy_trade_settings', 'pause_hl_copy_trade', 'resume_hl_copy_trade', 'delete_hl_copy_trade',
       ];
       for (const name of expectedTools) {
         expect(tools.has(name)).toBe(true);
       }
-      expect(tools.size).toBe(12);
+      expect(tools.size).toBe(16);
     });
   });
 
@@ -235,6 +236,36 @@ describe('HL Copy Trade Tools', () => {
         lossPercent: '20',
         profitPercent: '40',
       }, 'Copy trade not found');
+    });
+  });
+
+  describe('explicit controls', () => {
+    const ids = { apiKey: 'key', userId: '0xUser', sessionPrivateKey: '0xSk', copyTradeId: 'hlct-1' };
+
+    it('pause_hl_copy_trade maps to pauseHlCopyTrade and never to update/delete', async () => {
+      mockSdk.pauseHlCopyTrade.mockResolvedValue({ operation: 'pause', submitted: false });
+      await expectMcpSuccess(getTools().get('pause_hl_copy_trade')!.handler, ids);
+      expect(mockSdk.pauseHlCopyTrade).toHaveBeenCalledWith(ids);
+      expect(mockSdk.deleteHlCopyTrade).not.toHaveBeenCalled();
+      expect(mockSdk.updateHlCopyTrade).not.toHaveBeenCalled();
+      expect(Object.keys(getTools().get('pause_hl_copy_trade')!.schema)).not.toContain('isDelete');
+    });
+
+    it('resume_hl_copy_trade maps to resumeHlCopyTrade', async () => {
+      await expectMcpSuccess(getTools().get('resume_hl_copy_trade')!.handler, ids);
+      expect(mockSdk.resumeHlCopyTrade).toHaveBeenCalledWith(ids);
+    });
+
+    it('delete_hl_copy_trade says positions are not closed', async () => {
+      const tool = getTools().get('delete_hl_copy_trade')!;
+      expect(tool.description).toMatch(/does NOT close/i);
+      await expectMcpSuccess(tool.handler, ids);
+      expect(mockSdk.deleteHlCopyTrade).toHaveBeenCalledWith(ids);
+    });
+
+    it('update_hl_copy_trade_settings maps to updateHlCopyTradeSettings', async () => {
+      await expectMcpSuccess(getTools().get('update_hl_copy_trade_settings')!.handler, { ...ids, copyMode: 1 });
+      expect(mockSdk.updateHlCopyTradeSettings).toHaveBeenCalledWith({ ...ids, copyMode: 1 });
     });
   });
 });

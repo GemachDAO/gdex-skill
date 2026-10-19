@@ -4,7 +4,7 @@
  *   - Social / watchlist / token import
  *   - Portfolio analytics
  *   - Extended token discovery
- *   - HyperLiquid HIP-3 outcomes
+ *   - Hyperliquid HIP-4 outcome markets
  *   - HyperLiquid referral
  *   - Trending promotion
  *   - Retailer onboarding
@@ -13,6 +13,7 @@
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { resolveOutcomeWriteMode } from '@gemachdao/gdex-skill';
 import { getSdk, handleToolCall } from '../sdk.js';
 
 export function registerV110Tools(server: McpServer): void {
@@ -232,93 +233,143 @@ export function registerV110Tools(server: McpServer): void {
     async (params: any) => handleToolCall(async () => getSdk().getTokenImage(params as any)),
   );
 
-  // ── HyperLiquid Outcomes (HIP-3 event markets) ───────────────────────────
+  // ── Hyperliquid HIP-4 outcome markets ────────────────────────────────────
+  // Hyperliquid HIP-4 outcome markets only (not HIP-3 perps, not Polymarket/Kalshi —
+  // GDEX has no Polymarket or Kalshi integration). Write tools take EITHER the
+  // structured fields OR a pre-built computedData; mixing is rejected at runtime
+  // (resolveOutcomeWriteMode) because zod unions don't fit the server.tool shape API.
+  const outcomeStateEnum = z.enum(['active', 'pre_launch', 'expired', 'settled']);
+  const outcomeCreds = {
+    apiKey: z.string().optional().describe('Structured mode: API key'),
+    walletAddress: z.string().optional().describe('Structured mode: CONTROL wallet address from sign-in (not the managed address)'),
+    sessionPrivateKey: z.string().optional().describe('Structured mode: session private key'),
+  };
+  const sideSelector = {
+    coin: z.string().optional().describe('Side coin "#<assetId>" from hl_outcomes sides[].coin. Give exactly one of coin / sideIndex / sideLabel.'),
+    sideIndex: z.number().int().optional().describe('Side index in sides[] (sides are NOT always Yes/No; read the labels)'),
+    sideLabel: z.string().optional().describe('Exact side label from sides[].label, e.g. "No" or a team name'),
+  };
+  const prebuilt = {
+    computedData: z.string().optional().describe('Pre-built mode ONLY: encrypted payload. Must be sent alone (no structured fields).'),
+  };
+
   server.tool(
     'hl_outcomes',
-    'List available HyperLiquid outcome / event markets. Set withVolume=true to enrich each market with volume24hUsd (24h notional, from the HL WS feed) — adds a few seconds.',
+    'Discover Hyperliquid HIP-4 outcome markets (GDEX has no Polymarket/Kalshi). Returns normalised markets: outcomeId, title, sides[] (label, coin "#<assetId>", balanceCoin "+<assetId>", price = current mid), quoteToken (collateral, held in the HL spot balance), state (active | pre_launch | expired | settled), rules (price 0.00001-0.99999 tick 0.00001, whole-contract size, min order notional 11 quote), settlement (no claim via GDEX). withVolume=true adds volume24h {volume, asOf, source, coverage} with a bounded wait. raw=true returns the backend payload unchanged.',
     {
-      dex: z.string().optional(),
-      status: z.string().optional(),
-      withVolume: z.boolean().optional().describe('Include 24h volume per market (slower)'),
+      state: z.union([outcomeStateEnum, z.array(outcomeStateEnum)]).optional().describe('Filter by trading state, e.g. "active"'),
+      query: z.string().optional().describe('Case-insensitive text match on title / side labels / params, or an exact outcomeId'),
+      excludeFallback: z.boolean().optional().describe('Hide "none of the listed outcomes" legs'),
+      limit: z.number().int().min(0).optional(),
+      withVolume: z.boolean().optional().describe('Attach 24h volume (bounded by volumeTimeoutMs, default 2500)'),
+      volumeTimeoutMs: z.number().int().min(100).max(10000).optional(),
+      raw: z.boolean().optional().describe('Return the raw backend payload instead'),
     },
     async (params: any) =>
       handleToolCall(async () => {
-        const { withVolume, ...rest } = params ?? {};
-        return withVolume ? getSdk().getHlOutcomesWithVolume(rest as any) : getSdk().getHlOutcomes(rest as any);
+        const { raw, withVolume, volumeTimeoutMs, ...rest } = params ?? {};
+        if (raw) {
+          return withVolume
+            ? getSdk().getHlOutcomesWithVolume({}, volumeTimeoutMs ? { timeoutMs: volumeTimeoutMs } : undefined)
+            : getSdk().getHlOutcomes({});
+        }
+        return getSdk().getHlOutcomeMarkets({ ...rest, withVolume, volumeTimeoutMs });
       }),
   );
 
   server.tool(
     'get_hl_outcome_volumes',
-    'Get 24h notional volume (USD) per outcome coin from the HyperLiquid WS feed. Pass coins like ["#1010","#1011"]; returns a { coin: volumeUsd } map. Sum a market\'s side coins for its total 24h volume.',
+    'Get 24h notional volume per outcome side coin from the Hyperliquid WS feed. Pass coins from hl_outcomes sides[].coin, e.g. ["#143150","#143151"]. Returns { coin: volume } for coins that reported; a missing coin means no reading (not zero). Prefer hl_outcomes withVolume=true, which reports coverage per market.',
     {
-      coins: z.array(z.string()).describe('Outcome coin names, e.g. ["#1010","#1011"]'),
+      coins: z.array(z.string()).describe('Outcome side coins, e.g. ["#143150","#143151"]'),
     },
     async (params: any) => handleToolCall(async () => getSdk().getHlOutcomeVolumes(params.coins as string[])),
   );
 
   server.tool(
     'hl_outcome_account',
-    'Get HyperLiquid outcomes account state for a wallet on a specific outcome market (coins, positions, open orders).',
+    'Normalised state of a MANAGED wallet on one HIP-4 outcome market: positions (per side: size, hold, available, avgEntryPrice, markPrice, value, unrealizedPnl), openOrders (resting / partially_filled with orderId, price, size, filledSize), fills, historicalOrders (Hyperliquid status). Use it to reconcile after create/cancel/close. raw=true returns the backend payload.',
     {
-      userAddress: z.string(),
-      outcomeId: z.union([z.string(), z.number()]).describe('Outcome market id, e.g. 101'),
+      userAddress: z.string().describe('MANAGED wallet address (outcome balances live there)'),
+      outcomeId: z.union([z.string(), z.number()]).describe('Outcome market id from hl_outcomes'),
+      raw: z.boolean().optional(),
     },
-    async (params: any) => handleToolCall(async () => getSdk().getHlOutcomeAccount(params as any)),
+    async (params: any) =>
+      handleToolCall(async () => {
+        const { raw, ...rest } = params ?? {};
+        return raw ? getSdk().getHlOutcomeAccount(rest as any) : getSdk().getHlOutcomeAccountState(rest as any);
+      }),
+  );
+
+  server.tool(
+    'hl_outcome_check_collateral',
+    'Check the managed wallet\'s Hyperliquid SPOT balance of a market\'s quoteToken (outcome buys draw on spot collateral, not the perp account) against size × price.',
+    {
+      managedAddress: z.string().describe('MANAGED wallet address'),
+      quoteToken: z.string().optional().describe('Market quoteToken from hl_outcomes (default USDC)'),
+      size: z.string().optional().describe('Intended contracts'),
+      price: z.string().optional().describe('Intended limit price'),
+    },
+    async (params: any) => handleToolCall(async () => getSdk().checkHlOutcomeCollateral(params as any)),
   );
 
   server.tool(
     'hl_create_outcome_order',
-    'Create an order on a HyperLiquid outcome (HIP-3) market. Pass structured params (apiKey, walletAddress=control address, sessionPrivateKey, outcomeId, coin like "#1010", isBuy, price 0-1, size) and the SDK builds the encrypted payload. A pre-built computedData is also accepted.',
+    'Place an order on a Hyperliquid HIP-4 outcome market. Structured mode (apiKey, walletAddress=control address, sessionPrivateKey, outcomeId, one of coin/sideIndex/sideLabel, isBuy, size, and price unless isMarket) is validated against the live market first: side must belong to outcomeId, size is whole contracts, price in [0.00001, 0.99999] with max 5 decimals, size×price >= 11 quote (a full-position sell is exempt when managedAddress is given), market must not be expired/settled. isBuy=false sells side tokens you hold. reduceOnly is ignored by the backend. Returns status resting (with orderId) | filled | rejected. Pre-built mode: computedData alone.',
     {
-      apiKey: z.string().optional(),
-      walletAddress: z.string().optional().describe('CONTROL wallet address from sign-in'),
-      sessionPrivateKey: z.string().optional(),
-      outcomeId: z.union([z.string(), z.number()]).optional(),
-      coin: z.string().optional().describe('Outcome asset id, e.g. "#1010" (outcome 101 Yes)'),
-      isBuy: z.boolean().optional(),
-      price: z.string().optional().describe('Limit price in [0,1]; pass "0" for market'),
-      size: z.string().optional().describe('Order size in contracts'),
-      reduceOnly: z.boolean().optional(),
-      isMarket: z.boolean().optional(),
-      computedData: z.string().optional(),
-      dex: z.string().optional(),
+      ...outcomeCreds,
+      outcomeId: z.union([z.string(), z.number()]).optional().describe('Structured mode: outcome market id'),
+      ...sideSelector,
+      isBuy: z.boolean().optional().describe('Structured mode: true buys side tokens; false sells held tokens'),
+      price: z.string().optional().describe('Limit price, e.g. "0.42" (omit for isMarket)'),
+      size: z.string().optional().describe('Whole contracts, e.g. "30"'),
+      isMarket: z.boolean().optional().describe('Take the book at ±5% of top of book'),
+      reduceOnly: z.boolean().optional().describe('Ignored by the backend'),
+      managedAddress: z.string().optional().describe('Managed wallet; enables position-aware sell checks'),
+      ...prebuilt,
     },
-    async (params: any) => handleToolCall(async () => getSdk().createHlOutcomeOrder(params as any)),
+    async (params: any) =>
+      handleToolCall(async () => {
+        resolveOutcomeWriteMode(params ?? {}, ['apiKey', 'walletAddress', 'sessionPrivateKey', 'outcomeId', 'isBuy', 'size']);
+        return getSdk().createHlOutcomeOrder(params as any);
+      }),
   );
 
   server.tool(
     'hl_cancel_outcome_order',
-    'Cancel a HyperLiquid outcome-market order. Pass structured params (apiKey, walletAddress, sessionPrivateKey, outcomeId, coin, orderId) or a pre-built computedData.',
+    'Cancel a resting HIP-4 outcome order. Structured mode: apiKey, walletAddress (control), sessionPrivateKey, outcomeId, coin (must belong to outcomeId), orderId (numeric Hyperliquid oid from hl_create_outcome_order or hl_outcome_account openOrders). Partial fills before the cancel stay in the position. Pre-built mode: computedData alone.',
     {
-      apiKey: z.string().optional(),
-      walletAddress: z.string().optional(),
-      sessionPrivateKey: z.string().optional(),
+      ...outcomeCreds,
       outcomeId: z.union([z.string(), z.number()]).optional(),
-      coin: z.string().optional(),
-      orderId: z.string().optional(),
-      computedData: z.string().optional(),
-      dex: z.string().optional(),
+      coin: z.string().optional().describe('Side coin "#<assetId>" of the order'),
+      orderId: z.string().optional().describe('Numeric Hyperliquid oid'),
+      ...prebuilt,
     },
-    async (params: any) => handleToolCall(async () => getSdk().cancelHlOutcomeOrder(params as any)),
+    async (params: any) =>
+      handleToolCall(async () => {
+        resolveOutcomeWriteMode(params ?? {}, ['apiKey', 'walletAddress', 'sessionPrivateKey', 'outcomeId', 'coin', 'orderId']);
+        return getSdk().cancelHlOutcomeOrder(params as any);
+      }),
   );
 
   server.tool(
     'hl_close_outcome_order',
-    'Close a HyperLiquid outcome-market position. Pass structured params (apiKey, walletAddress, sessionPrivateKey, outcomeId, coin, price, size, isMarket) or a pre-built computedData.',
+    'Exit a HIP-4 outcome position by SELLING held side tokens (the backend always sells; it cannot short). Structured mode: apiKey, walletAddress (control), sessionPrivateKey, outcomeId, one of coin/sideIndex/sideLabel, price (limit) or isMarket=true, optional size (whole contracts; omit for a full exit — the backend caps size to what you hold). With managedAddress, partial exits must leave both the sold part and the remainder >= 11 quote. Settled markets have no book: GDEX has no claim endpoint, check the HL spot balance instead. Pre-built mode: computedData alone.',
     {
-      apiKey: z.string().optional(),
-      walletAddress: z.string().optional(),
-      sessionPrivateKey: z.string().optional(),
+      ...outcomeCreds,
       outcomeId: z.union([z.string(), z.number()]).optional(),
-      coin: z.string().optional(),
-      price: z.string().optional(),
-      size: z.string().optional(),
+      ...sideSelector,
+      price: z.string().optional().describe('Limit price (omit for isMarket)'),
+      size: z.string().optional().describe('Contracts to sell; omit for the full position'),
       isMarket: z.boolean().optional(),
-      computedData: z.string().optional(),
-      dex: z.string().optional(),
+      managedAddress: z.string().optional().describe('Managed wallet; enables position-aware partial-exit checks'),
+      ...prebuilt,
     },
-    async (params: any) => handleToolCall(async () => getSdk().closeHlOutcomeOrder(params as any)),
+    async (params: any) =>
+      handleToolCall(async () => {
+        resolveOutcomeWriteMode(params ?? {}, ['apiKey', 'walletAddress', 'sessionPrivateKey', 'outcomeId']);
+        return getSdk().closeHlOutcomeOrder(params as any);
+      }),
   );
 
   // ── HyperLiquid Referral ─────────────────────────────────────────────────

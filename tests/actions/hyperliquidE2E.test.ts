@@ -1259,11 +1259,11 @@ describe('HyperLiquid E2E — HL Copy Trading', () => {
         actionParams: {
           traderWallet: '0xTopTrader',
           copyTradeName: 'MyBot',
-          copyMode: '1',
+          copyMode: 1,
           fixedAmountCostPerOrder: '25',
           lossPercent: '10',
           profitPercent: '20',
-          oppositeCopy: '',
+          oppositeCopy: false,
         },
       }));
       expect(client.post).toHaveBeenCalledWith(Endpoints.HL_COPY_CREATE, {
@@ -1290,8 +1290,8 @@ describe('HyperLiquid E2E — HL Copy Trading', () => {
 
       expect(crypto.buildHlComputedData).toHaveBeenCalledWith(expect.objectContaining({
         actionParams: expect.objectContaining({
-          oppositeCopy: '1',
-          copyMode: '2',
+          oppositeCopy: true,
+          copyMode: 2,
         }),
       }));
     });
@@ -1362,14 +1362,14 @@ describe('HyperLiquid E2E — HL Copy Trading', () => {
         actionParams: {
           traderWallet: '0xTrader',
           copyTradeName: 'UpdatedBot',
-          copyMode: '1',
+          copyMode: 1,
           fixedAmountCostPerOrder: '50',
           lossPercent: '8',
           profitPercent: '25',
-          isDelete: '',
-          isChangeStatus: '',
+          isDelete: false,
+          isChangeStatus: false,
           copyTradeId: 'CT-123',
-          oppositeCopy: '',
+          oppositeCopy: false,
         },
       }));
       expect(client.post).toHaveBeenCalledWith(Endpoints.HL_COPY_UPDATE, {
@@ -1396,11 +1396,11 @@ describe('HyperLiquid E2E — HL Copy Trading', () => {
       });
 
       expect(crypto.buildHlComputedData).toHaveBeenCalledWith(expect.objectContaining({
-        actionParams: expect.objectContaining({ isDelete: '1' }),
+        actionParams: expect.objectContaining({ isDelete: true, isChangeStatus: false }),
       }));
     });
 
-    it('should handle isChangeStatus (also deletes on backend)', async () => {
+    it('should send isChangeStatus as a bool toggle, never with isDelete', async () => {
       client.post = jest.fn().mockResolvedValue({ isSuccess: true, message: 'Changed' });
 
       await updateHlCopyTrade(client, {
@@ -1418,7 +1418,7 @@ describe('HyperLiquid E2E — HL Copy Trading', () => {
       });
 
       expect(crypto.buildHlComputedData).toHaveBeenCalledWith(expect.objectContaining({
-        actionParams: expect.objectContaining({ isChangeStatus: '1' }),
+        actionParams: expect.objectContaining({ isChangeStatus: true, isDelete: false }),
       }));
     });
 

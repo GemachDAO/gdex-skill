@@ -37,9 +37,11 @@ export interface HlCopyTradeConfig {
   copyTradeId: string;
   copyTradeName: string;
   /**
-   * Copy mode. The backend stores the ABI byte-offset (416 for create, 480 for update)
-   * rather than the actual string value, so this is NOT 1 or 2 in practice.
-   * Treat as opaque; the value sent during create/update is what matters.
+   * 1 = fixed USD per order, 2 = proportion. Configurations written by SDK
+   * versions up to 4.12 hold an ABI byte offset here (416 after create, 480
+   * after update) because those versions encoded the uint64 slot as a string.
+   * Any value other than 1 or 2 is such a legacy record; the copier treats it as
+   * "not 1" (copyTradeHyperLiquid.ts `copyMode == 1`).
    */
   copyMode: number;
   /** Always 1 (EVM) */
@@ -54,8 +56,9 @@ export interface HlCopyTradeConfig {
   /** USD amount per order (mode 1) or ratio (mode 2) */
   fixedAmountCostPerOrder: string;
   /**
-   * Copy in opposite direction. In responses this is always `true` due to a backend
-   * ABI-offset parsing bug — the actual value sent during create/update is what matters.
+   * Copy in the opposite direction. Configurations written by SDK versions up to
+   * 4.12 hold `true` regardless of what was requested (string-encoded bool slot);
+   * the stored value is what the copier uses.
    */
   oppositeCopy: boolean;
   createdAt: number;
@@ -170,14 +173,38 @@ export interface UpdateHlCopyTradeParams {
   lossPercent: string;
   profitPercent: string;
   oppositeCopy?: boolean;
-  /** Set truthy to permanently delete this copy trade */
+  /**
+   * Permanently delete this configuration (HLFuturesCopySetting.deleteOne). Does
+   * NOT close copied positions or cancel their TP/SL orders. Prefer
+   * {@link deleteHlCopyTrade}.
+   */
   isDelete?: boolean;
   /**
-   * WARNING: Despite the name, isChangeStatus DELETES the trade permanently
-   * (same behaviour as Solana copy trade). It does NOT toggle isActive.
-   * Prefer using isDelete for clarity.
+   * TOGGLES isActive relative to the stored value (`isActive = !existing.isActive`
+   * in ServiceHyperLiquid.update). Not delete, not an absolute pause. Prefer
+   * {@link pauseHlCopyTrade} / {@link resumeHlCopyTrade}. Cannot be combined with
+   * isDelete.
    */
   isChangeStatus?: boolean;
+}
+
+/**
+ * Settings update for an existing HL copy trade. Never deletes and never changes
+ * the active state. Omitted fields are filled from the current configuration.
+ */
+export interface UpdateHlCopyTradeSettingsParams {
+  apiKey: string;
+  /** Control wallet address */
+  userId: string;
+  sessionPrivateKey: string;
+  copyTradeId: string;
+  traderWallet?: string;
+  copyTradeName?: string;
+  copyMode?: 1 | 2;
+  fixedAmountCostPerOrder?: string;
+  lossPercent?: string;
+  profitPercent?: string;
+  oppositeCopy?: boolean;
 }
 
 export interface UpdateHlCopyTradeResponse {

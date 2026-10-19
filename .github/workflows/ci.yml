@@ -64,7 +64,7 @@ jobs:
       - name: Ensure committed bundle is up to date
         run: |
           if ! git diff --quiet -- mcp-server/dist/index.js; then
-            echo "::error::mcp-server/dist/index.js is stale. Run 'npm run build:mcp' and commit the result."
+            echo "::error::mcp-server/dist/index.js is stale. Run 'npm run build:mcp' and commit the result (the bundle embeds skills/, so skill edits need a rebuild too)."
             git diff --stat -- mcp-server/dist/index.js
             exit 1
           fi
@@ -78,6 +78,8 @@ jobs:
         run: npx tsc --noEmit
         working-directory: mcp-server
 
+      # Includes tests/packedArtifact.test.ts: npm-packs the server, runs it from a temp dir
+      # with no skills/ directory and checks the doc tools return bundled content.
       - name: Test MCP server
         run: npm test
         working-directory: mcp-server

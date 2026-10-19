@@ -5,7 +5,7 @@
     {
       "title": "Getting Started",
       "description": "Onboarding, managed-custody authentication, and wallet generation.",
-      "skills": ["gdex-onboarding", "gdex-authentication", "gdex-wallet-setup"]
+      "skills": ["gdex-agent-trading", "gdex-onboarding", "gdex-authentication", "gdex-wallet-setup"]
     },
     {
       "title": "Trading",
