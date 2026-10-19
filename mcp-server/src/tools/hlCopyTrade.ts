@@ -145,9 +145,15 @@ export function registerHlCopyTradeTools(server: McpServer): void {
     }),
   );
 
+  // Backend ServiceHyperLiquid.update: isDelete deletes the HLFuturesCopySetting
+  // row only; isChangeStatus TOGGLES isActive (not delete). Neither closes
+  // positions or cancels their TP/SL orders.
   server.tool(
     'update_hl_copy_trade',
-    'Update or delete an HL perp copy trade. WARNING: Both isDelete and isChangeStatus permanently delete.',
+    'Low-level HL perp copy trade update (prefer update_hl_copy_trade_settings / pause_hl_copy_trade / resume_hl_copy_trade / delete_hl_copy_trade). '
+      + 'Every field is rewritten from this payload, so pass the full current config. '
+      + 'isDelete=true permanently deletes the configuration; perp positions it opened are NOT closed and their TP/SL orders are NOT cancelled. '
+      + 'isChangeStatus=true TOGGLES active/paused relative to the stored state. isDelete and isChangeStatus cannot both be true.',
     {
       apiKey: z.string().describe('API key'),
       userId: z.string().describe('Control wallet address'),
@@ -155,17 +161,66 @@ export function registerHlCopyTradeTools(server: McpServer): void {
       copyTradeId: z.string().describe('Copy trade ID to modify'),
       traderWallet: z.string().describe('Trader wallet address'),
       copyTradeName: z.string().describe('Label'),
-      copyMode: z.number().describe('1 = fixed, 2 = proportion'),
-      fixedAmountCostPerOrder: z.string().describe('Amount or ratio'),
-      lossPercent: z.string().describe('Stop-loss %'),
-      profitPercent: z.string().describe('Take-profit %'),
-      oppositeCopy: z.boolean().optional().default(false),
-      isDelete: z.boolean().optional().default(false).describe('Permanently delete'),
-      isChangeStatus: z.boolean().optional().default(false).describe('WARNING: Also permanently deletes'),
+      copyMode: z.number().describe('1 = fixed USD per order, 2 = proportion'),
+      fixedAmountCostPerOrder: z.string().describe('USD amount (mode 1) or ratio (mode 2)'),
+      lossPercent: z.string().describe('Stop-loss % (> 0, < 100)'),
+      profitPercent: z.string().describe('Take-profit % (> 0)'),
+      oppositeCopy: z.boolean().optional().default(false).describe('Trade opposite to the trader'),
+      isDelete: z.boolean().optional().default(false).describe('Permanently delete the configuration (positions stay open)'),
+      isChangeStatus: z.boolean().optional().default(false).describe('Toggle active/paused relative to the stored state'),
     },
     async (params) => handleToolCall(async () => {
       const sdk = getSdk();
       return sdk.updateHlCopyTrade(params as any);
     }),
+  );
+
+  const controlShape = {
+    apiKey: z.string().describe('API key'),
+    userId: z.string().describe('Control wallet address'),
+    sessionPrivateKey: z.string().describe('Session private key'),
+    copyTradeId: z.string().describe('Copy trade ID (from get_hl_copy_trade_list)'),
+  };
+
+  server.tool(
+    'update_hl_copy_trade_settings',
+    'Change settings of an existing HL perp copy trade. Never deletes and never pauses/resumes. '
+      + 'Reads the current config first; omitted fields keep their current values. '
+      + 'Configs created by SDK <= 4.12 may hold an invalid copyMode (e.g. 416/480) and oppositeCopy=true; pass copyMode, fixedAmountCostPerOrder and oppositeCopy explicitly to repair them.',
+    {
+      ...controlShape,
+      traderWallet: z.string().optional().describe('New trader wallet to follow'),
+      copyTradeName: z.string().optional().describe('New label'),
+      copyMode: z.union([z.literal(1), z.literal(2)]).optional().describe('1 = fixed USD per order, 2 = proportion'),
+      fixedAmountCostPerOrder: z.string().optional().describe('USD amount (mode 1) or ratio (mode 2)'),
+      lossPercent: z.string().optional().describe('Stop-loss % (> 0, < 100)'),
+      profitPercent: z.string().optional().describe('Take-profit % (> 0)'),
+      oppositeCopy: z.boolean().optional().describe('Trade opposite to the trader'),
+    },
+    async (params) => handleToolCall(async () => getSdk().updateHlCopyTradeSettings(params as any)),
+  );
+
+  server.tool(
+    'pause_hl_copy_trade',
+    'Pause an HL perp copy trade (isActive=false) WITHOUT deleting it. Reads the current state first and is a no-op if already paused. '
+      + "While paused the copier mirrors neither opens nor closes, so copied positions stay open and will NOT follow the trader's exits; their TP/SL orders stay in place. "
+      + 'Errors: PAUSE_STATE_UNVERIFIED (nothing sent), PAUSE_UNSUPPORTED (stored config invalid; explains the alternative), COPY_TRADE_NOT_FOUND.',
+    controlShape,
+    async (params) => handleToolCall(async () => getSdk().pauseHlCopyTrade(params as any)),
+  );
+
+  server.tool(
+    'resume_hl_copy_trade',
+    'Resume a paused HL perp copy trade (isActive=true). No-op if already active. Fills made while paused are not replayed.',
+    controlShape,
+    async (params) => handleToolCall(async () => getSdk().resumeHlCopyTrade(params as any)),
+  );
+
+  server.tool(
+    'delete_hl_copy_trade',
+    'PERMANENTLY delete an HL perp copy trade configuration. Does NOT close the perp positions it opened and does NOT cancel their TP/SL orders; '
+      + 'close them with the perp tools if wanted. Cannot be undone. To stop copying temporarily use pause_hl_copy_trade instead.',
+    controlShape,
+    async (params) => handleToolCall(async () => getSdk().deleteHlCopyTrade(params as any)),
   );
 }

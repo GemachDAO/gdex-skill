@@ -179,7 +179,7 @@ export const TOKEN_IMAGE = '/v1/token/token_image';
 export const HL_ENABLE_TRADING = '/v1/hl/enable_trading';
 export const HL_SWAP_COLLATERAL = '/v1/hl/swap_collateral';
 
-/** HyperLiquid HIP-3 outcomes / event markets */
+/** Hyperliquid HIP-4 outcome markets */
 export const HL_OUTCOMES = '/v1/hl/outcomes';
 export const HL_OUTCOME_ACCOUNT = '/v1/hl/outcome_account';
 export const HL_OUTCOME_CREATE_ORDER = '/v1/hl/outcome/create_order';

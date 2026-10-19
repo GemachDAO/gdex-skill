@@ -5,21 +5,30 @@
  *   - Operates on EVM chain (chainId = 1)
  *   - Copies perpetual futures positions (long/short)
  *   - Supports opposite-direction copy trading
- *   - isChangeStatus DELETES the trade (same as Solana — does NOT toggle)
  *
- * ABI schemas:
- *   hl_create (8 fields, all strings):
- *     [traderWallet, copyTradeName, copyMode, fixedAmountCostPerOrder,
- *      lossPercent, profitPercent, nonce, oppositeCopy]
+ * /hl/update semantics (backend ServiceHyperLiquid.update):
+ *   - isDelete       → HLFuturesCopySetting.deleteOne. Copied perp positions are NOT
+ *                      closed and their TP/SL orders are NOT cancelled.
+ *   - isChangeStatus → isActive = !existing.isActive (a relative toggle, not delete).
+ *                      The copier only mirrors isActive:true settings
+ *                      (copyTradeHyperLiquid.ts), so an inactive config mirrors
+ *                      neither opens nor closes.
+ *   - every other field is rewritten from the payload on each non-delete update.
  *
- *   hl_update (11 fields, all strings):
- *     [traderWallet, copyTradeName, copyMode, fixedAmountCostPerOrder,
- *      lossPercent, profitPercent, nonce, isDelete, isChangeStatus,
- *      copyTradeId, oppositeCopy]
+ * ABI schemas (typed as backend src/shared/parser/evm/decoder.ts decodes them):
+ *   hl_create (8 fields):
+ *     [traderWallet, copyTradeName, copyMode(uint64), fixedAmountCostPerOrder,
+ *      lossPercent, profitPercent, nonce, oppositeCopy(bool)]
+ *
+ *   hl_update (11 fields):
+ *     [traderWallet, copyTradeName, copyMode(uint64), fixedAmountCostPerOrder,
+ *      lossPercent, profitPercent, nonce, isDelete(bool), isChangeStatus(bool),
+ *      copyTradeId, oppositeCopy(bool)]
  */
 import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';
 import type {
+  HlCopyTradeConfig,
   HlCopyTradeListParams,
   HlCopyTradeListResponse,
   HlCopyTradeTxListParams,
@@ -33,9 +42,13 @@ import type {
   HlPerpDexesResponse,
   HlAllAssetsResponse,
   HlDepositTokensResponse,
+  UpdateHlCopyTradeSettingsParams,
 } from '../types/hlCopyTrade';
+import type { CopyTradeControlParams, CopyTradeControlResult } from '../types/copyTrade';
+import { GdexErrorCode } from '../types/common';
+import { GdexError, GdexValidationError } from '../utils/errors';
 import { validateRequired } from '../utils/validation';
-import { buildHlComputedData } from '../utils/gdexManagedCrypto';
+import { buildHlComputedData, buildGdexReadSessionData } from '../utils/gdexManagedCrypto';
 
 /** Normalise a string-or-object address argument used by HL read endpoints. */
 function normalizeAddressArg(
@@ -240,9 +253,9 @@ export async function getHlCopyTradeTxList(
 /**
  * Create a new HL perpetual futures copy trade.
  *
- * ABI (hl_create, 8 fields, all strings):
- *   [traderWallet, copyTradeName, copyMode, fixedAmountCostPerOrder,
- *    lossPercent, profitPercent, nonce, oppositeCopy]
+ * ABI (hl_create, 8 fields):
+ *   [traderWallet, copyTradeName, copyMode(uint64), fixedAmountCostPerOrder,
+ *    lossPercent, profitPercent, nonce, oppositeCopy(bool)]
  * Signature: "hl_create-{userId}-{dataHex}"
  */
 export async function createHlCopyTrade(
@@ -263,11 +276,11 @@ export async function createHlCopyTrade(
     actionParams: {
       traderWallet: params.traderWallet,
       copyTradeName: params.copyTradeName,
-      copyMode: String(params.copyMode),
+      copyMode: params.copyMode,
       fixedAmountCostPerOrder: params.fixedAmountCostPerOrder,
       lossPercent: params.lossPercent,
       profitPercent: params.profitPercent,
-      oppositeCopy: params.oppositeCopy ? '1' : '',
+      oppositeCopy: params.oppositeCopy === true,
     },
   });
 
@@ -277,15 +290,17 @@ export async function createHlCopyTrade(
 }
 
 /**
- * Update, toggle, or delete an HL perpetual futures copy trade.
+ * Low-level HL copy-trade update (legacy). Prefer {@link updateHlCopyTradeSettings},
+ * {@link deleteHlCopyTrade}, {@link pauseHlCopyTrade} or {@link resumeHlCopyTrade}.
  *
- * ABI (hl_update, 11 fields, all strings):
- *   [traderWallet, copyTradeName, copyMode, fixedAmountCostPerOrder,
- *    lossPercent, profitPercent, nonce, isDelete, isChangeStatus,
- *    copyTradeId, oppositeCopy]
+ * ABI (hl_update, 11 fields):
+ *   [traderWallet, copyTradeName, copyMode(uint64), fixedAmountCostPerOrder,
+ *    lossPercent, profitPercent, nonce, isDelete(bool), isChangeStatus(bool),
+ *    copyTradeId, oppositeCopy(bool)]
  * Signature: "hl_update-{userId}-{dataHex}"
  *
- * WARNING: isChangeStatus DELETES the trade (same as Solana). It does NOT toggle.
+ * isDelete deletes the configuration (positions stay open). isChangeStatus
+ * TOGGLES isActive. Passing both is rejected.
  */
 export async function updateHlCopyTrade(
   client: GdexApiClient,
@@ -293,6 +308,12 @@ export async function updateHlCopyTrade(
 ): Promise<UpdateHlCopyTradeResponse> {
   validateRequired(params.copyTradeId, 'copyTradeId');
   validateRequired(params.traderWallet, 'traderWallet');
+  if (params.isDelete === true && params.isChangeStatus === true) {
+    throw new GdexValidationError(
+      'isDelete and isChangeStatus cannot both be set: isDelete removes the configuration, isChangeStatus toggles isActive',
+      'isChangeStatus',
+    );
+  }
 
   const computedData = buildHlComputedData({
     action: 'hl_update',
@@ -302,18 +323,230 @@ export async function updateHlCopyTrade(
     actionParams: {
       traderWallet: params.traderWallet,
       copyTradeName: params.copyTradeName,
-      copyMode: String(params.copyMode),
+      copyMode: params.copyMode,
       fixedAmountCostPerOrder: params.fixedAmountCostPerOrder,
       lossPercent: params.lossPercent,
       profitPercent: params.profitPercent,
-      isDelete: params.isDelete ? '1' : '',
-      isChangeStatus: params.isChangeStatus ? '1' : '',
+      isDelete: params.isDelete === true,
+      isChangeStatus: params.isChangeStatus === true,
       copyTradeId: params.copyTradeId,
-      oppositeCopy: params.oppositeCopy ? '1' : '',
+      oppositeCopy: params.oppositeCopy === true,
     },
   });
 
   return client.post<UpdateHlCopyTradeResponse>(Endpoints.HL_COPY_UPDATE, {
     computedData,
   });
+}
+
+// ── Explicit controls ───────────────────────────────────────────────────────
+
+/** What deleting does and does not do, from ServiceHyperLiquid.update. */
+export const HL_COPY_TRADE_DELETE_NOTE =
+  'Configuration deleted. Perp positions already opened by this copy trade were NOT closed and their ' +
+  'TP/SL orders were NOT cancelled; close them with the perp tools if you want out. Deletion cannot be undone.';
+
+/** What pausing does and does not do. */
+export const HL_COPY_TRADE_PAUSE_NOTE =
+  'Copy trade paused (isActive=false). The copier stops mirroring BOTH opens and closes for this ' +
+  "configuration, so copied positions stay open and will NOT follow the trader's exits while paused; " +
+  'their TP/SL orders stay in place. Resume to mirror again.';
+
+const HL_COPY_TRADE_RESUME_NOTE =
+  'Copy trade resumed (isActive=true). New fills by the followed trader are mirrored again; fills made ' +
+  'while paused are not replayed.';
+
+async function findHlCopyTradeConfig(
+  client: GdexApiClient,
+  params: CopyTradeControlParams,
+): Promise<HlCopyTradeConfig> {
+  validateRequired(params.copyTradeId, 'copyTradeId');
+  validateRequired(params.userId, 'userId');
+  validateRequired(params.apiKey, 'apiKey');
+  validateRequired(params.sessionPrivateKey, 'sessionPrivateKey');
+  const data = buildGdexReadSessionData(params.sessionPrivateKey, params.apiKey);
+  const list = await getHlCopyTradeList(client, { userId: params.userId, data });
+  const configs = Array.isArray(list?.allCopyTrades) ? list.allCopyTrades : null;
+  if (!configs) {
+    throw new GdexError(
+      'Could not read HL copy trade list to confirm the configuration; nothing was sent',
+      GdexErrorCode.PAUSE_STATE_UNVERIFIED,
+    );
+  }
+  const config = configs.find((c) => c?.copyTradeId === params.copyTradeId);
+  if (!config) {
+    throw new GdexError(
+      `No HL copy trade ${params.copyTradeId} for this user; nothing was sent`,
+      GdexErrorCode.COPY_TRADE_NOT_FOUND,
+    );
+  }
+  return config;
+}
+
+function storedCopyMode(config: HlCopyTradeConfig): 1 | 2 | undefined {
+  const mode = Number(config.copyMode);
+  return mode === 1 || mode === 2 ? mode : undefined;
+}
+
+function hlConfigToUpdateFields(
+  config: HlCopyTradeConfig,
+  overrides: Partial<UpdateHlCopyTradeSettingsParams>,
+  operation: CopyTradeControlResult['operation'],
+): Omit<UpdateHlCopyTradeParams, 'apiKey' | 'userId' | 'sessionPrivateKey' | 'isDelete' | 'isChangeStatus'> {
+  const copyMode = overrides.copyMode ?? storedCopyMode(config);
+  if (copyMode !== 1 && copyMode !== 2) {
+    throw new GdexError(
+      `Stored copyMode ${JSON.stringify(config.copyMode)} is not 1 or 2 (configurations written by SDK <= 4.12 ` +
+        'hold an ABI offset such as 416/480). ' +
+        (operation === 'update_settings'
+          ? 'Pass copyMode, fixedAmountCostPerOrder and oppositeCopy explicitly.'
+          : 'Call updateHlCopyTradeSettings with explicit copyMode, fixedAmountCostPerOrder and oppositeCopy first.'),
+      GdexErrorCode.COPY_TRADE_CONFIG_INVALID,
+    );
+  }
+  return {
+    copyTradeId: config.copyTradeId,
+    traderWallet: overrides.traderWallet ?? config.traderWallet,
+    copyTradeName: overrides.copyTradeName ?? config.copyTradeName,
+    copyMode,
+    fixedAmountCostPerOrder: overrides.fixedAmountCostPerOrder ?? String(config.fixedAmountCostPerOrder),
+    lossPercent: overrides.lossPercent ?? String(config.lossPercent),
+    profitPercent: overrides.profitPercent ?? String(config.profitPercent),
+    oppositeCopy: overrides.oppositeCopy ?? config.oppositeCopy === true,
+  };
+}
+
+/**
+ * Change settings of an existing HL copy trade. Never deletes and never changes
+ * isActive. Omitted fields keep their current values (read from the list).
+ */
+export async function updateHlCopyTradeSettings(
+  client: GdexApiClient,
+  params: UpdateHlCopyTradeSettingsParams,
+): Promise<CopyTradeControlResult> {
+  const config = await findHlCopyTradeConfig(client, params);
+  const fields = hlConfigToUpdateFields(config, params, 'update_settings');
+  const response = await updateHlCopyTrade(client, {
+    apiKey: params.apiKey,
+    userId: params.userId,
+    sessionPrivateKey: params.sessionPrivateKey,
+    ...fields,
+    isDelete: false,
+    isChangeStatus: false,
+  });
+  return {
+    operation: 'update_settings',
+    copyTradeId: params.copyTradeId,
+    submitted: true,
+    previousIsActive: typeof config.isActive === 'boolean' ? config.isActive : undefined,
+    expectedIsActive: typeof config.isActive === 'boolean' ? config.isActive : undefined,
+    note: 'Settings updated; active state unchanged. Open positions are not resized.',
+    response,
+  };
+}
+
+/**
+ * Permanently delete an HL copy trade configuration. Does NOT close positions it
+ * opened or cancel their TP/SL orders.
+ */
+export async function deleteHlCopyTrade(
+  client: GdexApiClient,
+  params: CopyTradeControlParams,
+): Promise<CopyTradeControlResult> {
+  const config = await findHlCopyTradeConfig(client, params);
+  // copyMode is not read on the delete branch; a legacy out-of-range value is
+  // replaced with 1 so the payload encodes.
+  const fields = hlConfigToUpdateFields(config, storedCopyMode(config) ? {} : { copyMode: 1 }, 'delete');
+  const response = await updateHlCopyTrade(client, {
+    apiKey: params.apiKey,
+    userId: params.userId,
+    sessionPrivateKey: params.sessionPrivateKey,
+    ...fields,
+    isDelete: true,
+    isChangeStatus: false,
+  });
+  return {
+    operation: 'delete',
+    copyTradeId: params.copyTradeId,
+    submitted: true,
+    previousIsActive: typeof config.isActive === 'boolean' ? config.isActive : undefined,
+    note: HL_COPY_TRADE_DELETE_NOTE,
+    response,
+  };
+}
+
+async function setHlCopyTradeActive(
+  client: GdexApiClient,
+  params: CopyTradeControlParams,
+  active: boolean,
+): Promise<CopyTradeControlResult> {
+  const operation = active ? 'resume' : 'pause';
+  const config = await findHlCopyTradeConfig(client, params);
+  if (typeof config.isActive !== 'boolean') {
+    throw new GdexError(
+      `HL copy trade ${params.copyTradeId} has no readable isActive; refusing to toggle blindly. Nothing was sent.`,
+      GdexErrorCode.PAUSE_STATE_UNVERIFIED,
+    );
+  }
+  if (config.isActive === active) {
+    return {
+      operation,
+      copyTradeId: params.copyTradeId,
+      submitted: false,
+      previousIsActive: config.isActive,
+      expectedIsActive: config.isActive,
+      note: `Already ${active ? 'active' : 'paused'}; nothing was sent.`,
+    };
+  }
+  let fields;
+  try {
+    fields = hlConfigToUpdateFields(config, {}, operation);
+  } catch (err) {
+    if (err instanceof GdexError && err.code === GdexErrorCode.COPY_TRADE_CONFIG_INVALID) {
+      throw new GdexError(
+        `Cannot ${operation} HL copy trade ${params.copyTradeId}: ${err.message} The toggle rewrites every setting, ` +
+          'so it is not sent with an invalid stored value. Alternative: deleteHlCopyTrade stops copying permanently, ' +
+          'but positions it opened stay open and their TP/SL orders remain.',
+        GdexErrorCode.PAUSE_UNSUPPORTED,
+      );
+    }
+    throw err;
+  }
+  const response = await updateHlCopyTrade(client, {
+    apiKey: params.apiKey,
+    userId: params.userId,
+    sessionPrivateKey: params.sessionPrivateKey,
+    ...fields,
+    isDelete: false,
+    isChangeStatus: true,
+  });
+  return {
+    operation,
+    copyTradeId: params.copyTradeId,
+    submitted: true,
+    previousIsActive: config.isActive,
+    expectedIsActive: active,
+    note: active ? HL_COPY_TRADE_RESUME_NOTE : HL_COPY_TRADE_PAUSE_NOTE,
+    response,
+  };
+}
+
+/**
+ * Pause an HL copy trade (isActive=false) without deleting it. Reads the current
+ * state first because the backend flag is a toggle; no-op when already paused.
+ * Never sets isDelete.
+ */
+export async function pauseHlCopyTrade(
+  client: GdexApiClient,
+  params: CopyTradeControlParams,
+): Promise<CopyTradeControlResult> {
+  return setHlCopyTradeActive(client, params, false);
+}
+
+/** Resume a paused HL copy trade (isActive=true). No-op when already active. */
+export async function resumeHlCopyTrade(
+  client: GdexApiClient,
+  params: CopyTradeControlParams,
+): Promise<CopyTradeControlResult> {
+  return setHlCopyTradeActive(client, params, true);
 }

@@ -122,8 +122,8 @@ retry if the balance is unchanged after a few minutes.
 
 ### Deposited funds show under the managed address (and may move to spot)
 HyperLiquid credits the depositing wallet (the **managed** address), so check
-`getHlAccountState(managedAddress)`. Enabling outcome (HIP-3) trading or placing
-an outcome order can move USDC from the perp account to the **spot** balance —
+`getHlAccountState(managedAddress)`. Enabling HL trading or placing
+a HIP-4 outcome order can move USDC from the perp account to the **spot** balance —
 check `getHlSpotState(managedAddress)` if the perp balance reads `$0`.
 
 ### 400 Unauthorized (code 103)

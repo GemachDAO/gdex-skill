@@ -104,7 +104,7 @@ GDEX uses a **multi-skill architecture** — agents load only the skills they ne
 | `gdex-content-coins` | Zora content coins and creator coins on Base |
 | `gdex-copy-trading` | Copy trade create/delete, leaderboards, tx history, DEX list (Solana only for writes) |
 | `gdex-perp-copy-trading` | HL perp copy trading — top traders, create/manage configs, market data |
-| `gdex-hl-outcomes` | HyperLiquid outcome (event) markets — list, order, manage positions |
+| `gdex-hl-outcomes` | Hyperliquid HIP-4 outcome markets — discover, pick a side, limit order, cancel/exit, reconcile (no Polymarket/Kalshi) |
 | `gdex-hl-referral` | HyperLiquid referral info and reward claims |
 | `gdex-bridge` | Cross-chain bridging with quotes |
 | `gdex-usdc-wallet` | Unified USDC wallet — one USDC balance across chains, buy/sell in USDC, auto-bridge funding |
@@ -237,7 +237,7 @@ Add to your client's MCP config:
 | **Token Import** | `import_token` | Add a custom token so it appears in details, balances and portfolio |
 | **Market Discovery & Analytics** | `get_newest_tokens`, `get_top_tokens`, `get_token_trades`, `get_token_image`, `get_native_prices`, `get_xstocks`, `get_zora_tokens`, `get_wallet_performance`, `get_nof1_analytics`, `generate_pnl` | New and top tokens, trades, prices, xStocks, Zora coins, wallet performance, NoF1 analytics, PnL generation |
 | **Livestream** | `get_currently_live`, `get_live_status`, `get_bigbuys` | Solana livestream tokens and big-buy alerts |
-| **HL Outcome Markets** | `hl_outcomes`, `get_hl_outcome_volumes`, `hl_outcome_account`, `hl_create_outcome_order`, `hl_cancel_outcome_order`, `hl_close_outcome_order` | HyperLiquid outcome (event) markets |
+| **HL Outcome Markets** | `hl_outcomes`, `get_hl_outcome_volumes`, `hl_outcome_account`, `hl_outcome_check_collateral`, `hl_create_outcome_order`, `hl_cancel_outcome_order`, `hl_close_outcome_order` | Hyperliquid HIP-4 outcome markets |
 | **HL Account & Referral** | `hl_enable_trading`, `hl_swap_collateral`, `hl_tx_list`, `hl_list_user_copy_pnl`, `hl_ref_info`, `hl_ref_claim`, `hl_builder_referral` | One-time HL enablement, HIP-3 collateral swaps, fills/orders, copy-trade PnL, referral rewards |
 | **Promotion & Partners** | `trending_list`, `trending_options`, `trending_register`, `trending_booking_status`, `get_retailers` | Paid trending slots and retailer partners |
 | **Account** | `oauth_login`, `associate_email` | Google sign-in and linking an email to a wallet |
@@ -810,43 +810,37 @@ const result = await skill.createCopyTrade({
 // { isSuccess: true, message: 'created new copy trade successfully', allCopyTrades: [...] }
 ```
 
-#### Delete (computedData auth)
+#### Update / Pause / Resume / Delete (computedData auth)
 
 ```typescript
-// Delete a copy trade (isDelete: true)
-const deleteResult = await skill.updateCopyTrade({
-  apiKey: GDEX_API_KEY_PRIMARY,
-  userId: controlWalletAddress,
-  sessionPrivateKey,
-  chainId: 622112261,
-  copyTradeId: '<64-char-hex-id>',
-  traderWallet: 'SolanaTraderAddress',
-  copyTradeName: 'Alpha Trader',
-  buyMode: 1,
-  copyBuyAmount: '0.001',
-  lossPercent: '50',
-  profitPercent: '100',
-  isDelete: true,                    // permanently deletes the copy trade
-});
-// { isSuccess: true, message: 'Updated' }
+const ids = { apiKey: GDEX_API_KEY_PRIMARY, userId: controlWalletAddress, sessionPrivateKey, copyTradeId: '<64-char-hex-id>' };
+
+await skill.updateCopyTradeSettings({ ...ids, lossPercent: '40' }); // never deletes or pauses
+await skill.pauseCopyTrade(ids);   // isActive=false; no-op if already paused
+await skill.resumeCopyTrade(ids);  // isActive=true; no-op if already active
+await skill.deleteCopyTrade(ids);  // permanent
 ```
 
-> **WARNING:** Both `isDelete: true` and `isChangeStatus: true` permanently delete the copy trade.
-> There is no toggle/pause functionality on the current backend. Boolean fields use `''` for false
-> and `'1'` for true internally; string `'0'` is truthy in JS and will trigger deletion.
+Each reads the current config from `/copy_trade/list` first, because the backend
+rewrites every field on update and `isChangeStatus` is a relative toggle
+(`isActive = !existing.isActive`). Deleting removes the configuration only:
+positions it opened are **not** sold and their TP/SL limit orders are **not**
+cancelled. While paused the copier mirrors neither buys nor sells.
 
 #### Copy Trade ABI Reference
 
+Typed exactly as the backend decodes them (`src/shared/parser/evm/decoder.ts`):
+
 | Action | Fields | ABI Types |
 |---|---|---|
-| `create_copy_trade` | 12 | `['string','string','uint256','string'×9]` |
-| `update_copy_trade` | 16 | `['string','string','uint256','string'×13]` |
+| `create_copy_trade` | 12 | `string, string, uint64, string, uint64, string, bool, string, string, string, bool, uint64[]` |
+| `update_copy_trade` | 15 | `string, string, uint64, string, uint64, string, bool, string, string, string, bool, bool, string, bool, uint64[]` |
 
 **Create field order:** `[traderWallet, copyTradeName, chainId, gasPrice, buyMode, copyBuyAmount, isBuyExistingToken, lossPercent, profitPercent, nonce, copySell, excludedDexNumbers]`
 
-**Update field order:** `[traderWallet, copyTradeName, chainId, gasPrice, buyMode, copyBuyAmount, isBuyExistingToken, lossPercent, profitPercent, nonce, copySell, excludedDexNumbers, copyTradeId, isDelete, isChangeStatus, excludedProgramIds]`
+**Update field order:** `[traderWallet, copyTradeName, chainId, gasPrice, buyMode, copyBuyAmount, isBuyExistingToken, lossPercent, profitPercent, nonce, isDelete, isChangeStatus, copyTradeId, copySell, excludedDexNumbers]`
 
-> `chainId` at position 2 is `uint256`, all other fields are `string`. Nonce is auto-generated by the SDK.
+> SDK versions up to 4.12 encoded every field as a string; the backend then decoded `isDelete=true`, so every update deleted. Nonce is auto-generated by the SDK.
 
 ---
 
@@ -910,40 +904,29 @@ await skill.createHlCopyTrade({
 });
 ```
 
-#### Update / Delete (computedData auth)
+#### Update / Pause / Resume / Delete (computedData auth)
 
 ```typescript
-// Update parameters
-await skill.updateHlCopyTrade({
-  apiKey, userId: controlWalletAddress, sessionPrivateKey,
-  copyTradeId: 'abc123...',
-  traderWallet: '0xTraderEvmAddress',
-  copyTradeName: 'Updated Name',
-  copyMode: 2, fixedAmountCostPerOrder: '0.5',
-  lossPercent: '30', profitPercent: '150',
-  oppositeCopy: true,
-});
+const ids = { apiKey, userId: controlWalletAddress, sessionPrivateKey, copyTradeId: 'abc123...' };
 
-// Delete permanently (use isDelete)
-await skill.updateHlCopyTrade({ ...existingParams, isDelete: true });
-
-// WARNING: isChangeStatus also PERMANENTLY DELETES (does NOT toggle)
-await skill.updateHlCopyTrade({ ...existingParams, isChangeStatus: true });
+await skill.updateHlCopyTradeSettings({ ...ids, copyMode: 2, fixedAmountCostPerOrder: '0.5', oppositeCopy: false });
+await skill.pauseHlCopyTrade(ids);   // isActive=false; copied positions stay open and stop following the trader's exits
+await skill.resumeHlCopyTrade(ids);
+await skill.deleteHlCopyTrade(ids);  // permanent; does NOT close positions or cancel their TP/SL
 ```
 
 #### HL Perp Copy Trade ABI Reference
 
 | Action | Fields | ABI Types |
 |---|---|---|
-| `hl_create` | 8 | `['string' × 8]` |
-| `hl_update` | 11 | `['string' × 11]` |
+| `hl_create` | 8 | `string, string, uint64, string, string, string, string, bool` |
+| `hl_update` | 11 | `string, string, uint64, string, string, string, string, bool, bool, string, bool` |
 
 **Create field order:** `[traderWallet, copyTradeName, copyMode, fixedAmountCostPerOrder, lossPercent, profitPercent, nonce, oppositeCopy]`
 
 **Update field order:** `[traderWallet, copyTradeName, copyMode, fixedAmountCostPerOrder, lossPercent, profitPercent, nonce, isDelete, isChangeStatus, copyTradeId, oppositeCopy]`
 
-> All fields are `string`. Boolean fields: `'1'` = true, `''` = false. Nonce auto-generated by SDK.
-> **Note:** `copyMode` and `oppositeCopy` in responses contain ABI byte-offsets (e.g., 416), not actual values. Both `isDelete` and `isChangeStatus` permanently delete the trade.
+> Configs written by SDK <= 4.12 (string-encoded ABI) hold `copyMode` 416/480 and `oppositeCopy: true`; repair them with `updateHlCopyTradeSettings` and explicit values. `isChangeStatus` toggles `isActive`; only `isDelete` deletes.
 
 ---
 

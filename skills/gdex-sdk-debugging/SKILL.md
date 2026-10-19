@@ -147,19 +147,22 @@ CFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1
 
 ## Copy Trade Pitfalls
 
-### `isDelete` and `isChangeStatus` Both Delete
+### `isDelete` Deletes, `isChangeStatus` Toggles
 
-On **both Solana and HyperLiquid**, setting either `isDelete='1'` or `isChangeStatus='1'` **permanently deletes** the copy trade. There is no "pause" or "toggle" — it's irreversible.
+On both Solana and HyperLiquid the backend deletes only on `isDelete`; `isChangeStatus`
+flips `isActive` (`isActive = !existing.isActive`). Neither closes positions or cancels
+their TP/SL orders. Use `pauseCopyTrade`/`resumeCopyTrade`/`deleteCopyTrade` (and the
+`Hl` variants), which read the current state before toggling.
 
-> **Boolean encoding:** Use `''` (empty string) for false and `'1'` for true. The string `'0'` is **truthy** and will trigger deletion.
+SDK versions up to 4.12 ABI-encoded every copy-trade field as a string. The backend
+decodes `uint64`/`bool` slots, so those versions sent `isDelete=true` on every update
+(the old "both flags delete" behaviour) and stored `copyMode=416/480`,
+`oppositeCopy=true`. The SDK now encodes the typed ABI the backend and gdex.pro use.
 
-### ABI Offset Bugs in Responses
+### Legacy Values in Responses
 
-The backend returns ABI **byte-offsets** instead of actual values for some fields:
-- `copyMode` → Returns `416` or `480` (byte offset), not the JSON value
-- `oppositeCopy` → Always returns `true` regardless of actual setting
-
-**Workaround:** Store your own copy trade configuration locally. Don't rely on response values for `copyMode` or `oppositeCopy`.
+`copyMode` 416/480 and `oppositeCopy: true` in a response come from configs written by
+SDK <= 4.12. Repair them with `updateHlCopyTradeSettings` and explicit values.
 
 ### Max 3 HL Copy Trades
 
