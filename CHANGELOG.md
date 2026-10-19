@@ -14,7 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Execution needs user approval of that preview, or a user-edited delegated policy (`~/.gdex/policies/<accountRef>.json`). The policy's daily cap counts pending operations.
   - A moved or expired quote returns a revised preview instead of trading.
   - Operations are journaled before submit; `submission_unknown` is reconciled, never resent.
+  - Perp operations resolve from the live position change (pre-trade size is recorded). They report the effective margin mode and leverage; the backend uses cross margin on core perps and isolated on builder-DEX or isolated-only markets.
   - New skill `gdex-agent-trading`.
+  - **Verified live (21/21):**
+    - $1 AERO buy and sell on Base: filled, AERO back to zero.
+    - $20 BTC long at 2x: opened (cross) and closed to flat.
+    - HIP-4 outcome limit order: resting, then cancelled.
 - **Tool annotations:** all 154 tools are annotated (read-only, non-financial write, destructive write).
 - **GDX-05:** the MCP bundle embeds all skills and their companion files, so the published `npx` server and Docker image serve real guides. New `get_skill_file`. A packed-artifact test runs in CI.
 - **GDX-06:** about 45 wrong doc examples are fixed (nonexistent methods, wrong params, missing credentials). Guides moved to `workflowGuides.ts`. New doc test type-checks 141 snippets against the built SDK and checks MCP tool names.

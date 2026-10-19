@@ -255,7 +255,7 @@ export function registerV110Tools(server: McpServer): void {
 
   server.tool(
     'hl_outcomes',
-    'Discover Hyperliquid HIP-4 outcome markets (GDEX has no Polymarket/Kalshi). Returns normalised markets: outcomeId, title, sides[] (label, coin "#<assetId>", balanceCoin "+<assetId>", mid price), quoteToken (collateral, held in the HL spot balance), state (active | pre_launch | expired | settled), rules (price 0.00001-0.99999 tick 0.00001, whole-contract size, min order notional 11 quote), settlement (no claim via GDEX). withVolume=true adds volume24h {volume, asOf, source, coverage} with a bounded wait. raw=true returns the backend payload unchanged.',
+    'Discover Hyperliquid HIP-4 outcome markets (GDEX has no Polymarket/Kalshi). Returns normalised markets: outcomeId, title, sides[] (label, coin "#<assetId>", balanceCoin "+<assetId>", price = current mid), quoteToken (collateral, held in the HL spot balance), state (active | pre_launch | expired | settled), rules (price 0.00001-0.99999 tick 0.00001, whole-contract size, min order notional 11 quote), settlement (no claim via GDEX). withVolume=true adds volume24h {volume, asOf, source, coverage} with a bounded wait. raw=true returns the backend payload unchanged.',
     {
       state: z.union([outcomeStateEnum, z.array(outcomeStateEnum)]).optional().describe('Filter by trading state, e.g. "active"'),
       query: z.string().optional().describe('Case-insensitive text match on title / side labels / params, or an exact outcomeId'),

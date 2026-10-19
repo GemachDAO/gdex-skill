@@ -56,7 +56,7 @@ export function registerIntentTools(server: McpServer, deps: IntentDeps = defaul
         pendingOperations: pending.map((o) => ({ opId: o.opId, accountRef: o.accountRef, kind: o.kind, state: o.state })),
         capabilities: {
           spot: 'Unified-USDC wallet: buy with USDC / sell to USDC on Ethereum, Optimism, BSC, Sonic, Base, Arbitrum, Solana',
-          perp: 'Hyperliquid perps incl. builder DEXes (dex:COIN): open market/limit with isolated leverage, close/reduce',
+          perp: 'Hyperliquid perps incl. builder DEXes (dex:COIN): open market/limit with leverage (cross margin on core perps, isolated on builder-DEX / isolated-only markets), close/reduce',
           outcomes: 'Use the hl_outcome_* tools (not yet in the preview/execute flow)',
         },
         policyFile: `${gdexHome()}/policies/<accountRef>.json (edited by the user, never by the agent)`,
@@ -80,7 +80,7 @@ export function registerIntentTools(server: McpServer, deps: IntentDeps = defaul
       coin: z.string().optional().describe('perp: e.g. BTC, or xyz:TSLA for builder DEXes'),
       notionalUsd: decimal('perp_open: position size in USD').optional(),
       marginUsd: decimal('perp_open: collateral in USD').optional(),
-      leverage: z.number().int().optional().describe('perp_open: isolated leverage'),
+      leverage: z.number().int().optional().describe('perp_open: leverage (backend: cross on core perps, isolated on builder-DEX markets)'),
       orderType: z.enum(['market', 'limit']).optional(),
       limitPrice: decimal('perp_open limit price').optional(),
       tpPrice: decimal('perp_open take-profit').optional(),

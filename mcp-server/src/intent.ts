@@ -211,6 +211,8 @@ interface PerpMarket {
   dex: string;
   szDecimals: number;
   maxLeverage: number;
+  /** Margin mode the backend applies: isolated for builder-DEX and isolated-only assets, else cross (hyperLiquidWorker.ts useIsolated). */
+  marginMode: 'cross' | 'isolated';
   markPx: number;
   source: string;
   asOf: number;
@@ -220,7 +222,7 @@ interface PerpMarket {
 async function perpMarket(deps: IntentDeps, coin: string): Promise<PerpMarket> {
   const [dexPart, namePart] = coin.includes(':') ? coin.split(':') : ['', coin];
   const meta = (await deps.hlInfo(dexPart ? { type: 'metaAndAssetCtxs', dex: dexPart } : { type: 'metaAndAssetCtxs' })) as
-    | [{ universe: Array<{ name: string; szDecimals: number; maxLeverage: number; isDelisted?: boolean }> }, Array<{ markPx?: string }>]
+    | [{ universe: Array<{ name: string; szDecimals: number; maxLeverage: number; isDelisted?: boolean; onlyIsolated?: boolean }> }, Array<{ markPx?: string }>]
     | undefined;
   if (!Array.isArray(meta) || !meta[0]?.universe) throw new Error('Hyperliquid market data unavailable');
   const want = dexPart ? `${dexPart}:${namePart}` : namePart;
@@ -230,7 +232,8 @@ async function perpMarket(deps: IntentDeps, coin: string): Promise<PerpMarket> {
   if (u.isDelisted) throw new GdexValidationError(`${coin} is delisted`, 'coin');
   const markPx = Number(meta[1]?.[idx]?.markPx);
   if (!Number.isFinite(markPx) || markPx <= 0) throw new Error(`No mark price for ${coin}; not executable right now`);
-  return { coin: u.name, dex: dexPart, szDecimals: u.szDecimals, maxLeverage: u.maxLeverage, markPx, source: 'hyperliquid metaAndAssetCtxs', asOf: deps.now() };
+  const marginMode = dexPart || u.onlyIsolated === true ? 'isolated' : 'cross';
+  return { coin: u.name, dex: dexPart, szDecimals: u.szDecimals, maxLeverage: u.maxLeverage, marginMode, markPx, source: 'hyperliquid metaAndAssetCtxs', asOf: deps.now() };
 }
 
 // ── Preview ────────────────────────────────────────────────────────────────
@@ -319,12 +322,13 @@ export async function previewTrade(deps: IntentDeps, accountRef: string, intent:
       coin: m.coin, dex: m.dex, side: intent.side, isLong: intent.side === 'long', orderType,
       price: String(price), markPx: String(m.markPx), size, szDecimals: m.szDecimals,
       notionalUsd: sizedNotional.toFixed(2), marginUsd: (sizedNotional / intent.leverage).toFixed(2),
-      leverage: intent.leverage, marginMode: 'isolated', maxLeverage: m.maxLeverage,
+      leverage: intent.leverage, marginMode: m.marginMode, maxLeverage: m.maxLeverage,
       tpPrice: intent.tpPrice ?? '', slPrice: intent.slPrice ?? '', priceSource: m.source, priceAsOf: m.asOf,
     };
-    summary = `${orderType === 'market' ? 'Market' : `Limit @ ${price}`} ${intent.side} ${size} ${m.coin} (~$${sizedNotional.toFixed(2)} notional, ~$${(sizedNotional / intent.leverage).toFixed(2)} margin at ${intent.leverage}x isolated)`;
+    summary = `${orderType === 'market' ? 'Market' : `Limit @ ${price}`} ${intent.side} ${size} ${m.coin} (~$${sizedNotional.toFixed(2)} notional, ~$${(sizedNotional / intent.leverage).toFixed(2)} margin at ${intent.leverage}x ${m.marginMode})`;
     if (orderType === 'market') warnings.push('Market order: fills near the mark price within the backend slippage band; the fill price is confirmed after execution.');
     if (!intent.tpPrice && !intent.slPrice) warnings.push('No TP/SL attached.');
+    if (m.marginMode === 'cross') warnings.push('Cross margin: the backend uses cross for core perps, so the position shares the whole perp account balance as collateral.');
     exit = `Close or reduce with gdex_manage_position { action: "close", coin: "${m.coin}" }.`;
   } else {
     const plan = await sdk.resolvePerpClose({ ...creds(account), coin: intent.coin, ...(intent.size ? { size: intent.size } : {}), ...(intent.dex ? { dex: intent.dex } : {}), positionAddress: account.managed?.evm ?? account.walletAddress });
@@ -430,15 +434,22 @@ export async function executeTrade(deps: IntentDeps, previewId: string, userAppr
     } else if (p.kind === 'spot') {
       res = (await sdk.sellToUsdc({ ...creds(account), chainId: t.chainId, tokenAddress: t.tokenAddress, tokenAmountRaw: t.sellRaw, minUsdcOutRaw: t.minUsdcRaw })) as Record<string, unknown>;
     } else if (p.kind === 'perp_open') {
-      res = (await sdk.hlCreateOrder({ ...creds(account), coin: t.dex ? `${t.dex}:${String(t.coin).replace(/^.*:/, '')}` : t.coin, isLong: t.isLong, price: t.price, size: t.size, reduceOnly: false, tpPrice: t.tpPrice, slPrice: t.slPrice, isMarket: t.orderType === 'market', marginMode: 'isolated', leverage: t.leverage })) as unknown as Record<string, unknown>;
+      op = await saveOp(op, 'submitting', { detail: { preSzi: await liveSzi(deps, account, String(t.coin), t.dex ? String(t.dex) : '') } }, 'pre-trade position recorded', deps.now());
+      res = (await sdk.hlCreateOrder({ ...creds(account), coin: t.dex ? `${t.dex}:${String(t.coin).replace(/^.*:/, '')}` : t.coin, isLong: t.isLong, price: t.price, size: t.size, reduceOnly: false, tpPrice: t.tpPrice, slPrice: t.slPrice, isMarket: t.orderType === 'market', marginMode: t.marginMode as 'cross' | 'isolated', leverage: t.leverage })) as unknown as Record<string, unknown>;
     } else {
+      op = await saveOp(op, 'submitting', { detail: { preSzi: await liveSzi(deps, account, String(t.coin), t.dex ? String(t.dex) : '') } }, 'pre-trade position recorded', deps.now());
       res = (await sdk.closePerpPosition({ ...creds(account), coin: t.coin, size: t.size, ...(t.dex ? { dex: t.dex } : {}), positionAddress: account.managed?.evm ?? account.walletAddress })) as unknown as Record<string, unknown>;
     }
     const status = String(res.status ?? '').toLowerCase();
     const requestId = typeof res.requestId === 'string' ? res.requestId : undefined;
     const hash = typeof res.hash === 'string' ? res.hash : undefined;
-    const state: OperationState = status === 'success' ? 'filled' : status === 'failed' || res.isSuccess === false ? 'failed' : requestId ? 'accepted' : 'pending';
-    op = await saveOp(op, state, { requestId, hash, detail: res }, undefined, deps.now());
+    const order = (p.kind === 'perp_close' ? (res as { order?: Record<string, unknown> }).order : res) ?? {};
+    const state: OperationState = status === 'success'
+      ? 'filled'
+      : status === 'failed' || res.isSuccess === false || order.isSuccess === false
+        ? 'failed'
+        : requestId || order.isSuccess === true ? 'accepted' : 'pending';
+    op = await saveOp(op, state, { requestId, hash, detail: { ...(op.detail as object), response: res } }, undefined, deps.now());
   } catch (err) {
     op = isUnknown(err)
       ? await saveOp(op, 'submission_unknown', { errorCode: 'SUBMISSION_UNKNOWN' }, (err as Error).message, deps.now())
@@ -472,11 +483,32 @@ export async function reconcileOperation(deps: IntentDeps, opId: string, waitMs 
     return saveOp(op, state, { hash: w.hash ?? op.hash, errorCode: w.errorCode, detail: { steps: w.steps, retry: w.retry } }, undefined, deps.now());
   }
 
-  // Perps: verify against the live position on the managed account.
+  // Perps: compare the live position on the managed account with the pre-trade size.
   const coin = String(t.coin ?? '');
-  const state = (await sdk.getHlClearinghouseState({ userAddress: account.managed?.evm ?? account.walletAddress, ...(t.dex ? { dex: String(t.dex) } : {}) })) as { state?: { assetPositions?: Array<{ position: { coin: string; szi: string; leverage?: unknown; entryPx?: string } }> } };
-  const pos = state?.state?.assetPositions?.find((a) => a.position.coin.toUpperCase() === coin.toUpperCase())?.position;
-  return saveOp(op, op.state, { detail: { ...(op.detail as object), livePosition: pos ?? null } }, pos ? `Live position ${pos.szi} ${coin}` : `No open ${coin} position`, deps.now());
+  const pos = await livePosition(deps, account, coin, t.dex ? String(t.dex) : '');
+  const pre = Number((op.detail as { preSzi?: string } | undefined)?.preSzi ?? 0);
+  const live = Number(pos?.szi ?? 0);
+  const size = Number(t.size ?? 0);
+  const moved = Math.abs(live - pre);
+  const done = size > 0 && moved + 1e-12 >= size * 0.999;
+  const leverage = pos?.leverage as { type?: string; value?: number } | undefined;
+  const effective = leverage ? { marginMode: leverage.type, leverage: leverage.value } : undefined;
+  const note = done
+    ? `Filled: position ${pre} -> ${live} ${coin}${effective ? ` (${effective.leverage}x ${effective.marginMode})` : ''}`
+    : moved > 0 ? `Partially filled: ${moved} of ${size} ${coin}` : `No change yet in the ${coin} position (${live})`;
+  return saveOp(op, done ? 'filled' : op.state, { detail: { ...(op.detail as object), livePosition: pos ?? null, effective } }, note, deps.now());
+}
+
+type LivePosition = { coin: string; szi: string; leverage?: unknown; entryPx?: string };
+
+async function livePosition(deps: IntentDeps, account: StoredAccount, coin: string, dex: string): Promise<LivePosition | undefined> {
+  const state = (await deps.sdk().getHlClearinghouseState({ userAddress: account.managed?.evm ?? account.walletAddress, ...(dex ? { dex } : {}) })) as { state?: { assetPositions?: Array<{ position: LivePosition }> } };
+  const want = coin.toUpperCase();
+  return state?.state?.assetPositions?.find((a) => a.position.coin.toUpperCase() === want || a.position.coin.toUpperCase() === want.replace(/^.*:/, ''))?.position;
+}
+
+async function liveSzi(deps: IntentDeps, account: StoredAccount, coin: string, dex: string): Promise<string> {
+  return (await livePosition(deps, account, coin, dex))?.szi ?? '0';
 }
 
 // ── Positions ──────────────────────────────────────────────────────────────

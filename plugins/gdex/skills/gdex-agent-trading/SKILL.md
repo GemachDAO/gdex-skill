@@ -39,7 +39,7 @@ key or seed phrase. Fund the **managed** wallets, not the control wallet. Sessio
 | kind | Required | Notes |
 |------|----------|-------|
 | `spot` | `chain`, `tokenAddress`, `side` buy\|sell, `amount` | Buy amount is USDC to spend; sell amount is tokens. USDC wallet chains: Ethereum, Optimism, BSC, Sonic, Base, Arbitrum, Solana. `slippagePct` default 1 (max 5). Buys auto-fund USDC and gas from other chains within a signed cap shown in the preview; `autoFunding: false` opts out. |
-| `perp_open` | `coin`, `side` long\|short, `leverage`, and **one of** `notionalUsd` or `marginUsd` | "$100 at 2x" is ambiguous: ask which. Size is floored to the market's precision; isolated margin; $11 minimum; max leverage per market. Builder-DEX markets: `xyz:TSLA`. |
+| `perp_open` | `coin`, `side` long\|short, `leverage`, and **one of** `notionalUsd` or `marginUsd` | "$100 at 2x" is ambiguous: ask which. Size is floored to the market's precision; $11 minimum; max leverage per market. Margin mode is set by GDEX: cross on core perps (shares the perp balance), isolated on builder-DEX and isolated-only markets; the preview says which. Builder-DEX markets: `xyz:TSLA`. |
 | `perp_close` | `coin` (optional `size`, `dex`) | Reads the live position; reduce-only, correct side for longs and shorts. |
 
 Show the user the `summary`, `warnings` and key `terms` (min received / size / margin) before asking.
