@@ -1,0 +1,228 @@
+{
+ "_source": "GET https://trade-api.gemach.io/v1/hl/outcomes (= HL info outcomeMeta + allMids), captured 2026-10-19, trimmed",
+ "isSuccess": true,
+ "data": {
+  "meta": {
+   "outcomes": [
+    {
+     "outcome": 13103,
+     "name": "template:binaryPrice",
+     "description": "perp:ZEC|priceDescription:the Pyth ZEC/USD price|seconds:90|threshold:1057|time:20261023-0800",
+     "sideSpecs": [
+      {
+       "name": "template:Yes"
+      },
+      {
+       "name": "template:No"
+      }
+     ],
+     "quoteToken": "USDC",
+     "venue": "skew",
+     "deployerFeeScale": "1.0"
+    },
+    {
+     "outcome": 14437,
+     "name": "template:sportsContestWinner",
+     "description": "competition:LoL: Worlds Swiss Stage|contestType:Match|countedPlay:the full series|officialSource:gol.gg|participantA:LOS|participantB:T1|resolutionDeadline:20261030-2200|scheduledStart:20261023-2200|season:2026|shortNameA:LOS|shortNameB:T1|sport:Esports|stage:Round 1",
+     "sideSpecs": [
+      {
+       "name": "template:{shortNameA}"
+      },
+      {
+       "name": "template:{shortNameB}"
+      }
+     ],
+     "quoteToken": "USDC",
+     "venue": "out",
+     "deployerFeeScale": "1.0"
+    },
+    {
+     "outcome": 14185,
+     "name": "template:sportsContestParticipant2",
+     "description": "participant:AC Milan",
+     "sideSpecs": [
+      {
+       "name": "Yes"
+      },
+      {
+       "name": "No"
+      }
+     ],
+     "quoteToken": "USDC",
+     "venue": "out",
+     "deployerFeeScale": "1.0"
+    },
+    {
+     "outcome": 14183,
+     "name": "template:sportsContestParticipant2",
+     "description": "participant:Bournemouth AFC",
+     "sideSpecs": [
+      {
+       "name": "Yes"
+      },
+      {
+       "name": "No"
+      }
+     ],
+     "quoteToken": "USDC",
+     "venue": "out",
+     "deployerFeeScale": "1.0"
+    },
+    {
+     "outcome": 14315,
+     "name": "Recurring",
+     "description": "class:priceBinary|underlying:ETH|expiry:20261020-0600|targetPrice:2430.5|period:1d",
+     "sideSpecs": [
+      {
+       "name": "Yes"
+      },
+      {
+       "name": "No"
+      }
+     ],
+     "quoteToken": "USDC"
+    },
+    {
+     "outcome": 14321,
+     "name": "Recurring Named Outcome",
+     "description": "index:2",
+     "sideSpecs": [
+      {
+       "name": "Yes"
+      },
+      {
+       "name": "No"
+      }
+     ],
+     "quoteToken": "USDC"
+    },
+    {
+     "outcome": 14182,
+     "name": "template fallback",
+     "description": "other",
+     "sideSpecs": [
+      {
+       "name": "Yes"
+      },
+      {
+       "name": "No"
+      }
+     ],
+     "quoteToken": "USDC",
+     "venue": "out",
+     "deployerFeeScale": "1.0"
+    },
+    {
+     "outcome": 14184,
+     "name": "template:sportsContestDraw2",
+     "description": "",
+     "sideSpecs": [
+      {
+       "name": "Yes"
+      },
+      {
+       "name": "No"
+      }
+     ],
+     "quoteToken": "USDC",
+     "venue": "out",
+     "deployerFeeScale": "1.0"
+    },
+    {
+     "outcome": 14319,
+     "name": "Recurring Named Outcome",
+     "description": "index:0",
+     "sideSpecs": [
+      {
+       "name": "Yes"
+      },
+      {
+       "name": "No"
+      }
+     ],
+     "quoteToken": "USDC"
+    },
+    {
+     "outcome": 14320,
+     "name": "Recurring Named Outcome",
+     "description": "index:1",
+     "sideSpecs": [
+      {
+       "name": "Yes"
+      },
+      {
+       "name": "No"
+      }
+     ],
+     "quoteToken": "USDC"
+    },
+    {
+     "outcome": 14318,
+     "name": "Recurring Fallback",
+     "description": "other",
+     "sideSpecs": [
+      {
+       "name": "Yes"
+      },
+      {
+       "name": "No"
+      }
+     ],
+     "quoteToken": "USDC"
+    }
+   ],
+   "questions": [
+    {
+     "question": 480,
+     "name": "template:sportsContestResult",
+     "description": "competition:UEFA Europa League|contestType:Match|countedPlay:regulation time, 90 minutes plus stoppage time|officialSource:Union of European Football Associations|participantA:Bournemouth AFC|participantB:AC Milan|resolutionDeadline:20261023-1900|scheduledStart:20261022-1900|season:2026/27|sport:Soccer|stage:Matchday 3",
+     "fallbackOutcome": 14182,
+     "namedOutcomes": [
+      14183,
+      14184,
+      14185
+     ],
+     "settledNamedOutcomes": []
+    },
+    {
+     "question": 484,
+     "name": "Recurring",
+     "description": "class:priceBucket|underlying:BTC|expiry:20261020-0600|priceThresholds:81064,84373|period:1d",
+     "fallbackOutcome": 14318,
+     "namedOutcomes": [
+      14319,
+      14320,
+      14321
+     ],
+     "settledNamedOutcomes": []
+    }
+   ],
+   "feeScale": "1.0"
+  },
+  "mids": {
+   "#131030": "0.508685",
+   "#131031": "0.491315",
+   "#141820": "0.5",
+   "#141821": "0.5",
+   "#141830": "0.432855",
+   "#141831": "0.567145",
+   "#141840": "0.260195",
+   "#141841": "0.739805",
+   "#141850": "0.305115",
+   "#141851": "0.694885",
+   "#143150": "0.131825",
+   "#143151": "0.868175",
+   "#143180": "0.5",
+   "#143181": "0.5",
+   "#143190": "0.1715",
+   "#143191": "0.8285",
+   "#143200": "0.859505",
+   "#143201": "0.140495",
+   "#143210": "0.00813",
+   "#143211": "0.99187",
+   "#144370": "0.124975",
+   "#144371": "0.875025",
+   "BTC": "81964.5"
+  }
+ }
+}

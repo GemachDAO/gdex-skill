@@ -5,6 +5,8 @@ import {
   attachOutcomeVolume,
   outcomeSideCoin,
   outcomeSideCoins,
+  computeOutcomeVolume,
+  fetchHlOutcomeVolumeReadings,
 } from '../../src/actions/hlOutcomeVolume';
 
 describe('hlOutcomeVolume', () => {
@@ -56,10 +58,40 @@ describe('hlOutcomeVolume', () => {
     expect(outcomeSideCoins([{ outcome: 101, sideSpecs: [{}, {}] }])).toEqual(['#1010', '#1011']);
   });
 
-  it('attachOutcomeVolume sums a market\'s side coins (null when zero)', () => {
-    const out = attachOutcomeVolume([{ outcome: 101, sideSpecs: [{}, {}] }], { '#1010': 100, '#1011': 50 });
-    expect(out[0].volume24hUsd).toBe(150);
-    const none = attachOutcomeVolume([{ outcome: 102, sideSpecs: [{}, {}] }], {});
-    expect(none[0].volume24hUsd).toBeNull();
+  it('attachOutcomeVolume reports coverage and keeps a verified zero as zero', () => {
+    const [full] = attachOutcomeVolume([{ outcome: 101, sideSpecs: [{}, {}] }], { '#1010': 100, '#1011': 50 });
+    expect(full.volume24hUsd).toBe(150);
+    expect(full.volume24h).toMatchObject({ volume: 150, coverage: 'complete', source: 'hyperliquid_ws_activeAssetCtx.dayNtlVlm', missingCoins: [] });
+
+    const [zero] = attachOutcomeVolume([{ outcome: 101, sideSpecs: [{}, {}] }], { '#1010': 0, '#1011': 0 });
+    expect(zero.volume24hUsd).toBe(0);
+    expect(zero.volume24h).toMatchObject({ volume: 0, coverage: 'complete' });
+
+    const [partial] = attachOutcomeVolume([{ outcome: 101, sideSpecs: [{}, {}] }], { '#1010': 7 }, { '#1010': 1792440000000 });
+    expect(partial.volume24h).toMatchObject({ volume: 7, coverage: 'partial', missingCoins: ['#1011'], asOf: new Date(1792440000000).toISOString() });
+
+    const [none] = attachOutcomeVolume([{ outcome: 102, sideSpecs: [{}, {}] }], {});
+    expect(none.volume24hUsd).toBeNull();
+    expect(none.volume24h).toMatchObject({ volume: null, asOf: null, coverage: 'unavailable', missingCoins: ['#1020', '#1021'] });
+  });
+
+  it('computeOutcomeVolume treats a market with no sides as unavailable', () => {
+    expect(computeOutcomeVolume([], {}).coverage).toBe('unavailable');
+  });
+
+  it('fetchHlOutcomeVolumeReadings resolves (empty) when the socket cannot connect', async () => {
+    const t0 = Date.now();
+    const r = await fetchHlOutcomeVolumeReadings(['#1010'], { wsUrl: 'ws://127.0.0.1:1', timeoutMs: 5000 });
+    expect(r.volumes).toEqual({});
+    expect(Date.now() - t0).toBeLessThan(4000);
+  });
+
+  it('uses sideSpecs token ids for coin names', () => {
+    expect(outcomeSideCoins([{ outcome: 5, sideSpecs: [{ token: 100000777 }, {}] }])).toEqual(['#777', '#51']);
+  });
+
+  it('fetchHlOutcomeVolumeReadings records arrival times', async () => {
+    const r = await fetchHlOutcomeVolumeReadings(['#1010'], { wsUrl: url, timeoutMs: 3000 });
+    expect(typeof r.receivedAt['#1010']).toBe('number');
   });
 });

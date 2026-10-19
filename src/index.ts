@@ -72,6 +72,10 @@ import {
   getCopyTradeTxList,
   createCopyTrade,
   updateCopyTrade,
+  updateCopyTradeSettings,
+  deleteCopyTrade,
+  pauseCopyTrade,
+  resumeCopyTrade,
 } from './actions/copyTrade';
 import {
   getHlTopTraders,
@@ -90,6 +94,10 @@ import {
   getHlCopyTradeTxList,
   createHlCopyTrade,
   updateHlCopyTrade,
+  updateHlCopyTradeSettings,
+  deleteHlCopyTrade,
+  pauseHlCopyTrade,
+  resumeHlCopyTrade,
 } from './actions/hlCopyTrade';
 import { getPortfolio, getBalances, getTradeHistory, getTradingFunds } from './actions/portfolio';
 import { getTokenDetails, getTrendingTokens, getOHLCV } from './actions/tokenInfo';
@@ -160,7 +168,11 @@ import type {
 } from './actions/tokenDiscovery';
 import {
   getHlOutcomes,
+  getHlOutcomeMarkets,
+  getHlOutcomeMarket,
   getHlOutcomeAccount,
+  getHlOutcomeAccountState,
+  checkHlOutcomeCollateral,
   createHlOutcomeOrder,
   cancelHlOutcomeOrder,
   closeHlOutcomeOrder,
@@ -172,8 +184,13 @@ import type {
   CreateOutcomeOrderParams,
   CancelOutcomeOrderParams,
   CloseOutcomeOrderParams,
+  OutcomeMarketsParams,
+  OutcomeMarketsResult,
+  OutcomeCollateralCheck,
 } from './actions/hlOutcomes';
+import type { OutcomeMarket, OutcomeAccountState, OutcomeOrderResult } from './actions/hlOutcomeMarkets';
 import {
+  fetchHlOutcomeVolumeReadings,
   fetchHlOutcomeVolumes,
   attachOutcomeVolume,
   outcomeSideCoins,
@@ -309,7 +326,18 @@ export type {
   CreateCopyTradeResponse,
   UpdateCopyTradeParams,
   UpdateCopyTradeResponse,
+  UpdateCopyTradeSettingsParams,
+  CopyTradeControlParams,
+  CopyTradeControlResult,
 } from './types/copyTrade';
+export {
+  COPY_TRADE_DELETE_NOTE,
+  COPY_TRADE_PAUSE_NOTE,
+} from './actions/copyTrade';
+export {
+  HL_COPY_TRADE_DELETE_NOTE,
+  HL_COPY_TRADE_PAUSE_NOTE,
+} from './actions/hlCopyTrade';
 export type {
   HlCopyTradeConfig,
   HlCopyTradeListParams,
@@ -321,6 +349,7 @@ export type {
   CreateHlCopyTradeResponse,
   UpdateHlCopyTradeParams,
   UpdateHlCopyTradeResponse,
+  UpdateHlCopyTradeSettingsParams,
   HlTopTrader,
   HlTopTradersResponse,
   HlDailyPnl,
@@ -389,14 +418,52 @@ export type {
   CancelOutcomeOrderParams,
   CloseOutcomeOrderParams,
   OutcomeManagedCreds,
+  OutcomeWriteOptions,
+  OutcomeMarketsParams,
+  OutcomeMarketsResult,
+  OutcomeCollateralCheck,
+  HlInfoFetcher,
 } from './actions/hlOutcomes';
+export { resolveOutcomeWriteMode } from './actions/hlOutcomes';
+export {
+  OUTCOME_ORDER_RULES,
+  OUTCOME_SETTLEMENT_SUPPORT,
+  normalizeOutcomeMarkets,
+  normalizeOutcomeAccount,
+  normalizeOutcomeOrderResult,
+  findOutcomeMarket,
+  resolveOutcomeSide,
+  validateOutcomeOrder,
+  validateOutcomeClose,
+  parseOutcomeParams,
+} from './actions/hlOutcomeMarkets';
+export type {
+  OutcomeMarket,
+  OutcomeSide,
+  OutcomeMarketRules,
+  OutcomeSettlementInfo,
+  OutcomeTradingState,
+  OutcomeVolume,
+  OutcomeAccountState,
+  OutcomePosition,
+  OutcomeOpenOrder,
+  OutcomeFill,
+  OutcomeHistoricalOrder,
+  OutcomeOrderResult,
+  OutcomeOrderInput,
+  OutcomeCloseInput,
+  ValidatedOutcomeOrder,
+  ValidatedOutcomeClose,
+} from './actions/hlOutcomeMarkets';
 export {
   fetchHlOutcomeVolumes,
+  fetchHlOutcomeVolumeReadings,
+  computeOutcomeVolume,
   attachOutcomeVolume,
   outcomeSideCoin,
   outcomeSideCoins,
 } from './actions/hlOutcomeVolume';
-export type { OutcomeVolumeOptions } from './actions/hlOutcomeVolume';
+export type { OutcomeVolumeOptions, OutcomeVolumeReadings } from './actions/hlOutcomeVolume';
 export type {
   HlReferralInfoParams,
   HlReferralClaimRequest,
@@ -543,6 +610,9 @@ import type {
   CreateCopyTradeResponse,
   UpdateCopyTradeParams,
   UpdateCopyTradeResponse,
+  UpdateCopyTradeSettingsParams,
+  CopyTradeControlParams,
+  CopyTradeControlResult,
 } from './types/copyTrade';
 import type {
   HlCopyTradeListParams,
@@ -553,6 +623,7 @@ import type {
   CreateHlCopyTradeResponse,
   UpdateHlCopyTradeParams,
   UpdateHlCopyTradeResponse,
+  UpdateHlCopyTradeSettingsParams,
   HlTopTradersResponse,
   HlUserStatsResponse,
   HlPerpDexesResponse,
@@ -1126,9 +1197,32 @@ export class GdexSkill {
     return createCopyTrade(this.client, params);
   }
 
-  /** Update, toggle, or delete an existing copy trade (computedData auth). */
+  /**
+   * Low-level copy trade update (legacy). isDelete deletes the config (positions
+   * stay open); isChangeStatus TOGGLES isActive. Prefer the explicit methods below.
+   */
   async updateCopyTrade(params: UpdateCopyTradeParams): Promise<UpdateCopyTradeResponse> {
     return updateCopyTrade(this.client, params);
+  }
+
+  /** Change copy trade settings; never deletes, never changes isActive. */
+  async updateCopyTradeSettings(params: UpdateCopyTradeSettingsParams): Promise<CopyTradeControlResult> {
+    return updateCopyTradeSettings(this.client, params);
+  }
+
+  /** Permanently delete a copy trade config. Does NOT sell positions or cancel their TP/SL orders. */
+  async deleteCopyTrade(params: CopyTradeControlParams): Promise<CopyTradeControlResult> {
+    return deleteCopyTrade(this.client, params);
+  }
+
+  /** Pause (isActive=false) without deleting; no-op when already paused. */
+  async pauseCopyTrade(params: CopyTradeControlParams): Promise<CopyTradeControlResult> {
+    return pauseCopyTrade(this.client, params);
+  }
+
+  /** Resume a paused copy trade; no-op when already active. */
+  async resumeCopyTrade(params: CopyTradeControlParams): Promise<CopyTradeControlResult> {
+    return resumeCopyTrade(this.client, params);
   }
 
   // ── HL Perp Copy Trading ──────────────────────────────────────────────────
@@ -1216,9 +1310,32 @@ export class GdexSkill {
     return createHlCopyTrade(this.client, params);
   }
 
-  /** Update, toggle, or delete an HL perp copy trade (computedData auth). */
+  /**
+   * Low-level HL copy trade update (legacy). isDelete deletes the config (positions
+   * stay open); isChangeStatus TOGGLES isActive. Prefer the explicit methods below.
+   */
   async updateHlCopyTrade(params: UpdateHlCopyTradeParams): Promise<UpdateHlCopyTradeResponse> {
     return updateHlCopyTrade(this.client, params);
+  }
+
+  /** Change HL copy trade settings; never deletes, never changes isActive. */
+  async updateHlCopyTradeSettings(params: UpdateHlCopyTradeSettingsParams): Promise<CopyTradeControlResult> {
+    return updateHlCopyTradeSettings(this.client, params);
+  }
+
+  /** Permanently delete an HL copy trade config. Does NOT close positions or cancel their TP/SL. */
+  async deleteHlCopyTrade(params: CopyTradeControlParams): Promise<CopyTradeControlResult> {
+    return deleteHlCopyTrade(this.client, params);
+  }
+
+  /** Pause an HL copy trade (isActive=false) without deleting; no-op when already paused. */
+  async pauseHlCopyTrade(params: CopyTradeControlParams): Promise<CopyTradeControlResult> {
+    return pauseHlCopyTrade(this.client, params);
+  }
+
+  /** Resume a paused HL copy trade; no-op when already active. */
+  async resumeHlCopyTrade(params: CopyTradeControlParams): Promise<CopyTradeControlResult> {
+    return resumeHlCopyTrade(this.client, params);
   }
 
   // ── Portfolio ──────────────────────────────────────────────────────────────
@@ -1580,15 +1697,30 @@ export class GdexSkill {
     return getTokenImage(this.client, params);
   }
 
-  // ── HyperLiquid Outcomes (HIP-3 event markets) ────────────────────────────
+  // ── Hyperliquid HIP-4 outcome markets ─────────────────────────────────────
 
+  /** Raw `GET /v1/hl/outcomes` payload (`{ meta: outcomeMeta, mids: allMids }`). Prefer {@link getHlOutcomeMarkets}. */
   async getHlOutcomes(params: OutcomesListParams = {}): Promise<Record<string, unknown>> {
     return getHlOutcomes(this.client, params);
   }
 
   /**
+   * Live HIP-4 outcome markets, normalised: id, title, side labels and coins,
+   * quote token, trading state, order rules, settlement support, optional 24h volume.
+   */
+  async getHlOutcomeMarkets(params: OutcomeMarketsParams = {}): Promise<OutcomeMarketsResult> {
+    return getHlOutcomeMarkets(this.client, params);
+  }
+
+  /** One live outcome market (throws GdexValidationError if the id is unknown). */
+  async getHlOutcomeMarket(outcomeId: string | number): Promise<OutcomeMarket> {
+    return getHlOutcomeMarket(this.client, outcomeId);
+  }
+
+  /**
    * 24h notional volume (USD) per outcome coin, from the HyperLiquid WS `activeAssetCtx`
-   * feed — the only source that publishes `dayNtlVlm` for `#<outcomeId><sideIndex>` coins.
+   * feed — the only source that publishes `dayNtlVlm` for outcome side coins. Coins that
+   * did not report are absent (never zero-filled).
    *
    * @param coins - Outcome coin names (e.g. `["#1010", "#1011"]`).
    */
@@ -1600,9 +1732,10 @@ export class GdexSkill {
   }
 
   /**
-   * Outcome markets enriched with `volume24hUsd` per market (sum of its side coins'
-   * 24h volume from the HL WS feed). Same shape as {@link getHlOutcomes} with each
-   * `meta.outcomes[]` gaining `volume24hUsd`, plus a `coinVolumes` map.
+   * Raw outcome payload with each `meta.outcomes[]` gaining
+   * `volume24h: { volume, asOf, source, coverage, missingCoins }` (and the legacy
+   * `volume24hUsd`), plus a `coinVolumes` map. The WS wait is bounded by
+   * `options.timeoutMs` (default 2500 ms here) so it never stalls discovery.
    */
   async getHlOutcomesWithVolume(
     params: OutcomesListParams = {},
@@ -1614,27 +1747,51 @@ export class GdexSkill {
       mids?: Record<string, unknown>;
     };
     const outcomes = data?.meta?.outcomes ?? [];
-    const coinVolumes = await fetchHlOutcomeVolumes(outcomeSideCoins(outcomes), options);
-    const enriched = attachOutcomeVolume(outcomes, coinVolumes);
+    let readings = { volumes: {} as Record<string, number>, receivedAt: {} as Record<string, number> };
+    try {
+      readings = await fetchHlOutcomeVolumeReadings(outcomeSideCoins(outcomes), { timeoutMs: 2500, ...options });
+    } catch {
+      /* volume is optional: fall through with no readings (coverage "unavailable") */
+    }
+    const enriched = attachOutcomeVolume(outcomes, readings.volumes, readings.receivedAt);
     return {
       ...res,
-      data: { ...data, meta: { ...data.meta, outcomes: enriched }, coinVolumes },
+      data: { ...data, meta: { ...data.meta, outcomes: enriched }, coinVolumes: readings.volumes },
     };
   }
 
+  /** Raw account payload for one market. Prefer {@link getHlOutcomeAccountState}. */
   async getHlOutcomeAccount(params: OutcomeAccountParams): Promise<Record<string, unknown>> {
     return getHlOutcomeAccount(this.client, params);
   }
 
-  async createHlOutcomeOrder(req: CreateOutcomeOrderParams | OutcomeOrderRequest): Promise<Record<string, unknown>> {
+  /** Normalised positions, resting orders, fills and order history for one market (managed address). */
+  async getHlOutcomeAccountState(params: OutcomeAccountParams & { market?: OutcomeMarket }): Promise<OutcomeAccountState> {
+    return getHlOutcomeAccountState(this.client, params);
+  }
+
+  /** Managed wallet's HL spot balance of the market's quote token vs an intended buy. */
+  async checkHlOutcomeCollateral(params: {
+    managedAddress: string;
+    quoteToken?: string;
+    size?: string | number;
+    price?: string | number;
+  }): Promise<OutcomeCollateralCheck> {
+    return checkHlOutcomeCollateral(params);
+  }
+
+  /** Place an outcome order (validated against the live market unless computedData is pre-built). */
+  async createHlOutcomeOrder(req: CreateOutcomeOrderParams | OutcomeOrderRequest): Promise<OutcomeOrderResult> {
     return createHlOutcomeOrder(this.client, req);
   }
 
-  async cancelHlOutcomeOrder(req: CancelOutcomeOrderParams | OutcomeOrderRequest): Promise<Record<string, unknown>> {
+  /** Cancel a resting outcome order by its Hyperliquid oid. */
+  async cancelHlOutcomeOrder(req: CancelOutcomeOrderParams | OutcomeOrderRequest): Promise<OutcomeOrderResult> {
     return cancelHlOutcomeOrder(this.client, req);
   }
 
-  async closeHlOutcomeOrder(req: CloseOutcomeOrderParams | OutcomeOrderRequest): Promise<Record<string, unknown>> {
+  /** Exit (sell) all or part of an outcome position. */
+  async closeHlOutcomeOrder(req: CloseOutcomeOrderParams | OutcomeOrderRequest): Promise<OutcomeOrderResult> {
     return closeHlOutcomeOrder(this.client, req);
   }
 

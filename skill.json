@@ -498,7 +498,7 @@
     },
     {
       "name": "update_copy_trade",
-      "description": "Delete an existing copy trade. Uses 16-field ABI with chainId as uint256. Both isDelete and isChangeStatus trigger permanent deletion. Requires computedData auth.",
+      "description": "Low-level Solana copy trade update (15-field typed ABI). isDelete permanently deletes the configuration (positions are NOT sold, TP/SL orders NOT cancelled); isChangeStatus toggles isActive (pause/resume); both together is rejected. Prefer update_copy_trade_settings, pause_copy_trade, resume_copy_trade, delete_copy_trade. Requires computedData auth.",
       "parameters": {
         "type": "object",
         "required": ["copyTradeId", "traderWallet", "chainId", "buyMode", "copyBuyAmount", "lossPercent", "profitPercent"],
@@ -511,8 +511,8 @@
           "copyBuyAmount": { "type": "string" },
           "lossPercent": { "type": "string" },
           "profitPercent": { "type": "string" },
-          "isDelete": { "type": "boolean", "description": "Set true to permanently delete. Both isDelete and isChangeStatus cause deletion." },
-          "isChangeStatus": { "type": "boolean", "description": "Set true to permanently delete (same effect as isDelete on current backend)." },
+          "isDelete": { "type": "boolean", "description": "Set true to permanently delete the configuration (positions stay open)." },
+          "isChangeStatus": { "type": "boolean", "description": "Set true to toggle isActive relative to the stored state (not delete)." },
           "excludedProgramIds": { "type": "array", "items": { "type": "string" }, "description": "Program IDs to exclude from copy trading." }
         }
       }
@@ -629,7 +629,7 @@
     },
     {
       "name": "update_hl_copy_trade",
-      "description": "Update or delete an HL perp copy trade. Uses hl_update ABI (11 fields, all strings). WARNING: Both isDelete and isChangeStatus permanently DELETE the trade. Requires computedData auth.",
+      "description": "Low-level HL perp copy trade update (hl_update, 11 typed fields). isDelete permanently deletes the configuration (positions NOT closed, TP/SL NOT cancelled); isChangeStatus toggles isActive; both together is rejected. Prefer update_hl_copy_trade_settings, pause_hl_copy_trade, resume_hl_copy_trade, delete_hl_copy_trade. Requires computedData auth.",
       "parameters": {
         "type": "object",
         "required": ["apiKey", "userId", "sessionPrivateKey", "copyTradeId", "traderWallet", "copyTradeName", "copyMode", "fixedAmountCostPerOrder", "lossPercent", "profitPercent"],
@@ -645,8 +645,8 @@
           "lossPercent": { "type": "string" },
           "profitPercent": { "type": "string" },
           "oppositeCopy": { "type": "boolean", "default": false },
-          "isDelete": { "type": "boolean", "description": "Set true to permanently delete." },
-          "isChangeStatus": { "type": "boolean", "description": "WARNING: Permanently DELETES the trade (same as isDelete). Does NOT toggle isActive." }
+          "isDelete": { "type": "boolean", "description": "Set true to permanently delete the configuration (positions stay open)." },
+          "isChangeStatus": { "type": "boolean", "description": "Set true to toggle isActive relative to the stored state (not delete)." }
         }
       }
     },

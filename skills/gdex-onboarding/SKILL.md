@@ -161,7 +161,7 @@ npm install @gemachdao/gdex-skill
 For AI clients that support [Model Context Protocol](https://modelcontextprotocol.io),
 the GDEX MCP server exposes **136 tools** covering the full SDK surface — spot and
 perp trading, HyperLiquid funding, limit orders, copy trading, bridging, portfolio
-and token data, transfers/social, and HIP-3/HIP-4 outcome (event) markets (e.g.
+and token data, transfers/social, and Hyperliquid HIP-4 outcome markets (e.g.
 `buy_token`, `open_perp_position`, `place_perp_order`, `hl_create_outcome_order`,
 `hl_swap_collateral`, `get_account_state`, `estimate_bridge`).
 
@@ -280,11 +280,11 @@ _Consolidated reference (migrated from the umbrella skill). Critical notes and a
 
 > **Bridge endpoints use different paths than expected.** The actual backend routes are `GET /v1/bridge/estimate_bridge`, `POST /v1/bridge/request_bridge`, and `GET /v1/bridge/bridge_orders`. The `request_bridge` endpoint requires ABI-encoded + signed + AES-encrypted `computedData` (same pattern as managed trades). Bridge is **native tokens only** and uses ChangeNow as provider. Amounts must be in **raw token units** (wei/lamports). See **gdex-bridge** skill for full details.
 
-> **Copy trade write operations (create/delete) use `chainId: 622112261` for sign-in, NOT `chainId: 1`.** The chainId field in the ABI is `uint256` (not string). The update endpoint uses 16 ABI fields (not 15): `[traderWallet, copyTradeName, chainId(uint256), gasPrice, buyMode, copyBuyAmount, isBuyExistingToken, lossPercent, profitPercent, nonce, copySell, excludedDexNumbers, copyTradeId, isDelete, isChangeStatus, excludedProgramIds]`. Both `isDelete='1'` and `isChangeStatus='1'` permanently delete the trade — there is no toggle. Boolean fields use `''` (empty string) for false and `'1'` for true; string `'0'` is truthy and will trigger deletion.
+> **Copy trade write operations (create/delete) use `chainId: 622112261` for sign-in, NOT `chainId: 1`.** The update endpoint decodes 15 typed ABI fields: `[traderWallet, copyTradeName, chainId(uint64), gasPrice, buyMode(uint64), copyBuyAmount, isBuyExistingToken(bool), lossPercent, profitPercent, nonce, isDelete(bool), isChangeStatus(bool), copyTradeId, copySell(bool), excludedDexNumbers(uint64[])]`. `isDelete` deletes the config; `isChangeStatus` toggles `isActive`. Use `pauseCopyTrade`/`resumeCopyTrade`/`deleteCopyTrade`; none of them closes positions.
 
 > **Limit order endpoints are `limit_buy` / `limit_sell` / `update_order` — NOT `orders/create` / `orders/cancel`.** Use `limitBuy()` for buy orders, `limitSell()` for sell orders (auto-classifies TP vs SL), and `updateOrder({ isDelete: true })` to cancel. Listing uses `GET /v1/orders` with `userId` + encrypted `data` + `chainId`. All write endpoints use ABI-encoded + signed + AES-encrypted `computedData` (same managed-custody pattern). Minimum order is ~0.01 native token. See **gdex-limit-orders** skill for full details.
 
-> **HL perp copy trading is completely separate from Solana copy trading.** Uses `chainId: 1` (EVM), ABI methods `hl_create`/`hl_update` (8 and 11 string fields), and goes through `buildHlComputedData()`. Both `isDelete` and `isChangeStatus` permanently **DELETE** the trade (same as Solana — there is no toggle). Both TP and SL are **mandatory** (> 0). Max 3 copy trades per user. Supports opposite-direction copying via `oppositeCopy`. Backend stores ABI byte-offsets for `copyMode` and `oppositeCopy` (e.g., `copyMode=416`), not the actual values. `user_stats` requires the managed wallet address, not the control wallet. See **gdex-perp-copy-trading** skill for full details.
+> **HL perp copy trading is completely separate from Solana copy trading.** Uses `chainId: 1` (EVM), ABI methods `hl_create`/`hl_update` (8 and 11 typed fields), and goes through `buildHlComputedData()`. `isDelete` deletes the config and `isChangeStatus` toggles `isActive`; use `pauseHlCopyTrade`/`resumeHlCopyTrade`/`deleteHlCopyTrade` (none closes positions). Both TP and SL are **mandatory** (> 0). Max 3 copy trades per user. Supports opposite-direction copying via `oppositeCopy`. Configs written by SDK <= 4.12 hold `copyMode=416/480` and `oppositeCopy=true` (string-encoded ABI); repair with `updateHlCopyTradeSettings`. `user_stats` requires the managed wallet address, not the control wallet. See **gdex-perp-copy-trading** skill for full details.
 
 ## Autonomous Agent Playbook
 
