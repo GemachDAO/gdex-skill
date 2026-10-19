@@ -125,15 +125,12 @@ export function registerPortfolioTools(server: McpServer): void {
 
   server.tool(
     'get_wallet_info',
-    'Get wallet information including native token balance.',
+    'Summary of the managed GDEX wallet on one chain: managed address, native balance (approximate, /v1/user), token count and USD total (/v1/portfolio). Needs the session (accountRef); there is no address-only read.',
     {
-      walletAddress: z.string().describe('Wallet address'),
+      ...managedRead,
       chain: z.union([z.string(), z.number()]).describe('Chain identifier'),
     },
-    async (params) => handleToolCall(async () => {
-      const sdk = getSdk();
-      return sdk.getWalletInfo(params as any);
-    }),
+    async (params) => handleToolCall(async () => getSdk().getWalletInfo(params as any)),
   );
 
   server.tool(

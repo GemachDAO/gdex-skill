@@ -524,7 +524,7 @@ export { generateEvmWallet } from './utils/walletGeneration';
 export type { GeneratedEvmWallet } from './utils/walletGeneration';
 
 // Validation utilities
-export { validateAddress, validateTokenAddress, validateAmount, parseAmountUnits, validateChain, validateSlippage, validateLeverage, validateCoin } from './utils/validation';
+export { validateAddress, validateTokenAddress, validateAmount, parseAmountUnits, parseRawAmount, parseIntegerPercent, validateHlPrice, validateHlSize, validateChain, validateSlippage, validateLeverage, validateCoin } from './utils/validation';
 export {
   deriveGdexAesMaterial,
   encryptGdexComputedData,

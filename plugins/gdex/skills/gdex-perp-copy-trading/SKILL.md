@@ -230,7 +230,7 @@ await skill.createHlCopyTrade({
   traderWallet: '0xTraderEvmAddress',
   copyTradeName: 'BTC Whale Follower',
   copyMode: 1,                    // Fixed USD amount per order
-  fixedAmountCostPerOrder: '50',  // $50 per copied trade
+  fixedAmountCostPerOrder: '50000000',  // $50 per copied trade (raw USDC, 6 decimals)
   lossPercent: '25',              // 25% stop-loss (mandatory, > 0)
   profitPercent: '100',           // 100% take-profit (mandatory, > 0)
   oppositeCopy: false,            // Copy same direction
@@ -244,7 +244,7 @@ await skill.createHlCopyTrade({
 | 0 | traderWallet | string | EVM address to copy |
 | 1 | copyTradeName | string | Human-readable label |
 | 2 | copyMode | uint64 | 1 or 2 |
-| 3 | fixedAmountCostPerOrder | string | USD amount (mode 1) or ratio (mode 2) |
+| 3 | fixedAmountCostPerOrder | string | Mode 1: raw USDC, 6 decimals (`'50000000'` = $50); mode 2: percentage |
 | 4 | lossPercent | string | Stop-loss % |
 | 5 | profitPercent | string | Take-profit % |
 | 6 | nonce | string | Auto-generated |
@@ -381,7 +381,7 @@ await skill.createHlCopyTrade({
   traderWallet: bestTrader.address,
   copyTradeName: `Top PnL: ${bestTrader.address.slice(0, 8)}`,
   copyMode: 1,
-  fixedAmountCostPerOrder: '25',  // $25 per copied trade
+  fixedAmountCostPerOrder: '25000000',  // $25 per copied trade (raw USDC, 6 decimals)
   lossPercent: '30',
   profitPercent: '100',
 });
