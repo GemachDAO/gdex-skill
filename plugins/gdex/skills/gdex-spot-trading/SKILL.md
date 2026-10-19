@@ -7,6 +7,7 @@ description: Buy and sell tokens on Solana, Sui, and EVM chains with automatic D
 
 Buy and sell tokens across Solana, Sui, and 12+ EVM chains. The SDK routes through the best available DEX automatically, or you can specify one.
 
+> **Paying with USDC?** To buy with USDC from any chain (GDEX bridges it in automatically) or sell straight into USDC, see **gdex-usdc-wallet**.
 ## When to Use
 
 - Buying a token with native currency (SOL, ETH, etc.)

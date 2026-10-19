@@ -99,6 +99,16 @@ import { getWalletInfo } from './actions/wallet';
 import { transferNative, transferToken } from './actions/transfers';
 import type { TransferRequest, TransferResponse } from './actions/transfers';
 import {
+  getUsdcBalances, getUsdcTradeQuote, getUsdcFundingStatus, getUsdcDeferredTrade, getUsdcPendingTrades,
+  getUsdcConvertQuote, getUsdcBridgeStatus, getUsdcBridgeOrders, buyWithUsdc, sellToUsdc, buyWithNative,
+  retryUsdcSell, convertNativeToUsdc, estimateUsdcBridge, executeUsdcBridge, watchUsdcTrade,
+} from './actions/usdc';
+import type {
+  UsdcCredentials, UsdcResponse, UsdcBalancesResponse, UsdcTradeResult, UsdcTradeQuoteParams, UsdcBuyParams,
+  UsdcSellParams, UsdcNativeBuyParams, UsdcRetrySellParams, UsdcConvertParams, UsdcBridgeParams,
+  UsdcBridgeExecuteParams, UsdcTradeWatchParams, UsdcTradeWatchResult,
+} from './actions/usdc';
+import {
   addComment,
   getComments,
   voteSentiment,
@@ -450,6 +460,19 @@ export {
   buildImportTokenComputedData,
 } from './utils/gdexManagedCrypto';
 export type { HlActionType, LimitOrderActionType } from './utils/gdexManagedCrypto';
+export { buildUsdcComputedData, buildGdexReadSessionData, USDC_ACTION_ABI } from './utils/gdexManagedCrypto';
+export type { UsdcActionType } from './utils/gdexManagedCrypto';
+export {
+  getUsdcBalances, getUsdcTradeQuote, getUsdcFundingStatus, getUsdcDeferredTrade, getUsdcPendingTrades,
+  getUsdcConvertQuote, getUsdcBridgeStatus, getUsdcBridgeOrders, buyWithUsdc, sellToUsdc, buyWithNative,
+  retryUsdcSell, convertNativeToUsdc, estimateUsdcBridge, executeUsdcBridge, deriveMaxSourceSpendRaw,
+  DEFAULT_GAS_TOPUP_USD, buyGasHeadroomUsdc, watchUsdcTrade, describeUsdcFundingStep,
+} from './actions/usdc';
+export type {
+  UsdcCredentials, UsdcResponse, UsdcChainBalance, UsdcBalancesResponse, UsdcTradeResult, UsdcTradeQuoteParams,
+  UsdcBuyParams, UsdcSellParams, UsdcNativeBuyParams, UsdcRetrySellParams, UsdcConvertParams, UsdcBridgeParams,
+  UsdcBridgeExecuteParams, UsdcFundingStep, UsdcTradeWatchResult, UsdcTradeWatchParams, UsdcSellRetryCapability,
+} from './actions/usdc';
 
 // Import parameter types for the GdexSkill class methods
 import type { BuyTokenParams, SellTokenParams, TradeResult } from './types/trading';
@@ -1319,6 +1342,88 @@ export class GdexSkill {
   /** Transfer an ERC20 / SPL token via managed custody. */
   async transferToken(req: TransferRequest): Promise<TransferResponse> {
     return transferToken(this.client, req);
+  }
+
+  // ── Unified USDC wallet ───────────────────────────────────────────────────
+
+  /** Cross-chain USDC + native balances (one unified USDC balance). */
+  async getUsdcBalances(creds: UsdcCredentials): Promise<UsdcBalancesResponse> {
+    return getUsdcBalances(this.client, creds);
+  }
+
+  /** Executable buy/sell quote for a USDC- or native-paid trade. */
+  async getUsdcTradeQuote(params: UsdcTradeQuoteParams): Promise<UsdcResponse> {
+    return getUsdcTradeQuote(this.client, params);
+  }
+
+  /** Buy a token with USDC, auto-bridging USDC from other chains if needed. */
+  async buyWithUsdc(params: UsdcBuyParams): Promise<UsdcTradeResult> {
+    return buyWithUsdc(this.client, params);
+  }
+
+  /** Sell a token for USDC. */
+  async sellToUsdc(params: UsdcSellParams): Promise<UsdcTradeResult> {
+    return sellToUsdc(this.client, params);
+  }
+
+  /** Buy a token with the chain's native token, with optional auto-funding. */
+  async buyWithNative(params: UsdcNativeBuyParams): Promise<UsdcTradeResult> {
+    return buyWithNative(this.client, params);
+  }
+
+  /** Retry a stuck USDC sell in place (only when funding status offers `retry`). */
+  async retryUsdcSell(params: UsdcRetrySellParams): Promise<UsdcTradeResult> {
+    return retryUsdcSell(this.client, params);
+  }
+
+  /** Status of a USDC trade / funding request. */
+  async getUsdcFundingStatus(params: UsdcCredentials & { requestId: string }): Promise<UsdcResponse> {
+    return getUsdcFundingStatus(this.client, params);
+  }
+
+  /** Status of a deferred (auto-bridged) trade. */
+  async getUsdcDeferredTrade(params: UsdcCredentials & { tradeId: string }): Promise<UsdcResponse> {
+    return getUsdcDeferredTrade(this.client, params);
+  }
+
+  /** Pending USDC trades on a chain (check before resubmitting). */
+  async getUsdcPendingTrades(params: UsdcCredentials & { chainId: number }): Promise<UsdcResponse> {
+    return getUsdcPendingTrades(this.client, params);
+  }
+
+  /** Quote converting native gas token to USDC (`amount` raw or `max`). */
+  async getUsdcConvertQuote(params: UsdcCredentials & { chainId: number; amount: string }): Promise<UsdcResponse> {
+    return getUsdcConvertQuote(this.client, params);
+  }
+
+  /** Convert native gas token to USDC, keeping a gas reserve. */
+  async convertNativeToUsdc(params: UsdcConvertParams): Promise<UsdcResponse> {
+    return convertNativeToUsdc(this.client, params);
+  }
+
+  /** Quote a USDC bridge between chains. */
+  async estimateUsdcBridge(params: UsdcBridgeParams): Promise<UsdcResponse> {
+    return estimateUsdcBridge(this.client, params);
+  }
+
+  /** Execute a USDC bridge with a signed maximum source spend. */
+  async executeUsdcBridge(params: UsdcBridgeExecuteParams): Promise<UsdcResponse> {
+    return executeUsdcBridge(this.client, params);
+  }
+
+  /** Status of a USDC bridge. */
+  async getUsdcBridgeStatus(params: UsdcCredentials & { bridgeId: string; refresh?: boolean }): Promise<UsdcResponse> {
+    return getUsdcBridgeStatus(this.client, params);
+  }
+
+  /** Follow a pending USDC trade's funding steps to its result (gdex.pro's progress note). */
+  async watchUsdcTrade(params: UsdcTradeWatchParams): Promise<UsdcTradeWatchResult> {
+    return watchUsdcTrade(this.client, params);
+  }
+
+  /** USDC bridge history. */
+  async getUsdcBridgeOrders(creds: UsdcCredentials): Promise<UsdcResponse> {
+    return getUsdcBridgeOrders(this.client, creds);
   }
 
   // ── Social / Watchlist ────────────────────────────────────────────────────

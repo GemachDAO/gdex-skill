@@ -88,6 +88,7 @@ const trade = await skill.buyToken({
 | **Platform** | `gdex-copy-trading` | Copy trade wallets, create/manage configs, tx history, DEXes (Solana writes only) |
 | | `gdex-perp-copy-trading` | HL perp copy trading — top traders, create/manage configs, market data |
 | | `gdex-bridge` | Cross-chain bridging with quotes |
+| | `gdex-usdc-wallet` | Unified USDC wallet — one USDC balance across chains, auto-bridge funding |
 | | `gdex-wallet-setup` | Generate EVM wallets, session keys, get wallet info |
 | **Frontend** | `gdex-ui-install-setup` | React/Next.js project setup, SDK context providers |
 | | `gdex-ui-trading-components` | React component patterns for trading UIs |
@@ -122,6 +123,7 @@ const trade = await skill.buyToken({
 **If you want to bridge assets cross-chain:**
 1. Load **gdex-authentication** for auth setup
 2. Load **gdex-bridge** for bridging operations
+3. For USDC, load **gdex-usdc-wallet**: it trades and bridges USDC across chains as one balance
 
 **If you want to build a trading frontend:**
 1. Load **gdex-ui-install-setup** for React/Next.js project setup
@@ -157,7 +159,7 @@ npm install @gemachdao/gdex-skill
 ## MCP Server
 
 For AI clients that support [Model Context Protocol](https://modelcontextprotocol.io),
-the GDEX MCP server exposes **117 tools** covering the full SDK surface — spot and
+the GDEX MCP server exposes **133 tools** covering the full SDK surface — spot and
 perp trading, HyperLiquid funding, limit orders, copy trading, bridging, portfolio
 and token data, transfers/social, and HIP-3/HIP-4 outcome (event) markets (e.g.
 `buy_token`, `open_perp_position`, `place_perp_order`, `hl_create_outcome_order`,

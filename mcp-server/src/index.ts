@@ -18,6 +18,7 @@ import { registerPortfolioTools } from './tools/portfolio.js';
 import { registerBridgeTools } from './tools/bridge.js';
 import { registerManagedTools } from './tools/managed.js';
 import { registerV110Tools } from './tools/v110.js';
+import { registerUsdcTools } from './tools/usdc.js';
 
 // Handle init command before starting server.
 // `npx -y github:GemachDAO/gdex-skill gdex-mcp-server init --client <c>` auto-selects
@@ -73,7 +74,7 @@ server.tool(
 const SDK_OPERATIONS = [
   'spot-trade', 'perp-trade', 'copy-trade', 'perp-copy-trade',
   'bridge', 'auth', 'portfolio', 'token-discovery', 'limit-orders',
-  'perp-funding', 'wallet-setup',
+  'perp-funding', 'wallet-setup', 'usdc-wallet',
 ] as const;
 
 server.tool(
@@ -93,6 +94,7 @@ server.tool(
       'limit-orders': 'gdex-limit-orders',
       'perp-funding': 'gdex-perp-funding',
       'wallet-setup': 'gdex-wallet-setup',
+      'usdc-wallet': 'gdex-usdc-wallet',
     };
 
     const skillName = skillMap[operation];
@@ -143,7 +145,7 @@ server.tool(
 // --- Tool: explain_workflow ---
 const WORKFLOWS = [
   'spot-trade', 'perp-trade', 'copy-trade', 'perp-copy-trade',
-  'bridge', 'auth', 'limit-order', 'perp-funding', 'full-trading-app',
+  'bridge', 'auth', 'limit-order', 'perp-funding', 'full-trading-app', 'usdc-wallet',
 ] as const;
 
 server.tool(
@@ -255,6 +257,7 @@ See the Frontend skills for complete component patterns and code examples.`,
       'bridge': 'gdex-bridge',
       'limit-order': 'gdex-limit-orders',
       'perp-funding': 'gdex-perp-funding',
+      'usdc-wallet': 'gdex-usdc-wallet',
     };
 
     const skillName = skillMap[workflow];
@@ -391,6 +394,7 @@ registerPortfolioTools(server);
 registerBridgeTools(server);
 registerManagedTools(server);
 registerV110Tools(server);
+registerUsdcTools(server);
 
 // --- Start server ---
 const transport = new StdioServerTransport();

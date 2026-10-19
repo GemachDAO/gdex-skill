@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Unified USDC wallet** (backend `feat-unified-usdc`). A user's USDC on Ethereum, Optimism, BSC, Sonic,
+  Base, Arbitrum and Solana works as one balance.
+  - SDK: `getUsdcBalances`, `getUsdcTradeQuote`, `buyWithUsdc`, `sellToUsdc`, `buyWithNative`,
+    `retryUsdcSell`, `convertNativeToUsdc`, `getUsdcConvertQuote`, `estimateUsdcBridge`,
+    `executeUsdcBridge`, `getUsdcBridgeStatus`, `getUsdcBridgeOrders`, `getUsdcFundingStatus`,
+    `getUsdcDeferredTrade`, `getUsdcPendingTrades`; helpers `buildUsdcComputedData`,
+    `buildGdexReadSessionData`, `deriveMaxSourceSpendRaw`.
+  - Uses the v2 signed actions only (chain bound in the signature). Buys run with automatic funding
+    (USDC + gas from other chains) by default and sign gdex.pro's budget `ceil((amount + gas headroom) × 1.2)`;
+    sells settle on their own chain and never auto-fund, as on gdex.pro. Bridges sign an explicit max
+    source spend and add a $1 destination gas top-up for EVM destinations by default.
+  - `watchUsdcTrade` / `usdc_wait_for_trade`: follow a pending trade's funding steps (bridge legs, gas
+    top-up, swap) to its result, the way gdex.pro's live progress note does.
+  - MCP: 16 `usdc_*` tools (133 tools total).
+  - New skill `gdex-usdc-wallet`, linked from spot trading, bridge, portfolio and onboarding.
+
 ## [4.11.0] - 2026-10-01
 
 ### Changed

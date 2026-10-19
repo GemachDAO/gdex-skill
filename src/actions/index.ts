@@ -22,3 +22,4 @@ export * from './trending';
 export * from './retailer';
 export * from './hlExtras';
 export * from './auth';
+export * from './usdc';
