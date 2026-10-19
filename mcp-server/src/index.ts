@@ -20,6 +20,7 @@ import { registerManagedTools } from './tools/managed.js';
 import { registerV110Tools } from './tools/v110.js';
 import { registerUsdcTools } from './tools/usdc.js';
 import { registerAccountTools } from './tools/account.js';
+import { registerIntentTools } from './tools/intent.js';
 import { enableAccountRefs } from './credentials.js';
 
 // Handle init command before starting server.
@@ -399,6 +400,7 @@ registerManagedTools(server);
 registerV110Tools(server);
 registerUsdcTools(server);
 registerAccountTools(server);
+registerIntentTools(server);
 
 // --- Start server ---
 const transport = new StdioServerTransport();
