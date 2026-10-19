@@ -146279,6 +146279,35 @@ function registerManagedTools(server2) {
 init_define_GDEX_SKILL_REGISTRY();
 var import_gdex_skill2 = __toESM(require_dist5(), 1);
 init_sdk();
+function pageOutcomeMarkets(result, opts) {
+  const all = Array.isArray(result?.markets) ? [...result.markets] : [];
+  const vol = (m) => typeof m?.volume24h?.volume === "number" ? m.volume24h.volume : -1;
+  if (opts.sortBy === "volume") all.sort((a, b) => vol(b) - vol(a));
+  if (opts.sortBy === "expiry") all.sort((a, b) => (a?.expiryMs ?? Infinity) - (b?.expiryMs ?? Infinity));
+  const offset = opts.offset ?? 0;
+  const limit = opts.limit ?? 20;
+  const page = all.slice(offset, offset + limit);
+  const compact = (m) => ({
+    outcomeId: m.outcomeId,
+    title: m.title,
+    state: m.state,
+    expiry: m.expiry ?? null,
+    quoteToken: m.quoteToken,
+    sides: (m.sides ?? []).map((x) => ({ label: x.label, price: x.price ?? null, coin: x.coin })),
+    ...m.volume24h ? { volume24h: { volume: m.volume24h.volume ?? null, coverage: m.volume24h.coverage } } : {}
+  });
+  const { markets: _drop, ...meta } = result ?? {};
+  const unmeasured = opts.sortBy === "volume" ? all.filter((m) => vol(m) < 0).length : void 0;
+  return {
+    ...meta,
+    total: all.length,
+    offset,
+    returned: page.length,
+    nextOffset: offset + page.length < all.length ? offset + page.length : null,
+    markets: opts.detail ? page : page.map(compact),
+    ...unmeasured ? { note: `${unmeasured} markets had no volume reading and sort last; their volume is unknown, not zero.` } : {}
+  };
+}
 function registerV110Tools(server2) {
   server2.tool(
     "transfer_native",
@@ -146491,17 +146520,21 @@ function registerV110Tools(server2) {
       state: external_exports.union([outcomeStateEnum, external_exports.array(outcomeStateEnum)]).optional().describe('Filter by trading state, e.g. "active"'),
       query: external_exports.string().optional().describe("Case-insensitive text match on title / side labels / params, or an exact outcomeId"),
       excludeFallback: external_exports.boolean().optional().describe('Hide "none of the listed outcomes" legs'),
-      limit: external_exports.number().int().min(0).optional(),
+      limit: external_exports.number().int().min(1).max(100).optional().describe("Markets per page, default 20"),
+      offset: external_exports.number().int().min(0).optional().describe("Pagination offset (use nextOffset)"),
+      sortBy: external_exports.enum(["volume", "expiry"]).optional().describe("volume: highest 24h volume first (implies withVolume); expiry: soonest first"),
+      detail: external_exports.boolean().optional().describe("Full market records (rules, params, settlement). Default: compact rows"),
       withVolume: external_exports.boolean().optional().describe("Attach 24h volume (bounded by volumeTimeoutMs, default 2500)"),
       volumeTimeoutMs: external_exports.number().int().min(100).max(1e4).optional(),
       raw: external_exports.boolean().optional().describe("Return the raw backend payload instead")
     },
     async (params) => handleToolCall(async () => {
-      const { raw, withVolume, volumeTimeoutMs, ...rest } = params ?? {};
+      const { raw, withVolume, volumeTimeoutMs, limit, offset, sortBy, detail, ...rest } = params ?? {};
       if (raw) {
         return withVolume ? getSdk().getHlOutcomesWithVolume({}, volumeTimeoutMs ? { timeoutMs: volumeTimeoutMs } : void 0) : getSdk().getHlOutcomes({});
       }
-      return getSdk().getHlOutcomeMarkets({ ...rest, withVolume, volumeTimeoutMs });
+      const result = await getSdk().getHlOutcomeMarkets({ ...rest, withVolume: withVolume || sortBy === "volume", volumeTimeoutMs });
+      return pageOutcomeMarkets(result, { limit, offset, sortBy, detail });
     })
   );
   server2.tool(
@@ -154918,6 +154951,25 @@ async function saveOp(op, state, patch = {}, note, now = Date.now()) {
 async function loadPolicy(accountRef) {
   return readJson("policies", accountRef);
 }
+function isSessionRejected(err) {
+  const e = err;
+  if (e?.name === "GdexAuthError") return true;
+  if (e?.name !== "GdexApiError") return false;
+  const code = Number(e.responseBody?.code);
+  return code === 103 || code === 104 || /unauthori[sz]ed/i.test(e.message ?? "");
+}
+async function refresh(deps, a) {
+  return deps.refreshSession ? deps.refreshSession(a) : connectAccount({ controlPrivateKey: a.controlPrivateKey, source: a.source, apiKey: a.apiKey });
+}
+async function withSession(deps, accountRef, fn) {
+  const account = await loadAccount(accountRef);
+  try {
+    return await fn(account);
+  } catch (err) {
+    if (!isSessionRejected(err)) throw err;
+    return fn(await refresh(deps, account));
+  }
+}
 function bind(accountRef, kind, terms) {
   return createHash3("sha256").update(JSON.stringify([accountRef, kind, terms])).digest("hex");
 }
@@ -154956,7 +155008,9 @@ async function perpMarket(deps, coin) {
   return { coin: u.name, dex: dexPart, szDecimals: u.szDecimals, maxLeverage: u.maxLeverage, marginMode, markPx, source: "hyperliquid metaAndAssetCtxs", asOf: deps.now() };
 }
 async function previewTrade(deps, accountRef, intent) {
-  const account = await loadAccount(accountRef);
+  return withSession(deps, accountRef, (account) => previewWith(deps, account, accountRef, intent));
+}
+async function previewWith(deps, account, accountRef, intent) {
   const sdk = deps.sdk();
   const now = deps.now();
   let kind = intent.kind;
@@ -155138,7 +155192,7 @@ async function executeTrade(deps, previewId, userApproved) {
   if (used) throw new import_gdex_skill5.GdexValidationError(`Preview already executed as ${used.opId} (${used.state}); use gdex_operation`, "previewId");
   const authority = await checkAuthority(deps, p, userApproved);
   if (!authority.ok) return { status: "denied", reasons: authority.reasons };
-  const account = await loadAccount(p.accountRef);
+  let account = await loadAccount(p.accountRef);
   const sdk = deps.sdk();
   const t = p.terms;
   const intentOf = () => p.kind === "spot" ? { kind: "spot", chain: t.chainId, tokenAddress: t.tokenAddress, side: t.side, amount: t.side === "buy" ? t.spendUsdc : t.sellAmount, slippagePct: t.slippagePct, autoFunding: t.autoFunding } : p.kind === "perp_open" ? { kind: "perp_open", coin: t.dex ? `${t.dex}:${String(t.coin).replace(/^.*:/, "")}` : t.coin, side: t.side, notionalUsd: t.notionalUsd, leverage: t.leverage, orderType: t.orderType, ...t.orderType === "limit" ? { limitPrice: t.price } : {}, tpPrice: t.tpPrice || void 0, slPrice: t.slPrice || void 0 } : { kind: "perp_close", coin: t.coin, size: t.size, dex: t.dex || void 0 };
@@ -155146,7 +155200,12 @@ async function executeTrade(deps, previewId, userApproved) {
     return { status: "revised", reason: "Preview expired; review the fresh terms", preview: await previewTrade(deps, p.accountRef, intentOf()) };
   }
   if (p.kind === "spot") {
-    const fresh = await sdk.getUsdcTradeQuote({ ...creds(account), chainId: t.chainId, tokenAddress: t.tokenAddress, payAsset: "usdc", amountInRaw: t.side === "buy" ? t.spendRaw : t.sellRaw, side: t.side });
+    const quote = (a) => sdk.getUsdcTradeQuote({ ...creds(a), chainId: t.chainId, tokenAddress: t.tokenAddress, payAsset: "usdc", amountInRaw: t.side === "buy" ? t.spendRaw : t.sellRaw, side: t.side });
+    const fresh = await quote(account).catch(async (err) => {
+      if (!isSessionRejected(err)) throw err;
+      account = await refresh(deps, account);
+      return quote(account);
+    });
     const floor = BigInt(t.side === "buy" ? t.minOutRaw : t.minUsdcRaw);
     if (!/^\d+$/.test(String(fresh.amountOutRaw ?? "")) || BigInt(String(fresh.amountOutRaw)) < floor) {
       return { status: "revised", reason: "Price moved below the approved minimum", preview: await previewTrade(deps, p.accountRef, intentOf()) };
@@ -155165,28 +155224,37 @@ async function executeTrade(deps, previewId, userApproved) {
     history: [{ at: now, state: "submitting", note: `authorized via ${authority.via}` }]
   };
   await writeJson("operations", op.opId, op);
-  try {
-    let res;
-    if (p.kind === "spot" && t.side === "buy") {
-      res = await sdk.buyWithUsdc({ ...creds(account), chainId: t.chainId, tokenAddress: t.tokenAddress, usdcAmountRaw: t.spendRaw, minTokenOutRaw: t.minOutRaw, autoBridge: t.autoFunding, maxSourceSpendRaw: t.autoFunding ? t.maxSourceSpendRaw : void 0 });
-    } else if (p.kind === "spot") {
-      res = await sdk.sellToUsdc({ ...creds(account), chainId: t.chainId, tokenAddress: t.tokenAddress, tokenAmountRaw: t.sellRaw, minUsdcOutRaw: t.minUsdcRaw });
-    } else if (p.kind === "perp_open") {
-      op = await saveOp(op, "submitting", { detail: { preSzi: await liveSzi(deps, account, String(t.coin), t.dex ? String(t.dex) : "") } }, "pre-trade position recorded", deps.now());
-      res = await sdk.hlCreateOrder({ ...creds(account), coin: t.dex ? `${t.dex}:${String(t.coin).replace(/^.*:/, "")}` : t.coin, isLong: t.isLong, price: t.price, size: t.size, reduceOnly: false, tpPrice: t.tpPrice, slPrice: t.slPrice, isMarket: t.orderType === "market", marginMode: t.marginMode, leverage: t.leverage });
-    } else {
-      op = await saveOp(op, "submitting", { detail: { preSzi: await liveSzi(deps, account, String(t.coin), t.dex ? String(t.dex) : "") } }, "pre-trade position recorded", deps.now());
-      res = await sdk.closePerpPosition({ ...creds(account), coin: t.coin, size: t.size, ...t.dex ? { dex: t.dex } : {}, positionAddress: account.managed?.evm ?? account.walletAddress });
+  for (let attempt = 0; ; attempt++) {
+    try {
+      let res;
+      if (p.kind === "spot" && t.side === "buy") {
+        res = await sdk.buyWithUsdc({ ...creds(account), chainId: t.chainId, tokenAddress: t.tokenAddress, usdcAmountRaw: t.spendRaw, minTokenOutRaw: t.minOutRaw, autoBridge: t.autoFunding, maxSourceSpendRaw: t.autoFunding ? t.maxSourceSpendRaw : void 0 });
+      } else if (p.kind === "spot") {
+        res = await sdk.sellToUsdc({ ...creds(account), chainId: t.chainId, tokenAddress: t.tokenAddress, tokenAmountRaw: t.sellRaw, minUsdcOutRaw: t.minUsdcRaw });
+      } else if (p.kind === "perp_open") {
+        op = await saveOp(op, "submitting", { detail: { preSzi: await liveSzi(deps, account, String(t.coin), t.dex ? String(t.dex) : "") } }, "pre-trade position recorded", deps.now());
+        res = await sdk.hlCreateOrder({ ...creds(account), coin: t.dex ? `${t.dex}:${String(t.coin).replace(/^.*:/, "")}` : t.coin, isLong: t.isLong, price: t.price, size: t.size, reduceOnly: false, tpPrice: t.tpPrice, slPrice: t.slPrice, isMarket: t.orderType === "market", marginMode: t.marginMode, leverage: t.leverage });
+      } else {
+        op = await saveOp(op, "submitting", { detail: { preSzi: await liveSzi(deps, account, String(t.coin), t.dex ? String(t.dex) : "") } }, "pre-trade position recorded", deps.now());
+        res = await sdk.closePerpPosition({ ...creds(account), coin: t.coin, size: t.size, ...t.dex ? { dex: t.dex } : {}, positionAddress: account.managed?.evm ?? account.walletAddress });
+      }
+      const status = String(res.status ?? "").toLowerCase();
+      const requestId = typeof res.requestId === "string" ? res.requestId : void 0;
+      const hash2 = typeof res.hash === "string" ? res.hash : void 0;
+      const order = (p.kind === "perp_close" ? res.order : res) ?? {};
+      const state = status === "success" ? "filled" : status === "failed" || res.isSuccess === false || order.isSuccess === false ? "failed" : requestId || order.isSuccess === true ? "accepted" : "pending";
+      op = await saveOp(op, state, { requestId, hash: hash2, detail: { ...op.detail, response: res } }, void 0, deps.now());
+      break;
+    } catch (err) {
+      if (attempt === 0 && isSessionRejected(err)) {
+        account = await refresh(deps, account);
+        op = await saveOp(op, "submitting", {}, "session rejected before execution; refreshed and resubmitting", deps.now());
+        continue;
+      }
+      op = isUnknown(err) ? await saveOp(op, "submission_unknown", { errorCode: "SUBMISSION_UNKNOWN" }, err.message, deps.now()) : await saveOp(op, "failed", { errorCode: err.code ?? "ERROR" }, err.message, deps.now());
+      if (!isUnknown(err)) throw err;
+      break;
     }
-    const status = String(res.status ?? "").toLowerCase();
-    const requestId = typeof res.requestId === "string" ? res.requestId : void 0;
-    const hash2 = typeof res.hash === "string" ? res.hash : void 0;
-    const order = (p.kind === "perp_close" ? res.order : res) ?? {};
-    const state = status === "success" ? "filled" : status === "failed" || res.isSuccess === false || order.isSuccess === false ? "failed" : requestId || order.isSuccess === true ? "accepted" : "pending";
-    op = await saveOp(op, state, { requestId, hash: hash2, detail: { ...op.detail, response: res } }, void 0, deps.now());
-  } catch (err) {
-    op = isUnknown(err) ? await saveOp(op, "submission_unknown", { errorCode: "SUBMISSION_UNKNOWN" }, err.message, deps.now()) : await saveOp(op, "failed", { errorCode: err.code ?? "ERROR" }, err.message, deps.now());
-    if (!isUnknown(err)) throw err;
   }
   return { status: "submitted", operation: op };
 }
@@ -155194,7 +155262,10 @@ async function reconcileOperation(deps, opId, waitMs = 6e4) {
   let op = await readJson("operations", opId);
   if (!op) throw new import_gdex_skill5.GdexValidationError(`Unknown opId ${opId}`, "opId");
   if (op.state === "filled" || op.state === "failed") return op;
-  const account = await loadAccount(op.accountRef);
+  const current = op;
+  return withSession(deps, op.accountRef, (account) => reconcileWith(deps, account, current, waitMs));
+}
+async function reconcileWith(deps, account, op, waitMs) {
   const sdk = deps.sdk();
   const p = await readJson("previews", op.previewId);
   const t = p?.terms ?? {};
@@ -155231,11 +155302,18 @@ async function liveSzi(deps, account, coin, dex) {
 }
 async function positions(deps, accountRef) {
   const account = await loadAccount(accountRef);
+  const first = await positionsWith(deps, account, accountRef);
+  if (!first.sessionRejected) return first;
+  return positionsWith(deps, await refresh(deps, account), accountRef);
+}
+async function positionsWith(deps, account, accountRef) {
   const sdk = deps.sdk();
+  let sessionRejected = false;
   const section = async (fn) => {
     try {
       return { status: "ok", asOf: deps.now(), data: await fn() };
     } catch (e) {
+      if (isSessionRejected(e)) sessionRejected = true;
       return { status: "unavailable", error: e.message };
     }
   };
@@ -155253,7 +155331,8 @@ async function positions(deps, accountRef) {
     perps,
     openOrders,
     pendingOperations: ops.map((o) => ({ opId: o.opId, kind: o.kind, state: o.state, notionalUsd: o.notionalUsd, createdAt: o.createdAt })),
-    note: 'A section with status "unavailable" is unknown, not empty.'
+    note: 'A section with status "unavailable" is unknown, not empty.',
+    ...sessionRejected ? { sessionRejected: true } : {}
   };
 }
 

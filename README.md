@@ -175,6 +175,8 @@ Installs every GDEX skill plus the MCP server (`npx -y @gemachdao/gdex-mcp-serve
 
 ### Agent trading flow
 
+What is verified live versus offline, per chain and venue, is in [docs/AGENT-READINESS.md](docs/AGENT-READINESS.md).
+
 Agents should start with `gdex_status`, connect once with `gdex_connect`, then `gdex_preview_trade` → `gdex_execute_trade` (user-approved, or within the delegated policy in `~/.gdex/policies/<accountRef>.json`) → `gdex_operation`, and manage exits with `gdex_positions` / `gdex_manage_position`. Every tool carries read/write annotations. See the `gdex-agent-trading` skill.
 
 ### Connect an account (no secrets in chat)

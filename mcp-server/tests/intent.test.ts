@@ -11,7 +11,7 @@ const home = await fs.mkdtemp(path.join(os.tmpdir(), 'gdex-intent-'));
 process.env.GDEX_HOME = home;
 
 const intent = await import('../src/intent.js');
-const { GdexSubmissionUnknownError } = await import('@gemachdao/gdex-skill');
+const { GdexSubmissionUnknownError, GdexApiError, GdexAuthError } = await import('@gemachdao/gdex-skill');
 
 const REF = 'acct_0123456789ab';
 const TOKEN = '0x940181a94A35A4569E4529A3CDfB74e38FD98631';
@@ -46,7 +46,8 @@ const hlInfo = jest.fn(async (body: any) => [
   { universe: [{ name: body.dex ? `${body.dex}:TSLA` : 'BTC', szDecimals: body.dex ? 3 : 5, maxLeverage: body.dex ? 10 : 40 }] },
   [{ markPx: body.dex ? '400' : '100000' }],
 ]);
-const deps = { sdk: () => sdk, hlInfo, now: () => clock };
+const refreshSession = jest.fn(async (a: any) => ({ ...a, sessionPrivateKey: '0x' + '44'.repeat(32), sessionAt: clock }));
+const deps = { sdk: () => sdk, hlInfo, now: () => clock, refreshSession };
 
 const buy = (over: Record<string, unknown> = {}) => intent.previewTrade(deps, REF, { kind: 'spot', chain: 'base', tokenAddress: TOKEN, side: 'buy', amount: '5', ...over } as any);
 
@@ -197,5 +198,66 @@ describe('positions', () => {
     const r: any = await intent.positions(deps, REF);
     expect(r.usdcWallet.status).toBe('ok');
     expect(r.perps).toMatchObject({ status: 'unavailable', error: '503' });
+  });
+});
+
+describe('session expiry and restart', () => {
+  const sessionErr = () => new GdexApiError('invalid params (code 103)', 400, { code: 103 });
+
+  it('preview: a rejected session is refreshed once and the read retried', async () => {
+    sdk.getUsdcTradeQuote.mockRejectedValueOnce(sessionErr());
+    const p = await buy();
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(p.terms.spendRaw).toBe('5000000');
+  });
+
+  it('submit: a session rejection (pre-execution) is refreshed and resubmitted once with the same terms', async () => {
+    const p = await buy();
+    sdk.buyWithUsdc.mockRejectedValueOnce(new GdexAuthError('Unauthorized', 401));
+    const r: any = await intent.executeTrade(deps, p.previewId, true);
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(sdk.buyWithUsdc).toHaveBeenCalledTimes(2);
+    expect(sdk.buyWithUsdc.mock.calls[1][0]).toMatchObject({ usdcAmountRaw: '5000000', minTokenOutRaw: sdk.buyWithUsdc.mock.calls[0][0].minTokenOutRaw, sessionPrivateKey: '0x' + '44'.repeat(32) });
+    expect(r.operation.state).toBe('accepted');
+    expect(r.operation.history.some((h: any) => /session rejected before execution/.test(h.note ?? ''))).toBe(true);
+  });
+
+  it('a second rejection after refresh fails the operation instead of looping', async () => {
+    const p = await buy();
+    sdk.buyWithUsdc.mockRejectedValueOnce(sessionErr()).mockRejectedValueOnce(sessionErr());
+    await expect(intent.executeTrade(deps, p.previewId, true)).rejects.toThrow(/invalid params/);
+    expect(sdk.buyWithUsdc).toHaveBeenCalledTimes(2);
+    const ops = await intent.listOperations(REF);
+    expect(ops[0].state).toBe('failed');
+  });
+
+  it('an ambiguous failure is never retried, even after a refresh would be possible', async () => {
+    const p = await buy();
+    sdk.buyWithUsdc.mockRejectedValueOnce(new GdexSubmissionUnknownError('outcome unknown', 'POST', '/x', 503));
+    const r: any = await intent.executeTrade(deps, p.previewId, true);
+    expect(r.operation.state).toBe('submission_unknown');
+    expect(sdk.buyWithUsdc).toHaveBeenCalledTimes(1);
+    expect(refreshSession).not.toHaveBeenCalled();
+  });
+
+  it('positions: refreshes when a section reports a session rejection', async () => {
+    sdk.getUsdcBalances.mockRejectedValueOnce(sessionErr());
+    const r: any = await intent.positions(deps, REF);
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(r.usdcWallet.status).toBe('ok');
+    expect(r.sessionRejected).toBeUndefined();
+  });
+
+  it('restart: operations live on disk, so a fresh process reconciles them', async () => {
+    const p = await buy();
+    sdk.buyWithUsdc.mockRejectedValueOnce(new GdexSubmissionUnknownError('outcome unknown', 'POST', '/x', 503));
+    const r: any = await intent.executeTrade(deps, p.previewId, true);
+    // New dependencies object = new process: no shared memory, only GDEX_HOME.
+    const fresh = { sdk: () => sdk, hlInfo, now: () => clock };
+    const listed = await intent.listOperations(REF);
+    expect(listed.map((o) => o.opId)).toContain(r.operation.opId);
+    const op = await intent.reconcileOperation(fresh, r.operation.opId, 1000);
+    expect(op.state).toBe('filled');
+    expect(sdk.buyWithUsdc).toHaveBeenCalledTimes(1);
   });
 });
