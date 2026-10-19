@@ -147,7 +147,7 @@ export function usePortfolio(walletAddress: string) {
     if (!isReady || !walletAddress) return;
     setLoading(true);
     try {
-      const data = await skill.getPortfolio({ walletAddress });
+      const data = await skill.getPortfolio({ walletAddress, chain: 8453 });
       setPortfolio(data);
     } finally {
       setLoading(false);

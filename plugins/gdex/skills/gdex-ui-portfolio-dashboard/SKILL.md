@@ -22,6 +22,7 @@ React component patterns for building portfolio dashboards with the GDEX SDK. Co
 ## Portfolio Overview
 
 ```typescript
+import type { SupportedChain } from '@gemachdao/gdex-skill';
 // components/PortfolioOverview.tsx
 'use client';
 
@@ -29,7 +30,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useGdex } from '@/providers/GdexProvider';
 import { useAuth } from '@/providers/AuthProvider';
 
-export function PortfolioOverview({ pollInterval = 30000 }: { pollInterval?: number }) {
+export function PortfolioOverview({ chain = 8453, pollInterval = 30000 }: { chain?: SupportedChain; pollInterval?: number }) {
   const { skill, isReady } = useGdex();
   const { walletAddress } = useAuth();
   const [portfolio, setPortfolio] = useState<any>(null);
@@ -38,7 +39,7 @@ export function PortfolioOverview({ pollInterval = 30000 }: { pollInterval?: num
   const refresh = useCallback(async () => {
     if (!isReady || !walletAddress) return;
     try {
-      const data = await skill.getPortfolio({ walletAddress });
+      const data = await skill.getPortfolio({ walletAddress, chain });
       setPortfolio(data);
     } finally {
       setLoading(false);
@@ -97,7 +98,7 @@ interface Token {
   logoUrl?: string;
 }
 
-export function TokenBalanceGrid({ chain }: { chain?: SupportedChain }) {
+export function TokenBalanceGrid({ chain }: { chain: SupportedChain }) {
   const { skill, isReady } = useGdex();
   const { walletAddress } = useAuth();
   const [tokens, setTokens] = useState<Token[]>([]);
@@ -141,6 +142,7 @@ export function TokenBalanceGrid({ chain }: { chain?: SupportedChain }) {
 ## Trade History Table
 
 ```typescript
+import type { SupportedChain } from '@gemachdao/gdex-skill';
 // components/TradeHistoryTable.tsx
 'use client';
 
@@ -148,7 +150,7 @@ import { useState, useEffect } from 'react';
 import { useGdex } from '@/providers/GdexProvider';
 import { useAuth } from '@/providers/AuthProvider';
 
-export function TradeHistoryTable({ pageSize = 20 }: { pageSize?: number }) {
+export function TradeHistoryTable({ chain, pageSize = 20 }: { chain: SupportedChain; pageSize?: number }) {
   const { skill, isReady } = useGdex();
   const { walletAddress } = useAuth();
   const [trades, setTrades] = useState<any[]>([]);
@@ -159,7 +161,7 @@ export function TradeHistoryTable({ pageSize = 20 }: { pageSize?: number }) {
   useEffect(() => {
     if (!isReady || !walletAddress) return;
     setLoading(true);
-    skill.getTradeHistory({ walletAddress, page, limit: pageSize })
+    skill.getTradeHistory({ walletAddress, chain, page, limit: pageSize })
       .then(data => {
         setTrades(data?.trades ?? []);
         setHasMore((data?.trades?.length ?? 0) >= pageSize);
@@ -273,7 +275,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { SupportedChain } from '@gemachdao/gdex-skill';
 import { useGdex } from '@/providers/GdexProvider';
 
-export function usePortfolioQuery(walletAddress: string, chain?: SupportedChain) {
+export function usePortfolioQuery(walletAddress: string, chain: SupportedChain) {
   const { skill, isReady } = useGdex();
 
   return useQuery({
@@ -287,16 +289,17 @@ export function usePortfolioQuery(walletAddress: string, chain?: SupportedChain)
 ```
 
 ```typescript
+import type { SupportedChain } from '@gemachdao/gdex-skill';
 // hooks/useTradeHistoryQuery.ts
 import { useQuery } from '@tanstack/react-query';
 import { useGdex } from '@/providers/GdexProvider';
 
-export function useTradeHistoryQuery(walletAddress: string, page: number, limit = 20) {
+export function useTradeHistoryQuery(walletAddress: string, chain: SupportedChain, page: number, limit = 20) {
   const { skill, isReady } = useGdex();
 
   return useQuery({
-    queryKey: ['tradeHistory', walletAddress, page, limit],
-    queryFn: () => skill.getTradeHistory({ walletAddress, page, limit }),
+    queryKey: ['tradeHistory', walletAddress, chain, page, limit],
+    queryFn: () => skill.getTradeHistory({ walletAddress, chain, page, limit }),
     enabled: isReady && !!walletAddress,
     keepPreviousData: true,       // smooth pagination
   });

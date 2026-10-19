@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added / Fixed (agent-trading work order, pass 2)
+
+- **Agent flow tools:** `gdex_status`, `gdex_preview_trade`, `gdex_execute_trade`, `gdex_operation`, `gdex_positions`, `gdex_manage_position`.
+  - Previews are exact and hash-bound, with a 60 s expiry.
+  - Execution needs user approval of that preview, or a user-edited delegated policy (`~/.gdex/policies/<accountRef>.json`). The policy's daily cap counts pending operations.
+  - A moved or expired quote returns a revised preview instead of trading.
+  - Operations are journaled before submit; `submission_unknown` is reconciled, never resent.
+  - New skill `gdex-agent-trading`.
+- **Tool annotations:** all 154 tools are annotated (read-only, non-financial write, destructive write).
+- **GDX-05:** the MCP bundle embeds all skills and their companion files, so the published `npx` server and Docker image serve real guides. New `get_skill_file`. A packed-artifact test runs in CI.
+- **GDX-06:** about 45 wrong doc examples are fixed (nonexistent methods, wrong params, missing credentials). Guides moved to `workflowGuides.ts`. New doc test type-checks 141 snippets against the built SDK and checks MCP tool names.
+- **GDX-09:** spot `buyToken`/`sellToken` always sign `purchase`/`sell`.
+  - Percentage sells use the real holding with exact integer math.
+  - Options the backend ignores or clamps are rejected before signing.
+  - New `waitForTrade` / `wait_for_trade`.
+  - **Breaking:** both return `ManagedSpotTradeResult`.
+- **GDX-10:** portfolio, balances, trading funds and history are authenticated managed reads with a required `chain`. A malformed or refused response throws instead of returning zero. **Breaking:** `getTradeHistory` returns a page.
+- **GDX-13/14:** HIP-4 outcome markets come normalized from `outcomeMeta`: real side labels, coins, quote token, state, tick/size, and settlement facts.
+  - Orders are validated against the discovered market, and mixing structured fields with `computedData` is rejected.
+  - Volume reports coverage (`complete`/`partial`/`unavailable`), keeps a true zero, and can't block discovery.
+- **GDX-15 (bug):** every copy-trade settings update deleted the config. The SDK sent typed ABI slots as strings, so `isDelete` decoded true. Encoders are now typed, with explicit update/delete/pause/resume. Pause never deletes, and delete leaves positions open.
+- **OpenCode:** `init --client opencode` writes `opencode.json`/`.jsonc` (`mcp` key), which OpenCode actually reads.
+
 ### Fixed (agent-trading work order, pass 1)
 
 - **GDX-01** `close_perp_position` read no position and always sent a sell, so "closing" a short added to it. It now resolves the live position (signed `szi`, builder-dex aware), sends the opposite reduce-only side, supports exact partial closes, and rejects flat, ambiguous or oversized closes. SDK: `closePerpPosition` / `resolvePerpClose`.

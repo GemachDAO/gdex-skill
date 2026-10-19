@@ -45,7 +45,7 @@ var __toCommonJS = (mod2) => __copyProps(__defProp({}, "__esModule", { value: tr
 var define_GDEX_SKILL_REGISTRY_default;
 var init_define_GDEX_SKILL_REGISTRY = __esm({
   "<define:__GDEX_SKILL_REGISTRY__>"() {
-    define_GDEX_SKILL_REGISTRY_default = { version: 1, skills: [{ name: "gdex-authentication", description: "Managed-custody authentication \u2014 shared API key login, session keypair generation, encrypted computedData payloads, AES-256-CBC encryption, and secp256k1 trade signing", content: "\n# GDEX: Authentication\n\nAll GDEX trading uses **managed-custody wallets** with encrypted `computedData` payloads. This skill covers both the simple shared-API-key auth and the full managed-custody flow.\n\n## When to Use\n\n- Setting up authentication for any trading operation\n- Implementing managed-custody sign-in for a control wallet\n- Understanding the encryption and signing pipeline\n- Troubleshooting auth errors (401, 403, code 103)\n\n## Prerequisites\n\n```bash\nnpm install @gemachdao/gdex-skill\n```\n\n## 0. MCP Server: `gdex_connect` (no secrets in chat)\n\nMCP clients do not run this flow by hand. Call `gdex_connect` with a local key file\n(`{ keyFile: \"~/wallet.json\" }`) or `{ create: true }` for a new wallet; the server signs in,\nstores the keys under `~/.gdex/accounts` (0600) and returns an `accountRef`. Pass `accountRef`\nto every trading tool instead of `apiKey` / `walletAddress` / `sessionPrivateKey` / `data`.\n`gdex_accounts` lists connected accounts and `gdex_disconnect` forgets one.\n\nSDK users run the managed-custody sign-in below and pass `apiKey`, `walletAddress`\n(the control wallet) and `sessionPrivateKey` to each write call.\n\n## 1. Shared API Key Login (Simple)\n\nFor read-only access \u2014 no wallet signing required. Trading additionally needs the\nmanaged-custody session from section 2:\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n// skill.isAuthenticated() \u2192 true\n```\n\n**Shared API Keys:**\n- Primary: `9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54`\n- Secondary: `2c8f0a91-5d34-4e7b-9a62-f1c3d8e4b705`\n\n> Read-only endpoints (`getTokenDetails`, `getTrendingTokens`, `getOHLCV`, `getTopTraders`) do not require any authentication.\n\n## 2. Managed-Custody Flow (Full Trading)\n\nFor trading operations, the full managed-custody flow is:\n\n```\nGenerate Session Keypair \u2192 Build Sign-In Message \u2192 Control Wallet Signs \u2192\nEncrypt as computedData \u2192 POST /v1/sign_in \u2192 Resolve User \u2192 Trade\n```\n\n### Step-by-Step\n\n```typescript\nimport {\n  GdexSkill,\n  GDEX_API_KEY_PRIMARY,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n  buildGdexManagedTradeComputedData,\n  buildGdexUserSessionData,\n} from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\nconst apiKey = GDEX_API_KEY_PRIMARY;\n\n// Step 1: Generate a secp256k1 session keypair\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\n// sessionKey = compressed public key (0x + 66 hex chars)\n\n// Step 2: Build the sign-in message\nconst userId = '0xYourControlWalletAddress'; // EVM address or Solana pubkey\nconst nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));\nconst message = buildGdexSignInMessage(userId, nonce, sessionKey);\n// \u2192 \"By signing, you agree to GDEX Trading Terms of Use...\"\n\n// Step 3: Sign with control wallet\n//   EVM:    wallet.signMessage(message) \u2192 EIP-191 personal_sign\n//   Solana: nacl.sign.detached(Buffer.from(message)) \u2192 base58 encoded\nconst signature = '...'; // your wallet's signature\n\n// Step 4: Build encrypted computedData and POST to /v1/sign_in\nconst signInPayload = buildGdexSignInComputedData({\n  apiKey, userId, sessionKey, nonce, signature,\n});\nconst signInResult = await skill.signInWithComputedData({\n  computedData: signInPayload.computedData,\n  chainId: 1, // 1 for EVM / HyperLiquid, 622112261 for Solana (see \"ChainId for Sign-In Matters\")\n});\n\n// Step 5: Resolve user profile / check managed wallet\nconst userData = buildGdexUserSessionData(sessionKey, apiKey);\nconst user = await skill.getManagedUser({ userId, data: userData, chainId: 622112261 }); // Solana\n// \u2192 { address: \"CFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1\", chainId: \"622112261\", ... }\n```\n\n> **Critical: Solana chainId is `622112261` (`ChainId.SOLANA`), NOT `900`.** Using `900` returns the EVM managed address with `balance: null`. The `/v1/user` endpoint returns a **different managed wallet address** per `chainId`:\n> - `chainId=1` \u2192 EVM managed: `0x9967179de55bd67e6b90fcc4f908556d93938c0f`\n> - `chainId=622112261` \u2192 Solana managed: `CFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1` (base58)\n\n### Nonce Generation\n\nNonces are **client-generated** (not fetched from the server):\n\n```typescript\nconst nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));\n```\n\n## 3. Encryption Details (AES-256-CBC)\n\nAll payloads use **deterministic** AES-256-CBC \u2014 no random IV:\n\n| Property | Derivation |\n|----------|------------|\n| **Key** | First 32 bytes of `SHA256(apiKey)` hex |\n| **IV** | First 16 bytes of `SHA256(SHA256(apiKey))` hex |\n\n```typescript\nimport { encryptGdexComputedData, decryptGdexComputedData, deriveGdexAesMaterial } from '@gemachdao/gdex-skill';\n\n// Encrypt a JSON payload\nconst cipherHex = encryptGdexComputedData(JSON.stringify({ userId, data, signature, apiKey }), apiKey);\n\n// Decrypt\nconst plaintext = decryptGdexComputedData(cipherHex, apiKey);\n\n// Get raw key/IV material\nconst { key, iv } = deriveGdexAesMaterial(apiKey);\n```\n\n**Important:**\n- Trade/sign-in payloads: `JSON.stringify(...)` \u2192 UTF-8 \u2192 encrypt \u2192 hex\n- Session key for `/v1/user`: raw hex-decoded bytes \u2192 encrypt (NOT UTF-8 string; use `encryptGdexHexData`)\n- The API key is included **inside** the encrypted JSON payload, not just used for encryption\n- Do NOT use random IVs or `iv:ciphertext` format\n\n## 4. Trade Signing (secp256k1)\n\n**Spot trade signatures** use raw keccak256 + secp256k1 (no EIP-191 prefix):\n\n```typescript\nimport { signGdexTradeMessageWithSessionKey } from '@gemachdao/gdex-skill';\n\nconst signature = signGdexTradeMessageWithSessionKey(\n  'purchase',       // action: 'purchase' or 'sell'\n  userId,           // lowercase address\n  dataHex,          // ABI-encoded trade data (without 0x prefix)\n  sessionPrivateKey,\n);\n// Returns: r(64 hex) + s(64 hex) + v(2 hex) = 130 chars, no 0x prefix\n// v = raw recoveryParam (00 or 01), NOT EIP-155 (1b/1c)\n```\n\n**Sign-in** is the ONLY operation that uses EIP-191 `personal_sign` with the control wallet.\n\n### ABI Encoding Schemas\n\n| Operation | ABI Types | Fields |\n|-----------|-----------|--------|\n| **Sign-in** | `['bytes', 'string', 'string']` | `[sessionKey, nonce, refCode]` |\n| **Trade** | `['string', 'uint256', 'string']` | `[tokenAddress, amount, nonce]` |\n\n## 5. Building Trade Payloads\n\n```typescript\nimport { buildGdexManagedTradeComputedData } from '@gemachdao/gdex-skill';\n\nconst trade = buildGdexManagedTradeComputedData({\n  apiKey,\n  action: 'purchase',  // or 'sell'\n  userId: '0xYourAddress',\n  tokenAddress: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',\n  amount: '100000',     // in smallest unit\n  nonce: String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000)),\n  sessionPrivateKey,\n});\n\nconst result = await skill.submitManagedPurchase({\n  computedData: trade.computedData,\n  chainId: 622112261, // Solana (ChainId.SOLANA), NOT 900\n  slippage: 1,\n});\n\n// Poll trade status\nif (result.requestId) {\n  const status = await skill.getManagedTradeStatus(result.requestId);\n  console.log('Status:', status.status, 'Hash:', status.hash);\n}\n```\n\n## 6. Wallet-Based Auth (Advanced)\n\nFor user-owned wallets or browser extensions:\n\n```typescript\n// EVM wallet\nawait skill.authenticate({\n  type: 'evm',\n  address: '0xYourAddress',\n  privateKey: '0xPrivateKey',\n});\n\n// Solana wallet\nawait skill.authenticate({\n  type: 'solana',\n  address: 'YourSolanaAddress',\n  privateKey: 'base58EncodedPrivateKey',\n});\n\n// Custom signer (MetaMask / Phantom)\nawait skill.authenticate({\n  type: 'evm',\n  address: accounts[0],\n  signer: async (message) =>\n    window.ethereum.request({ method: 'personal_sign', params: [message, accounts[0]] }),\n});\n```\n\n## 7. SDK Configuration\n\n```typescript\nconst skill = new GdexSkill({\n  apiUrl:     'https://trade-api.gemach.io/v1', // Default backend\n  timeout:    30000,                             // Request timeout ms\n  maxRetries: 3,                                 // Retry on 429/503\n  debug:      false,                             // Log requests\n});\n```\n\nHTTP headers MUST include a browser User-Agent (e.g., Chrome/91) \u2014 non-browser UAs get 403 from Cloudflare. Use `Authorization: Bearer <apiKey>` header, NOT `X-API-Key`.\n\n## Helper Functions Reference\n\n| Function | Purpose |\n|----------|---------|\n| `generateGdexSessionKeyPair()` | Generate secp256k1 session keypair |\n| `buildGdexSignInMessage(userId, nonce, sessionKey)` | Build sign-in message for wallet signing |\n| `buildGdexSignInComputedData({...})` | Build encrypted sign-in payload |\n| `buildGdexUserSessionData(sessionKey, apiKey)` | Encrypt session key for `/v1/user` |\n| `buildGdexManagedTradeComputedData({...})` | Build encrypted trade payload |\n| `signGdexTradeMessageWithSessionKey(action, userId, data, privKey)` | Sign trade with session key |\n| `encryptGdexComputedData(plaintext, apiKey)` | AES-256-CBC encrypt UTF-8 |\n| `encryptGdexHexData(hexData, apiKey)` | AES-256-CBC encrypt raw hex bytes |\n| `decryptGdexComputedData(cipherHex, apiKey)` | AES-256-CBC decrypt |\n| `deriveGdexAesMaterial(apiKey)` | Get raw AES key/IV |\n\n## Common Issues\n\n### 401 Unauthorized\n- API key not set or expired \u2014 call `skill.loginWithApiKey(apiKey)` first\n- Session expired \u2014 re-authenticate\n\n### 403 Forbidden\n- Non-browser User-Agent header \u2014 the SDK handles this automatically\n- Using `X-API-Key` instead of `Authorization: Bearer`\n\n### 400 Unauthorized (code 103) on HL operations\n- **Most common cause:** Passing the **managed address** as `walletAddress` instead of the **control wallet address**.\n- During sign-in, the session key is registered for the control wallet address (the one that signed the sign-in message).\n- All HL write operations (`hlCreateOrder`, `perpDeposit`, `hlCloseAll`, etc.) sign the payload as `{action}-{walletAddress}-{data}` \u2014 if `walletAddress` doesn't match the sign-in `userId`, the signature verification fails.\n- **Fix:** Always set `walletAddress` to the control wallet address used during sign-in, NOT the managed address returned by `/v1/user` or `/v1/sign_in`.\n\n```typescript\n// \u274C WRONG \u2014 managed address causes code 103\nconst creds = { apiKey, walletAddress: user.address, sessionPrivateKey };\n\n// \u2705 CORRECT \u2014 use the control wallet that signed in\nconst creds = { apiKey, walletAddress: controlWallet.address, sessionPrivateKey };\n```\n\n### 400 Unauthorized (code 103) on HL operations\n- Wrong ABI encoding for the specific HL action \u2014 see **gdex-perp-trading** skill\n- Using `uint256` instead of `uint64` for chainId in `hl_deposit`\n- Wrong signature format (must be raw `v=00/01`, not EIP-155 `v=1b/1c`)\n\n## Autonomous Agent Notes (Live-Tested)\n\n### Complete Auth Flow \u2014 Verified Working\n\n```typescript\nimport { ethers } from 'ethers';\nimport {\n  GdexSkill, GDEX_API_KEY_PRIMARY,\n  generateGdexSessionKeyPair, buildGdexSignInMessage,\n  buildGdexSignInComputedData, buildGdexUserSessionData,\n} from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// 1. Generate session keypair\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\n\n// 2. Sign in with control wallet\nconst wallet = ethers.Wallet.fromPhrase('your mnemonic phrase...');\nconst userId = wallet.address;\nconst nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));\nconst message = buildGdexSignInMessage(userId, nonce, sessionKey);\nconst signature = await wallet.signMessage(message);\n\nconst signInPayload = buildGdexSignInComputedData({\n  apiKey: GDEX_API_KEY_PRIMARY, userId, sessionKey, nonce, signature,\n});\nawait skill.signInWithComputedData({\n  computedData: signInPayload.computedData,\n  chainId: 1,  // EVM for HL/perps, 622112261 for Solana spot\n});\n\n// 3. Resolve managed wallet\nconst data = buildGdexUserSessionData(sessionKey, GDEX_API_KEY_PRIMARY);\nconst user = await skill.getManagedUser({ userId, data, chainId: 622112261 });\n// user.address = managed Solana wallet (base58)\n```\n\n### ChainId for Sign-In Matters\n\n| Operation | Sign-In ChainId | Why |\n|-----------|----------------|-----|\n| Solana spot/limit/copy | `622112261` | Solana chain context |\n| HL perps, deposit, withdraw | `1` (EVM) | HL uses EVM wallets |\n| HL perp copy trading | `1` (EVM) | HL copy uses EVM |\n| Bridge | `1` (EVM) | Bridge uses EVM context |\n\n### Credentials to Keep Track Of\n\nAn autonomous agent must persist these across operations:\n- `sessionPrivateKey` \u2014 signs all trade payloads (one per sign-in session)\n- `sessionKey` \u2014 used to build encrypted `data` for read endpoints\n- `controlAddress` (=`userId`) \u2014 the wallet that signed in (used in all API calls)\n- `managedEvmAddress` \u2014 from `/v1/user?chainId=1` (needed for `user_stats` only)\n- `managedSolanaAddress` \u2014 from `/v1/user?chainId=622112261` (for on-chain queries only)\n\n## Google OAuth + Email Association Flow\n\nThe backend (`ServiceMain.oauthLogin` / `ServiceMain.associateEmail`, v1.1.0)\nsupports a Google-only OAuth onboarding path mounted at `/v1/auth/*`. **There\nis no `provider` field and no Apple/GitHub/Twitter branch** \u2014 only Google ID\ntokens are accepted, and **the client never sends a raw `email`**.\n\nFlow:\n\n1. **`associate_email` first** \u2014 links the caller's wallet to the email claim\n   carried inside the verified Google ID token. The backend extracts the\n   email server-side; the client only sends `{ computedData, idToken }`,\n   where `computedData` is a managed-custody payload built with\n   `buildAssociateEmailComputedData` (ABI `['associate_email', [nonce]]`,\n   sig msg `associate_email-${userId}-${data}`).\n2. **`oauth_login` with the same `idToken`** \u2014 body\n   `{ idToken, chainId? }`. If the wallet still has no `associatedEmail`\n   the backend responds 404 with internal code 108; re-run step 1 and retry.\n\n## Related Skills\n\n- **gdex-onboarding** \u2014 Platform overview and getting started\n- **gdex-spot-trading** \u2014 Buy/sell tokens (requires auth)\n- **gdex-perp-trading** \u2014 HyperLiquid perps (requires auth + HL-specific crypto)\n- **gdex-wallet-setup** \u2014 Generate control wallets for new users\n", files: [] }, { name: "gdex-bridge", description: "Cross-chain bridging \u2014 get estimates and execute native token transfers between EVM chains, Solana, and Sui via ChangeNow", content: "\n# GDEX: Cross-Chain Bridge\n\nBridge **native tokens** between supported chains with quote previews and time estimates.\nUses ChangeNow as the bridge provider (StarGate support exists but is currently disabled).\n\n> **Moving USDC?** The unified USDC wallet has its own capped USDC bridge (`estimateUsdcBridge` / `executeUsdcBridge`) and trades can auto-bridge USDC for you. See **gdex-usdc-wallet**.\n\n## When to Use\n\n- Moving native tokens from one chain to another (e.g., ETH on Ethereum \u2192 ETH on Base)\n- Getting a bridge estimate before executing\n- Checking bridge order history\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via managed-custody sign-in \u2014 see **gdex-authentication**\n- Session keypair (sessionPrivateKey + sessionKey) from sign-in flow\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET` | `/v1/bridge/estimate_bridge` | Get a bridge quote |\n| `POST` | `/v1/bridge/request_bridge` | Execute a bridge (encrypted) |\n| `GET` | `/v1/bridge/bridge_orders` | List bridge order history |\n\n## 1. Get a Bridge Estimate (Quote)\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\nconst estimate = await skill.estimateBridge({\n  fromChainId: 1,        // Ethereum\n  toChainId: 8453,       // Base\n  amount: '1000000000000000000',  // 1 ETH in wei\n});\n```\n\n### Query Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `fromChainId` | `number` | Yes | Source chain ID |\n| `toChainId` | `number` | Yes | Destination chain ID |\n| `amount` | `string` | Yes | Amount in **raw token units** (wei for EVM, lamports for Solana) |\n\n### Estimate Response\n\n```typescript\ninterface BridgeEstimate {\n  tool: string;              // \"ChangeNow\"\n  fromChainId: number;\n  fromAmount: string;        // input amount (raw units)\n  toChainId: number;\n  estimateAmount: string;    // estimated output (raw units)\n  minEstimateTime: number;   // seconds\n  maxEstimateTime: number;   // seconds\n}\n```\n\n### Error Codes\n| Code | Meaning |\n|------|---------|\n| 101 | Missing params / same chain / unsupported chain |\n| 106 | ChangeNow API error |\n| 107 | Unsupported chain (e.g., Fraxtal 252) or catch-all |\n\n## 2. Execute a Bridge\n\nThe bridge endpoint requires an **AES-encrypted `computedData` payload** containing ABI-encoded parameters and a secp256k1 signature \u2014 the same pattern as managed spot trades.\n\n```typescript\nimport {\n  GdexSkill,\n  GDEX_API_KEY_PRIMARY,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n} from '@gemachdao/gdex-skill';\nimport { ethers } from 'ethers';\n\n// After sign-in (you have sessionPrivateKey from the auth flow):\nconst result = await skill.requestBridge({\n  fromChainId: 1,          // Ethereum\n  toChainId: 8453,         // Base\n  amount: '1000000000000000000',  // 1 ETH in wei\n  userId: controlAddress,\n  sessionPrivateKey,\n  apiKey: GDEX_API_KEY_PRIMARY,\n});\n\nif (result.isSuccess) {\n  console.log('TX hash:', result.hash);\n  console.log(`ETA: ${result.minTime}-${result.maxTime}s`);\n}\n```\n\n### Encryption Protocol\n\nThe SDK handles this automatically, but for reference:\n\n1. **ABI-encode data**: `['string', 'uint64', 'uint64', 'string']` \u2192 `[amount, fromChainId, toChainId, nonce]`\n2. **Sign message**: `\"request_bridge-{userId.toLowerCase()}-{dataHex}\"` using secp256k1 session key\n3. **Encrypt JSON**: `{ userId, data, signature }` \u2192 AES-256-CBC with key/IV derived from SHA256(apiKey)\n4. **POST body**: `{ computedData: \"<hex>\" }`\n\n### Bridge Result\n\n```typescript\ninterface BridgeResult {\n  isSuccess: boolean;\n  hash: string | null;       // source chain tx hash\n  message: string;\n  minTime?: number;          // seconds\n  maxTime?: number;          // seconds\n  error?: string;            // on failure\n}\n```\n\n### Error Codes\n| Code | Meaning |\n|------|---------|\n| 101 | Missing params / same chain / unsupported chain |\n| 102 | Invalid or reused nonce |\n| 103 | User wallet not found on chain |\n| 104 | Unauthorized (signature verification failed) |\n| 105 | Below minimum bridge amount / insufficient balance |\n\n## 3. Get Bridge Order History\n\n```typescript\nimport { buildGdexUserSessionData, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst data = buildGdexUserSessionData(sessionKey, GDEX_API_KEY_PRIMARY);\nconst orders = await skill.getBridgeOrders({\n  userId: controlAddress,\n  data,\n});\nconsole.log(`${orders.count} bridge orders`);\norders.bridgeOrders.forEach(o => {\n  console.log(`${o.fromChainId} \u2192 ${o.toChainId}: ${o.fromAmount} (tx: ${o.txHash})`);\n});\n```\n\n### Response\n\n```typescript\ninterface BridgeOrdersResponse {\n  count: number;\n  bridgeOrders: BridgeOrder[];\n}\n\ninterface BridgeOrder {\n  userId: string;\n  fromChainId: number;\n  toChainId: number;\n  fromAmount: string;\n  estimateToAmount: string;\n  fromWallet: string;\n  toWallet: string;\n  txHash: string;\n  requestTime: number;\n}\n```\n\n## Supported Chains for Bridging\n\nControlled by backend `config.bridgeSupportedChainIds`. Known supported:\n\n| Chain | ChainId |\n|-------|---------|\n| Ethereum | `1` |\n| Optimism | `10` |\n| BSC | `56` |\n| Sonic | `146` |\n| Base | `8453` |\n| Arbitrum | `42161` |\n| Berachain | `80094` |\n\n> Robinhood Chain (`4663`) is tradeable but **not bridgeable** \u2014 fund it externally.\n| Solana | `622112261` |\n| Sui | `1313131213` |\n\n> **Fraxtal (252) is explicitly blocked** by the backend and will return error code 107.\n\n## Key Points\n\n- **Native tokens only** \u2014 the bridge transfers the chain's native token (ETH, SOL, BNB, etc.), not arbitrary ERC-20s.\n- **Amounts in raw units** \u2014 use wei for EVM (1 ETH = `\"1000000000000000000\"`), lamports for Solana (1 SOL = `\"1000000000\"`).\n- **Minimum bridge amount** \u2014 each chain has a `minBridge` config (default 1 in native decimals). Below this triggers error 105.\n- **Nonce required** \u2014 each `requestBridge` call uses a unique nonce verified server-side. The SDK generates this automatically.\n- **ChangeNow provider** \u2014 all bridges currently go through ChangeNow (StarGate code exists but is disabled).\n\n## Autonomous Agent Notes (Live-Tested)\n\n1. **`estimateBridge` works with API key only (E2E verified).** No session key or full sign-in needed for quotes.\n2. **`requestBridge` requires full managed-custody auth** (session key + ABI encoding + AES encryption).\n3. **Bridge paths are non-obvious:** `GET /v1/bridge/estimate_bridge`, `POST /v1/bridge/request_bridge`, `GET /v1/bridge/bridge_orders`. Do NOT use `/v1/bridge/estimate` or `/v1/bridge/execute`.\n4. **Fraxtal (252) is explicitly blocked** and returns error 107.\n5. **Bridge times vary:** ETH\u2192ARB is ~5-15 min, Solana\u2192EVM can take longer.\n6. **For autonomous pre-trade funding:** Use `estimateBridge` to check feasibility before committing. If `estimateAmount` is too low (high fee), consider alternative routes.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup required for bridging\n- **gdex-portfolio** \u2014 Check balances on target chain after bridging\n- **gdex-spot-trading** \u2014 Trade on the destination chain after bridging\n", files: [] }, { name: "gdex-content-coins", description: "List Zora content coins and creator coins on Base \u2014 social posts and creator tokens tradable on GDEX \u2014 requires API key auth (Bearer token)", content: "\n# GDEX: Content and Creator Coins\n\nList Zora-protocol tokens. On GDEX these appear as two related markets on **Base**:\n\n- **Content coins** \u2014 a token tied to an individual social post.\n- **Creator coins** \u2014 a token tied to the creator rather than to any single post.\n\nBoth are ordinary ERC-20s once minted, so you discover them here and trade them with\n`gdex-spot-trading`.\n\n> **Auth required:** returns 403 \"Access denied: Invalid client\" without a Bearer token. Call\n> `loginWithApiKey()` first.\n\n## When to Use\n\n- Listing coined posts or creator tokens available to trade\n- Checking price and age on a content coin before buying\n- Answering \"what Zora coins can I trade on GDEX\"\n\n## Prerequisites\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY, ChainId } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n```\n\n## List Zora tokens\n\n```typescript\nconst coins = await skill.getZoraTokens({\n  chain: ChainId.BASE,  // optional; this is a Base market\n  limit: 50,            // optional\n  page: 1,              // optional\n});\n```\n\n### Parameters\n\n`getZoraTokens` takes `TokenListParams`:\n\n```typescript\ninterface TokenListParams {\n  chain?: SupportedChain;  // chain id or alias; omit for all chains\n  limit?: number;          // page size\n  page?: number;           // 1-based page number\n}\n```\n\nThere is **no parameter that separates content coins from creator coins**. The product UI splits\nthem into two tabs, but the SDK exposes one listing method. If you need only one of the two, filter\nthe response yourself once you have confirmed which field distinguishes them.\n\n### Response\n\n```typescript\nPromise<Record<string, unknown>>\n```\n\n**The response is untyped.** There is no declared interface in the SDK, so inspect the payload:\n\n```typescript\nconst coins = await skill.getZoraTokens({ chain: ChainId.BASE, limit: 5 });\nconsole.log(JSON.stringify(coins, null, 2));\n```\n\nThe product surface at `gdex.pro/base/creator-coin` renders each card with the coined post itself \u2014\nauthor handle, post text, and any image \u2014 plus token age and current price. Expect fields covering\nat least those. Confirm the exact keys against a live call before depending on them.\n\n## Trading a content coin\n\n```typescript\nawait skill.buyToken({\n  tokenAddress: '<address from getZoraTokens>',\n  chain: ChainId.BASE,\n  amount: '0.5',   // denominated in ETH on Base\n});\n```\n\nSee `gdex-spot-trading` for the full surface.\n\n## Endpoint\n\n| Method | Endpoint |\n|---|---|\n| `getZoraTokens` | `GET /v1/zora` |\n\n## Notes\n\n- This is a **Base** market. Quick-buy amounts in the product are denominated in ETH.\n- Content coins are tied to social posts, so supply and liquidity can be extremely small and the\n  underlying \"asset\" is a post that may be deleted. Check liquidity before quoting a fill.\n- This method ships with no tests and no typed response in the SDK. Treat the shape as\n  provisional.\n", files: [] }, { name: "gdex-copy-trading", description: "Copy trade setup \u2014 discover top wallets, create/manage copy trades, view transaction history, and browse supported DEXes. Solana only for write operations.", content: "\n# GDEX: Copy Trading\n\nAutomatically mirror trades from top-performing Solana wallets. Includes wallet leaderboards, hot token gems, backed by a background process that copies buys/sells in real-time.\n\n## When to Use\n\n- Browsing the top wallet leaderboard (by PnL or net profit)\n- Discovering hot new tokens from top wallets\n- Creating a copy trade to follow a specific trader\n- Updating, toggling, or deleting a copy trade\n- Viewing copy trade transaction history with PnL\n- Listing supported DEXes for exclusion\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- For discovery: `loginWithApiKey()` only\n- For read (list/tx_list): Full sign-in with session key\n- For write (create/update): Full sign-in + computedData\n\n## Auth Tiers\n\n| Tier | Endpoints | Auth Needed |\n|------|-----------|-------------|\n| Discovery | `wallets`, `custom_wallets`, `gems`, `dexes_list`, `top_traders` | API key only |\n| Read | `list`, `tx_list` | Session-key auth (`userId` + encrypted `data`) |\n| Write | `create`, `update` | computedData (ABI-encode + sign + AES-encrypt) |\n\n> **Write operations are Solana-only.** All create/update calls reject non-Solana chain IDs.\n\n## Discovery Endpoints (No Auth)\n\n### Top Wallets by PnL\n\n```typescript\nconst wallets = await skill.getCopyTradeWallets();\n// Returns 300 wallets sorted by totalPnl, cached 2 minutes\n```\n\n### Top Wallets by Net Received\n\n```typescript\nconst custom = await skill.getCopyTradeCustomWallets();\n// Returns 300 wallets sorted by receivedMinusSpent, cached 2 minutes\n```\n\n### CopyTradeWallet Response Shape\n\n```typescript\ninterface CopyTradeWallet {\n  _id: string;\n  chainId: number;             // 622112261 for Solana\n  address: string;             // Solana wallet address\n  lastTxTimestamp: number;     // Unix timestamp\n  receivedMinusSpent: number;  // Net USD profit\n  spent: number;               // Total USD spent\n  lastCalculateUnrealizedPnl: number;\n  totalPnl: number;            // Total PnL (incl. unrealized)\n  unrealizedValue: number;     // Current unrealized USD\n  received: number;            // Total USD received\n}\n```\n\n### Hot Token Gems\n\n```typescript\nconst gems = await skill.getCopyTradeGems();\n// Tokens heavily traded by 3+ hot wallets with >$10 total value\n// Cached 20 seconds; may return empty array\n```\n\n### Supported DEXes\n\n```typescript\nconst dexes = await skill.getCopyTradeDexes(622112261); // Solana chain ID\n// { success: true, dexes: [{ chainId, dexNumber, dexName, programId }] }\n```\n\nLive DEX list (Solana):\n\n| # | DEX | Program ID |\n|---|-----|-----------|\n| 1 | pumpfun | `6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P` |\n| 2 | pumpswap | `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA` |\n| 3 | raydium | `675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8` |\n| 4 | raydiumCpmm | `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C` |\n| 5 | meteoraDlmm | `LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo` |\n\n## Read Endpoints (Session-Key Auth)\n\nRequire `userId` and `data` (AES-encrypted session key from `buildGdexUserSessionData`).\n\n### List User's Copy Trades\n\n```typescript\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\n\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\nconst list = await skill.getCopyTradeList({ userId, data });\n// { isSuccess: true, count: 2, allCopyTrades: [...], dexes: [...] }\n```\n\n### CopyTradeConfig Shape\n\n```typescript\ninterface CopyTradeConfig {\n  copyTradeId: string;\n  copyTradeName: string;\n  buyMode: number;          // 1 = fixed SOL, 2 = % of trader's amount\n  chainId: number;\n  isActive: boolean;\n  userId: string;\n  userWallet: string;\n  traderWallet: string;\n  lossPercent: number;      // stop-loss %\n  profitPercent: number;    // take-profit %\n  gasPrice: string;\n  copyBuyFixedAmount: string;\n  copyBuyPercent: number;\n  isBuyExistingToken: boolean;\n  copySell: boolean;\n  excludedProgramIds: string[];\n  excludedDexNumbers: number[];\n  txCount?: number;\n  lastTxTimestamp?: number;\n}\n```\n\n### Transaction History\n\n```typescript\nconst txList = await skill.getCopyTradeTxList({ userId, data });\n// { isSuccess: true, count: 5, txes: [...] }\n```\n\nEach `CopyTradeTx` includes:\n- `isBuy`, `priceUsd`, `boughtPrice`, `pnlPercentage`\n- `tokenInfo`: `{ address, symbol, name, decimals, dexId, marketCap, logoUrl }`\n\n## Write Endpoints (ComputedData Auth, Solana Only)\n\n### Create a Copy Trade\n\n```typescript\nawait skill.createCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  chainId: 622112261,\n  traderWallet: 'SolanaWalletAddress',\n  copyTradeName: 'My Alpha Trader',\n  buyMode: 1,               // 1 = fixed SOL amount\n  copyBuyAmount: '0.5',     // 0.5 SOL per copied trade\n  lossPercent: '50',         // 50% stop-loss\n  profitPercent: '100',      // 100% take-profit\n  copySell: true,\n  isBuyExistingToken: true,\n  excludedDexNumbers: [],    // empty = allow all DEXes\n});\n```\n\n### Update a Copy Trade\n\n```typescript\nawait skill.updateCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  chainId: 622112261,\n  copyTradeId: 'a1b2c3...',\n  traderWallet: 'SolanaWalletAddress',\n  copyTradeName: 'Updated Name',\n  buyMode: 2,                // switch to percentage mode\n  copyBuyAmount: '50',       // 50% of trader's amount\n  lossPercent: '30',\n  profitPercent: '200',\n  copySell: true,\n});\n```\n\n### Delete a Copy Trade (isChangeStatus)\n\n> **\u26A0\uFE0F WARNING: `isChangeStatus` permanently DELETES the trade. It does NOT toggle `isActive`.**\n\n```typescript\nawait skill.updateCopyTrade({\n  ...existingParams,\n  isChangeStatus: true,      // WARNING: permanently deletes (same as isDelete)\n});\n```\n\n### Delete a Copy Trade (isDelete)\n\n```typescript\nawait skill.updateCopyTrade({\n  ...existingParams,\n  isDelete: true,\n});\n```\n\n## Backend Validation Rules\n\n- **Solana only**: chainId must be the Solana chain ID (622112261)\n- **Valid wallet**: traderWallet must be a valid Solana address\n- **TP/SL**: lossPercent > 0 and < 100, profitPercent > 0\n- **buyMode 2**: percentage must be > 0 and <= 100\n- **No duplicates**: Can't copy the same wallet+chain+user twice\n- **Max limit**: Backend enforces max copy trades per user\n- **Circular dependency**: Prevents A\u2192B\u2192C\u2192A copy chains (checked to depth 50)\n\n## How Copies Execute\n\nTrades are NOT executed at API call time. A background process monitors tracked wallets in real-time:\n1. Detects trader buy/sell transactions\n2. Checks excluded DEXes and deduplication\n3. Calculates buy amount (fixed or percentage)\n4. Executes the copy trade\n5. Places automatic TP/SL orders based on your settings\n\n## Example: Full Copy Trading Flow\n\n```typescript\nimport {\n  GdexSkill,\n  buildGdexUserSessionData,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n} from '@gemachdao/gdex-skill';\nimport { ethers } from 'ethers';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(apiKey);\n\n// 1. Sign in with session key\nconst wallet = ethers.Wallet.fromPhrase(mnemonic);\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\nconst nonce = String(Date.now());\nconst msg = buildGdexSignInMessage(wallet.address, nonce, sessionKey);\nconst sig = await wallet.signMessage(msg);\nconst payload = buildGdexSignInComputedData({ apiKey, userId: wallet.address, sessionKey, nonce, signature: sig });\nawait skill.signInWithComputedData({ computedData: payload.computedData, chainId: 1 });\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\nconst userId = wallet.address.toLowerCase();\n\n// 2. Browse top wallets\nconst wallets = await skill.getCopyTradeWallets();\nconst best = wallets[0];\nconsole.log(`Top wallet: ${best.address}, PnL: $${best.totalPnl.toFixed(2)}`);\n\n// 3. Check DEXes\nconst { dexes } = await skill.getCopyTradeDexes(622112261);\n\n// 4. Create a copy trade\nawait skill.createCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  chainId: 622112261,\n  traderWallet: best.address,\n  copyTradeName: `Top PnL: ${best.address.slice(0, 8)}`,\n  buyMode: 1,\n  copyBuyAmount: '0.1',\n  lossPercent: '50',\n  profitPercent: '100',\n  copySell: true,\n});\n\n// 5. Monitor\nconst list = await skill.getCopyTradeList({ userId, data });\nfor (const ct of list.allCopyTrades) {\n  console.log(`${ct.copyTradeName}: active=${ct.isActive}, ${ct.txCount ?? 0} trades`);\n}\n```\n\n## Autonomous Agent Notes (Live-Tested)\n\n1. **All 4 discovery endpoints work with API key only (E2E verified):** `getCopyTradeWallets()`, `getCopyTradeCustomWallets()`, `getCopyTradeGems()`, `getCopyTradeDexes()`.\n2. **`getCopyTradeGems()` may return empty array** \u2014 this is normal (cached 20 seconds, depends on hot wallet activity).\n3. **Sign-in for Solana copy trading must use `chainId: 622112261`** (Solana), not `chainId: 1` (EVM). This is the opposite of HL perp copy trading.\n4. **Both `isDelete` and `isChangeStatus` permanently DELETE the copy trade.** There is NO way to pause/toggle \u2014 you must delete and recreate.\n5. **Boolean fields in ABI use `''` (empty string) for false and `'1'` for true.** The string `'0'` is truthy and WILL trigger deletion.\n6. **`copySell: true`** means the copy will also mirror sell transactions, not just buys.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup and sign-in required for read/write\n- **gdex-token-discovery** \u2014 Top trader rankings (`getTopTraders`)\n- **gdex-portfolio** \u2014 Monitor portfolio including copied positions\n- **gdex-spot-trading** \u2014 Understand the trades being copied\n", files: [] }, { name: "gdex-hl-anomaly", description: "Scored, time-stamped anomaly events for HyperLiquid perps (oracle divergence, funding extremity, liquidity shock) against per-market learned baselines, with coverage records", content: "\n# GDEX: HyperLiquid Anomaly Events\n\nDetects unusual behaviour on the HyperLiquid perpetual markets that GDEX trades, and emits it as\n**events** (NDJSON, one record per event), not alerts. Each event says what was unusual, when it\nhappened, how unusual it was against that market's own recent history, and where to re-derive it.\n\nStandard library only \u2014 no API key, no Gemach infrastructure. Reads the public HyperLiquid\n`info` endpoint directly.\n\n## When to Use\n\n- Building a risk feed that needs market anomalies with an event time and a score\n- Screening HyperLiquid markets for manipulation, oracle stress or liquidity shocks\n- Backfilling anomaly history for a window (1h bars reach ~7 months back, 4h ~2 years)\n\n## Run\n\n```bash\npython3 scripts/hl_anomaly.py                                   # last 24h, every active core market\npython3 scripts/hl_anomaly.py --coins BTC ETH SOL --hours 72\npython3 scripts/hl_anomaly.py --start 2025-03-20 --end 2025-03-27 --coins JELLY --interval 1h\n```\n\nOutput is NDJSON: zero or more `signal_type: \"anomaly\"` records, then exactly **one**\n`signal_type: \"anomaly_coverage\"` record.\n\n## Categories\n\n| `anomaly_category` | Fires when | Source |\n|---|---|---|\n| `oracle_divergence` | hourly mark-vs-oracle premium is far from the market's baseline | `fundingHistory` |\n| `funding_extremity` | 8h mean funding is far from baseline **and** premium is outside HyperLiquid's clamp band (inside it funding is pinned to the interest rate and carries no information). Always carries the premium fields. | `fundingHistory` |\n| `liquidity_shock` | bar volume or bar range spikes far above baseline (spikes only) | `candleSnapshot` |\n\n`large_outflow`, `governance_concentration` and `security_flag_change` are part of the contract\nenum but are not produced by this skill (they need on-chain or token-security sources).\n\n## Event record\n\nEach event carries the 15-column anomaly contract shape, plus the model's own features.\n\n| Field | Meaning |\n|---|---|\n| `anomaly_id` | stable id: sha256 of entity, category, event time and data source (first 32 hex). Re-running the same window gives the same id |\n| `entity_id` | `hl-<coin>`, same key as the `hl_markets` feed |\n| `entity_type` | `market` (a perpetual market) |\n| `chain` | `hyperliquid` |\n| `anomaly_category` | `oracle_divergence`, `funding_extremity` or `liquidity_shock` |\n| `anomaly_score` | 0\u2013100. It is 0 at the calibrated threshold and rises monotonically above it. A ranking, **not a probability** |\n| `confidence` | **not emitted.** Nothing in the model is a calibrated probability, and the field is left out rather than faked |\n| `detection_method` | `statistical`: robust z against a learned per-market baseline |\n| `model_version` | changes whenever thresholds or features change |\n| `baseline_window` | `7d` |\n| `observed_metric` | the quantity that fired: `premium_pct`, `funding_8h_mean_hourly_pct`, `volume_base` or `bar_range_pct` |\n| `observed_value`, `expected_value` | that quantity, and its baseline median (the model's expectation) |\n| `detected_at` | epoch seconds when the anomaly **happened** (the funding hour, or the bar close), not when the job ran. `detected_at_utc` gives the same instant in ISO-8601 |\n| `evidence_ref` | the public endpoint, coin, time, and a sha256 of the exact baseline used |\n| `summary` | one-line description |\n| `z`, `z_threshold`, feature fields | the robust z and the threshold it crossed; premium/funding or volume/range values and their baselines |\n\n## Coverage record \u2014 read this before trusting an empty result\n\nEvery run states `detector_window_start`, `detector_window_end`, `markets_scored` and `markets_not_scored`\n(too little history, delisted, or no data). **No event for a scored market means nothing\ncrossed a threshold in that window; it does not mean the market was normal.** Markets in\n`markets_not_scored` were not evaluated at all.\n\n## Method and evidence\n\n- `APPROACH.md` \u2014 the model, why each choice was made, and its known limits\n- `backtest/RESULTS.md` \u2014 hit rate and false-alarm rate on three real events\n- `backtest/calibrate.py`, `backtest/backtest.py` \u2014 reproduce both\n- `sample/anomaly_sample.ndjson` \u2014 records for contract tests\n", files: [{ path: "APPROACH.md", content: '# Approach \u2014 HyperLiquid anomaly events\n\n## What is being detected\n\nThree things a risk consumer cares about on a perpetual market, each from public HyperLiquid data:\n\n1. **Oracle divergence.** The mark trades away from the oracle. HyperLiquid publishes the\n   hourly `premium` directly. That is the basis a liquidation engine and every open position\n   are exposed to.\n2. **Funding extremity.** The carry cost positions pay becomes extreme. HyperLiquid funding is\n   `premium + clamp(interest \u2212 premium, \xB10.05%)`, so while the premium sits in roughly\n   [\u22120.04%, +0.06%] funding is pinned to the interest rate and says nothing. We only score\n   funding outside that band, and we always ship the premium with it.\n3. **Liquidity shock.** Traded volume or the high/low range of a bar spikes.\n\n## The model: a learned baseline for each market\n\nFor every market and every feature, the baseline is that market\'s own trailing 7 days\n(168 hours). It uses the **median** and the **median absolute deviation (MAD)**, not the mean\nand standard deviation. A single past spike cannot inflate the baseline and hide the next one.\n\n    z = (x \u2212 median(history)) / max(1.4826 \xB7 MAD(history), floor)\n\n- 1.4826 \xB7 MAD matches one standard deviation on normal data, so z reads like a familiar z-score.\n- The **floor** stops a perfectly flat history from turning a trivial move into an infinite z:\n  - premium: 0.005%\n  - funding: the base interest rate, 0.00125%/h. A move smaller than what every position\n    already pays is not extreme.\n  - log-volume: 0.25\n  - log-range: 0.025\n- Volume and range are scored in logs because they are multiplicative.\n- Funding is scored as a trailing **8-hour mean** against a baseline of the same 8-hour means.\n  A single hourly print is noisy; the carry over several hours is what hurts.\n- A market with fewer than 72 hourly observations of history is **not scored**, and the\n  coverage record says so. It is never reported as calm.\n- A delisted market reports exact zeros forever. Three trailing zero rows are treated as\n  missing data, not as calm.\n\n"Unusual" therefore always means **unusual for this market, recently**. BTC and a new memecoin\nare held to their own histories, not to one shared threshold.\n\n## Thresholds and how they were chosen\n\nv1 used a single a-priori threshold of z \u2265 6 for everything. The backtest showed that this was\nfine for liquidity but far too loose for premium and funding: alt-perp premiums are heavy-tailed,\nand pinned funding collapses the funding MAD. On control markets v1 produced 0.54\u20131.1 false\nalarms per market-day.\n\nv2 calibrates one threshold per category **on control markets only**:\n\n- Markets: 20 liquid core markets.\n- Windows: May 2025 and August 2025 for premium, funding and 4h bars; August 2026 for 1h bars.\n- Separation from the events: none of these windows overlaps any backtest event or the 14 days\n  before it.\n- Target rate: at most **0.02 events per market-day per category**, about one per market every\n  50 days.\n- Minimum: no threshold goes below the a-priori 6.0.\n\n| Category | Threshold (robust z) | Fire rate at z = 6 in calibration |\n|---|---|---|\n| oracle_divergence | 10.24 | 0.274 / market-day |\n| funding_extremity | 10.17 | 0.165 / market-day |\n| liquidity_shock (4h bars) | 6.00 | 0.002 / market-day |\n| liquidity_shock (1h bars) | 6.18 | 0.022 / market-day |\n\n`backtest/calibrate.py` reproduces these into `backtest/calibration.json`. The events were never\nused to set a threshold.\n\n## Scores\n\n`anomaly_score = 100 \xB7 (1 \u2212 exp(\u2212(|z| \u2212 threshold) / 6))`.\n\n- 0 exactly at the threshold.\n- 63 at 6 z past it, 86 at 12 z past it.\n- Monotonic, so it ranks events. It is **not a probability**, and it is not calibrated to one.\n\nThat is why the record has no `confidence` field. A 0\u20131 confidence would need a calibrated\nprobability that an event is real. With three labelled events there is nothing to calibrate\nagainst, so the field is left out rather than filled with a number that looks like one.\n\n## Events, not alerts\n\n- Every threshold crossing is emitted as an event with its z and `anomaly_score`. The consumer decides\n  what to alert on.\n- `detected_at` is when the anomaly happened: the funding hour, or the close of the bar,\n  because a bar is only observable once closed. It is never the time the job ran.\n- Every run ends with one coverage record naming the window and exactly which markets were and\n  were not scored.\n- `evidence_ref` pins the public endpoint, the coin, the timestamp and a sha256 of the exact\n  baseline series, so anyone can recompute the z.\n\n## Known limits\n\n- **Detection follows onset; it does not predict it.** The features are observable only once\n  the move is under way. On JELLY the first 1h detection came one bar after onset. Nothing fired\n  on JELLY in the hours before onset.\n- **A pumping new listing is noisy.** JELLY fired 84 times on 1h bars in the 14 days before the\n  attack, during its own post-listing pump. The model cannot tell a manipulation from an organic\n  mania using price and volume alone. Position concentration (large single-account open\n  interest) would be the discriminating feature. It is not in public history, only as a live\n  snapshot.\n- **Market-wide events flag every market.** Every baseline is per market, so a crash that moves\n  everything fires on nearly everything. A cross-sectional feature (this market versus the\n  median market) would separate idiosyncratic events from systemic ones. It is not built yet.\n- **Backfill depth.** 1h candles reach ~7 months back and 4h candles ~2 years.\n  Premium/funding history is hourly and deeper.\n- **Scope.** Only core HyperLiquid perps. Builder-deployed DEX markets (equities, FX,\n  commodities) are held out, as in the `hl_markets` feed.\n- **Three events is a small test.** The hit rate is 3/3 on known events. That shows the detector\n  sees them; it does not establish a recall figure.\n' }, { path: "backtest/backtest.py", content: `#!/usr/bin/env python3
+    define_GDEX_SKILL_REGISTRY_default = { version: 1, skills: [{ name: "gdex-agent-trading", description: "Default agent flow for trading on GDEX via MCP \u2014 status, connect, preview, execute within the user's authority, follow the operation, manage or exit", content: '\n# GDEX: Agent Trading (Default Flow)\n\nUse these tools first. They sit on top of the full tool set and handle units, account\nresolution, re-quoting and recovery for you. Drop to the specialised skills only for things\nthis flow does not cover yet (outcomes: **gdex-hl-outcomes**; copy trading: **gdex-copy-trading**).\n\n## When to Use\n\n- "What can you do?" / "Am I set up?" \u2192 `gdex_status`\n- "Buy $20 of this on Base", "Sell half", "Long BTC $100 at 2x", "Close my short"\n- "What do I own and what\'s pending?" \u2192 `gdex_positions`\n\n## 1. Check readiness\n\n`gdex_status` reports API reachability, connected accounts (no secrets), the delegated policy\nper account, pending operations, supported trade kinds and the next setup step. Research and\nquotes work without an account.\n\n## 2. Connect once, without secrets in chat\n\n```\ngdex_connect { keyFile: "~/my-gdex-wallet.json" }   // JSON with privateKey, kept on this machine\ngdex_connect { create: true }                         // new local wallet, starts unfunded\n```\n\nReturns an `accountRef` and the managed wallet addresses. Never ask the user to paste a private\nkey or seed phrase. Fund the **managed** wallets, not the control wallet. Sessions expire:\n`gdex_connect { accountRef }` refreshes one.\n\n## 3. Preview\n\n`gdex_preview_trade` turns explicit intent into exact terms and a `previewId` (valid 60 s):\n\n| kind | Required | Notes |\n|------|----------|-------|\n| `spot` | `chain`, `tokenAddress`, `side` buy\\|sell, `amount` | Buy amount is USDC to spend; sell amount is tokens. USDC wallet chains: Ethereum, Optimism, BSC, Sonic, Base, Arbitrum, Solana. `slippagePct` default 1 (max 5). Buys auto-fund USDC and gas from other chains within a signed cap shown in the preview; `autoFunding: false` opts out. |\n| `perp_open` | `coin`, `side` long\\|short, `leverage`, and **one of** `notionalUsd` or `marginUsd` | "$100 at 2x" is ambiguous: ask which. Size is floored to the market\'s precision; isolated margin; $11 minimum; max leverage per market. Builder-DEX markets: `xyz:TSLA`. |\n| `perp_close` | `coin` (optional `size`, `dex`) | Reads the live position; reduce-only, correct side for longs and shorts. |\n\nShow the user the `summary`, `warnings` and key `terms` (min received / size / margin) before asking.\n\n## 4. Execute within the user\'s authority\n\n`gdex_execute_trade { previewId, userApproved: true }` only after the user approved **that\npreview**. Without `userApproved`, the account\'s delegated policy must allow it. The policy is a\nfile the user edits, `~/.gdex/policies/<accountRef>.json`:\n\n```json\n{ "expiresAt": "2026-11-01T00:00:00Z", "maxTradeUsd": 25, "maxDailyUsd": 100,\n  "allowedKinds": ["spot", "perp_close"], "allowedChainIds": [8453, 622112261],\n  "maxLeverage": 3, "maxSlippagePct": 2, "allowBridging": true }\n```\n\nThe daily cap counts pending operations. Never write this file yourself. Results:\n\n- `denied`: show the reasons. Don\'t retry with different numbers to slip under a limit.\n- `revised`: the quote moved or expired. Show the new preview and get approval again.\n- `submitted`: returns an `operation` (`opId`).\n\n## 5. Follow the operation\n\n`gdex_operation { opId }` waits (default 60 s) and reports `filled`, `failed`, `funding`,\n`needs_retry` or `submission_unknown`. Spot shows each funding step; perps check the live\nposition.\n\n- **`submission_unknown`**: the request may have executed. `gdex_operation` looks for it. Never\n  preview and execute the same intent again until it\'s resolved.\n- **`needs_retry`**: a dropped sell; use `usdc_retry_sell` (in-place, same nonce).\n- **`pending` after the wait**: it is still settling, not failed.\n\n## 6. Manage and exit\n\n- `gdex_positions { accountRef }`: USDC and gas per chain, Hyperliquid positions on every DEX,\n  open orders, unfinished operations. A section marked `unavailable` is unknown, not empty.\n- `gdex_manage_position { accountRef, action: "close" | "reduce" | "sell", ... }` returns an exit\n  preview against live state; execute it with `gdex_execute_trade`.\n\n## Related Skills\n\n- **gdex-usdc-wallet** \u2014 the USDC wallet underneath spot trades\n- **gdex-perp-trading** \u2014 low-level Hyperliquid tools\n- **gdex-hl-outcomes** \u2014 HIP-4 outcome markets\n- **gdex-authentication** \u2014 manual signing (advanced)\n', files: [] }, { name: "gdex-authentication", description: "Managed-custody authentication \u2014 shared API key login, session keypair generation, encrypted computedData payloads, AES-256-CBC encryption, and secp256k1 trade signing", content: "\n# GDEX: Authentication\n\nAll GDEX trading uses **managed-custody wallets** with encrypted `computedData` payloads. This skill covers both the simple shared-API-key auth and the full managed-custody flow.\n\n## When to Use\n\n- Setting up authentication for any trading operation\n- Implementing managed-custody sign-in for a control wallet\n- Understanding the encryption and signing pipeline\n- Troubleshooting auth errors (401, 403, code 103)\n\n## Prerequisites\n\n```bash\nnpm install @gemachdao/gdex-skill\n```\n\n## 0. MCP Server: `gdex_connect` (no secrets in chat)\n\nMCP clients do not run this flow by hand. Call `gdex_connect` with a local key file\n(`{ keyFile: \"~/wallet.json\" }`) or `{ create: true }` for a new wallet; the server signs in,\nstores the keys under `~/.gdex/accounts` (0600) and returns an `accountRef`. Pass `accountRef`\nto every trading tool instead of `apiKey` / `walletAddress` / `sessionPrivateKey` / `data`.\n`gdex_accounts` lists connected accounts and `gdex_disconnect` forgets one.\n\nSDK users run the managed-custody sign-in below and pass `apiKey`, `walletAddress`\n(the control wallet) and `sessionPrivateKey` to each write call.\n\n## 1. Shared API Key Login (Simple)\n\nFor read-only access \u2014 no wallet signing required. Trading additionally needs the\nmanaged-custody session from section 2:\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n// skill.isAuthenticated() \u2192 true\n```\n\n**Shared API Keys:**\n- Primary: `9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54`\n- Secondary: `2c8f0a91-5d34-4e7b-9a62-f1c3d8e4b705`\n\n> Read-only endpoints (`getTokenDetails`, `getTrendingTokens`, `getOHLCV`, `getTopTraders`) do not require any authentication.\n\n## 2. Managed-Custody Flow (Full Trading)\n\nFor trading operations, the full managed-custody flow is:\n\n```\nGenerate Session Keypair \u2192 Build Sign-In Message \u2192 Control Wallet Signs \u2192\nEncrypt as computedData \u2192 POST /v1/sign_in \u2192 Resolve User \u2192 Trade\n```\n\n### Step-by-Step\n\n```typescript\nimport {\n  GdexSkill,\n  GDEX_API_KEY_PRIMARY,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n  buildGdexManagedTradeComputedData,\n  buildGdexUserSessionData,\n} from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\nconst apiKey = GDEX_API_KEY_PRIMARY;\n\n// Step 1: Generate a secp256k1 session keypair\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\n// sessionKey = compressed public key (0x + 66 hex chars)\n\n// Step 2: Build the sign-in message\nconst userId = '0xYourControlWalletAddress'; // EVM address or Solana pubkey\nconst nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));\nconst message = buildGdexSignInMessage(userId, nonce, sessionKey);\n// \u2192 \"By signing, you agree to GDEX Trading Terms of Use...\"\n\n// Step 3: Sign with control wallet\n//   EVM:    wallet.signMessage(message) \u2192 EIP-191 personal_sign\n//   Solana: nacl.sign.detached(Buffer.from(message)) \u2192 base58 encoded\nconst signature = '...'; // your wallet's signature\n\n// Step 4: Build encrypted computedData and POST to /v1/sign_in\nconst signInPayload = buildGdexSignInComputedData({\n  apiKey, userId, sessionKey, nonce, signature,\n});\nconst signInResult = await skill.signInWithComputedData({\n  computedData: signInPayload.computedData,\n  chainId: 1, // 1 for EVM / HyperLiquid, 622112261 for Solana (see \"ChainId for Sign-In Matters\")\n});\n\n// Step 5: Resolve user profile / check managed wallet\nconst userData = buildGdexUserSessionData(sessionKey, apiKey);\nconst user = await skill.getManagedUser({ userId, data: userData, chainId: 622112261 }); // Solana\n// \u2192 { address: \"CFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1\", chainId: \"622112261\", ... }\n```\n\n> **Critical: Solana chainId is `622112261` (`ChainId.SOLANA`), NOT `900`.** Using `900` returns the EVM managed address with `balance: null`. The `/v1/user` endpoint returns a **different managed wallet address** per `chainId`:\n> - `chainId=1` \u2192 EVM managed: `0x9967179de55bd67e6b90fcc4f908556d93938c0f`\n> - `chainId=622112261` \u2192 Solana managed: `CFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1` (base58)\n\n### Nonce Generation\n\nNonces are **client-generated** (not fetched from the server):\n\n```typescript\nconst nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));\n```\n\n## 3. Encryption Details (AES-256-CBC)\n\nAll payloads use **deterministic** AES-256-CBC \u2014 no random IV:\n\n| Property | Derivation |\n|----------|------------|\n| **Key** | First 32 bytes of `SHA256(apiKey)` hex |\n| **IV** | First 16 bytes of `SHA256(SHA256(apiKey))` hex |\n\n```typescript\nimport { encryptGdexComputedData, decryptGdexComputedData, deriveGdexAesMaterial } from '@gemachdao/gdex-skill';\n\n// Encrypt a JSON payload\nconst cipherHex = encryptGdexComputedData(JSON.stringify({ userId, data, signature, apiKey }), apiKey);\n\n// Decrypt\nconst plaintext = decryptGdexComputedData(cipherHex, apiKey);\n\n// Get raw key/IV material\nconst { key, iv } = deriveGdexAesMaterial(apiKey);\n```\n\n**Important:**\n- Trade/sign-in payloads: `JSON.stringify(...)` \u2192 UTF-8 \u2192 encrypt \u2192 hex\n- Session key for `/v1/user`: raw hex-decoded bytes \u2192 encrypt (NOT UTF-8 string; use `encryptGdexHexData`)\n- The API key is included **inside** the encrypted JSON payload, not just used for encryption\n- Do NOT use random IVs or `iv:ciphertext` format\n\n## 4. Trade Signing (secp256k1)\n\n**Spot trade signatures** use raw keccak256 + secp256k1 (no EIP-191 prefix):\n\n```typescript\nimport { signGdexTradeMessageWithSessionKey } from '@gemachdao/gdex-skill';\n\nconst signature = signGdexTradeMessageWithSessionKey(\n  'purchase',       // action: 'purchase' or 'sell'\n  userId,           // lowercase address\n  dataHex,          // ABI-encoded trade data (without 0x prefix)\n  sessionPrivateKey,\n);\n// Returns: r(64 hex) + s(64 hex) + v(2 hex) = 130 chars, no 0x prefix\n// v = raw recoveryParam (00 or 01), NOT EIP-155 (1b/1c)\n```\n\n**Sign-in** is the ONLY operation that uses EIP-191 `personal_sign` with the control wallet.\n\n### ABI Encoding Schemas\n\n| Operation | ABI Types | Fields |\n|-----------|-----------|--------|\n| **Sign-in** | `['bytes', 'string', 'string']` | `[sessionKey, nonce, refCode]` |\n| **Trade** | `['string', 'uint256', 'string']` | `[tokenAddress, amount, nonce]` |\n\n## 5. Building Trade Payloads\n\n```typescript\nimport { buildGdexManagedTradeComputedData } from '@gemachdao/gdex-skill';\n\nconst trade = buildGdexManagedTradeComputedData({\n  apiKey,\n  action: 'purchase',  // or 'sell'\n  userId: '0xYourAddress',\n  tokenAddress: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',\n  amount: '100000',     // in smallest unit\n  nonce: String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000)),\n  sessionPrivateKey,\n});\n\nconst result = await skill.submitManagedPurchase({\n  computedData: trade.computedData,\n  chainId: 622112261, // Solana (ChainId.SOLANA), NOT 900\n  slippage: 1,\n});\n\n// Poll trade status\nif (result.requestId) {\n  const status = await skill.getManagedTradeStatus(result.requestId);\n  console.log('Status:', status.status, 'Hash:', status.hash);\n}\n```\n\n## 6. Wallet-Based Auth (Advanced)\n\nFor user-owned wallets or browser extensions:\n\n```typescript\n// EVM wallet\nawait skill.authenticate({\n  type: 'evm',\n  address: '0xYourAddress',\n  privateKey: '0xPrivateKey',\n});\n\n// Solana wallet\nawait skill.authenticate({\n  type: 'solana',\n  address: 'YourSolanaAddress',\n  privateKey: 'base58EncodedPrivateKey',\n});\n\n// Custom signer (MetaMask / Phantom)\nawait skill.authenticate({\n  type: 'evm',\n  address: accounts[0],\n  signer: async (message) =>\n    window.ethereum.request({ method: 'personal_sign', params: [message, accounts[0]] }),\n});\n```\n\n## 7. SDK Configuration\n\n```typescript\nconst skill = new GdexSkill({\n  apiUrl:     'https://trade-api.gemach.io/v1', // Default backend\n  timeout:    30000,                             // Request timeout ms\n  maxRetries: 3,                                 // Retry on 429/503\n  debug:      false,                             // Log requests\n});\n```\n\nHTTP headers MUST include a browser User-Agent (e.g., Chrome/91) \u2014 non-browser UAs get 403 from Cloudflare. Use `Authorization: Bearer <apiKey>` header, NOT `X-API-Key`.\n\n## Helper Functions Reference\n\n| Function | Purpose |\n|----------|---------|\n| `generateGdexSessionKeyPair()` | Generate secp256k1 session keypair |\n| `buildGdexSignInMessage(userId, nonce, sessionKey)` | Build sign-in message for wallet signing |\n| `buildGdexSignInComputedData({...})` | Build encrypted sign-in payload |\n| `buildGdexUserSessionData(sessionKey, apiKey)` | Encrypt session key for `/v1/user` |\n| `buildGdexManagedTradeComputedData({...})` | Build encrypted trade payload |\n| `signGdexTradeMessageWithSessionKey(action, userId, data, privKey)` | Sign trade with session key |\n| `encryptGdexComputedData(plaintext, apiKey)` | AES-256-CBC encrypt UTF-8 |\n| `encryptGdexHexData(hexData, apiKey)` | AES-256-CBC encrypt raw hex bytes |\n| `decryptGdexComputedData(cipherHex, apiKey)` | AES-256-CBC decrypt |\n| `deriveGdexAesMaterial(apiKey)` | Get raw AES key/IV |\n\n## Common Issues\n\n### 401 Unauthorized\n- API key not set or expired \u2014 call `skill.loginWithApiKey(apiKey)` first\n- Session expired \u2014 re-authenticate\n\n### 403 Forbidden\n- Non-browser User-Agent header \u2014 the SDK handles this automatically\n- Using `X-API-Key` instead of `Authorization: Bearer`\n\n### 400 Unauthorized (code 103) on HL operations\n- **Most common cause:** Passing the **managed address** as `walletAddress` instead of the **control wallet address**.\n- During sign-in, the session key is registered for the control wallet address (the one that signed the sign-in message).\n- All HL write operations (`hlCreateOrder`, `perpDeposit`, `hlCloseAll`, etc.) sign the payload as `{action}-{walletAddress}-{data}` \u2014 if `walletAddress` doesn't match the sign-in `userId`, the signature verification fails.\n- **Fix:** Always set `walletAddress` to the control wallet address used during sign-in, NOT the managed address returned by `/v1/user` or `/v1/sign_in`.\n\n```typescript\n// \u274C WRONG \u2014 managed address causes code 103\nconst creds = { apiKey, walletAddress: user.address, sessionPrivateKey };\n\n// \u2705 CORRECT \u2014 use the control wallet that signed in\nconst creds = { apiKey, walletAddress: controlWallet.address, sessionPrivateKey };\n```\n\n### 400 Unauthorized (code 103) on HL operations\n- Wrong ABI encoding for the specific HL action \u2014 see **gdex-perp-trading** skill\n- Using `uint256` instead of `uint64` for chainId in `hl_deposit`\n- Wrong signature format (must be raw `v=00/01`, not EIP-155 `v=1b/1c`)\n\n## Autonomous Agent Notes (Live-Tested)\n\n### Complete Auth Flow \u2014 Verified Working\n\n```typescript\nimport { ethers } from 'ethers';\nimport {\n  GdexSkill, GDEX_API_KEY_PRIMARY,\n  generateGdexSessionKeyPair, buildGdexSignInMessage,\n  buildGdexSignInComputedData, buildGdexUserSessionData,\n} from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// 1. Generate session keypair\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\n\n// 2. Sign in with control wallet\nconst wallet = ethers.Wallet.fromPhrase('your mnemonic phrase...');\nconst userId = wallet.address;\nconst nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));\nconst message = buildGdexSignInMessage(userId, nonce, sessionKey);\nconst signature = await wallet.signMessage(message);\n\nconst signInPayload = buildGdexSignInComputedData({\n  apiKey: GDEX_API_KEY_PRIMARY, userId, sessionKey, nonce, signature,\n});\nawait skill.signInWithComputedData({\n  computedData: signInPayload.computedData,\n  chainId: 1,  // EVM for HL/perps, 622112261 for Solana spot\n});\n\n// 3. Resolve managed wallet\nconst data = buildGdexUserSessionData(sessionKey, GDEX_API_KEY_PRIMARY);\nconst user = await skill.getManagedUser({ userId, data, chainId: 622112261 });\n// user.address = managed Solana wallet (base58)\n```\n\n### ChainId for Sign-In Matters\n\n| Operation | Sign-In ChainId | Why |\n|-----------|----------------|-----|\n| Solana spot/limit/copy | `622112261` | Solana chain context |\n| HL perps, deposit, withdraw | `1` (EVM) | HL uses EVM wallets |\n| HL perp copy trading | `1` (EVM) | HL copy uses EVM |\n| Bridge | `1` (EVM) | Bridge uses EVM context |\n\n### Credentials to Keep Track Of\n\nAn autonomous agent must persist these across operations:\n- `sessionPrivateKey` \u2014 signs all trade payloads (one per sign-in session)\n- `sessionKey` \u2014 used to build encrypted `data` for read endpoints\n- `controlAddress` (=`userId`) \u2014 the wallet that signed in (used in all API calls)\n- `managedEvmAddress` \u2014 from `/v1/user?chainId=1` (needed for `user_stats` only)\n- `managedSolanaAddress` \u2014 from `/v1/user?chainId=622112261` (for on-chain queries only)\n\n## Google OAuth + Email Association Flow\n\nThe backend (`ServiceMain.oauthLogin` / `ServiceMain.associateEmail`, v1.1.0)\nsupports a Google-only OAuth onboarding path mounted at `/v1/auth/*`. **There\nis no `provider` field and no Apple/GitHub/Twitter branch** \u2014 only Google ID\ntokens are accepted, and **the client never sends a raw `email`**.\n\nFlow:\n\n1. **`associate_email` first** \u2014 links the caller's wallet to the email claim\n   carried inside the verified Google ID token. The backend extracts the\n   email server-side; the client only sends `{ computedData, idToken }`,\n   where `computedData` is a managed-custody payload built with\n   `buildAssociateEmailComputedData` (ABI `['associate_email', [nonce]]`,\n   sig msg `associate_email-${userId}-${data}`).\n2. **`oauth_login` with the same `idToken`** \u2014 body\n   `{ idToken, chainId? }`. If the wallet still has no `associatedEmail`\n   the backend responds 404 with internal code 108; re-run step 1 and retry.\n\n## Related Skills\n\n- **gdex-onboarding** \u2014 Platform overview and getting started\n- **gdex-spot-trading** \u2014 Buy/sell tokens (requires auth)\n- **gdex-perp-trading** \u2014 HyperLiquid perps (requires auth + HL-specific crypto)\n- **gdex-wallet-setup** \u2014 Generate control wallets for new users\n", files: [] }, { name: "gdex-bridge", description: "Cross-chain bridging \u2014 get estimates and execute native token transfers between EVM chains, Solana, and Sui via ChangeNow", content: "\n# GDEX: Cross-Chain Bridge\n\nBridge **native tokens** between supported chains with quote previews and time estimates.\nUses ChangeNow as the bridge provider (StarGate support exists but is currently disabled).\n\n> **Moving USDC?** The unified USDC wallet has its own capped USDC bridge (`estimateUsdcBridge` / `executeUsdcBridge`) and trades can auto-bridge USDC for you. See **gdex-usdc-wallet**.\n\n## When to Use\n\n- Moving native tokens from one chain to another (e.g., ETH on Ethereum \u2192 ETH on Base)\n- Getting a bridge estimate before executing\n- Checking bridge order history\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via managed-custody sign-in \u2014 see **gdex-authentication**\n- Session keypair (sessionPrivateKey + sessionKey) from sign-in flow\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET` | `/v1/bridge/estimate_bridge` | Get a bridge quote |\n| `POST` | `/v1/bridge/request_bridge` | Execute a bridge (encrypted) |\n| `GET` | `/v1/bridge/bridge_orders` | List bridge order history |\n\n## 1. Get a Bridge Estimate (Quote)\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\nconst estimate = await skill.estimateBridge({\n  fromChainId: 1,        // Ethereum\n  toChainId: 8453,       // Base\n  amount: '1000000000000000000',  // 1 ETH in wei\n});\n```\n\n### Query Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `fromChainId` | `number` | Yes | Source chain ID |\n| `toChainId` | `number` | Yes | Destination chain ID |\n| `amount` | `string` | Yes | Amount in **raw token units** (wei for EVM, lamports for Solana) |\n\n### Estimate Response\n\n```typescript\ninterface BridgeEstimate {\n  tool: string;              // \"ChangeNow\"\n  fromChainId: number;\n  fromAmount: string;        // input amount (raw units)\n  toChainId: number;\n  estimateAmount: string;    // estimated output (raw units)\n  minEstimateTime: number;   // seconds\n  maxEstimateTime: number;   // seconds\n}\n```\n\n### Error Codes\n| Code | Meaning |\n|------|---------|\n| 101 | Missing params / same chain / unsupported chain |\n| 106 | ChangeNow API error |\n| 107 | Unsupported chain (e.g., Fraxtal 252) or catch-all |\n\n## 2. Execute a Bridge\n\nThe bridge endpoint requires an **AES-encrypted `computedData` payload** containing ABI-encoded parameters and a secp256k1 signature \u2014 the same pattern as managed spot trades.\n\n```typescript\nimport {\n  GdexSkill,\n  GDEX_API_KEY_PRIMARY,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n} from '@gemachdao/gdex-skill';\nimport { ethers } from 'ethers';\n\n// After sign-in (you have sessionPrivateKey from the auth flow):\nconst result = await skill.requestBridge({\n  fromChainId: 1,          // Ethereum\n  toChainId: 8453,         // Base\n  amount: '1000000000000000000',  // 1 ETH in wei\n  userId: controlAddress,\n  sessionPrivateKey,\n  apiKey: GDEX_API_KEY_PRIMARY,\n});\n\nif (result.isSuccess) {\n  console.log('TX hash:', result.hash);\n  console.log(`ETA: ${result.minTime}-${result.maxTime}s`);\n}\n```\n\n### Encryption Protocol\n\nThe SDK handles this automatically, but for reference:\n\n1. **ABI-encode data**: `['string', 'uint64', 'uint64', 'string']` \u2192 `[amount, fromChainId, toChainId, nonce]`\n2. **Sign message**: `\"request_bridge-{userId.toLowerCase()}-{dataHex}\"` using secp256k1 session key\n3. **Encrypt JSON**: `{ userId, data, signature }` \u2192 AES-256-CBC with key/IV derived from SHA256(apiKey)\n4. **POST body**: `{ computedData: \"<hex>\" }`\n\n### Bridge Result\n\n```typescript\ninterface BridgeResult {\n  isSuccess: boolean;\n  hash: string | null;       // source chain tx hash\n  message: string;\n  minTime?: number;          // seconds\n  maxTime?: number;          // seconds\n  error?: string;            // on failure\n}\n```\n\n### Error Codes\n| Code | Meaning |\n|------|---------|\n| 101 | Missing params / same chain / unsupported chain |\n| 102 | Invalid or reused nonce |\n| 103 | User wallet not found on chain |\n| 104 | Unauthorized (signature verification failed) |\n| 105 | Below minimum bridge amount / insufficient balance |\n\n## 3. Get Bridge Order History\n\n```typescript\nimport { buildGdexUserSessionData, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst data = buildGdexUserSessionData(sessionKey, GDEX_API_KEY_PRIMARY);\nconst orders = await skill.getBridgeOrders({\n  userId: controlAddress,\n  data,\n});\nconsole.log(`${orders.count} bridge orders`);\norders.bridgeOrders.forEach(o => {\n  console.log(`${o.fromChainId} \u2192 ${o.toChainId}: ${o.fromAmount} (tx: ${o.txHash})`);\n});\n```\n\n### Response\n\n```typescript\ninterface BridgeOrdersResponse {\n  count: number;\n  bridgeOrders: BridgeOrder[];\n}\n\ninterface BridgeOrder {\n  userId: string;\n  fromChainId: number;\n  toChainId: number;\n  fromAmount: string;\n  estimateToAmount: string;\n  fromWallet: string;\n  toWallet: string;\n  txHash: string;\n  requestTime: number;\n}\n```\n\n## Supported Chains for Bridging\n\nControlled by backend `config.bridgeSupportedChainIds`. Known supported:\n\n| Chain | ChainId |\n|-------|---------|\n| Ethereum | `1` |\n| Optimism | `10` |\n| BSC | `56` |\n| Sonic | `146` |\n| Base | `8453` |\n| Arbitrum | `42161` |\n| Berachain | `80094` |\n\n> Robinhood Chain (`4663`) is tradeable but **not bridgeable** \u2014 fund it externally.\n| Solana | `622112261` |\n| Sui | `1313131213` |\n\n> **Fraxtal (252) is explicitly blocked** by the backend and will return error code 107.\n\n## Key Points\n\n- **Native tokens only** \u2014 the bridge transfers the chain's native token (ETH, SOL, BNB, etc.), not arbitrary ERC-20s.\n- **Amounts in raw units** \u2014 use wei for EVM (1 ETH = `\"1000000000000000000\"`), lamports for Solana (1 SOL = `\"1000000000\"`).\n- **Minimum bridge amount** \u2014 each chain has a `minBridge` config (default 1 in native decimals). Below this triggers error 105.\n- **Nonce required** \u2014 each `requestBridge` call uses a unique nonce verified server-side. The SDK generates this automatically.\n- **ChangeNow provider** \u2014 all bridges currently go through ChangeNow (StarGate code exists but is disabled).\n\n## Autonomous Agent Notes (Live-Tested)\n\n1. **`estimateBridge` works with API key only (E2E verified).** No session key or full sign-in needed for quotes.\n2. **`requestBridge` requires full managed-custody auth** (session key + ABI encoding + AES encryption).\n3. **Bridge paths are non-obvious:** `GET /v1/bridge/estimate_bridge`, `POST /v1/bridge/request_bridge`, `GET /v1/bridge/bridge_orders`. Do NOT use `/v1/bridge/estimate` or `/v1/bridge/execute`.\n4. **Fraxtal (252) is explicitly blocked** and returns error 107.\n5. **Bridge times vary:** ETH\u2192ARB is ~5-15 min, Solana\u2192EVM can take longer.\n6. **For autonomous pre-trade funding:** Use `estimateBridge` to check feasibility before committing. If `estimateAmount` is too low (high fee), consider alternative routes.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup required for bridging\n- **gdex-portfolio** \u2014 Check balances on target chain after bridging\n- **gdex-spot-trading** \u2014 Trade on the destination chain after bridging\n", files: [] }, { name: "gdex-content-coins", description: "List Zora content coins and creator coins on Base \u2014 social posts and creator tokens tradable on GDEX \u2014 requires API key auth (Bearer token)", content: "\n# GDEX: Content and Creator Coins\n\nList Zora-protocol tokens. On GDEX these appear as two related markets on **Base**:\n\n- **Content coins** \u2014 a token tied to an individual social post.\n- **Creator coins** \u2014 a token tied to the creator rather than to any single post.\n\nBoth are ordinary ERC-20s once minted, so you discover them here and trade them with\n`gdex-spot-trading`.\n\n> **Auth required:** returns 403 \"Access denied: Invalid client\" without a Bearer token. Call\n> `loginWithApiKey()` first.\n\n## When to Use\n\n- Listing coined posts or creator tokens available to trade\n- Checking price and age on a content coin before buying\n- Answering \"what Zora coins can I trade on GDEX\"\n\n## Prerequisites\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY, ChainId } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n```\n\n## List Zora tokens\n\n```typescript\nconst coins = await skill.getZoraTokens({\n  chain: ChainId.BASE,  // optional; this is a Base market\n  limit: 50,            // optional\n  page: 1,              // optional\n});\n```\n\n### Parameters\n\n`getZoraTokens` takes `TokenListParams`:\n\n```typescript\ninterface TokenListParams {\n  chain?: SupportedChain;  // chain id or alias; omit for all chains\n  limit?: number;          // page size\n  page?: number;           // 1-based page number\n}\n```\n\nThere is **no parameter that separates content coins from creator coins**. The product UI splits\nthem into two tabs, but the SDK exposes one listing method. If you need only one of the two, filter\nthe response yourself once you have confirmed which field distinguishes them.\n\n### Response\n\n```typescript\nPromise<Record<string, unknown>>\n```\n\n**The response is untyped.** There is no declared interface in the SDK, so inspect the payload:\n\n```typescript\nconst coins = await skill.getZoraTokens({ chain: ChainId.BASE, limit: 5 });\nconsole.log(JSON.stringify(coins, null, 2));\n```\n\nThe product surface at `gdex.pro/base/creator-coin` renders each card with the coined post itself \u2014\nauthor handle, post text, and any image \u2014 plus token age and current price. Expect fields covering\nat least those. Confirm the exact keys against a live call before depending on them.\n\n## Trading a content coin\n\n```typescript\nawait skill.buyToken({\n  tokenAddress: '<address from getZoraTokens>',\n  chain: ChainId.BASE,\n  amount: '0.5',   // denominated in ETH on Base\n});\n```\n\nSee `gdex-spot-trading` for the full surface.\n\n## Endpoint\n\n| Method | Endpoint |\n|---|---|\n| `getZoraTokens` | `GET /v1/zora` |\n\n## Notes\n\n- This is a **Base** market. Quick-buy amounts in the product are denominated in ETH.\n- Content coins are tied to social posts, so supply and liquidity can be extremely small and the\n  underlying \"asset\" is a post that may be deleted. Check liquidity before quoting a fill.\n- This method ships with no tests and no typed response in the SDK. Treat the shape as\n  provisional.\n", files: [] }, { name: "gdex-copy-trading", description: "Copy trade setup \u2014 discover top wallets, create/manage copy trades, view transaction history, and browse supported DEXes. Solana only for write operations.", content: "\n# GDEX: Copy Trading\n\nAutomatically mirror trades from top-performing Solana wallets. Includes wallet leaderboards, hot token gems, backed by a background process that copies buys/sells in real-time.\n\n## When to Use\n\n- Browsing the top wallet leaderboard (by PnL or net profit)\n- Discovering hot new tokens from top wallets\n- Creating a copy trade to follow a specific trader\n- Updating, toggling, or deleting a copy trade\n- Viewing copy trade transaction history with PnL\n- Listing supported DEXes for exclusion\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- For discovery: `loginWithApiKey()` only\n- For read (list/tx_list): Full sign-in with session key\n- For write (create/update): Full sign-in + computedData\n\n## Auth Tiers\n\n| Tier | Endpoints | Auth Needed |\n|------|-----------|-------------|\n| Discovery | `wallets`, `custom_wallets`, `gems`, `dexes_list`, `top_traders` | API key only |\n| Read | `list`, `tx_list` | Session-key auth (`userId` + encrypted `data`) |\n| Write | `create`, `update` | computedData (ABI-encode + sign + AES-encrypt) |\n\n> **Write operations are Solana-only.** All create/update calls reject non-Solana chain IDs.\n\n## Discovery Endpoints (No Auth)\n\n### Top Wallets by PnL\n\n```typescript\nconst wallets = await skill.getCopyTradeWallets();\n// Returns 300 wallets sorted by totalPnl, cached 2 minutes\n```\n\n### Top Wallets by Net Received\n\n```typescript\nconst custom = await skill.getCopyTradeCustomWallets();\n// Returns 300 wallets sorted by receivedMinusSpent, cached 2 minutes\n```\n\n### CopyTradeWallet Response Shape\n\n```typescript\ninterface CopyTradeWallet {\n  _id: string;\n  chainId: number;             // 622112261 for Solana\n  address: string;             // Solana wallet address\n  lastTxTimestamp: number;     // Unix timestamp\n  receivedMinusSpent: number;  // Net USD profit\n  spent: number;               // Total USD spent\n  lastCalculateUnrealizedPnl: number;\n  totalPnl: number;            // Total PnL (incl. unrealized)\n  unrealizedValue: number;     // Current unrealized USD\n  received: number;            // Total USD received\n}\n```\n\n### Hot Token Gems\n\n```typescript\nconst gems = await skill.getCopyTradeGems();\n// Tokens heavily traded by 3+ hot wallets with >$10 total value\n// Cached 20 seconds; may return empty array\n```\n\n### Supported DEXes\n\n```typescript\nconst dexes = await skill.getCopyTradeDexes(622112261); // Solana chain ID\n// { success: true, dexes: [{ chainId, dexNumber, dexName, programId }] }\n```\n\nLive DEX list (Solana):\n\n| # | DEX | Program ID |\n|---|-----|-----------|\n| 1 | pumpfun | `6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P` |\n| 2 | pumpswap | `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA` |\n| 3 | raydium | `675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8` |\n| 4 | raydiumCpmm | `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C` |\n| 5 | meteoraDlmm | `LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo` |\n\n## Read Endpoints (Session-Key Auth)\n\nRequire `userId` and `data` (AES-encrypted session key from `buildGdexUserSessionData`).\n\n### List User's Copy Trades\n\n```typescript\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\n\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\nconst list = await skill.getCopyTradeList({ userId, data });\n// { isSuccess: true, count: 2, allCopyTrades: [...], dexes: [...] }\n```\n\n### CopyTradeConfig Shape\n\n```typescript\ninterface CopyTradeConfig {\n  copyTradeId: string;\n  copyTradeName: string;\n  buyMode: number;          // 1 = fixed SOL, 2 = % of trader's amount\n  chainId: number;\n  isActive: boolean;\n  userId: string;\n  userWallet: string;\n  traderWallet: string;\n  lossPercent: number;      // stop-loss %\n  profitPercent: number;    // take-profit %\n  gasPrice: string;\n  copyBuyFixedAmount: string;\n  copyBuyPercent: number;\n  isBuyExistingToken: boolean;\n  copySell: boolean;\n  excludedProgramIds: string[];\n  excludedDexNumbers: number[];\n  txCount?: number;\n  lastTxTimestamp?: number;\n}\n```\n\n### Transaction History\n\n```typescript\nconst txList = await skill.getCopyTradeTxList({ userId, data });\n// { isSuccess: true, count: 5, txes: [...] }\n```\n\nEach `CopyTradeTx` includes:\n- `isBuy`, `priceUsd`, `boughtPrice`, `pnlPercentage`\n- `tokenInfo`: `{ address, symbol, name, decimals, dexId, marketCap, logoUrl }`\n\n## Write Endpoints (ComputedData Auth, Solana Only)\n\n### Create a Copy Trade\n\n```typescript\nawait skill.createCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  chainId: 622112261,\n  traderWallet: 'SolanaWalletAddress',\n  copyTradeName: 'My Alpha Trader',\n  buyMode: 1,               // 1 = fixed SOL amount\n  copyBuyAmount: '0.5',     // 0.5 SOL per copied trade\n  lossPercent: '50',         // 50% stop-loss\n  profitPercent: '100',      // 100% take-profit\n  copySell: true,\n  isBuyExistingToken: true,\n  excludedDexNumbers: [],    // empty = allow all DEXes\n});\n```\n\n### Update, Pause, Resume, Delete\n\nUse the explicit operations. Each reads the current configuration from the list\nendpoint first (the backend rewrites every field on update), so you only pass\nwhat you want to change.\n\n```typescript\nconst ids = { apiKey, userId, sessionPrivateKey, copyTradeId: 'a1b2c3...' };\n\n// Change settings only. Never deletes, never pauses. Omitted fields keep current values.\nawait skill.updateCopyTradeSettings({ ...ids, buyMode: 2, copyBuyAmount: '50', lossPercent: '30' });\n\n// Pause without deleting (isActive=false). No-op if already paused.\nawait skill.pauseCopyTrade(ids);\n// Resume (isActive=true). No-op if already active.\nawait skill.resumeCopyTrade(ids);\n\n// Permanent delete.\nawait skill.deleteCopyTrade(ids);\n```\n\nWhat each does on the backend (`ServiceCopyTrade.update`):\n\n| Operation | Backend effect | Open positions / TP-SL orders |\n|---|---|---|\n| `updateCopyTradeSettings` | rewrites the config fields | unchanged, not resized |\n| `pauseCopyTrade` | `isChangeStatus` toggle \u2192 `isActive=false`; the copier skips inactive configs for buys AND sells | stay open, TP/SL limit orders stay |\n| `resumeCopyTrade` | toggle \u2192 `isActive=true` | trades made while paused are not replayed |\n| `deleteCopyTrade` | `CopyTradeSetting.deleteOne` (+ the trader tracking row if nobody else follows them) | NOT sold, TP/SL limit orders NOT cancelled |\n\n`isChangeStatus` is a relative toggle, so pause/resume refuse to act when the\nstate cannot be confirmed (`PAUSE_STATE_UNVERIFIED`; also raised for a second\ntoggle within 25 s because the list is cached for 20 s). `PAUSE_UNSUPPORTED`\nmeans the stored config holds an invalid `buyMode`: fix it with\n`updateCopyTradeSettings` first, or delete (positions stay open).\n\nThe low-level `updateCopyTrade` still exists: `isDelete` deletes, `isChangeStatus`\ntoggles, and setting both is rejected.\n\n## Backend Validation Rules\n\n- **Solana only**: chainId must be the Solana chain ID (622112261)\n- **Valid wallet**: traderWallet must be a valid Solana address\n- **TP/SL**: lossPercent > 0 and < 100, profitPercent > 0\n- **buyMode 2**: percentage must be > 0 and <= 100\n- **No duplicates**: Can't copy the same wallet+chain+user twice\n- **Max limit**: Backend enforces max copy trades per user\n- **Circular dependency**: Prevents A\u2192B\u2192C\u2192A copy chains (checked to depth 50)\n\n## How Copies Execute\n\nTrades are NOT executed at API call time. A background process monitors tracked wallets in real-time:\n1. Detects trader buy/sell transactions\n2. Checks excluded DEXes and deduplication\n3. Calculates buy amount (fixed or percentage)\n4. Executes the copy trade\n5. Places automatic TP/SL orders based on your settings\n\n## Example: Full Copy Trading Flow\n\n```typescript\nimport {\n  GdexSkill,\n  buildGdexUserSessionData,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n} from '@gemachdao/gdex-skill';\nimport { ethers } from 'ethers';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(apiKey);\n\n// 1. Sign in with session key\nconst wallet = ethers.Wallet.fromPhrase(mnemonic);\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\nconst nonce = String(Date.now());\nconst msg = buildGdexSignInMessage(wallet.address, nonce, sessionKey);\nconst sig = await wallet.signMessage(msg);\nconst payload = buildGdexSignInComputedData({ apiKey, userId: wallet.address, sessionKey, nonce, signature: sig });\nawait skill.signInWithComputedData({ computedData: payload.computedData, chainId: 1 });\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\nconst userId = wallet.address.toLowerCase();\n\n// 2. Browse top wallets\nconst wallets = await skill.getCopyTradeWallets();\nconst best = wallets[0];\nconsole.log(`Top wallet: ${best.address}, PnL: $${best.totalPnl.toFixed(2)}`);\n\n// 3. Check DEXes\nconst { dexes } = await skill.getCopyTradeDexes(622112261);\n\n// 4. Create a copy trade\nawait skill.createCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  chainId: 622112261,\n  traderWallet: best.address,\n  copyTradeName: `Top PnL: ${best.address.slice(0, 8)}`,\n  buyMode: 1,\n  copyBuyAmount: '0.1',\n  lossPercent: '50',\n  profitPercent: '100',\n  copySell: true,\n});\n\n// 5. Monitor\nconst list = await skill.getCopyTradeList({ userId, data });\nfor (const ct of list.allCopyTrades) {\n  console.log(`${ct.copyTradeName}: active=${ct.isActive}, ${ct.txCount ?? 0} trades`);\n}\n```\n\n## Autonomous Agent Notes (Live-Tested)\n\n1. **All 4 discovery endpoints work with API key only (E2E verified):** `getCopyTradeWallets()`, `getCopyTradeCustomWallets()`, `getCopyTradeGems()`, `getCopyTradeDexes()`.\n2. **`getCopyTradeGems()` may return empty array** \u2014 this is normal (cached 20 seconds, depends on hot wallet activity).\n3. **Sign-in for Solana copy trading must use `chainId: 622112261`** (Solana), not `chainId: 1` (EVM). This is the opposite of HL perp copy trading.\n4. **`isChangeStatus` toggles `isActive`; only `isDelete` deletes.** SDK versions up to 4.12 encoded every field as an ABI string, which the backend decoded with `isDelete=true`, so every update deleted. The SDK now encodes the typed ABI the backend expects (`uint64` chainId/buyMode, real `bool`s, `uint64[]` excludedDexNumbers).\n5. **Pause with `pauseCopyTrade`, never with delete.** Pausing or deleting never closes positions.\n6. **`copySell: true`** means the copy will also mirror sell transactions, not just buys.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup and sign-in required for read/write\n- **gdex-token-discovery** \u2014 Top trader rankings (`getTopTraders`)\n- **gdex-portfolio** \u2014 Monitor portfolio including copied positions\n- **gdex-spot-trading** \u2014 Understand the trades being copied\n", files: [] }, { name: "gdex-hl-anomaly", description: "Scored, time-stamped anomaly events for HyperLiquid perps (oracle divergence, funding extremity, liquidity shock) against per-market learned baselines, with coverage records", content: "\n# GDEX: HyperLiquid Anomaly Events\n\nDetects unusual behaviour on the HyperLiquid perpetual markets that GDEX trades, and emits it as\n**events** (NDJSON, one record per event), not alerts. Each event says what was unusual, when it\nhappened, how unusual it was against that market's own recent history, and where to re-derive it.\n\nStandard library only \u2014 no API key, no Gemach infrastructure. Reads the public HyperLiquid\n`info` endpoint directly.\n\n## When to Use\n\n- Building a risk feed that needs market anomalies with an event time and a score\n- Screening HyperLiquid markets for manipulation, oracle stress or liquidity shocks\n- Backfilling anomaly history for a window (1h bars reach ~7 months back, 4h ~2 years)\n\n## Run\n\n```bash\npython3 scripts/hl_anomaly.py                                   # last 24h, every active core market\npython3 scripts/hl_anomaly.py --coins BTC ETH SOL --hours 72\npython3 scripts/hl_anomaly.py --start 2025-03-20 --end 2025-03-27 --coins JELLY --interval 1h\n```\n\nOutput is NDJSON: zero or more `signal_type: \"anomaly\"` records, then exactly **one**\n`signal_type: \"anomaly_coverage\"` record.\n\n## Categories\n\n| `anomaly_category` | Fires when | Source |\n|---|---|---|\n| `oracle_divergence` | hourly mark-vs-oracle premium is far from the market's baseline | `fundingHistory` |\n| `funding_extremity` | 8h mean funding is far from baseline **and** premium is outside HyperLiquid's clamp band (inside it funding is pinned to the interest rate and carries no information). Always carries the premium fields. | `fundingHistory` |\n| `liquidity_shock` | bar volume or bar range spikes far above baseline (spikes only) | `candleSnapshot` |\n\n`large_outflow`, `governance_concentration` and `security_flag_change` are part of the contract\nenum but are not produced by this skill (they need on-chain or token-security sources).\n\n## Event record\n\nEach event carries the 15-column anomaly contract shape, plus the model's own features.\n\n| Field | Meaning |\n|---|---|\n| `anomaly_id` | stable id: sha256 of entity, category, event time and data source (first 32 hex). Re-running the same window gives the same id |\n| `entity_id` | `hl-<coin>`, same key as the `hl_markets` feed |\n| `entity_type` | `market` (a perpetual market) |\n| `chain` | `hyperliquid` |\n| `anomaly_category` | `oracle_divergence`, `funding_extremity` or `liquidity_shock` |\n| `anomaly_score` | 0\u2013100. It is 0 at the calibrated threshold and rises monotonically above it. A ranking, **not a probability** |\n| `confidence` | **not emitted.** Nothing in the model is a calibrated probability, and the field is left out rather than faked |\n| `detection_method` | `statistical`: robust z against a learned per-market baseline |\n| `model_version` | changes whenever thresholds or features change |\n| `baseline_window` | `7d` |\n| `observed_metric` | the quantity that fired: `premium_pct`, `funding_8h_mean_hourly_pct`, `volume_base` or `bar_range_pct` |\n| `observed_value`, `expected_value` | that quantity, and its baseline median (the model's expectation) |\n| `detected_at` | epoch seconds when the anomaly **happened** (the funding hour, or the bar close), not when the job ran. `detected_at_utc` gives the same instant in ISO-8601 |\n| `evidence_ref` | the public endpoint, coin, time, and a sha256 of the exact baseline used |\n| `summary` | one-line description |\n| `z`, `z_threshold`, feature fields | the robust z and the threshold it crossed; premium/funding or volume/range values and their baselines |\n\n## Coverage record \u2014 read this before trusting an empty result\n\nEvery run states `detector_window_start`, `detector_window_end`, `markets_scored` and `markets_not_scored`\n(too little history, delisted, or no data). **No event for a scored market means nothing\ncrossed a threshold in that window; it does not mean the market was normal.** Markets in\n`markets_not_scored` were not evaluated at all.\n\n## Method and evidence\n\n- `APPROACH.md` \u2014 the model, why each choice was made, and its known limits\n- `backtest/RESULTS.md` \u2014 hit rate and false-alarm rate on three real events\n- `backtest/calibrate.py`, `backtest/backtest.py` \u2014 reproduce both\n- `sample/anomaly_sample.ndjson` \u2014 records for contract tests\n", files: [{ path: "APPROACH.md", content: '# Approach \u2014 HyperLiquid anomaly events\n\n## What is being detected\n\nThree things a risk consumer cares about on a perpetual market, each from public HyperLiquid data:\n\n1. **Oracle divergence.** The mark trades away from the oracle. HyperLiquid publishes the\n   hourly `premium` directly. That is the basis a liquidation engine and every open position\n   are exposed to.\n2. **Funding extremity.** The carry cost positions pay becomes extreme. HyperLiquid funding is\n   `premium + clamp(interest \u2212 premium, \xB10.05%)`, so while the premium sits in roughly\n   [\u22120.04%, +0.06%] funding is pinned to the interest rate and says nothing. We only score\n   funding outside that band, and we always ship the premium with it.\n3. **Liquidity shock.** Traded volume or the high/low range of a bar spikes.\n\n## The model: a learned baseline for each market\n\nFor every market and every feature, the baseline is that market\'s own trailing 7 days\n(168 hours). It uses the **median** and the **median absolute deviation (MAD)**, not the mean\nand standard deviation. A single past spike cannot inflate the baseline and hide the next one.\n\n    z = (x \u2212 median(history)) / max(1.4826 \xB7 MAD(history), floor)\n\n- 1.4826 \xB7 MAD matches one standard deviation on normal data, so z reads like a familiar z-score.\n- The **floor** stops a perfectly flat history from turning a trivial move into an infinite z:\n  - premium: 0.005%\n  - funding: the base interest rate, 0.00125%/h. A move smaller than what every position\n    already pays is not extreme.\n  - log-volume: 0.25\n  - log-range: 0.025\n- Volume and range are scored in logs because they are multiplicative.\n- Funding is scored as a trailing **8-hour mean** against a baseline of the same 8-hour means.\n  A single hourly print is noisy; the carry over several hours is what hurts.\n- A market with fewer than 72 hourly observations of history is **not scored**, and the\n  coverage record says so. It is never reported as calm.\n- A delisted market reports exact zeros forever. Three trailing zero rows are treated as\n  missing data, not as calm.\n\n"Unusual" therefore always means **unusual for this market, recently**. BTC and a new memecoin\nare held to their own histories, not to one shared threshold.\n\n## Thresholds and how they were chosen\n\nv1 used a single a-priori threshold of z \u2265 6 for everything. The backtest showed that this was\nfine for liquidity but far too loose for premium and funding: alt-perp premiums are heavy-tailed,\nand pinned funding collapses the funding MAD. On control markets v1 produced 0.54\u20131.1 false\nalarms per market-day.\n\nv2 calibrates one threshold per category **on control markets only**:\n\n- Markets: 20 liquid core markets.\n- Windows: May 2025 and August 2025 for premium, funding and 4h bars; August 2026 for 1h bars.\n- Separation from the events: none of these windows overlaps any backtest event or the 14 days\n  before it.\n- Target rate: at most **0.02 events per market-day per category**, about one per market every\n  50 days.\n- Minimum: no threshold goes below the a-priori 6.0.\n\n| Category | Threshold (robust z) | Fire rate at z = 6 in calibration |\n|---|---|---|\n| oracle_divergence | 10.24 | 0.274 / market-day |\n| funding_extremity | 10.17 | 0.165 / market-day |\n| liquidity_shock (4h bars) | 6.00 | 0.002 / market-day |\n| liquidity_shock (1h bars) | 6.18 | 0.022 / market-day |\n\n`backtest/calibrate.py` reproduces these into `backtest/calibration.json`. The events were never\nused to set a threshold.\n\n## Scores\n\n`anomaly_score = 100 \xB7 (1 \u2212 exp(\u2212(|z| \u2212 threshold) / 6))`.\n\n- 0 exactly at the threshold.\n- 63 at 6 z past it, 86 at 12 z past it.\n- Monotonic, so it ranks events. It is **not a probability**, and it is not calibrated to one.\n\nThat is why the record has no `confidence` field. A 0\u20131 confidence would need a calibrated\nprobability that an event is real. With three labelled events there is nothing to calibrate\nagainst, so the field is left out rather than filled with a number that looks like one.\n\n## Events, not alerts\n\n- Every threshold crossing is emitted as an event with its z and `anomaly_score`. The consumer decides\n  what to alert on.\n- `detected_at` is when the anomaly happened: the funding hour, or the close of the bar,\n  because a bar is only observable once closed. It is never the time the job ran.\n- Every run ends with one coverage record naming the window and exactly which markets were and\n  were not scored.\n- `evidence_ref` pins the public endpoint, the coin, the timestamp and a sha256 of the exact\n  baseline series, so anyone can recompute the z.\n\n## Known limits\n\n- **Detection follows onset; it does not predict it.** The features are observable only once\n  the move is under way. On JELLY the first 1h detection came one bar after onset. Nothing fired\n  on JELLY in the hours before onset.\n- **A pumping new listing is noisy.** JELLY fired 84 times on 1h bars in the 14 days before the\n  attack, during its own post-listing pump. The model cannot tell a manipulation from an organic\n  mania using price and volume alone. Position concentration (large single-account open\n  interest) would be the discriminating feature. It is not in public history, only as a live\n  snapshot.\n- **Market-wide events flag every market.** Every baseline is per market, so a crash that moves\n  everything fires on nearly everything. A cross-sectional feature (this market versus the\n  median market) would separate idiosyncratic events from systemic ones. It is not built yet.\n- **Backfill depth.** 1h candles reach ~7 months back and 4h candles ~2 years.\n  Premium/funding history is hourly and deeper.\n- **Scope.** Only core HyperLiquid perps. Builder-deployed DEX markets (equities, FX,\n  commodities) are held out, as in the `hl_markets` feed.\n- **Three events is a small test.** The hit rate is 3/3 on known events. That shows the detector\n  sees them; it does not establish a recall figure.\n' }, { path: "backtest/backtest.py", content: `#!/usr/bin/env python3
 """Backtest of hl_anomaly over three known real HyperLiquid events.
 
 The detector's parameters were fixed before this was written (see scripts/hl_anomaly.py) and are
@@ -663,7 +663,7 @@ class ContractShape(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-` }] }, { name: "gdex-hl-market-risk", description: "HyperLiquid core-perp risk via GDEX: funding, open interest, oracle premium, leverage caps, delisting for ~234 markets, as NDJSON from a deterministic script.", content: "\n# GDEX: HyperLiquid Market Risk\n\nA read-only risk snapshot of every market on HyperLiquid's **core** perpetual DEX, as served\nthrough GDEX. One JSON object per market.\n\n## Run it\n\n```bash\npython3 scripts/hl_market_risk.py                  # all core markets (NDJSON on stdout)\npython3 scripts/hl_market_risk.py --symbol BTC ETH\npython3 scripts/hl_market_risk.py --active-only\n```\n\nStandard library only \u2014 no install, no API key. A non-zero exit means the read failed; never\ntreat it as \"no markets\".\n\n## Rule for agents\n\n**Report numbers exactly as the script prints them.** Do not estimate, interpolate, round\naway precision, or compute new figures in prose. If a figure is needed that the script does\nnot print, say so.\n\n## Fields\n\n| Field | Meaning |\n|---|---|\n| `mark_px_usd`, `oracle_px_usd`, `mid_px_usd` | prices, USD |\n| `premium_pct` | `(mark \u2212 oracle) / oracle`, percent \u2014 oracle deviation versus market |\n| `funding_hourly_pct` | hourly funding rate, percent (HL's decimal fraction \xD7 100) |\n| `open_interest_base` / `open_interest_usd` | OI in coin units / \xD7 mark |\n| `volume_24h_usd` | 24h notional volume |\n| `max_leverage` | protocol cap; **core HL tops out at 40x** |\n| `is_delisted` / `is_active` | always present (upstream omits `isDelisted` when false) |\n\n**Delisted markets** (about a quarter of the universe) are kept with `is_active: false` so you\nfilter deliberately. They have no order book, so `mid_px_usd` and `premium_pct` are absent on\nexactly those rows. An *active* market without them makes the script fail loudly.\n\n## Scope\n\nCore DEX only. GDEX also lists ~140 builder-deployed perpetuals (equities, FX, commodities,\nindices); they are excluded here on purpose.\n", files: [{ path: "scripts/hl_market_risk.py", content: '#!/usr/bin/env python3\n"""HyperLiquid core-perpetual risk snapshot via GDEX. Standard library only.\n\nPrints one JSON object per market (NDJSON) to stdout. Every number comes from the API\nresponse; nothing is estimated. Exit code is non-zero on any upstream or shape error, so a\ncaller can never mistake a failed read for an empty market.\n\nScope: the core HyperLiquid DEX only (the `/v1/hl/meta_and_asset_ctxs` universe). Builder-\ndeployed markets (equities, FX, commodities, indices) are deliberately excluded.\n\nUsage:\n    hl_market_risk.py                     # all core markets\n    hl_market_risk.py --symbol BTC ETH    # just these\n    hl_market_risk.py --active-only       # drop delisted markets\n"""\nfrom __future__ import annotations\n\nimport argparse\nimport json\nimport sys\nimport urllib.request\nfrom datetime import datetime, timezone\n\nAPI = "https://trade-api.gemach.io/v1/hl/meta_and_asset_ctxs"\n# The GDEX API refuses non-browser clients (HTTP 403); these headers are load-bearing.\nHEADERS = {\n    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "\n                  "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",\n    "Origin": "https://gdex.pro",\n    "Accept": "application/json",\n}\nFEED = "hl_markets"\nCHAIN_ID = 999  # HyperEVM mainnet, used purely as a registry key\n\n\nclass ShapeError(RuntimeError):\n    pass\n\n\ndef fetch() -> dict:\n    req = urllib.request.Request(API, headers=HEADERS)\n    with urllib.request.urlopen(req, timeout=30) as r:\n        return json.load(r)\n\n\ndef _num(v) -> float:\n    if v is None or isinstance(v, bool):\n        raise ValueError(f"expected a number, got {v!r}")\n    return float(str(v).strip())\n\n\ndef _pct(fraction: float) -> float:\n    """Fraction -> percent, trimming the float noise that x100 introduces (e.g. ...0000004).\n    12 significant digits is far beyond the precision HyperLiquid publishes."""\n    return float(f"{fraction * 100.0:.12g}")\n\n\ndef _opt(v) -> float | None:\n    return None if v is None or v == "" else _num(v)\n\n\ndef pairs(payload: dict):\n    if not isinstance(payload, dict) or payload.get("isSuccess") is False:\n        raise ShapeError(f"upstream reported failure: {str(payload)[:200]}")\n    data = payload.get("data")\n    if not isinstance(data, list) or len(data) != 2:\n        raise ShapeError("expected data = [meta, contexts]")\n    universe, ctxs = (data[0] or {}).get("universe"), data[1]\n    if not isinstance(universe, list) or not isinstance(ctxs, list):\n        raise ShapeError("universe or contexts is not a list")\n    if len(universe) != len(ctxs):\n        # Pairing is by index; misaligned arrays would attach one market\'s prices to another.\n        raise ShapeError(f"universe has {len(universe)} entries but contexts has {len(ctxs)}")\n    return zip(universe, ctxs)\n\n\ndef market(meta: dict, ctx: dict, now: datetime) -> dict:\n    name = str(meta["name"]).strip()\n    delisted = bool(meta.get("isDelisted", False))  # upstream only sends it when true\n    mark, oracle, prev = _num(ctx["markPx"]), _num(ctx["oraclePx"]), _num(ctx["prevDayPx"])\n    oi = _num(ctx["openInterest"])\n    rec = {\n        "gemach_id": f"hl-{name}",\n        "source": "gemach", "feed": FEED, "product": "gdex", "deployment": "hyperliquid-core",\n        "chain_id": CHAIN_ID, "chain_name": "HyperLiquid", "symbol": name,\n        "is_active": not delisted, "is_delisted": delisted,\n        "only_isolated": bool(meta.get("onlyIsolated", False)),\n        "max_leverage": int(meta["maxLeverage"]), "sz_decimals": int(meta["szDecimals"]),\n        "mark_px_usd": mark, "oracle_px_usd": oracle, "prev_day_px_usd": prev,\n        # HL publishes funding and premium as decimal fractions; x100 gives percent.\n        "funding_hourly_pct": _pct(_num(ctx["funding"])),\n        "open_interest_base": oi, "open_interest_usd": float(f"{oi * mark:.12g}"),\n        "volume_24h_usd": _num(ctx["dayNtlVlm"]), "volume_24h_base": _num(ctx["dayBaseVlm"]),\n        "change_24h_pct": _pct(mark / prev - 1.0) if prev > 0 else 0.0,\n        "upstream_updated_at": int(now.timestamp()), "upstream_updated_source": "api_snapshot_time",\n        "ingestion_date": now.strftime("%Y-%m-%d"),\n        "fetched_at": now.strftime("%Y-%m-%dT%H:%M:%S.%f") + "+00:00",\n    }\n    # Delisted markets have no book: upstream nulls these two. Active ones must have them.\n    mid, prem = _opt(ctx.get("midPx")), _opt(ctx.get("premium"))\n    if mid is not None:\n        rec["mid_px_usd"] = mid\n    if prem is not None:\n        rec["premium_pct"] = _pct(prem)\n    if not delisted and (mid is None or prem is None):\n        raise ShapeError(f"active market {name} has no mid/premium; upstream shape changed")\n    return rec\n\n\ndef main(argv=None) -> int:\n    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])\n    ap.add_argument("--symbol", nargs="*", help="only these symbols (case-sensitive, e.g. BTC kPEPE)")\n    ap.add_argument("--active-only", action="store_true", help="drop delisted markets")\n    a = ap.parse_args(argv)\n    now = datetime.now(timezone.utc)\n    rows = [market(m, c, now) for m, c in pairs(fetch())]\n    if a.symbol:\n        want = set(a.symbol)\n        rows = [r for r in rows if r["symbol"] in want]\n    if a.active_only:\n        rows = [r for r in rows if r["is_active"]]\n    for r in rows:\n        sys.stdout.write(json.dumps(r, separators=(",", ":")) + "\\n")\n    return 0\n\n\nif __name__ == "__main__":\n    sys.exit(main())\n' }] }, { name: "gdex-hl-outcomes", description: "HyperLiquid HIP-3 outcome / event markets \u2014 list markets, place outcome orders, and manage outcome positions", content: "\n# GDEX: HyperLiquid Outcomes (HIP-3 Event Markets)\n\nTrade discrete-outcome event markets running on HyperLiquid HIP-3 permissioned\nperp DEXes. These are prediction-market-style instruments where each market\nresolves to a discrete outcome rather than a continuous price.\n\n## When to Use\n\n- Listing the currently open / resolved outcome markets\n- Getting an account state on an outcomes perp dex\n- Opening, cancelling, or closing positions on an outcome market\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via managed custody \u2014 see **gdex-authentication**\n- Trading enabled on HL (one-time `/v1/hl/enable_trading`) \u2014 see\n  **gdex-perp-trading** for the HIP-3 setup flow\n- For write operations: a pre-built `computedData` payload built by the\n  caller using the standard managed-custody encrypted-payload contract\n  (ABI schemas for outcome actions live in\n  `src/api/services/ServiceHyperLiquid.ts` of the backend)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/hl/outcomes` | List outcome markets |\n| `GET`  | `/v1/hl/outcome_account` | Account state on outcomes dex |\n| `POST` | `/v1/hl/outcome/create_order` | Open an outcome order |\n| `POST` | `/v1/hl/outcome/cancel_order` | Cancel an outcome order |\n| `POST` | `/v1/hl/outcome/close_order` | Close an outcome position |\n\nAll read endpoints accept an optional `dex` query parameter to target a\nspecific HIP-3 perp dex registered via `/v1/hl/perp_dexes`.\n\n## SDK Usage\n\nThe SDK builds the encrypted payload for you \u2014 pass structured params plus\nmanaged-custody credentials (`apiKey`, `walletAddress` = your **control**\naddress from sign-in, `sessionPrivateKey`). A pre-built `computedData` is\nstill accepted for advanced callers.\n\n```typescript\nimport { GdexSkill } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\n// 1. List markets. Each `mids` key is a coin id: \"#<outcomeId><sideIndex>\",\n//    e.g. \"#1010\" = outcome 101 / side 0 (Yes), \"#1011\" = side 1 (No).\nconst markets = await skill.getHlOutcomes({ status: 'open' });\n\n// 2. Enable trading once before the first outcome order (see Prerequisites).\nawait skill.hlEnableTrading({ apiKey, walletAddress, sessionPrivateKey });\n\n// 3. Account state for one market (outcomeId is REQUIRED).\nconst state = await skill.getHlOutcomeAccount({\n  userAddress: managedAddress,   // the managed wallet holds outcome balances\n  outcomeId: 101,\n});\n\n// 4. Place an order. price is a probability in [0,1]; size is in contracts.\nconst order = await skill.createHlOutcomeOrder({\n  apiKey, walletAddress, sessionPrivateKey,\n  outcomeId: 101,\n  coin: '#1010',        // Yes side of outcome 101\n  isBuy: true,\n  price: '0.55',        // limit; pass isMarket:true to take the book\n  size: '20',\n  isMarket: false,\n});\n\n// 5. Cancel / close\nawait skill.cancelHlOutcomeOrder({ apiKey, walletAddress, sessionPrivateKey, outcomeId: 101, coin: '#1010', orderId });\nawait skill.closeHlOutcomeOrder({ apiKey, walletAddress, sessionPrivateKey, outcomeId: 101, coin: '#1010', price: '0', size: '20', isMarket: true });\n```\n\n## Collateral currency (HIP-3 / HIP-4) \u2014 swap before trading\n\nEach outcome market is quoted in a specific stablecoin (its `quoteToken` \u2014\n`USDC`, `USDH`, `USDE`, or `USDT0`). HIP-3 and HIP-4 deployments use different\nquote currencies, so **before placing an order you must hold that market's\ncurrency in your HL spot balance.** If you only hold USDC, swap into the\nmarket's currency first with `hlSwapCollateral` (a HL spot swap), then swap\nback when done.\n\n```typescript\n// Check the market's currency\nconst m = (await skill.getHlOutcomes({ status: 'open' })).data.meta.outcomes\n  .find((o) => o.outcome === 101);\nconsole.log(m.quoteToken);   // e.g. 'USDH'\n\n// If it's not USDC, swap USDC -> that currency (amount = NON-USDC token amount).\n// HyperLiquid enforces a $10 minimum per swap order.\nawait skill.hlSwapCollateral({\n  apiKey, walletAddress, sessionPrivateKey,\n  fromToken: 'USDC', toToken: 'USDH', amount: '15',   // buy 15 USDH\n});\n\n// ...place / manage outcome orders in that currency...\n\n// Swap leftover back to USDC when finished\nawait skill.hlSwapCollateral({\n  apiKey, walletAddress, sessionPrivateKey,\n  fromToken: 'USDH', toToken: 'USDC', amount: '15',\n});\n```\n\nSupported swap currencies: `USDC` \u21C4 `USDH` / `USDE` / `USDT0`. MCP exposes this\nas the `hl_swap_collateral` tool with the same structured params.\n\n## Notes\n\n- **Coin format:** orders take `coin` as `\"#<outcomeId><sideIndex>\"` \u2014 side 0\n  is the first `sideSpecs` entry (usually \"Yes\"), side 1 the second (\"No\").\n  Current prices are in the `mids` map returned by `getHlOutcomes`.\n- **Price is a probability** in `(0,1)`; **size is contracts**. HyperLiquid\n  enforces its own minimum order value (~$10\u201311 notional).\n- **`walletAddress` is the control address** used at sign-in (the same rule as\n  perp trading); outcome balances/positions live under the **managed** address,\n  so pass the managed address to `getHlOutcomeAccount`.\n- Outcome markets settle through HyperLiquid **spot** collateral, separate from\n  the perp engine. Funding an HL account (via **gdex-perp-funding**) and placing\n  an outcome order can move USDC from the perp to the spot/outcomes balance;\n  check both `getHlAccountState` (perp) and `getHlSpotState` (spot).\n- MCP: the same flow is available via the `hl_enable_trading`,\n  `hl_create_outcome_order`, `hl_cancel_outcome_order`, and\n  `hl_close_outcome_order` tools with these structured params.\n", files: [] }, { name: "gdex-hl-referral", description: "HyperLiquid referral info and reward claims \u2014 distinct from the HL copy-trading referral flows", content: "\n# GDEX: HyperLiquid Referral\n\nInspect a wallet's HyperLiquid referral status and submit claims for accrued\nrewards. This is the user-side HL referral flow exposed under\n`/v1/hl_ref/*` \u2014 **distinct** from the copy-trading top-traders referral\nflow under `/v1/hl/top_traders_by_pnl` and from the builder referral under\n`/v1/hl/builder_referral`.\n\n## When to Use\n\n- Checking how much HL referral reward a wallet has accrued\n- Submitting a claim transaction for accrued rewards\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via managed custody \u2014 see **gdex-authentication**\n- For claim: a pre-built `computedData` payload built by the caller using\n  the standard managed-custody encrypted-payload contract (claim ABI lives\n  in `src/api/services/ServiceHlReferral.ts` of the backend)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/hl_ref/info` | Referral info (earned, eligibility, code) |\n| `POST` | `/v1/hl_ref/request_claim` | Submit a reward claim |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\nconst info = await skill.getHlReferralInfo({ userAddress: '0xWallet' });\n\n// Claim rewards (caller pre-builds computedData)\nconst result = await skill.requestHlReferralClaim({ computedData });\n```\n\n## Notes\n\n- Eligibility is enforced server-side based on referral state and minimum\n  thresholds.\n- The claim response typically contains a `requestId` to poll via\n  `/v1/trade-status/:requestId` when the claim is processed asynchronously.\n", files: [] }, { name: "gdex-limit-orders", description: "Limit buy, limit sell, update/delete, and list limit orders via managed-custody encrypted payloads", content: "\n# GDEX: Limit Orders\n\nCreate limit buy/sell orders that trigger when a token reaches your target price. Uses the same managed-custody encryption flow as spot trades (ABI-encoded \u2192 signed \u2192 AES-encrypted `computedData`).\n\n## Critical: Endpoint Structure\n\nLimit orders use **separate endpoints for buy vs sell** (NOT a single create endpoint):\n\n| Action | Endpoint | SDK Method |\n|--------|----------|------------|\n| List orders | `GET /v1/orders` | `getLimitOrders()` |\n| Buy when price drops | `POST /v1/limit_buy` | `limitBuy()` |\n| Sell when price rises/drops | `POST /v1/limit_sell` | `limitSell()` |\n| Update or delete order | `POST /v1/update_order` | `updateOrder()` |\n\n> There is NO `/v1/orders/create` or `/v1/orders/cancel` endpoint.\n\n## When to Use\n\n- Buy a token when its price drops to a target \u2192 `limitBuy()`\n- Sell a token when its price rises (take-profit) or drops (stop-loss) \u2192 `limitSell()`\n- Cancel an existing order \u2192 `updateOrder({ isDelete: true })`\n- Update an order's price/amount \u2192 `updateOrder()`\n- List all active orders \u2192 `getLimitOrders()`\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via `loginWithApiKey()` \u2014 see **gdex-authentication**\n- Minimum order: `config.chains[chainId].minLimitOrder` (typically 0.01 native token)\n\n## Limit Buy \u2014 Buy Token When Price Drops\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\nconst result = await skill.limitBuy({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',  // control wallet\n  sessionPrivateKey: '<session-private-key-hex>',\n  chainId: 622112261,           // Solana\n  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', // WIF\n  amount: '10000000',           // 0.01 SOL in lamports\n  triggerPrice: '0.50',         // trigger when WIF price \u2264 $0.50\n  profitPercent: '50',          // take profit at 50% gain (optional)\n  lossPercent: '25',            // stop loss at 25% loss (optional)\n});\n```\n\n### LimitBuyParams\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `apiKey` | `string` | Yes | API key for AES encryption |\n| `userId` | `string` | Yes | Control wallet address (NOT managed) |\n| `sessionPrivateKey` | `string` | Yes | Session key from sign-in |\n| `chainId` | `number` | Yes | Numeric chain ID (e.g. 622112261 for Solana) |\n| `tokenAddress` | `string` | Yes | Token to buy |\n| `amount` | `string` | Yes | Native token to spend (raw units: wei/lamports) |\n| `triggerPrice` | `string` | Yes | USD price to trigger the buy |\n| `profitPercent` | `string` | No | Take-profit % above trigger (\"0\" to skip) |\n| `lossPercent` | `string` | No | Stop-loss % below trigger (\"0\" to skip) |\n\n**ABI schema:** `['string','string','string','uint256','uint256','string']` = `[tokenAddress, amount, triggerPrice, profitPercent, lossPercent, nonce]`\n**Signature:** `limit_buy-{userId}-{data}`\n\n> **CRITICAL (Live-Tested):** `profitPercent` and `lossPercent` MUST be ABI-encoded as `uint256`, NOT `string`. The backend decodes them as uint256 and validates `0-100` range. Using `string` type produces ABI byte-offsets (e.g. 192) that fail the range check with `\"lossPercent must be between 0 and 100\"`. The SDK handles this correctly \u2014 only matters if encoding manually.\n\n## Limit Sell \u2014 Sell Token at Target Price\n\n```typescript\n// Sell WIF when price reaches $999.99 (take-profit)\nconst result = await skill.limitSell({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',\n  sessionPrivateKey: '<session-private-key-hex>',\n  chainId: 622112261,\n  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', // WIF\n  amount: '100000',             // token amount in raw units\n  triggerPrice: '999.99',       // trigger when WIF price reaches $999.99\n});\n```\n\n### LimitSellParams\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `apiKey` | `string` | Yes | API key for AES encryption |\n| `userId` | `string` | Yes | Control wallet address |\n| `sessionPrivateKey` | `string` | Yes | Session key from sign-in |\n| `chainId` | `number` | Yes | Numeric chain ID |\n| `tokenAddress` | `string` | Yes | Token to sell |\n| `amount` | `string` | Yes | Token amount to sell (raw units) |\n| `triggerPrice` | `string` | Yes | USD price to trigger the sell |\n\n**ABI schema:** `['string','string','string','string']` = `[tokenAddress, amount, triggerPrice, nonce]`\n**Signature:** `limit_sell-{userId}-{data}`\n\n> The backend auto-classifies as take-profit (trigger > current price) or stop-loss (trigger < current price).\n\n## Update or Delete an Order\n\n```typescript\n// Delete an order\nawait skill.updateOrder({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',\n  sessionPrivateKey: '<session-private-key-hex>',\n  chainId: 622112261,\n  orderId: '64-char-hex-order-id',\n  isDelete: true,\n});\n\n// Update an order's trigger price\nawait skill.updateOrder({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',\n  sessionPrivateKey: '<session-private-key-hex>',\n  chainId: 622112261,\n  orderId: '64-char-hex-order-id',\n  triggerPrice: '1.50',\n  amount: '10000000',\n});\n```\n\n### UpdateOrderParams\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `apiKey` | `string` | Yes | API key for AES encryption |\n| `userId` | `string` | Yes | Control wallet address |\n| `sessionPrivateKey` | `string` | Yes | Session key from sign-in |\n| `chainId` | `number` | Yes | Numeric chain ID |\n| `orderId` | `string` | Yes | Order ID from getLimitOrders() |\n| `amount` | `string` | No | New amount (raw units) |\n| `triggerPrice` | `string` | No | New trigger price (USD) |\n| `profitPercent` | `string` | No | New take-profit % (buy orders) |\n| `lossPercent` | `string` | No | New stop-loss % (buy orders) |\n| `isDelete` | `boolean` | No | Set true to cancel/delete the order |\n\n**ABI schema:** `['string','string','string','uint256','uint256','string','string']` = `[orderId, amount, triggerPrice, profitPercent, lossPercent, nonce, isDelete]`\n**Signature:** `update_order-{userId}-{data}`\n\n> **CRITICAL:** Same as `limit_buy` \u2014 `profitPercent` and `lossPercent` are `uint256`, not `string`.\n\n## List Orders\n\n```typescript\nconst { count, orders } = await skill.getLimitOrders({\n  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',\n  data: encryptedSessionKey,  // from buildGdexUserSessionData()\n  chainId: 622112261,\n});\n```\n\n### GetLimitOrdersParams\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `userId` | `string` | Yes | Control wallet address |\n| `data` | `string` | Yes | Encrypted session key (from `buildGdexUserSessionData`) |\n| `chainId` | `number` | Yes | Numeric chain ID |\n\n### LimitOrder Object (response)\n\n```typescript\ninterface LimitOrder {\n  orderId: string;           // unique 64-char hex ID\n  fromToken: string;         // token being sold\n  toToken: string;           // token being bought\n  isBuyLimit: boolean;       // true = buy limit, false = sell limit\n  price: number;             // trigger price in USD\n  takeProfitPrice: number;   // TP price (0 = disabled)\n  stopLossPrice: number;     // SL price (0 = disabled)\n  fromTokenAmount: string;   // amount in raw units\n  toTokenAmount: string;     // computed output amount\n  walletAddress: string;     // managed wallet address\n  userId: string;            // control wallet address\n  chainId: number;           // numeric chain ID\n  pairAddress: string;       // DEX pair address\n  isActive: boolean;         // still pending?\n  isCancelled?: boolean;     // was cancelled?\n  expiredAt: number;         // expiry Unix timestamp\n  profitPercent?: string;    // TP % (buy orders)\n  lossPercent?: string;      // SL % (buy orders)\n}\n```\n\n## Order Fill Logic\n\nOrders are filled by background processes that monitor prices via NATS:\n- **Buy limit:** triggers when `tokenPrice <= order.price`\n- **Sell take-profit:** triggers when `tokenPrice >= takeProfitPrice`\n- **Sell stop-loss:** triggers when `tokenPrice <= stopLossPrice`\n\n## Error Codes\n\n| Code | Meaning |\n|------|---------|\n| 101 | Missing required parameters |\n| 102 | Invalid nonce or params |\n| 103 | Unauthorized (wrong userId or session key) |\n| 1011 | Invalid/expired order |\n| 1012 | Order expired |\n| 1031 | Unsupported token |\n| 400 | Insufficient balance (need \u2265 minLimitOrder in native token) |\n\n## Legacy Aliases\n\nFor backward compatibility, older method names still work:\n- `createLimitOrder()` \u2192 calls `limitBuy()`\n- `cancelLimitOrder()` \u2192 calls `updateOrder({ isDelete: true })`\n\n## Autonomous Agent Notes (Live-Tested)\n\n### Verified Working Flow (Solana/WIF Example)\n\nThis exact sequence was tested end-to-end and succeeded:\n\n```typescript\n// 1. List existing orders\nconst orders = await skill.getLimitOrders({ userId, data, chainId: 622112261 });\n\n// 2. Create a limit buy order\nconst result = await skill.limitBuy({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId: controlAddress,          // MUST be control address, lowercase\n  sessionPrivateKey,\n  chainId: 622112261,              // Solana\n  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', // WIF\n  amount: '1000000',               // ~0.001 SOL in lamports (raw units)\n  triggerPrice: '0.0001',          // trigger when price drops to $0.0001\n  profitPercent: '50',             // 50% take-profit\n  lossPercent: '30',               // 30% stop-loss\n});\n// \u2192 { isSuccess: true, message: \"Order created successfully\", order: {...} }\n\n// 3. Verify order appears in list\nconst updated = await skill.getLimitOrders({ userId, data, chainId: 622112261 });\n\n// 4. Cancel the order\nawait skill.updateOrder({\n  apiKey, userId, sessionPrivateKey,\n  chainId: 622112261,\n  orderId: result.order.orderId,\n  isDelete: true,\n});\n```\n\n### Key Requirements for Limit Buy\n\n- `amount` must be in **raw units** (lamports for Solana, wei for EVM) \u2014 NOT float\n- `profitPercent` and `lossPercent` are **mandatory** for `limit_buy` (both must be > 0)\n- `profitPercent` and `lossPercent` must be valid 0-100 range (ABI-encoded as `uint256`)\n- `userId` must be the **control** wallet address, **lowercase**\n- `triggerPrice` is in USD (string)\n\n### Minimum Order Size\n\nThe backend enforces `config.chains[chainId].minLimitOrder` per chain. For Solana, this is approximately 0.001 SOL (1000000 lamports). Going below returns \"Insufficient balance\".\n\n### Order Cancellation\n\nTo cancel, use `updateOrder({ isDelete: true })`. There is no separate cancel endpoint. The `cancelLimitOrder()` alias calls this internally.\n\n### Error Messages and What They Mean\n\n| Error | Cause | Fix |\n|-------|-------|-----|\n| `lossPercent must be between 0 and 100` | ABI encoding used `string` type instead of `uint256` | SDK handles this correctly; only matters for manual encoding |\n| `Insufficient balance` | Amount too small or managed wallet underfunded | Increase amount or fund the managed Solana wallet |\n| `Order not found` (on update/delete) | Wrong `orderId` or order already filled/expired | Refresh order list with `getLimitOrders()` first |\n| `Invalid nonce` | Reused or stale nonce | Generate fresh: `String(Date.now())` |\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup required before creating orders\n- **gdex-spot-trading** \u2014 Market orders (immediate execution) instead of limits\n- **gdex-portfolio** \u2014 Track order fills in trade history\n", files: [] }, { name: "gdex-livestream-discovery", description: "Solana livestream-token discovery \u2014 currently-live streams, per-token live status, and big-buy alert feeds", content: "\n# GDEX: Livestream Discovery\n\nSurface the Solana livestream token-launch ecosystem inside an AI agent or\ntrading UI: tokens that are currently live-streaming, per-token live status,\nand the \"big buy\" alert feed.\n\n## When to Use\n\n- Building a discovery feed for live token launches\n- Showing a live indicator next to a token\n- Alerting users to large incoming buys on a chain\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- No authentication required for these read endpoints (whitelisted)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/currently_live` | Tokens currently live-streaming |\n| `GET`  | `/v1/live_status/:address` | Per-token live status |\n| `GET`  | `/v1/bigbuys/:chainId` | Big-buy alert feed for a chain |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\n\n// Currently-live launches (Solana-centric)\nconst live = await skill.getCurrentlyLiveTokens({ limit: 50 });\n\n// Live status for one token\nconst status = await skill.getLiveStatus({ address: 'SoLanA1111...' });\n\n// Big-buy feed (chainId 622112261 = Solana)\nconst bigBuys = await skill.getBigBuys({ chainId: 622112261, limit: 100 });\n```\n\n## Notes\n\n- The livestream surface is currently Solana-only \u2014 the most common\n  `chainId` for `bigbuys` is `622112261`.\n- These endpoints are cached server-side and may return slightly stale data\n  (typically <30s).\n- The `live_status` path includes the token address inline; pass the raw\n  address (no chain prefix).\n", files: [] }, { name: "gdex-onboarding", description: "Start here \u2014 GDEX overview, architecture, supported chains, available skills, and quickstart for cross-chain DeFi trading via managed-custody wallets", content: "\n# GDEX: Agent Onboarding\n\nGDEX is a cross-chain DeFi trading infrastructure for AI agents. It provides spot trading, perpetual futures (HyperLiquid), portfolio management, token discovery, copy trading, and bridging across Solana, Sui, and 12+ EVM chains \u2014 all through a single SDK with managed-custody wallets.\n\n## When to Use\n\n- You're new to GDEX and need to understand the platform\n- You need to decide which skill to load for a specific task\n- You want a quick overview of supported chains and capabilities\n\n## Architecture\n\n```\nAgent \u2192 @gemachdao/gdex-skill SDK \u2192 GDEX Backend (trade-api.gemach.io/v1) \u2192 On-chain Execution\n```\n\n**Key concepts:**\n- **Managed custody** \u2014 GDEX provisions and manages all on-chain trading wallets server-side. Your control wallet only signs in once.\n- **Encrypted payloads** \u2014 All trades use AES-256-CBC encrypted `computedData` payloads. The API key derives the AES key deterministically via SHA256 hash chain.\n- **Session keypairs** \u2014 A secp256k1 session key signs trade payloads after initial control-wallet sign-in.\n- **Shared API keys** \u2014 Pre-configured keys let agents authenticate instantly without wallet signing.\n\n## Quick Start\n\n```bash\nnpm install @gemachdao/gdex-skill\n```\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// No-auth: check trending tokens\nconst trending = await skill.getTrendingTokens({ chain: 'solana', period: '24h', limit: 5 });\n\n// Trading needs the managed-custody session from sign-in (see \"Full Managed-Custody Setup\"\n// below or gdex-authentication): apiKey + control walletAddress + sessionPrivateKey.\nconst trade = await skill.buyToken({\n  chain: 8453,                     // Base\n  tokenAddress: '0xTokenAddress',\n  amount: '0.01',                  // 0.01 ETH\n  slippage: 1,\n  apiKey: GDEX_API_KEY_PRIMARY,\n  walletAddress: controlAddress,   // the control wallet that signed in\n  sessionPrivateKey,\n});\n```\n\n**Using the MCP server?** Run `gdex_connect` once and pass the returned `accountRef` to every\ntrading tool (`buy_token`, `open_perp_position`, `usdc_buy`, ...) instead of keys.\n\n**Shared API Keys (pre-configured for all agents):**\n- Primary: `9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54`\n- Secondary: `2c8f0a91-5d34-4e7b-9a62-f1c3d8e4b705`\n\n## Supported Chains\n\n| Chain | ChainId | DEXes | Perps | Bridge |\n|-------|---------|-------|-------|--------|\n| Ethereum | `1` | Uniswap v2/v3, Odos | \u2014 | Yes |\n| Optimism | `10` | Uniswap v3, Odos | \u2014 | Yes |\n| BSC | `56` | PancakeSwap, Odos | \u2014 | Yes |\n| Sonic | `146` | \u2014 | \u2014 | Yes |\n| Fraxtal | `252` | Uniswap v3 | \u2014 | Yes |\n| Robinhood Chain | `4663` | Uniswap v2, KyberSwap | \u2014 | No |\n| Nibiru | `6900` | \u2014 | \u2014 | Yes |\n| Base | `8453` | Uniswap v3, Odos, Arcadia | \u2014 | Yes |\n| Arbitrum | `42161` | Uniswap v3, Odos | \u2014 | Yes |\n| Berachain | `80094` | \u2014 | \u2014 | Yes |\n| Solana | `622112261` / `'solana'` | Raydium, Raydium v2, Orca | \u2014 | Yes |\n| Sui | `1313131213` / `'sui'` | Cetus, Bluefin | \u2014 | Yes |\n| HyperLiquid | \u2014 | \u2014 | Native perp engine | \u2014 |\n\n**Chain IDs for managed-custody:** 900 = Solana, 101 = Sui, or standard EVM chain IDs.\n\n## Available Skills\n\n| Category | Skill | Description |\n|----------|-------|-------------|\n| **Getting Started** | `gdex-onboarding` | **You are here** \u2014 Overview, architecture, quickstart |\n| **Auth** | `gdex-authentication` | Managed-custody auth, encryption, session key flow |\n| **Trading** | `gdex-spot-trading` | Buy/sell tokens on any supported chain |\n| | `gdex-perp-trading` | HyperLiquid perpetual futures \u2014 positions, orders, leverage |\n| | `gdex-perp-funding` | Deposit/withdraw USDC to/from HyperLiquid |\n| | `gdex-limit-orders` | Create, cancel, and list limit orders |\n| **Data** | `gdex-portfolio` | Cross-chain portfolio, balances, trade history |\n| | `gdex-token-discovery` | Token details, trending tokens, OHLCV charts (no auth) |\n| **Platform** | `gdex-copy-trading` | Copy trade wallets, create/manage configs, tx history, DEXes (Solana writes only) |\n| | `gdex-perp-copy-trading` | HL perp copy trading \u2014 top traders, create/manage configs, market data |\n| | `gdex-bridge` | Cross-chain bridging with quotes |\n| | `gdex-usdc-wallet` | Unified USDC wallet \u2014 one USDC balance across chains, auto-bridge funding |\n| | `gdex-wallet-setup` | Generate EVM wallets, session keys, get wallet info |\n| **Frontend** | `gdex-ui-install-setup` | React/Next.js project setup, SDK context providers |\n| | `gdex-ui-trading-components` | React component patterns for trading UIs |\n| | `gdex-ui-portfolio-dashboard` | Portfolio dashboard components |\n| | `gdex-ui-wallet-connection` | Wallet connection UI and auth flows |\n| | `gdex-ui-theming` | CSS theming \u2014 dark/light mode, trading colors |\n| | `gdex-ui-page-layouts` | Full page compositions for trading apps |\n| **Developer Tools** | `gdex-sdk-debugging` | Troubleshoot errors, chain quirks, common pitfalls |\n\n## Recommended Next Steps\n\n**If you want to trade tokens (spot):**\n1. Load **gdex-authentication** for auth setup\n2. Load **gdex-spot-trading** for buy/sell operations\n\n**If you want perpetual futures:**\n1. Load **gdex-authentication** for auth setup\n2. Load **gdex-perp-funding** to deposit USDC to HyperLiquid\n3. Load **gdex-perp-trading** for positions and orders\n\n**If you just need market data (no auth):**\n1. Load **gdex-token-discovery** \u2014 works immediately, no authentication needed\n\n**If the user has no wallet:**\n1. Load **gdex-wallet-setup** to generate an EVM control wallet\n2. Load **gdex-authentication** to sign in via managed custody\n\n**If you want to copy successful traders:**\n1. Load **gdex-authentication** for auth setup\n2. Load **gdex-copy-trading** for tracking wallets and settings\n\n**If you want to bridge assets cross-chain:**\n1. Load **gdex-authentication** for auth setup\n2. Load **gdex-bridge** for bridging operations\n3. For USDC, load **gdex-usdc-wallet**: it trades and bridges USDC across chains as one balance\n\n**If you want to build a trading frontend:**\n1. Load **gdex-ui-install-setup** for React/Next.js project setup\n2. Load **gdex-ui-trading-components** for order forms and position tables\n3. Load **gdex-ui-theming** for dark/light mode and trading colors\n4. Load **gdex-ui-page-layouts** for full page compositions\n\n**If you're debugging an issue:**\n1. Load **gdex-sdk-debugging** for error codes, chain quirks, and common pitfalls\n\n## Key Links\n\n| Resource | URL |\n|----------|-----|\n| SDK (npm) | https://www.npmjs.com/package/@gemachdao/gdex-skill |\n| Repository | https://github.com/GemachDAO/gdex-skill |\n| Trading Dashboard | https://gdex.pro |\n| Backend API | https://trade-api.gemach.io/v1 |\n\n## Installation\n\n```bash\n# Install all skills globally (recommended)\nnpx skills add GemachDAO/gdex-skill --all --agent '*' -g\n\n# Install specific skill\nnpx skills add GemachDAO/gdex-skill --skill gdex-spot-trading\n\n# Install SDK\nnpm install @gemachdao/gdex-skill\n```\n\n## MCP Server\n\nFor AI clients that support [Model Context Protocol](https://modelcontextprotocol.io),\nthe GDEX MCP server exposes **137 tools** covering the full SDK surface \u2014 spot and\nperp trading, HyperLiquid funding, limit orders, copy trading, bridging, portfolio\nand token data, transfers/social, and HIP-3/HIP-4 outcome (event) markets (e.g.\n`buy_token`, `open_perp_position`, `place_perp_order`, `hl_create_outcome_order`,\n`hl_swap_collateral`, `get_account_state`, `estimate_bridge`).\n\n### Auto-configure (one command, no npm account)\n\n```bash\nnpx -y github:GemachDAO/gdex-skill gdex-mcp-server init --client claude\n# clients: claude \xB7 cursor \xB7 vscode \xB7 codex \xB7 opencode\n```\n\nThis writes the MCP config for your agent (e.g. `.mcp.json`) wired to launch the\nserver straight from GitHub with the shared API key \u2014 no npm publish required:\n\n```jsonc\n{\n  \"mcpServers\": {\n    \"gdex-mcp-server\": {\n      \"command\": \"npx\",\n      \"args\": [\"-y\", \"github:GemachDAO/gdex-skill\", \"gdex-mcp-server\"],\n      \"env\": { \"GDEX_API_KEY\": \"9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54\" }\n    }\n  }\n}\n```\n\n> The skills.sh install configures **skills**, not MCP \u2014 run the command above to add\n> the MCP server. The skills also work via the SDK without MCP. The first launch\n> builds the package from source (cached afterward).\n\n## Autonomous Agent Quickstart\n\nIf you're an AI agent operating autonomously (no human to ask), here's the minimum viable flow:\n\n### 1. Initialize\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n```\n\n### 2. Research Before Trading\n```typescript\n// Check what's trending\nconst trending = await skill.getTrendingTokens({ chain: 622112261, period: '1h', limit: 10 });\n\n// Get details on a token \u2014 CHECK dexId BEFORE buying\nconst token = await skill.getTokenDetails({ tokenAddress: trending[0].address, chain: 622112261 });\nif (token.dexId === 'meteora') {\n  // \u274C Meteora tokens FAIL on Solana \u2014 skip this token\n}\nif (token.dexId === 'raydium') {\n  // \u2705 Safe to buy\n}\n```\n\n### 3. Full Managed-Custody Setup (for actual trading)\n```typescript\nimport { ethers } from 'ethers';\nimport {\n  generateGdexSessionKeyPair, buildGdexSignInMessage,\n  buildGdexSignInComputedData, buildGdexUserSessionData,\n} from '@gemachdao/gdex-skill';\n\nconst wallet = ethers.Wallet.fromPhrase('your mnemonic...');\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\nconst nonce = String(Date.now());\nconst msg = buildGdexSignInMessage(wallet.address, nonce, sessionKey);\nconst sig = await wallet.signMessage(msg);\nconst payload = buildGdexSignInComputedData({\n  apiKey: GDEX_API_KEY_PRIMARY, userId: wallet.address, sessionKey, nonce, signature: sig,\n});\nawait skill.signInWithComputedData({ computedData: payload.computedData, chainId: 1 });\n```\n\n### 4. Key Rules for Autonomous Operation\n- **Always use control wallet address** (the one that signed in) for `userId`/`walletAddress` in API calls\n- **Never use managed wallet address** in API calls (except `getHlUserStats()`)\n- **Amounts in raw units** for managed trades (lamports for Solana, wei for EVM)\n- **Check `dexId`** before buying on Solana \u2014 skip Meteora tokens\n- **Generate fresh nonce** for every operation\n- **Portfolio/balances use raw client** \u2014 high-level methods send wrong params\n- **If `hlCloseAll` fails**, use reduce-only order instead\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Managed-custody auth flow and encryption details\n- **gdex-spot-trading** \u2014 Buy/sell tokens on any chain\n- **gdex-perp-trading** \u2014 HyperLiquid perpetual futures\n- **gdex-token-discovery** \u2014 Token info without authentication\n- **gdex-wallet-setup** \u2014 Wallet generation for new users\n- **gdex-ui-install-setup** \u2014 Frontend project setup with React/Next.js\n- **gdex-sdk-debugging** \u2014 Error troubleshooting and debugging guide\n\n---\n\n# Live-Tested Operational Playbook\n\n_Consolidated reference (migrated from the umbrella skill). Critical notes and an autonomous-agent playbook validated against the live backend._\n\n## Critical Notes (Live-Tested)\n\n> **walletAddress = CONTROL address, NOT managed address.** All HL write operations (`hlCreateOrder`, `hlCloseAll`, `perpDeposit`, etc.) require `walletAddress` set to the **control wallet address** used during sign-in \u2014 NOT the managed-custody address returned by `/v1/user`. The backend verifies the session key signature against the sign-in `userId`. Passing the managed address causes `400 Unauthorized (code 103)`.\n\n> **`hlCloseAll` / `/v1/hl/close_all_positions` is unreliable.** It frequently returns `TIMEOUT` or JSON parse errors. Close per coin with `closePerpPosition` (MCP: `close_perp_position`), which places a **reduce-only** order for the exact live position size.\n\n> **`hlUpdateLeverage` / `/v1/hl/update_leverage` is not implemented** on the backend (returns 404). Set leverage on the order instead: `hlCreateOrder({ ..., leverage: 5 })` (MCP: `open_perp_position` with `leverage`) sends it as a top-level field with the order.\n\n> **Solana chainId is `622112261`, NOT `900`.** The correct Solana chain ID is `ChainId.SOLANA = 622112261`. Using `900` falls back to the EVM managed address with `balance: null`. The `/v1/user` endpoint returns a **different managed wallet** per `chainId`:\n> - `chainId=1` \u2192 EVM managed: `0x9967...`\n> - `chainId=622112261` \u2192 Solana managed: `CFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1` (base58)\n> Always use `ChainId.SOLANA` from the SDK's enum to avoid this mistake.\n\n> **Solana Meteora swaps are broken (backend bug).** Tokens that route through Meteora DLMM (e.g. BONK) fail with `Program error: 1` because the backend doesn\u2019t wrap SOL into WSOL before calling `Swap2`. **Raydium-routed tokens work correctly** (e.g. WIF). Check `token.dexId` \u2014 if it's `\"meteora\"`, the swap will fail. Prefer tokens with `isRaydium: true` or `dexId: \"raydium\"`.\n\n> **Solana trades need ~0.01 SOL minimum.** ATA (Associated Token Account) creation costs ~0.002 SOL per new token, plus priority fees (default 0.0005 SOL) and base tx fees. First trade on a new token needs ~0.007 SOL overhead beyond the swap amount.\n\n> **Bridge endpoints use different paths than expected.** The actual backend routes are `GET /v1/bridge/estimate_bridge`, `POST /v1/bridge/request_bridge`, and `GET /v1/bridge/bridge_orders`. The `request_bridge` endpoint requires ABI-encoded + signed + AES-encrypted `computedData` (same pattern as managed trades). Bridge is **native tokens only** and uses ChangeNow as provider. Amounts must be in **raw token units** (wei/lamports). See **gdex-bridge** skill for full details.\n\n> **Copy trade write operations (create/delete) use `chainId: 622112261` for sign-in, NOT `chainId: 1`.** The chainId field in the ABI is `uint256` (not string). The update endpoint uses 16 ABI fields (not 15): `[traderWallet, copyTradeName, chainId(uint256), gasPrice, buyMode, copyBuyAmount, isBuyExistingToken, lossPercent, profitPercent, nonce, copySell, excludedDexNumbers, copyTradeId, isDelete, isChangeStatus, excludedProgramIds]`. Both `isDelete='1'` and `isChangeStatus='1'` permanently delete the trade \u2014 there is no toggle. Boolean fields use `''` (empty string) for false and `'1'` for true; string `'0'` is truthy and will trigger deletion.\n\n> **Limit order endpoints are `limit_buy` / `limit_sell` / `update_order` \u2014 NOT `orders/create` / `orders/cancel`.** Use `limitBuy()` for buy orders, `limitSell()` for sell orders (auto-classifies TP vs SL), and `updateOrder({ isDelete: true })` to cancel. Listing uses `GET /v1/orders` with `userId` + encrypted `data` + `chainId`. All write endpoints use ABI-encoded + signed + AES-encrypted `computedData` (same managed-custody pattern). Minimum order is ~0.01 native token. See **gdex-limit-orders** skill for full details.\n\n> **HL perp copy trading is completely separate from Solana copy trading.** Uses `chainId: 1` (EVM), ABI methods `hl_create`/`hl_update` (8 and 11 string fields), and goes through `buildHlComputedData()`. Both `isDelete` and `isChangeStatus` permanently **DELETE** the trade (same as Solana \u2014 there is no toggle). Both TP and SL are **mandatory** (> 0). Max 3 copy trades per user. Supports opposite-direction copying via `oppositeCopy`. Backend stores ABI byte-offsets for `copyMode` and `oppositeCopy` (e.g., `copyMode=416`), not the actual values. `user_stats` requires the managed wallet address, not the control wallet. See **gdex-perp-copy-trading** skill for full details.\n\n## Autonomous Agent Playbook\n\n> **This section contains everything an autonomous AI agent needs to trade without human help.**\n\n### Portfolio / Balances \u2014 Backend Param Mismatch (Live-Tested)\n\nThe high-level `getPortfolio()` and `getBalances()` methods send `walletAddress` + `chain`, but the backend expects `userId` + `chainId` + `data` (encrypted session key). **Workaround \u2014 use the raw client directly:**\n\n```typescript\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\n\n// Portfolio (balances embedded under portfolio.balances[])\nconst portfolio = await skill.client.get('/v1/portfolio', {\n  params: { userId: controlAddress, chainId: 622112261, data }\n});\n\n// Balances \u2014 read from /v1/portfolio (balances embedded under portfolio.balances[]).\n// There is no separate /v1/balances endpoint on backend v1.1.0.\nconst balances = portfolio.balances ?? [];\n```\n\n### Trade History \u2014 Different Param Names (Live-Tested)\n\nBackend expects `user` (not `userId`), and the managed Solana chainId for trade history is `900` (not `622112261`):\n\n```typescript\nconst history = await skill.client.get('/v1/user_history', {\n  params: { user: controlAddress, chainId: 900, data, page: 1, limit: 20 }\n});\n```\n\n### OHLCV / TopTraders \u2014 Numeric chainId Required (Live-Tested)\n\nBackend needs numeric `chainId`, not string `chain`. These work:\n```typescript\nawait skill.getOHLCV({ tokenAddress, chain: 622112261, resolution: '60', from, to });\nawait skill.getTopTraders({ chain: 622112261, period: '7d', limit: 5 });\n```\n\n### Spot Trading (Managed Custody) \u2014 Raw Units Required (Live-Tested)\n\nFor hand-built managed-custody payloads (`buildGdexManagedTradeComputedData` \u2192 `submitManagedPurchase` / `submitManagedSell`), amounts must be in **raw units** (lamports for Solana, wei for EVM), NOT float. (`buyToken` with a session key takes a decimal native amount and converts it.)\n```typescript\n// \u274C WRONG: amount: '0.01'\n// \u2705 CORRECT: amount: '10000000' (0.01 SOL = 10000000 lamports)\n```\n\n### Limit Orders \u2014 profitPercent/lossPercent MUST Be uint256 (Live-Tested)\n\nThe `limit_buy` and `update_order` ABI schemas use `uint256` for `profitPercent` and `lossPercent` \u2014 NOT `string`. The backend decodes them as uint256 and validates 0-100 range. Using `string` type produces ABI byte-offsets (e.g. 192) that always fail. The SDK handles this correctly.\n\n### Endpoints That Don't Work (Live-Tested)\n\n| Endpoint | Status | Alternative |\n|----------|--------|-------------|\n| `hlCloseAll` / `/v1/hl/close_all_positions` | Returns TIMEOUT/400 | Use `closePerpPosition` per coin (or `hlCreateOrder` with `reduceOnly: true, isMarket: true`) |\n| `hlUpdateLeverage` / `/v1/hl/update_leverage` | Returns 404 | Pass `leverage` on `hlCreateOrder` |\n| `getGbotUsdcBalance` | Returns 404 | Use `getHlAccountState()` to check USDC balance |\n| `getHlUserStats(controlAddress)` | Returns 400 | Must pass the **managed** wallet address, not control |\n\n### Error Recovery for Autonomous Agents\n\n| Error | What to Do |\n|-------|------------|\n| `400 Unauthorized (103)` | Check: (1) using control address not managed, (2) ABI types match exactly, (3) session key is from the same sign-in |\n| `Insufficient balance` | Check managed wallet balance on the correct chain. For HL, check USDC deposit amount. |\n| `TIMEOUT` on hlCloseAll | Use reduce-only order instead (see above) |\n| `Program error: 1` on Solana | Token routes through Meteora DLMM. Swap to a Raydium-routed token instead. |\n| `lossPercent must be between 0 and 100` | ABI encoding bug \u2014 profitPercent/lossPercent must be uint256, not string |\n| `404` on leverage | Expected from `hlUpdateLeverage` \u2014 pass `leverage` on `hlCreateOrder` instead. |\n| `Reused nonce` | Always generate fresh: `String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000))` |\n| Rate limited (429) | SDK auto-retries with exponential backoff. If manual, wait `retryAfter` seconds. |\n\n### Live-Tested E2E Results (39/42 Pass)\n\n| Section | Tests | Pass | Notes |\n|---------|-------|------|-------|\n| Auth & Portfolio | 7 | 7/7 | Sign-in, resolve user, portfolio (raw client), balances, trade history |\n| Token Discovery | 3 | 3/3 | Token details, trending, OHLCV |\n| Top Traders | 1 | 1/1 | Top traders by PnL |\n| Spot Trading | 3 | 3/3 | Buy WIF (Solana), sell WIF, poll status |\n| HL Perp Trading | 10 | 8/10 | Deposit, create order, positions, close (reduce-only). `getGbotUsdcBalance` 404, `hlCloseAll` 400 |\n| Limit Orders | 4 | 4/4 | List, create (limit buy), verify, cancel |\n| Copy Trading Reads | 4 | 4/4 | Wallets, custom wallets, gems, DEXes |\n| HL Copy Trading Reads | 8 | 7/8 | Top traders, top by PnL, assets, DEXes, deposit tokens. `getHlUserStats` needs managed addr |\n| Bridge Estimate | 1 | 1/1 | ETH\u2192ARB estimate |\n| Wallet Generation | 1 | 1/1 | Offline EVM wallet |\n\n## Quick Start\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// No-auth endpoints work immediately\nconst trending = await skill.getTrendingTokens({ chain: 'solana', period: '24h', limit: 5 });\n\n// Trades need the managed-custody session (apiKey + control walletAddress + sessionPrivateKey)\nconst trade = await skill.buyToken({\n  chain: 8453,\n  tokenAddress: '0xTokenAddress',\n  amount: '0.01',\n  slippage: 1,\n  apiKey: GDEX_API_KEY_PRIMARY,\n  walletAddress: controlAddress,\n  sessionPrivateKey,\n});\n```\n\n**Shared API Keys:** `9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54` (primary), `2c8f0a91-5d34-4e7b-9a62-f1c3d8e4b705` (secondary)\n\n## Installation\n\n```bash\n# Install all skills\nnpx skills add GemachDAO/gdex-skill --all --agent '*' -g\n\n# Install SDK (from GitHub \u2014 builds on install; imports stay '@gemachdao/gdex-skill')\nnpm install github:GemachDAO/gdex-skill\n```\n| userId | Control wallet address (from sign-in), NOT managed wallet |\n| Bridge receiver | `0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7` |\n\n### HL Signature Format\n\nAll HL write operations sign with the **session private key** (registered during sign-in):\n```\nmessage = \"{action}-{userId.toLowerCase()}-{dataHex}\" // e.g. \"hl_deposit-0x53d0...-0000...\"\ndigest  = keccak256(utf8Bytes(message))\noutput  = r(64hex) + s(64hex) + v(2hex)  // 130 chars, v=00/01, no 0x prefix\n```\n\n### HL Error Codes\n\n| Code | Error | Common Cause |\n|---|---|---|\n| 103 | Unauthorized | Wrong ABI type (uint256 instead of uint64), wrong userId, or signing with wrong key |\n| 102 | Invalid chainId | chainId is not 42161 |\n| 102 | Invalid params | Reused nonce or unsupported token |\n| \u2014 | Insufficient balance | Managed wallet needs more USDC + fee on Arbitrum |\n| \u2014 | Too low amount | Amount < 10 USDC (10000000 smallest unit) |\n", files: [] }, { name: "gdex-perp-copy-trading", description: "HyperLiquid perpetual futures copy trading \u2014 discover top perp traders, create/manage perp copy trades, fill history, opposite-direction copying, and market data", content: "\n# GDEX: Perp Copy Trading (HyperLiquid)\n\nAutomatically mirror perpetual futures positions (long/short) from top-performing HyperLiquid traders. Supports opposite-direction copying, fixed or proportional sizing, and TP/SL controls.\n\n> **This is completely separate from Solana spot copy trading (`gdex-copy-trading`).** Different chain (EVM, chainId=1 vs Solana 622112261), different ABI methods (`hl_create`/`hl_update` vs `create_copy_trade`/`update_copy_trade`), different field schemas. Both `isDelete` and `isChangeStatus` permanently DELETE copy trades on both chains.\n\n## When to Use\n\n- Browsing top HyperLiquid perp traders (by volume, PnL, or deposit)\n- Getting detailed trading stats for a specific trader\n- Creating a perp copy trade to follow a trader's long/short positions\n- Updating or deleting a perp copy trade\n- Viewing perp copy trade fill history with enrichment\n- Checking market data (assets, DEXes, clearinghouse state, open orders)\n- Checking deposit tokens and USDC balance\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- For discovery: `loginWithApiKey()` only\n- For read (list/tx_list): Full sign-in with session key (`chainId: 1`)\n- For write (create/update): Full sign-in + computedData\n\n## Auth Tiers\n\n| Tier | Endpoints | Auth Needed |\n|------|-----------|-------------|\n| Discovery | `top_traders`, `top_traders_by_pnl`, `user_stats`, `perp_dexes`, `all_assets`, `clearinghouse_state`, `open_orders`, `deposit_tokens`, `usdc_balance` | API key only |\n| Read | `list`, `tx_list` | Session-key auth (`userId` + encrypted `data`) |\n| Write | `create`, `update` | computedData (ABI-encode + sign + AES-encrypt) |\n\n## Key Differences from Solana Copy Trading\n\n| Feature | Solana (`gdex-copy-trading`) | HL Perp (`gdex-perp-copy-trading`) |\n|---------|---------|------|\n| Chain | Solana (622112261) | EVM (chainId = 1) |\n| Asset Type | Spot tokens | Perpetual futures (long/short) |\n| ABI Methods | `create_copy_trade` / `update_copy_trade` | `hl_create` / `hl_update` |\n| ABI Fields | 12 create / 16 update (chainId=uint256) | 8 create / 11 update (all strings) |\n| Opposite Copy | \u274C Not supported | \u2705 `oppositeCopy` flag |\n| `isChangeStatus` | \u26A0\uFE0F Permanently deletes! | \u26A0\uFE0F Also permanently deletes (same as `isDelete`) |\n| Copy Modes | 1=fixed SOL, 2=% of trader | 1=fixed USD per order, 2=proportion of trader's size |\n| TP/SL | Optional | **Mandatory** (both > 0, lossPercent < 100) |\n| Max Copies | `config.maxCopyTrades` | Default 3 (`hyperLiquidConfig.maxFuturesCopy`) |\n\n## Discovery Endpoints (No Auth)\n\n### Top Traders by Volume/TradeCount/Deposit\n\n```typescript\nconst topByVolume = await skill.getHlTopTraders('volume');\nconst topByTrades = await skill.getHlTopTraders('tradeCount');\nconst topByDeposit = await skill.getHlTopTraders('deposit');\n// Cached 15 minutes\n```\n\n### Top 30 Traders by PnL\n\n```typescript\nconst topPnl = await skill.getHlTopTradersByPnl();\n// Response: { isSuccess: true, topTraders: { day: [...], week: [...], month: [...] } }\n// Each entry: { ethAddress, accountValue, windowPerformances: [{ window, percentage, pnl }] }\n```\n\n### Detailed User Stats\n\n```typescript\n// NOTE: Requires the MANAGED wallet address, not the control wallet.\n// Control wallet and external trader addresses return \"Wallet not found\".\nconst stats = await skill.getHlUserStats('0xManagedWalletAddress');\n// Cached 1 hour in Redis\n```\n\n#### HlUserStats Shape\n\n```typescript\ninterface HlUserStats {\n  '24h': number;        // PnL last 24 hours\n  '7d': number;         // PnL last 7 days\n  '30d': number;        // PnL last 30 days\n  week: number;\n  dailyPnls: Array<{\n    timeMs: number;\n    date: string;\n    pnl: number;\n    pnlPercentage: number;\n    capitalDeployed: number;\n  }>;\n  volumes: Record<string, number>;\n  tradesCount: Record<string, { win: number; lose: number; total: number }>;\n  percentagePnl: Record<string, number>;\n  capitalDeployed: Record<string, number>;\n  allTime: { pnl: number; pnlPercentage: number; capitalDeployed: number };\n}\n```\n\n### Perp DEXes\n\n```typescript\nconst dexes = await skill.getHlPerpDexes();\n// { isSuccess: true, perpDexes: ['HyperLiquid', ...] }\n```\n\n### All Tradeable Assets\n\n```typescript\nconst assets = await skill.getHlAllAssets();\n// { isSuccess: true, count: N, assets: [...] }\n```\n\n### Clearinghouse State (Account Positions)\n\n```typescript\n// Single DEX\nconst state = await skill.getHlClearinghouseState('0xTraderAddress');\n\n// All DEXes\nconst stateAll = await skill.getHlClearinghouseStateAll('0xTraderAddress');\n```\n\n### Open Orders\n\n```typescript\n// Single DEX\nconst orders = await skill.getHlOpenOrdersForCopy('0xTraderAddress');\n\n// All DEXes\nconst ordersAll = await skill.getHlOpenOrdersAllForCopy('0xTraderAddress');\n```\n\n### Deposit Tokens\n\n```typescript\nconst tokens = await skill.getHlDepositTokens();\n// { isSuccess: true, tokens: { \"42161\": [{ name, symbol, address, chainId, decimals, minDeposit, HLReceiver }] } }\n// Key is chain ID (\"42161\" = Arbitrum One)\n```\n\n### USDC Balance (Arbitrum)\n\n```typescript\nconst balance = await skill.getHlUsdcBalanceForCopy('0xTraderAddress');\n```\n\n## Read Endpoints (Session-Key Auth)\n\nRequire `userId` and `data` (AES-encrypted session key from `buildGdexUserSessionData`).\n\n### List User's HL Copy Trades\n\n```typescript\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\n\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\nconst list = await skill.getHlCopyTradeList({ userId, data });\n// { isSuccess: true, count: 2, allCopyTrades: [...] }\n```\n\n#### HlCopyTradeConfig Shape\n\n```typescript\ninterface HlCopyTradeConfig {\n  copyTradeId: string;\n  copyTradeName: string;\n  copyMode: number;              // Backend stores ABI offset (416/480), not the actual 1/2 value\n  chainId: number;               // Always 1 (EVM)\n  isActive: boolean;\n  userId: string;\n  userWallet: string;            // MANAGED wallet address\n  traderWallet: string;          // EVM address\n  lossPercent: number;\n  profitPercent: number;\n  fixedAmountCostPerOrder: string;\n  oppositeCopy: boolean;         // Always true in response (backend ABI offset bug)\n  createdAt: number;\n  lastUpdated: number;\n  totalTrades: number;\n  totalVolumes: number;\n  totalPnl: number;\n}\n```\n\n### Fill History\n\n```typescript\nconst txList = await skill.getHlCopyTradeTxList({\n  userId,\n  data,\n  page: '1',\n  limit: '20',  // max 100\n});\n// { isSuccess: true, totalCount: 42, txes: [...] }\n// Cached 15 seconds\n```\n\n#### HlCopyTradeTx Shape\n\n```typescript\ninterface HlCopyTradeTx {\n  coin: string;              // e.g. \"BTC\"\n  px: string;                // Fill price\n  sz: string;                // Fill size\n  side: string;              // \"B\" (buy) or \"S\" (sell)\n  time: number;              // Unix ms\n  closedPnl: string;\n  oid: string;               // HyperLiquid order ID\n  dir: string;               // e.g. \"Open Long\"\n  copyTradeName: string;     // or \"N/A\"\n  traderTxHash: string;      // or \"N/A\"\n  traderSize: string;        // or \"N/A\"\n  traderPrice: string;       // or \"N/A\"\n  traderWallet: string;      // or \"N/A\"\n}\n```\n\n## Write Endpoints (ComputedData Auth)\n\n### Create an HL Perp Copy Trade\n\n```typescript\nawait skill.createHlCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  traderWallet: '0xTraderEvmAddress',\n  copyTradeName: 'BTC Whale Follower',\n  copyMode: 1,                    // Fixed USD amount per order\n  fixedAmountCostPerOrder: '50',  // $50 per copied trade\n  lossPercent: '25',              // 25% stop-loss (mandatory, > 0)\n  profitPercent: '100',           // 100% take-profit (mandatory, > 0)\n  oppositeCopy: false,            // Copy same direction\n});\n```\n\n**ABI Schema (`hl_create`, 8 fields, ALL strings):**\n\n| # | Field | Type | Description |\n|---|-------|------|-------------|\n| 0 | traderWallet | string | EVM address to copy |\n| 1 | copyTradeName | string | Human-readable label |\n| 2 | copyMode | string | \"1\" or \"2\" |\n| 3 | fixedAmountCostPerOrder | string | USD amount (mode 1) or ratio (mode 2) |\n| 4 | lossPercent | string | Stop-loss % |\n| 5 | profitPercent | string | Take-profit % |\n| 6 | nonce | string | Auto-generated |\n| 7 | oppositeCopy | string | \"1\" or \"\" |\n\n### Update an HL Perp Copy Trade\n\n```typescript\nawait skill.updateHlCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  copyTradeId: 'abc123...',\n  traderWallet: '0xTraderEvmAddress',\n  copyTradeName: 'BTC Whale (Updated)',\n  copyMode: 2,                    // Switch to proportional\n  fixedAmountCostPerOrder: '0.5', // 50% of trader's size\n  lossPercent: '30',\n  profitPercent: '150',\n  oppositeCopy: true,             // Now copy opposite direction\n});\n```\n\n### Delete an HL Perp Copy Trade\n\nUse either `isDelete` or `isChangeStatus` \u2014 both permanently delete the trade.\n\n```typescript\nawait skill.updateHlCopyTrade({\n  ...existingParams,\n  isDelete: true,  // Permanently deletes\n});\n```\n\n> **\u26A0\uFE0F WARNING: `isChangeStatus` also PERMANENTLY DELETES the trade.**\n> Despite the name suggesting a toggle, `isChangeStatus` behaves identically to `isDelete`\n> on the current backend. This matches Solana copy trade behavior.\n\n**ABI Schema (`hl_update`, 11 fields, ALL strings):**\n\n| # | Field | Type | Description |\n|---|-------|------|-------------|\n| 0 | traderWallet | string | EVM address |\n| 1 | copyTradeName | string | Label |\n| 2 | copyMode | string | \"1\" or \"2\" |\n| 3 | fixedAmountCostPerOrder | string | Amount or ratio |\n| 4 | lossPercent | string | Stop-loss % |\n| 5 | profitPercent | string | Take-profit % |\n| 6 | nonce | string | Auto-generated |\n| 7 | isDelete | string | \"1\" or \"\" |\n| 8 | isChangeStatus | string | \"1\" or \"\" |\n| 9 | copyTradeId | string | Existing trade ID |\n| 10 | oppositeCopy | string | \"1\" or \"\" |\n\n## Backend Quirks (Live E2E Findings)\n\n> These are verified behaviors observed during live E2E testing.\n\n1. **`copyMode` in responses is the ABI byte-offset, not the actual value.** For `hl_create` (8 fields) the offset is 416; for `hl_update` (11 fields) it's 480. The actual copy mode value (1 or 2) exists in the ABI data but the backend stores the offset instead.\n\n2. **`oppositeCopy` in responses is always `true`** for the same ABI-offset reason. The offset slot is always a non-zero number (736 for create, 960 for update), which the backend interprets as truthy.\n\n3. **Both `isDelete` and `isChangeStatus` permanently DELETE** the copy trade. `isChangeStatus` does NOT toggle `isActive` on/off. This matches Solana copy trade behavior exactly.\n\n4. **`user_stats` requires the MANAGED wallet address** (`userWallet` from the copy trade config), not the control wallet address. The control wallet and external trader wallets return `{\"code\":103,\"error\":\"Wallet not found\"}`.\n\n5. **Discovery endpoints use different query params:**\n   - `user_stats`: `?user=<address>` (managed wallet only)\n   - `clearinghouse_state`, `clearinghouse_state_all`: `?address=<address>`\n   - `open_orders`, `open_orders_all`: `?address=<address>`\n   - `usdc_balance`: `?address=<address>`\n\n6. **`top_traders_by_pnl`** returns nested structure: `{ day: [...], week: [...], month: [...] }` where each entry has `ethAddress`, `accountValue`, and `windowPerformances`.\n\n7. **`deposit_tokens`** response keys are chain IDs (e.g., `\"42161\"` for Arbitrum), not chain names. Each token includes `name`, `symbol`, `address`, `chainId`, `decimals`, `minDeposit`, `HLReceiver`.\n\n## Backend Validation Rules\n\n- **TP/SL mandatory**: Both `lossPercent` > 0 (and < 100) and `profitPercent` > 0\n- **Copy modes**: Mode 1 = fixed USD per order, Mode 2 = proportion of trader's size\n- **Max copies**: Default 3 per user (`hyperLiquidConfig.maxFuturesCopy`)\n- **No self-copy**: Can't copy your own wallet\n- **Circular dependency**: Full DFS graph cycle detection (A\u2192B\u2192C\u2192A prevented)\n- **No duplicates**: Can't copy the same trader wallet twice\n\n## How Copies Execute\n\nCopies are NOT executed at API call time. A background watcher monitors tracked traders:\n1. Detects trader's new perp position (open/close/modify)\n2. Calculates your position size based on copyMode\n3. Opens/closes a mirrored position (or opposite if `oppositeCopy=true`)\n4. Applies TP/SL based on your lossPercent/profitPercent settings\n5. Tracks fill in `HLCopyTradeTrack` collection for tx_list\n\n## Example: Full HL Perp Copy Trading Flow\n\n```typescript\nimport {\n  GdexSkill,\n  buildGdexUserSessionData,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n} from '@gemachdao/gdex-skill';\nimport { ethers } from 'ethers';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(apiKey);\n\n// 1. Sign in (chainId: 1 for HL operations)\nconst wallet = ethers.Wallet.fromPhrase(mnemonic);\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\nconst nonce = String(Date.now());\nconst msg = buildGdexSignInMessage(wallet.address, nonce, sessionKey);\nconst sig = await wallet.signMessage(msg);\nconst payload = buildGdexSignInComputedData({\n  apiKey, userId: wallet.address, sessionKey, nonce, signature: sig,\n});\nawait skill.signInWithComputedData({ computedData: payload.computedData, chainId: 1 });\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\nconst userId = wallet.address.toLowerCase();\n\n// 2. Discover top traders\nconst topTraders = await skill.getHlTopTradersByPnl();\nconst bestTrader = topTraders.topTraders[0];\nconsole.log(`Top trader: ${bestTrader.address}, volume: $${bestTrader.volume}`);\n\n// 3. Check trader's stats\nconst stats = await skill.getHlUserStats(bestTrader.address);\nconsole.log(`30d PnL: $${stats.userStats['30d']}`);\n\n// 4. Create a copy trade\nawait skill.createHlCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  traderWallet: bestTrader.address,\n  copyTradeName: `Top PnL: ${bestTrader.address.slice(0, 8)}`,\n  copyMode: 1,\n  fixedAmountCostPerOrder: '25',  // $25 per copied trade\n  lossPercent: '30',\n  profitPercent: '100',\n});\n\n// 5. Monitor\nconst list = await skill.getHlCopyTradeList({ userId, data });\nfor (const ct of list.allCopyTrades) {\n  console.log(`${ct.copyTradeName}: active=${ct.isActive}, trades=${ct.totalTrades}, PnL=$${ct.totalPnl}`);\n}\n\n// 6. Check fill history\nconst fills = await skill.getHlCopyTradeTxList({ userId, data, limit: '20' });\nfor (const tx of fills.txes) {\n  console.log(`${tx.coin} ${tx.dir}: ${tx.sz} @ $${tx.px}, PnL=${tx.closedPnl}`);\n}\n```\n\n## Autonomous Agent Notes (Live-Tested)\n\n1. **`getHlUserStats()` requires the MANAGED wallet address.** Passing the control address or any external trader address returns 400 `\"Wallet not found\"`. Use the managed EVM address from `/v1/user?chainId=1`.\n2. **All 7 other discovery endpoints (topTraders, topTradersByPnl, allAssets, perpDexes, depositTokens, clearinghouseState, openOrders) work with the control address or any external address.** Only `user_stats` has the managed-address requirement.\n3. **Don't trust `copyMode` or `oppositeCopy` in API responses.** The backend returns ABI byte-offsets (416, 480, 736, etc.) instead of the real values. Store your own copy trade configs locally.\n4. **To pause a copy trade, you must delete and recreate it.** There is no toggle endpoint \u2014 `isChangeStatus` deletes permanently.\n5. **Sign-in for HL copy trading must use `chainId: 1`** (EVM), not `622112261` (Solana).\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup and sign-in required for read/write\n- **gdex-copy-trading** \u2014 Solana spot copy trading (separate system)\n- **gdex-perp-trading** \u2014 HL perp order management, positions, leverage\n- **gdex-perp-funding** \u2014 Deposit/withdraw USDC to HL account\n- **gdex-portfolio** \u2014 Monitor portfolio including copied positions\n", files: [] }, { name: "gdex-perp-funding", description: "Deposit and withdraw USDC to/from HyperLiquid for perpetual futures trading \u2014 constraints, amounts, and managed-custody flow", content: "\n# GDEX: HyperLiquid Funding (Deposit / Withdraw)\n\nManage USDC deposits and withdrawals between your managed wallet and HyperLiquid perp account.\n\n## When to Use\n\n- Depositing USDC to HyperLiquid before trading perps\n- Withdrawing USDC from HyperLiquid back to managed wallet\n- Understanding deposit constraints and delivery times\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via managed-custody sign-in \u2014 see **gdex-authentication**\n\n## Deposit USDC to HyperLiquid\n\nEvery deposit needs the managed-custody credentials from sign-in (sign in with\n`chainId: 1`). MCP users pass `accountRef` from `gdex_connect` to `perp_deposit` instead.\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n// ... managed sign-in (see gdex-authentication) \u2192 apiKey, walletAddress (control), sessionPrivateKey\n\n// Amount is human-readable USDC \u2014 SDK converts to smallest unit (6 decimals) internally. Min 10 USDC.\nawait skill.perpDeposit({\n  amount: '50',\n  tokenAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', // USDC on Arbitrum\n  chainId: 42161,     // Arbitrum\n  apiKey,\n  walletAddress,      // MUST be the CONTROL wallet address (from sign-in), NOT the managed address\n  sessionPrivateKey,\n});\n```\n\n> **CRITICAL:** `walletAddress` must be the **control wallet address** used during sign-in \u2014 NOT the managed-custody address returned by `/v1/user`. Passing the managed address causes `400 Unauthorized (code 103)`. See **gdex-authentication** for details.\n\n## Withdraw USDC from HyperLiquid\n\n```typescript\nawait skill.perpWithdraw({\n  amount: '25',\n  apiKey,\n  walletAddress,\n  sessionPrivateKey,\n});\n```\n\n## Deposit Constraints\n\n| Constraint | Value |\n|------------|-------|\n| **Chain** | Arbitrum only (chainId `42161`) |\n| **Token** | USDC only (`0xaf88d065e77c8cC2239327C5EDb3A432268e5831`) |\n| **Min deposit** | 10 USDC |\n| **Amount format** | Human-readable (e.g., `'10'` for 10 USDC); SDK converts to 6 decimal smallest unit internally |\n| **Fee buffer** | Managed wallet must hold `amount \xD7 1.01` (1% fee) |\n| **Delivery time** | ~10 minutes after Arbitrum tx confirms |\n| **On-chain amount** | 10 USDC = `10000000` (6 decimals) in the ABI encoding |\n\n## Check USDC Balance on HyperLiquid\n\n```typescript\n// HL funds sit on the managed EVM wallet (getManagedUser with chainId 1)\nconst balance = await skill.getHlUsdcBalance(managedEvmAddress);\nconsole.log('Available USDC:', balance);\n```\n\n## ABI Encoding Details\n\nThe deposit uses a specific ABI schema with `uint64` for chainId:\n\n| Field | ABI Type | Example |\n|-------|----------|---------|\n| `chainId` | `uint64` | `42161` |\n| `tokenAddress` | `address` | `0xaf88d065e77c8cC2239327C5EDb3A432268e5831` |\n| `amount` | `uint256` | `10000000` (10 USDC) |\n| `nonce` | `string` | Client-generated timestamp + random |\n\n**CRITICAL:** `chainId` is `uint64`, NOT `uint256`. Using `uint256` causes `400 Unauthorized (code 103)`.\n\nWithdraw ABI schema:\n\n| Field | ABI Type | Example |\n|-------|----------|---------|\n| `amount` | `string` | `'5000000'` (5 USDC in smallest unit) |\n| `nonce` | `string` | Client-generated |\n\n## Common Issues\n\n### \"Insufficient balance\" on deposit\n- Managed wallet needs `amount \xD7 1.01` USDC on Arbitrum (1% fee buffer)\n- Check managed wallet balance, not HL perp balance\n\n### Deposit doesn't appear on HL\n- Normal delivery time is ~10 minutes after Arbitrum tx confirmation\n- Use `getHlUsdcBalance()` or `getHlAccountState()` to check\n\n### \u26A0\uFE0F Deposit may return an error even when it succeeded (verify before retrying)\nThe backend can return an error (HTTP 400, \"Transaction has been reverted\u2026\")\n**even though the on-chain USDC transfer to the HL bridge succeeded** and the\nfunds are en route. **Do not blindly retry** \u2014 a retry spends gas and can move\nfunds twice. On any deposit error, first check the managed wallet's USDC\nbalance on Arbitrum and `getHlAccountState()` / `getHlUsdcBalance()`; only\nretry if the balance is unchanged after a few minutes.\n\n### Deposited funds show under the managed address (and may move to spot)\nHyperLiquid credits the depositing wallet (the **managed** address), so check\n`getHlAccountState(managedAddress)`. Enabling outcome (HIP-3) trading or placing\nan outcome order can move USDC from the perp account to the **spot** balance \u2014\ncheck `getHlSpotState(managedAddress)` if the perp balance reads `$0`.\n\n### 400 Unauthorized (code 103)\n- **Most common cause:** Passing the managed address as `walletAddress` instead of the control wallet address \u2014 see **gdex-authentication**\n- Second cause: `uint256` vs `uint64` encoding mismatch for chainId \u2014 see **gdex-perp-trading** for full ABI details\n\n## Autonomous Agent Notes (Live-Tested)\n\n1. **Deposit of 10 USDC was E2E verified.** Takes ~10 minutes for USDC to appear on HyperLiquid after Arbitrum tx confirms.\n2. **After deposit, check balance with `getHlAccountState()`** \u2014 `getGbotUsdcBalance` returns 404.\n3. **Amount is human-readable for high-level methods** (`perpDeposit({ amount: '10' })`), but the ABI encoding internally converts to 6-decimal smallest unit (10 USDC = 10000000).\n4. **Sign-in must use `chainId: 1`** (EVM) for HL deposit/withdraw operations.\n5. **`walletAddress` MUST be control wallet** \u2014 passing managed address \u2192 400 Unauthorized (code 103).\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Managed-custody auth required for deposits/withdrawals\n- **gdex-perp-trading** \u2014 Trade perps after funding your HL account\n- **gdex-portfolio** \u2014 Check overall portfolio including HL positions\n", files: [] }, { name: "gdex-perp-trading", description: "HyperLiquid perpetual futures \u2014 open/close positions, set leverage, place market and limit orders with TP/SL, and manage open orders", content: "\n# GDEX: Perpetual Futures Trading (HyperLiquid)\n\nTrade perpetual futures on HyperLiquid through GDEX managed-custody. Supports long/short positions, configurable leverage, take-profit/stop-loss, and market/limit orders.\n\n## When to Use\n\n- Opening or closing perp positions\n- Setting leverage for an asset\n- Placing HL orders (market/limit) with TP/SL\n- Querying positions, mark prices, or account state\n- Canceling orders\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via `loginWithApiKey()` \u2014 see **gdex-authentication**\n- USDC deposited to HyperLiquid \u2014 see **gdex-perp-funding**\n\n## Open a Position (managed custody)\n\nPerp orders go through `hlCreateOrder` after a managed sign-in. There is **no**\n`openPerpPosition`/`setPerpLeverage` \u2014 those don't exist (closing has\n`closePerpPosition`, below). The real flow:\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n// ... do the managed sign-in (see gdex-authentication) to get sessionPrivateKey ...\nconst creds = { apiKey, walletAddress: controlAddress, sessionPrivateKey };\n\nconst res = await skill.hlCreateOrder({\n  coin: 'ETH',           // 'BTC'|'ETH'|'SOL'\u2026 or a builder market 'xyz:NVDA' (lowercase dex prefix)\n  isLong: true,\n  price: String(mark),   // mark price; for market orders this is the slippage bound\n  size: '0.05',          // size in CONTRACTS (coin units), not USD\n  isMarket: true,\n  tpPrice: String(tp),   // '' to skip\n  slPrice: String(sl),   // '' to skip\n  leverage: 3,           // 1\u201350; see below\n  ...creds,\n});\n```\n\n**Leverage is supported** and is sent as a **top-level field** in the order\nrequest (the SDK forwards it for you). Verified: setting `leverage: 3` opens at\n3\xD7 (liquidation at the matching buffer) instead of HL's 20\xD7 default.\n\n> The standalone `/hl/update_leverage` endpoint (`hlUpdateLeverage`) is **404 \u2014 do\n> not use it.** Leverage is set as part of the order via the `leverage` field above.\n\n## Close a Position\n\nPrefer `closePerpPosition`: it reads the live position (dex-scoped\nclearinghouse state, signed `szi`) and picks the side for you \u2014 a long closes\nwith a sell, a short with a buy. Omit `size` for a full close; a larger `size`,\na flat position, or a bare coin open on several builder dexes is rejected.\n`positionAddress` is the address whose HL account holds the position (the\nmanaged wallet; defaults to `walletAddress`).\n\n```typescript\nconst r = await skill.closePerpPosition({ ...creds, coin: 'xyz:TSLA', positionAddress: managedAddress });\n// r: { closeSide: 'buy' | 'sell', size, positionSize, remainingSize, order, ... }\n```\n\nOr by hand with a reduce-only order (the opposite side, full size), or close everything:\n\n```typescript\nawait skill.hlCreateOrder({ coin: 'ETH', isLong: false, price: String(mark),\n  size: String(positionSize), reduceOnly: true, isMarket: true, tpPrice: '', slPrice: '', ...creds });\n\nawait skill.hlCloseAll({ ...creds }); // close all positions\n```\n\nNote HL's **$11 minimum order value** applies to closes too \u2014 you can't reduce a\nsub-$11 remainder; add to it first or let the stop close it.\n\n## Builder / HIP-3 markets (stocks, commodities)\n\nBuilder-dex assets are named `dex:ASSET` with a **lowercase** dex prefix\n(`xyz:NVDA`, `xyz:SPCX`, `flx:OIL`). Pass the coin in that exact form (the SDK\nnormalizes casing). They trade through the same `hlCreateOrder` flow as default\nmarkets and honor the `leverage` you pass (live-confirmed: `xyz` stock perps open\nat **3\xD7 isolated**, not 20\xD7).\n\n**Collateral depends on the dex.** The `xyz` stock/commodity perps are\n**USDC-collateralized and 24-hour** \u2014 no collateral swap needed; trade them with\nyour existing HL USDC. Only dexes that settle in a different token (e.g. HYNA \u2192\nUSDE) need `hlSwapCollateral` first. The account must be a **unified account**\n(`hlEnableTrading`) to share margin across dexes.\n\n**Reading builder positions is dex-scoped.** A `xyz:NVDA` position lives under the\n`xyz` dex's isolated account, **not** the default clearinghouse \u2014 query\n`getHlClearinghouseState({ userAddress, dex: 'xyz' })`. The default query (and\n`getHlClearinghouseStateAll`, which omits `xyz`) returns it empty, which looks\nlike \"the order never filled\" when it actually did.\n\n## Query Positions & Account State\n\nPositions live on the **managed** EVM wallet (from sign-in / `getManagedUser`), so\nreads take that address; writes take the control wallet.\n\n```typescript\n// Get open positions\nconst positions = await skill.getPerpPositions({\n  walletAddress: managedEvmAddress,\n  coin: 'BTC',   // optional filter\n});\n// Each: { coin, side, size, entryPrice, markPrice, leverage, unrealizedPnl, liquidationPrice }\n\n// Full account state\nconst state = await skill.getHlAccountState(managedEvmAddress);\n// { accountValue, totalNtlPos, totalRawUsd, totalMarginUsed, withdrawable, positions[] }\n\n// Mark price for an asset\nconst price = await skill.getHlMarkPrice('BTC');\n```\n\n## Place Orders (HL Managed-Custody)\n\n### Market Order with TP/SL\n\n```typescript\nawait skill.hlCreateOrder({\n  coin: 'ETH',\n  isLong: true,\n  price: '0',       // '0' for market orders\n  size: '0.5',      // position size\n  reduceOnly: false,\n  isMarket: true,\n  tpPrice: '4000',  // take-profit (optional)\n  slPrice: '3200',  // stop-loss (optional)\n  apiKey,\n  walletAddress,\n  sessionPrivateKey,\n});\n```\n\n### Simple Order (no TP/SL)\n\n```typescript\nawait skill.hlPlaceOrder({\n  coin: 'SOL',\n  isLong: false,     // short\n  price: '180',      // limit price\n  size: '10',\n  reduceOnly: false,\n  apiKey,\n  walletAddress,\n  sessionPrivateKey,\n});\n```\n\n## Cancel Orders\n\n```typescript\n// Cancel specific order\nawait skill.hlCancelOrder({\n  coin: 'BTC',\n  orderId: '12345',\n  apiKey,\n  walletAddress,\n  sessionPrivateKey,\n});\n\n// Cancel all orders\nawait skill.hlCancelAllOrders({\n  apiKey,\n  walletAddress,\n  sessionPrivateKey,\n});\n```\n\n## Close All Positions\n\n> **WARNING:** The `hlCloseAll` / `/v1/hl/close_all_positions` endpoint is unreliable \u2014 it frequently returns `TIMEOUT` or JSON parse errors from the backend. **Close per coin with `closePerpPosition`, or a reduce-only order** (see below).\n\n```typescript\n// \u274C Unreliable \u2014 may timeout\nawait skill.hlCloseAll({\n  apiKey,\n  walletAddress,   // MUST be control address, not managed address\n  sessionPrivateKey,\n});\n\n// \u2705 Reliable \u2014 close one coin; side and size come from the live position\nawait skill.closePerpPosition({ coin: 'BTC', positionAddress: managedEvmAddress, apiKey, walletAddress, sessionPrivateKey });\n\n// \u2705 Or by hand: to close a LONG, place a SHORT reduce-only order for the exact size\nconst btcPrice = await skill.getHlMarkPrice('BTC');\nawait skill.hlCreateOrder({\n  coin: 'BTC',\n  isLong: false,                               // opposite of your position\n  price: Math.round(btcPrice * 0.97).toString(), // 3% below mid for market sell\n  size: '0.001',                                 // exact position size\n  reduceOnly: true,                              // close only, don't open new position\n  isMarket: true,\n  tpPrice: '',\n  slPrice: '',\n  apiKey,\n  walletAddress,   // MUST be control address\n  sessionPrivateKey,\n});\n```\n\n## HL ABI Schemas (Critical)\n\nHL operations use a **different crypto pipeline** than spot trades. Getting any detail wrong produces `400 Unauthorized (code 103)`.\n\n| Action | ABI Types | Fields |\n|--------|-----------|--------|\n| `hl_deposit` | `['uint64', 'address', 'uint256', 'string']` | `[chainId, tokenAddress, amount, nonce]` |\n| `hl_withdraw` | `['string', 'string']` | `[amount, nonce]` |\n| `hl_create_order` | `['string', 'bool', 'string', 'string', 'bool', 'string', 'string', 'string', 'bool']` | `[coin, isLong, price, size, reduceOnly, nonce, tpPrice, slPrice, isMarket]` |\n| `hl_place_order` | `['string', 'bool', 'string', 'string', 'bool', 'string']` | `[coin, isLong, price, size, reduceOnly, nonce]` |\n| `hl_close_all` | `['string']` | `[nonce]` |\n| `hl_cancel_order` | `['string', 'string', 'string']` | `[nonce, coin, orderId]` |\n| `hl_cancel_all_orders` | `['string']` | `[nonce]` |\n| `hl_update_leverage` | `['string', 'uint32', 'bool', 'string']` | `[coin, leverage, isCross, nonce]` |\n\n**CRITICAL:** `hl_deposit` chainId is `uint64`, NOT `uint256`. This is the #1 cause of Unauthorized errors. The backend re-encodes with `uint64` for signature verification \u2014 if you encode with `uint256`, the hex differs and you get code 103.\n\n## HL Managed-Custody Credentials\n\nAll HL write operations require `HlManagedCredentials`:\n\n```typescript\ninterface HlManagedCredentials {\n  apiKey: string;            // GDEX API key for AES encryption\n  walletAddress: string;     // CONTROL wallet address (from sign-in), NOT managed address\n  sessionPrivateKey: string; // Session key from sign-in flow\n}\n```\n\n## Default HL Assets\n\nBTC, ETH, SOL, DOGE, AVAX, APE, APT, ARB, ATOM, BCH, BLUR, BNB, COMP, CRV, DOT, EOS, FIL, FTM, HBAR, ICP, IMX, INJ, JUP, KPEPE, LDO, LINK, LTC, MATIC, MKR, NEAR, OP, ORDI, PEPE, PYTH, RNDR, RUNE, SEI, SHIB, SNX, STX, SUI, TIA, TON, TRX, UNI, WIF, WLD, XRP\n\n## Critical: walletAddress Must Be Control Address\n\n**The #1 cause of `400 Unauthorized (code 103)` on HL operations is passing the wrong `walletAddress`.**\n\n- During sign-in, the session key is registered against your **control wallet address** (e.g., `0x53D0...2eD`).\n- The backend returns a **managed address** (e.g., `0x9967...0f`) that holds the actual funds.\n- All HL write operations sign the message as `{action}-{walletAddress}-{data}`, and the backend verifies the signature against the session key registered for that address.\n- If you pass the managed address, the signature verification fails \u2192 code 103.\n\n```typescript\n// \u274C WRONG \u2014 causes 400 Unauthorized (code 103)\nconst creds = { apiKey, walletAddress: managedAddress, sessionPrivateKey };\n\n// \u2705 CORRECT \u2014 use the control wallet address from sign-in\nconst creds = { apiKey, walletAddress: controlAddress, sessionPrivateKey };\n```\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup required for all HL operations\n- **gdex-perp-funding** \u2014 Deposit/withdraw USDC to HyperLiquid\n- **gdex-portfolio** \u2014 View positions and P&L\n\n## Autonomous Agent Notes (Live-Tested)\n\n### Endpoints That Don't Work\n\n| Endpoint | Status | What to Do |\n|----------|--------|------------|\n| `hlCloseAll` / `/v1/hl/close_all_positions` | Returns TIMEOUT or 400 | Place a reduce-only `hlCreateOrder` for the exact position size |\n| `hlUpdateLeverage` / `/v1/hl/update_leverage` | Returns 404 | Pass `leverage` on `hlCreateOrder` (sent top-level with the order) |\n| `getGbotUsdcBalance` | Returns 404 | Use `getHlAccountState()` or clearinghouse state to check balance |\n\n### Close Position Reliably (Live-Tested)\n\n```typescript\n// Positions are read from the MANAGED wallet; the close is signed with the CONTROL wallet.\nconst positions = await skill.getPerpPositions({ walletAddress: managedEvmAddress });\n\nfor (const pos of positions) {\n  // Reads the live side/size and sends a reduce-only market order on the opposite side\n  await skill.closePerpPosition({\n    coin: pos.coin,\n    positionAddress: managedEvmAddress,\n    apiKey,\n    walletAddress: controlAddress,   // MUST be control address\n    sessionPrivateKey,\n  });\n}\n```\n\n### HL Deposit Minimum\n\n- **Minimum deposit: 10 USDC** (10000000 in smallest unit)\n- Managed wallet must hold `amount \xD7 1.01` (1% fee buffer)\n- Delivery takes ~10 minutes after Arbitrum tx confirms\n\n### Leverage and Position Sizing\n\n- Set leverage per order with `leverage` on `hlCreateOrder` (MCP: `open_perp_position`); it is sent as a\n  top-level field with the order. Omitted, HL uses its default (20x on most markets).\n- `hlUpdateLeverage` (MCP: `set_leverage`) hits `/hl/update_leverage`, which has returned 404 \u2014 don't rely on it.\n- **Effective leverage** = position notional value / account equity, so size positions with that in mind.\n\n### Critical Checks Before Opening a Position\n\n1. Verify USDC is deposited on HL (use `getHlAccountState()`)\n2. Use **control** wallet address (not managed) for all write operations\n3. Generate a fresh nonce for every order\n4. For market orders: set `isMarket: true` and pass the mark price (`'0'` is resolved to the mark price by the SDK)\n5. Pass `''` for `tpPrice` / `slPrice` to skip TP/SL\n", files: [] }, { name: "gdex-portfolio", description: "Cross-chain portfolio overview, chain-specific token balances, and paginated trade history", content: "\n# GDEX: Portfolio & Balances\n\nQuery cross-chain portfolio summaries, chain-specific balances, and trade history.\n\n> **USDC across chains:** `getUsdcBalances` returns the user's USDC and gas balance on every USDC chain plus the total. See **gdex-usdc-wallet**.\n\n## When to Use\n\n- Getting a user's total portfolio value across all chains\n- Checking token balances on a specific chain\n- Retrieving trade history with pagination and filters\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via `loginWithApiKey()` \u2014 see **gdex-authentication**\n\n## Cross-Chain Portfolio\n\n> **WARNING (Live-Tested):** The high-level `getPortfolio()` and `getBalances()` methods send `walletAddress` + `chain` to the backend, but the backend expects `userId` + `chainId` + `data` (encrypted session key). **These methods return empty or incorrect results.** Use the raw client workaround below.\n\n### Correct Way \u2014 Raw Client (Live-Tested, Works)\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY, buildGdexUserSessionData } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// Build encrypted session data\nconst data = buildGdexUserSessionData(sessionKey, GDEX_API_KEY_PRIMARY);\n\n// Portfolio \u2014 use raw client with correct params\nconst portfolio = await skill.client.get('/v1/portfolio', {\n  params: {\n    userId: controlAddress,   // control wallet, NOT managed\n    chainId: 622112261,       // numeric Solana chain ID\n    data,                     // encrypted session key\n  }\n});\n```\n\n### Incorrect Way \u2014 High-Level Methods (SDK Bug)\n\n```typescript\n// \u274C These send wrong params to backend \u2014 DO NOT USE for managed custody\nconst portfolio = await skill.getPortfolio({ walletAddress: '0x...', chain: 'solana' });\nconst balances = await skill.getBalances({ walletAddress: '0x...', chain: 8453 });\n```\n\n### Portfolio Response\n\n```typescript\ninterface Portfolio {\n  totalValueUsd: number;\n  balances: Balance[];\n  perpPositions?: PerpPosition[];\n  realizedPnl?: number;\n  unrealizedPnl?: number;\n  totalPnl?: number;\n}\n\ninterface Balance {\n  tokenAddress: string;\n  symbol: string;\n  name: string;\n  decimals: number;\n  rawBalance: string;\n  balance: string;        // human-readable\n  usdValue: number;\n  priceUsd: number;\n  change24h?: number;\n  chain: string | number;\n}\n```\n\n## Chain-Specific Balances\n\n> **WARNING (Live-Tested):** Same issue as portfolio \u2014 use raw client. On\n> backend v1.1.0 balances are embedded in the portfolio response under\n> `portfolio.balances[]` (there is no separate `/v1/balances` endpoint).\n\n```typescript\nconst portfolio = await skill.client.get('/v1/portfolio', {\n  params: {\n    userId: controlAddress,\n    chainId: 622112261,       // numeric chain ID\n    data,                     // encrypted session key\n  }\n});\nconst balances = portfolio.balances ?? [];\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `walletAddress` | `string` | Yes | Wallet address to query |\n| `chain` | `string \\| ChainId` | Yes | Chain to query balances on |\n| `tokenAddress` | `string` | No | Filter to a specific token |\n\n## Trade History\n\n> **WARNING (Live-Tested):** The backend expects param `user` (NOT `userId`), and managed Solana chainId for trade history is `900` (NOT `622112261`). Use the raw client:\n\n```typescript\nconst history = await skill.client.get('/v1/user_history', {\n  params: {\n    user: controlAddress,     // NOTE: \"user\", not \"userId\"\n    chainId: 900,             // NOTE: 900 for Solana trade history, not 622112261\n    data,                     // encrypted session key\n    page: 1,\n    limit: 20,\n  }\n});\n```\n\n> The high-level `getTradeHistory()` sends wrong param names. Use raw client above.\n\n### Trade Record\n\n```typescript\ninterface TradeRecord {\n  id: string;\n  type: string;        // 'buy' | 'sell'\n  inputToken: string;\n  outputToken: string;\n  amountIn: string;\n  amountOut: string;\n  usdValue?: number;\n  chain: string | number;\n  dex?: string;\n  txHash: string;\n  timestamp: number;\n  status: string;\n}\n```\n\n## Example: Portfolio Dashboard (Autonomous Agent \u2014 Live-Tested)\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY, buildGdexUserSessionData } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// Build encrypted session data (required for all portfolio/balance/history queries)\nconst data = buildGdexUserSessionData(sessionKey, GDEX_API_KEY_PRIMARY);\nconst userId = controlAddress; // control wallet, NOT managed\n\n// 1. Get portfolio (raw client \u2014 high-level method has wrong params)\nconst portfolio = await skill.client.get('/v1/portfolio', {\n  params: { userId, chainId: 622112261, data }\n});\n\n// 2. Get balances (embedded in portfolio.balances[] on backend v1.1.0)\nconst balances = portfolio.balances ?? [];\n\n// 3. Get trade history (use \"user\" param, chainId 900 for Solana)\nconst history = await skill.client.get('/v1/user_history', {\n  params: { user: userId, chainId: 900, data, page: 1, limit: 20 }\n});\n```\n\n## Autonomous Agent Notes\n\n1. **Always use raw client** for portfolio, balances, and trade history. The high-level SDK methods send incorrect parameter names.\n2. **Portfolio/balances chainId**: Use `622112261` for Solana, standard EVM chain IDs for others.\n3. **Trade history chainId**: Use `900` for Solana (not `622112261`). This is a backend quirk.\n4. **Trade history param**: Use `user` (not `userId`) \u2014 backend expects different param name for this endpoint.\n5. **Data param**: Always pass the encrypted session key from `buildGdexUserSessionData()`.\n6. **userId**: Always use the **control** wallet address, never the managed address.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup required for portfolio queries\n- **gdex-spot-trading** \u2014 Execute trades based on portfolio analysis\n- **gdex-perp-trading** \u2014 View perp positions in portfolio\n- **gdex-token-discovery** \u2014 Research tokens found in portfolio\n", files: [] }, { name: "gdex-retailer-onboarding", description: "Retailer partner integrations \u2014 list branded onboarding partners that white-label the GDEX trading stack", content: "\n# GDEX: Retailer Onboarding\n\nInspect the list of registered retailer partners \u2014 third-party brands that\nwhite-label the GDEX trading stack and have their own branded onboarding\nexperience.\n\n## When to Use\n\n- Building a partner-aware onboarding flow that routes users to their\n  retailer's branded sign-up\n- Surfacing partner branding (logo, theme, name) at the application level\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- No authentication required (public retailer registry)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/retailer` | List registered retailer integrations |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nconst retailers = await skill.getRetailers();\n// Optionally filter by retailer slug / identifier:\nconst single = await skill.getRetailers({ retailer: 'partner-slug' });\n```\n\n## Notes\n\n- The retailer registry is the source of truth for the partner-onboarding\n  routing layer \u2014 clients should treat it as authoritative.\n- Per-retailer schema (logo, theme, redirect URLs) is determined by the\n  backend deployment.\n", files: [] }, { name: "gdex-sdk-debugging", description: "Troubleshoot GDEX SDK errors \u2014 error codes, encryption debugging, chain-specific quirks, HL gotchas, and copy trade pitfalls", content: "\n# GDEX: SDK Debugging & Troubleshooting\n\nComprehensive troubleshooting guide for GDEX SDK errors, covering API error codes, encryption debugging, chain-specific quirks, HyperLiquid gotchas, and copy trade pitfalls. All issues documented from live E2E testing.\n\n## When to Use\n\n- Getting unexpected API errors (103, 102, TIMEOUT)\n- Trades failing silently or returning wrong data\n- Debugging encryption / `computedData` payload issues\n- Chain-specific problems (wrong chainId, wrong managed wallet)\n- HyperLiquid perp issues\n- Copy trade configuration problems\n\n## API Error Codes\n\n| Code | Error | Common Cause | Fix |\n|------|-------|-------------|-----|\n| `103` | Unauthorized | Wrong `walletAddress` (using managed instead of control), wrong ABI type, signing with wrong key | Use **control wallet address** as `walletAddress` / `userId`. Verify session key matches sign-in. |\n| `102` | Invalid chainId | Using wrong chainId for HL operations | HL operations require `chainId: 42161` (Arbitrum). Copy trades need specific chainIds (see below). |\n| `102` | Invalid params | Reused nonce, unsupported token, or malformed ABI payload | Check nonce is fresh (`Date.now()`). Verify token is supported on chain. |\n| `400` | Bad Request | Missing required fields or wrong field types | Check all required params are present and correctly typed. |\n| `TIMEOUT` | Request timeout | Backend processing delay (common with `hlCloseAll`) | Retry once, or use alternative approach (reduce-only order to close). |\n| `JSON parse error` | Invalid response | Backend returned non-JSON (HTML error page, Cloudflare block) | Check User-Agent header is set. Verify API key is valid. |\n\n## Critical: Control Wallet vs Managed Wallet\n\nThis is the **#1 source of errors**:\n\n```\nControl wallet:  0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD  \u2190 used for API calls (userId, walletAddress)\nManaged wallet:  0x9967179de55bd67e6b90fcc4f908556d93938c0f  \u2190 server-side, executes trades on-chain\n```\n\n**Rule:** All API calls use the **control address** \u2014 the one you signed in with. The managed address is only used when querying on-chain state directly (e.g., `user_stats` on HL needs the managed address).\n\n> The `/v1/user` endpoint returns a **different managed wallet per chainId**:\n> - `chainId=1` \u2192 EVM managed: `0x9967...`\n> - `chainId=622112261` \u2192 Solana managed: `CFSi4Y...` (base58)\n\n## Chain ID Gotchas\n\n| Issue | Wrong | Correct | Notes |\n|-------|-------|---------|-------|\n| Solana chain ID | `900` | `622112261` (`ChainId.SOLANA`) | `900` returns EVM managed address with `balance: null` |\n| Copy trade sign-in | `chainId: 1` | `chainId: 622112261` | Solana copy trades need Solana chainId for sign-in |\n| Perp copy trade sign-in | `chainId: 622112261` | `chainId: 1` | HL perp copy trades need EVM chainId for sign-in |\n| HL operations | Any other | `42161` (Arbitrum) | HL deposit, create order, close \u2014 all use Arbitrum chainId |\n\n## HyperLiquid-Specific Issues\n\n### `hlCloseAll` is Unreliable\n\nThe `/v1/hl/close_all_positions` endpoint frequently returns `TIMEOUT` or JSON parse errors.\n\n**Workaround:** Close each coin with `closePerpPosition` (MCP: `close_perp_position`). It reads the live\nposition and sends a reduce-only market order for the exact size on the opposite side:\n```typescript\n// Instead of skill.hlCloseAll() \u2014 use this:\nconst positions = await skill.getPerpPositions({ walletAddress: managedEvmAddress }); // positions live on the managed wallet\nfor (const pos of positions) {\n  await skill.closePerpPosition({\n    coin: pos.coin,\n    positionAddress: managedEvmAddress,\n    apiKey,\n    walletAddress: controlAddress,  // control wallet signs\n    sessionPrivateKey,\n  });\n}\n```\n\n### Leverage Is Set Per Order\n\nThe standalone `hlUpdateLeverage` / `/v1/hl/update_leverage` endpoint returns **404**. Set leverage on the\norder instead: `hlCreateOrder({ ..., leverage: 5 })` (MCP: `open_perp_position` with `leverage`). The SDK\nsends it as a top-level field next to `computedData`, which is where the backend reads it. Omitted, HL\nuses its default (20x on most markets).\n\n### HL Signature Format\n\n```\nmessage = \"{action}-{userId.toLowerCase()}-{dataHex}\"\ndigest  = keccak256(utf8Bytes(message))\noutput  = r(64hex) + s(64hex) + v(2hex)  // 130 chars total, v=00/01, no 0x prefix\n```\n\nCommon signature errors:\n- Wrong `userId` (must be control wallet, lowercase)\n- Wrong `action` string (e.g., `\"hl_deposit\"` not `\"deposit\"`)\n- Leading `0x` on signature output (must be stripped)\n- Wrong `v` value (must be `00` or `01`, not `27`/`28`)\n\n## Encryption Debugging\n\nAll managed-custody trades use AES-256-CBC encrypted `computedData`:\n\n```\n1. ABI-encode trade parameters \u2192 hex string (no 0x prefix)\n2. Sign: keccak256(action + userId + dataHex) \u2192 r+s+v (130 chars)\n3. Encrypt: AES-256-CBC(dataHex + signature, derivedKey, iv)\n4. POST to backend with { computedData, userId, chainId }\n```\n\n### Common Encryption Errors\n\n| Symptom | Cause | Fix |\n|---------|-------|-----|\n| `103 Unauthorized` | ABI using `uint256` when backend expects `uint64`, or vice versa | Check the exact ABI types for each endpoint \u2014 HL deposit uses `uint64`, not `uint256` |\n| `Invalid signature` | Signing with wrong key or wrong message format | Ensure session key (not control wallet key) signs the message. Check action string exactly matches. |\n| Empty response | `computedData` encrypted with wrong key | Verify AES key derivation: `SHA256(SHA256(SHA256(apiKey)))` |\n| `Reused nonce` | Same nonce value in consecutive trades | Always use fresh `Date.now()` or incrementing nonce |\n\n### AES Key Derivation\n\n```typescript\nconst key = SHA256(SHA256(SHA256(apiKey)));  // 3\xD7 SHA256 hash chain\nconst iv = randomBytes(16);                  // fresh IV per request\nconst encrypted = AES_CBC_encrypt(payload, key, iv);\n// computedData = iv.hex + encrypted.hex (concatenated)\n```\n\n## Solana-Specific Issues\n\n### Meteora Swaps Are Broken\n\nTokens routed through Meteora DLMM (e.g., BONK) fail with `Program error: 1` because the backend doesn't wrap SOL into WSOL.\n\n**Workaround:** Use Raydium-routed tokens. Check `token.dexId`:\n- `\"raydium\"` / `\"raydium_v2\"` \u2192 works\n- `\"meteora\"` \u2192 **will fail**\n- `\"orca\"` \u2192 works\n\n### ATA Creation Costs\n\nFirst trade on a new Solana token incurs ~0.007 SOL overhead:\n- ATA creation: ~0.002 SOL\n- Priority fee: ~0.0005 SOL (default)\n- Keep at least 0.01 SOL in the managed wallet for safety\n\n### Solana Managed Wallet\n\nAfter sign-in with `chainId: 622112261`, the Solana managed wallet is a **base58 address** (not hex):\n```\nCFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1\n```\n\n## Copy Trade Pitfalls\n\n### `isDelete` and `isChangeStatus` Both Delete\n\nOn **both Solana and HyperLiquid**, setting either `isDelete='1'` or `isChangeStatus='1'` **permanently deletes** the copy trade. There is no \"pause\" or \"toggle\" \u2014 it's irreversible.\n\n> **Boolean encoding:** Use `''` (empty string) for false and `'1'` for true. The string `'0'` is **truthy** and will trigger deletion.\n\n### ABI Offset Bugs in Responses\n\nThe backend returns ABI **byte-offsets** instead of actual values for some fields:\n- `copyMode` \u2192 Returns `416` or `480` (byte offset), not the JSON value\n- `oppositeCopy` \u2192 Always returns `true` regardless of actual setting\n\n**Workaround:** Store your own copy trade configuration locally. Don't rely on response values for `copyMode` or `oppositeCopy`.\n\n### Max 3 HL Copy Trades\n\nThe HyperLiquid perp copy trading system allows a maximum of 3 active copy trades per user. Creating a 4th will fail.\n\n## Network Issues\n\n### Cloudflare Blocking\n\nThe GDEX backend sits behind Cloudflare. Requests without a browser-like `User-Agent` may be blocked.\n\n```typescript\n// The SDK handles this automatically, but for manual requests:\nheaders: {\n  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',\n  'Content-Type': 'application/json',\n  'Authorization': `Bearer ${apiKey}`,\n}\n```\n\n### Bridge Endpoint Paths\n\nBridge endpoints use non-obvious paths:\n- `GET /v1/bridge/estimate_bridge` (not `/bridge/estimate`)\n- `POST /v1/bridge/request_bridge` (not `/bridge/execute`)\n- `GET /v1/bridge/bridge_orders` (not `/bridge/orders`)\n\n## Debugging Checklist\n\nWhen a trade fails, check in order:\n\n1. **Auth:** Is `loginWithApiKey()` called? Is the API key valid?\n2. **Wallet:** Are you using the **control** wallet address (not managed)?\n3. **Chain ID:** Is chain ID correct for the operation? (See table above)\n4. **Nonce:** Is the nonce fresh (`Date.now()`)?\n5. **ABI types:** Do the ABI types exactly match what the backend expects?\n6. **Signature:** Is the session key signing (not control key)? Is the message format correct?\n7. **Balance:** Does the managed wallet have enough funds + gas?\n\n## Portfolio / Balances / Trade History Quirks (Live-Tested)\n\nThese are **critical for autonomous agents** \u2014 the high-level SDK methods have parameter mismatches:\n\n| Endpoint | SDK Method Issue | Correct Raw Client Call |\n|----------|-----------------|------------------------|\n| Portfolio | `getPortfolio()` sends `walletAddress`+`chain` | `GET /v1/portfolio?userId=X&chainId=N&data=Y` |\n| Balances | `getBalances()` sends `walletAddress`+`chain` | `GET /v1/portfolio?userId=X&chainId=N&data=Y` (balances embedded under `portfolio.balances[]`) |\n| Trade History | `getTradeHistory()` sends `userId` | `GET /v1/user_history?user=X&chainId=900&data=Y` |\n\n**Key differences:**\n- Portfolio/balances: Backend expects `userId` + `chainId` + `data` (encrypted session key), NOT `walletAddress` + `chain`. On v1.1.0 there is no separate `/v1/balances` endpoint \u2014 balances are embedded under `portfolio.balances[]`.\n- Trade history: Backend expects `user` (NOT `userId`) and `chainId: 900` for Solana (NOT `622112261`)\n- All three require the encrypted session key from `buildGdexUserSessionData()`\n\n```typescript\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\n\n// Correct portfolio call (balances are inside portfolio.balances[])\nconst portfolio = await skill.client.get('/v1/portfolio', {\n  params: { userId: controlAddress, chainId: 622112261, data }\n});\n\n// Correct trade history call\nconst history = await skill.client.get('/v1/user_history', {\n  params: { user: controlAddress, chainId: 900, data, page: 1, limit: 20 }\n});\n```\n\n## Limit Order ABI Bug (Fixed in SDK)\n\nThe `limit_buy` and `update_order` ABI schemas encode `profitPercent` and `lossPercent` as `uint256`, NOT `string`. Using `string` type causes the backend to receive ABI byte-offsets (e.g. 192) instead of the actual percentage values, which always fails the 0-100 range validation.\n\n**Symptom:** `\"lossPercent must be between 0 and 100\"` even with valid values like `lossPercent: '25'`\n**Cause:** ABI `string` type \u2192 encoded offset (192) \u2192 fails range check\n**Fix:** SDK encodes as `uint256` (correct). Only matters if encoding manually.\n8. **Token support:** Is the token supported on this chain? Is the DEX working? (Meteora is broken)\n\n## Backend-Limited Behavior (Not SDK Bugs)\n\nThese are server-side behaviors, verified live. They are **not fixable in the SDK** \u2014 don't\nwaste a debugging loop on them. Treat the listed responses as expected.\n\n### Deposit returns HTTP 400 even when the transfer succeeds\n\n`perpDeposit` (USDC \u2192 HyperLiquid) frequently returns HTTP 400 while the on-chain transfer\n**still completes**. The error is a backend response-handling bug, not a failed deposit.\n\n**Symptom:** `perpDeposit` throws a 400, but the USDC arrives in the HL account moments later.\n**Do:** Don't retry blindly on the 400 (you'll double-deposit). Poll the HL perp balance /\n`getHlAccount` to confirm before retrying. Verify state, not the HTTP status.\n\n### Outcome-market listings are controlled by the backend, not the SDK\n\nThe SDK can place/cancel/close orders on **any** outcome market (coin format\n`#<outcomeId><sideIndex>`, e.g. `#1010` = outcome 101, Yes side), but *which* markets exist \u2014\nand that they may currently be limited (e.g. only a BTC over/under) \u2014 is decided by the\nbackend / HIP-3 deployer, not the SDK.\n\n**Symptom:** `listOutcomeMarkets` returns few/limited markets, or a `#\u2026` coin you expect is absent.\n**Do:** Only trade markets returned by `listOutcomeMarkets` / the outcome account query. An empty\nor short list is a market-config state on the backend, not a discovery bug. HIP-3/HIP-4 markets\nmay also quote in non-USDC collateral (USDH/USDE/USDT0) \u2014 use `swap_collateral` first.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Full auth flow and encryption details\n- **gdex-spot-trading** \u2014 Spot trade parameters and chain support\n- **gdex-perp-trading** \u2014 HL perp specifics\n- **gdex-copy-trading** \u2014 Solana copy trade ABI format\n- **gdex-perp-copy-trading** \u2014 HL perp copy trade ABI format\n", files: [] }, { name: "gdex-spot-trading", description: "Buy and sell tokens on Solana, Sui, and EVM chains with automatic DEX routing, slippage control, and percentage-based sells", content: "\n# GDEX: Spot Trading\n\nBuy and sell tokens across Solana, Sui, and 12+ EVM chains. The SDK routes through the best available DEX automatically, or you can specify one.\n\n> **Paying with USDC?** To buy with USDC from any chain (GDEX bridges it in automatically) or sell straight into USDC, see **gdex-usdc-wallet**.\n## When to Use\n\n- Buying a token with native currency (SOL, ETH, etc.)\n- Selling a token (absolute amount or percentage of holdings)\n- Executing managed-custody spot trades with encrypted payloads\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via `loginWithApiKey()` or managed-custody sign-in\n- See **gdex-authentication** for auth setup\n\n## Buy a Token\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\nconst trade = await skill.buyToken({\n  chain: 'solana',                                        // chain name or ChainId number\n  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC on Solana\n  amount: '0.1',                                          // 0.1 SOL (native token input)\n  slippage: 1,                                            // 1% max slippage (optional, default: 1)\n  dex: 'raydium',                                         // optional: prefer a specific DEX\n});\n// Returns: { jobId, status, inputAmount, outputAmount, txHash?, error? }\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `chain` | `string \\| ChainId` | Yes | `'solana'`, `'sui'`, or ChainId number (1=Ethereum, 8453=Base, 42161=Arbitrum, 56=BSC, 4663=Robinhood Chain, **622112261=Solana**) |\n\n> **Critical:** The Solana numeric chainId is `622112261` (`ChainId.SOLANA`), NOT `900`. Using `900` returns the EVM managed address with `balance: null`. The `/v1/user` endpoint returns a different managed wallet per chainId (e.g. `CFSi4Y...` for Solana, `0x9967...` for EVM). |\n| `tokenAddress` | `string` | Yes | Contract address of the token to buy |\n| `amount` | `string` | Yes | Amount of native token to spend (e.g., `'0.1'` for 0.1 SOL) |\n| `slippage` | `number` | No | Max slippage % (default: 1) |\n| `dex` | `string` | No | Force specific DEX: `'raydium'`, `'orca'`, `'uniswap-v3'`, `'cetus'`, etc. |\n| `walletAddress` | `string` | No | Override wallet address |\n| `priorityFee` | `number` | No | Solana priority fee in lamports |\n\n## Sell a Token\n\n```typescript\n// Sell absolute amount\nconst trade = await skill.sellToken({\n  chain: 8453,                                            // Base\n  tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base\n  amount: '100',                                          // sell 100 tokens\n  slippage: 0.5,\n});\n\n// Sell percentage of holdings\nconst trade = await skill.sellToken({\n  chain: 'solana',\n  tokenAddress: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', // BONK\n  amount: '50%',                                          // sell 50% of holdings\n});\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `chain` | `string \\| ChainId` | Yes | Chain identifier |\n| `tokenAddress` | `string` | Yes | Token contract address |\n| `amount` | `string` | Yes | Absolute amount (`'100'`) or percentage (`'50%'`) |\n| `slippage` | `number` | No | Max slippage % (default: 1) |\n| `walletAddress` | `string` | No | Override wallet address |\n\n## Managed-Custody Trade Submission\n\nFor full managed-custody trading with encrypted payloads:\n\n```typescript\nimport {\n  GdexSkill,\n  GDEX_API_KEY_PRIMARY,\n  buildGdexManagedTradeComputedData,\n} from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// Build encrypted trade payload (requires session key from sign-in)\nconst trade = buildGdexManagedTradeComputedData({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  action: 'purchase',  // or 'sell'\n  userId: '0xYourAddress',\n  tokenAddress: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',\n  amount: '100000',     // in smallest unit\n  nonce: String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000)),\n  sessionPrivateKey,    // from generateGdexSessionKeyPair()\n});\n\nconst result = await skill.submitManagedPurchase({\n  computedData: trade.computedData,\n  chainId: 622112261,   // 622112261=Solana (ChainId.SOLANA), NOT 900\n  slippage: 15,          // 10-15% recommended for Solana\n});\n```\n\n### Solana-Specific Notes (Live-Tested)\n\n- **Raydium-routed tokens work; Meteora tokens fail.** The backend has a bug where Meteora DLMM swaps don't wrap SOL into WSOL before swapping. Check `token.dexId` \u2014 if `\"meteora\"`, the swap will fail with `Program error: 1`. Tokens with `dexId: \"raydium\"` work correctly.\n- **Minimum ~0.01 SOL balance needed.** Each new token ATA costs ~0.002 SOL rent + priority fee (0.0005 default) + base tx fee. The first trade on a token needs significantly more SOL than just the swap amount.\n- **Amount is in lamports** (1 SOL = 1,000,000,000 lamports). Pass as a string, e.g. `'5000000'` for 0.005 SOL.\n- **Use `chainId: 622112261`**, not `900`. Using `900` will submit the trade to the wrong chain context.\n```\n```\n\n## Trade Status Polling\n\n```typescript\nif (result.requestId) {\n  const status = await skill.getManagedTradeStatus(result.requestId);\n  console.log('Status:', status.status, 'Hash:', status.hash);\n}\n```\n\n**Status values:**\n- `'queued'` \u2014 submitted to queue\n- `'pending'` \u2014 being processed\n- `'completed'` \u2014 executed on-chain\n- `'failed'` \u2014 failed (check `error` field)\n\n## Supported Chains \xD7 DEXes\n\n| Chain | Available DEXes |\n|-------|-----------------|\n| Solana | Raydium, Raydium v2, Orca |\n| Sui | Cetus, Bluefin |\n| Ethereum | Uniswap v2, Uniswap v3, Odos |\n| Base | Uniswap v3, Odos, Arcadia |\n| Robinhood Chain | Uniswap v2, KyberSwap aggregator |\n| Arbitrum | Uniswap v3, Odos |\n| BSC | PancakeSwap, Odos |\n| Optimism | Uniswap v3, Odos |\n| Fraxtal | Uniswap v3 |\n\n## Error Handling\n\n```typescript\nimport { GdexValidationError, GdexApiError, GdexRateLimitError } from '@gemachdao/gdex-skill';\n\ntry {\n  await skill.buyToken({ chain: 'solana', tokenAddress: '...', amount: '0.1' });\n} catch (err) {\n  if (err instanceof GdexRateLimitError) {\n    await delay(err.retryAfter * 1000);  // wait and retry\n  } else if (err instanceof GdexValidationError) {\n    console.error('Invalid param:', err.message);\n  } else if (err instanceof GdexApiError) {\n    console.error('API error:', err.status, err.message);\n  }\n}\n```\n\n## Notes\n\n- All amounts are strings to preserve precision (e.g., `'0.1'`, `'1000'`)\n- Chain can be string (`'solana'`) or ChainId number (`622112261`)\n- The SDK retries on transient errors (429, 503) with exponential backoff\n- If no `dex` specified, the backend selects the best route automatically\n\n## Autonomous Agent Notes (Live-Tested)\n\n### Managed-Custody Trades Require Raw Units\n\nFor `buildGdexManagedTradeComputedData()` + `submitManagedPurchase()` / `submitManagedSell()`, the `amount` must be in **raw units** (lamports for Solana, wei for EVM), NOT human-readable:\n\n```typescript\n// \u274C WRONG: amount: '0.01' (this is a float, not raw units)\n// \u2705 CORRECT: amount: '10000000' (0.01 SOL = 10,000,000 lamports)\n// \u2705 CORRECT: amount: '10000000000000000' (0.01 ETH = 10^16 wei)\n```\n\n### Raydium vs Meteora on Solana\n\n- **Raydium-routed tokens work correctly** (WIF, most liquid tokens)\n- **Meteora DLMM tokens fail** with `Program error: 1` (backend bug \u2014 doesn't wrap SOL into WSOL)\n- **Check before buying:** `token.dexId === 'raydium'` \u2705 / `token.dexId === 'meteora'` \u274C\n- If you get `Program error: 1`, the token is Meteora-routed \u2014 don't retry, pick a different token\n\n### Minimum SOL Balance\n\nKeep at least **0.01 SOL** in the managed Solana wallet. First trade on a new token costs ~0.007 SOL overhead (ATA creation + priority fee + base tx fee) on top of the trade amount.\n\n### Trade Status Polling\n\nAfter a managed trade returns a `requestId`, poll until `status === 'completed'`:\n```typescript\nif (result.requestId) {\n  let status;\n  do {\n    await new Promise(r => setTimeout(r, 3000)); // wait 3s between polls\n    status = await skill.getManagedTradeStatus(result.requestId);\n  } while (status.status === 'queued' || status.status === 'pending');\n  console.log('Final:', status.status, status.hash);\n}\n```\n\n### Sell by Percentage\n\nTo sell a portion of holdings, use `amount: '50%'` (string with % sign). The backend calculates the exact token amount.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup required before trading\n- **gdex-portfolio** \u2014 Check balances and trade history after trading\n- **gdex-token-discovery** \u2014 Research tokens before buying (no auth needed)\n- **gdex-limit-orders** \u2014 Set limit orders instead of market buys/sells\n", files: [] }, { name: "gdex-token-discovery", description: "Token details, trending tokens, OHLCV candlestick data, and top traders \u2014 requires API key auth (Bearer token)", content: "\n# GDEX: Token Discovery\n\nResearch tokens with price data, market metrics, trending rankings, candlestick charts, and top trader leaderboards.\n\n> **Auth required:** All token discovery endpoints (except `/v1/token_details`) return 403 \"Access denied: Invalid client\" without a Bearer token. Always call `loginWithApiKey()` first.\n\n## When to Use\n\n- Looking up token price, market cap, volume, liquidity, and socials\n- Finding trending tokens on a specific chain\n- Getting OHLCV candlestick data for charting or analysis\n- Researching a token before buying (DEX info, security audit, holder count)\n- Finding top-performing trader wallets\n\n## Prerequisites\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n```\n\n## Token Details\n\n```typescript\nconst token = await skill.getTokenDetails({\n  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',\n  chain: 622112261,  // Solana\n});\n\nconsole.log(token.symbol);        // \"$WIF\"\nconsole.log(token.priceUsd);      // 0.176\nconsole.log(token.marketCap);     // 176054268\nconsole.log(token.liquidityUsd);  // 4574052\nconsole.log(token.dexId);         // \"raydium\"\nconsole.log(token.isRaydium);     // true\nconsole.log(token.priceChanges);  // { m5: 0, h1: -0.2, h6: -2.2, h24: -1.3 }\nconsole.log(token.volumes);       // { m5: 482, h1: 15438, h6: 74105, h24: 316704 }\nconsole.log(token.securities?.holderCount);  // 201554\n```\n\n### TokenDetails (response)\n\n```typescript\ninterface TokenDetails {\n  address: string;           // token contract address\n  chainId: number;           // numeric chain ID\n  symbol: string;            // may include $ prefix (e.g. \"$WIF\")\n  name: string;              // full name\n  decimals: number;\n  priceUsd?: number;         // current USD price\n  priceNative?: number;      // price in native token (SOL/ETH)\n  marketCap?: number;        // market cap in USD\n  liquidityUsd?: number;     // liquidity in USD\n  liquidityEth?: number;     // liquidity in native token\n  totalSupply?: string;      // raw units\n  pairAddress?: string;      // DEX pair address\n  dexId?: string;            // primary DEX (e.g. \"raydium\")\n  dexes?: string[];          // all DEXes\n  isRaydium?: boolean;\n  isMeteora?: boolean;\n  isPumpfun?: boolean;\n  isPumpSwap?: boolean;\n  priceChanges?: {           // price changes by period\n    m5?: number; h1?: number; h6?: number; h24?: number;\n  };\n  volumes?: {                // volume by period\n    m5?: number; h1?: number; h6?: number; h24?: number;\n  };\n  socialInfo?: {\n    telegramUrl?: string; twitterUrl?: string;\n    websiteUrl?: string; logoUrl?: string;\n  };\n  securities?: {             // security audit\n    mintAbility?: boolean; freezeAbility?: boolean;\n    lpLockPercentage?: number; holderCount?: number;\n    topHoldersPercentage?: number;\n  };\n  createdTime?: number;      // creation timestamp (Unix ms)\n}\n```\n\n## Trending Tokens\n\n```typescript\nconst trending = await skill.getTrendingTokens({\n  chain: 622112261,   // Solana (chainId)\n  period: '24h',      // '1h' | '6h' | '24h' | '7d'\n  limit: 5,\n});\n\ntrending.forEach(t => {\n  console.log(`${t.symbol}: $${t.priceUsd} mcap=$${t.marketCap} liq=$${t.liquidityUsd}`);\n});\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `chain` | `SupportedChain` | No | Chain to filter by (numeric chainId) |\n| `period` | `string` | No | `'1h'`, `'6h'`, `'24h'`, `'7d'` (default: `'24h'`) |\n| `limit` | `number` | No | Max results (default: 20) |\n| `minLiquidity` | `number` | No | Minimum liquidity in USD |\n| `minVolume` | `number` | No | Minimum 24h volume in USD |\n\n> Trending tokens have the **same shape as TokenDetails** \u2014 same fields from the tokens collection.\n\n## OHLCV Candlestick Data\n\n```typescript\nconst ohlcv = await skill.getOHLCV({\n  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',\n  chain: 622112261,\n  resolution: '60',   // 1-hour candles\n  from: Math.floor(Date.now() / 1000) - 86400,  // 24h ago\n  to: Math.floor(Date.now() / 1000),\n});\n\nconsole.log('Candles:', ohlcv.candles.length);\nohlcv.candles.forEach(c => {\n  console.log(`[${new Date(c.time * 1000).toISOString()}] O=${c.open} H=${c.high} L=${c.low} C=${c.close}`);\n});\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `tokenAddress` | `string` | Yes | Token contract address |\n| `chain` | `SupportedChain` | Yes | Chain (numeric chainId) |\n| `resolution` | `string` | Yes | `'1'`, `'5'`, `'15'`, `'30'`, `'60'`, `'240'`, `'D'`, `'W'` |\n| `from` | `number` | No | Start timestamp (Unix seconds) |\n| `to` | `number` | No | End timestamp (Unix seconds) |\n| `limit` | `number` | No | Number of candles |\n\n> **Note:** The backend candle data may not be populated for all tokens. If `candles` is empty, the data isn't available yet \u2014 not an SDK error.\n\n## Top Traders\n\n```typescript\nconst traders = await skill.getTopTraders({\n  chain: 622112261,  // Solana\n  period: '7d',\n  limit: 5,\n});\n\ntraders.forEach((t, i) => {\n  console.log(`#${i + 1}: ${t.wallet_address} PnL(7d)=$${t.realized_profit_7d} name=${t.name || '?'}`);\n});\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `chain` | `SupportedChain` | No | Chain filter |\n| `period` | `string` | No | `'1d'`, `'7d'`, `'30d'`, `'all'` (default: `'7d'`) |\n| `limit` | `number` | No | Max results (default: 10) |\n| `sortBy` | `string` | No | `'pnl'`, `'winRate'`, `'volume'`, `'tradeCount'` |\n\n### TopTrader (response)\n\n```typescript\ninterface TopTrader {\n  wallet_address: string;     // wallet address\n  address: string;            // same as wallet_address\n  name?: string;              // display name\n  twitter_username?: string;\n  twitter_name?: string;\n  avatar?: string;\n  tags?: string[];            // e.g. [\"app_smart_money\", \"kol\"]\n  realized_profit_1d?: number;\n  realized_profit_7d?: number;\n  realized_profit_30d?: number;\n  pnl_1d?: number;           // PnL ratio (1d)\n  pnl_7d?: number;\n  pnl_30d?: number;\n  buy?: number;               // recent buy count\n  sell?: number;\n  last_active?: number;       // Unix timestamp\n}\n```\n\n## Example: Token Research Before Buying\n\n```typescript\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// 1. Find trending tokens on Solana\nconst trending = await skill.getTrendingTokens({\n  chain: 622112261,\n  period: '1h',\n  limit: 5,\n});\n\n// 2. Get details on the top trending token\nconst top = trending[0];\nconst details = await skill.getTokenDetails({\n  tokenAddress: top.address,\n  chain: 622112261,\n});\n\nconsole.log(`${details.symbol}: $${details.priceUsd}`);\nconsole.log(`Market Cap: $${details.marketCap}`);\nconsole.log(`Liquidity: $${details.liquidityUsd}`);\nconsole.log(`Holders: ${details.securities?.holderCount}`);\nconsole.log(`DEX: ${details.dexId} (Raydium: ${details.isRaydium})`);\n\n// 3. Check who the top traders are\nconst traders = await skill.getTopTraders({ chain: 622112261, period: '7d', limit: 3 });\ntraders.forEach(t => console.log(`  ${t.name || t.wallet_address}: $${t.realized_profit_7d} PnL`));\n```\n\n## Autonomous Agent Notes (Live-Tested)\n\n### Chain Parameter Must Be Numeric\n\nAll token discovery endpoints (`getOHLCV`, `getTopTraders`, `getTrendingTokens`, `getTokenDetails`) require **numeric** `chainId`, not string `chain`. Use `622112261` for Solana, `8453` for Base, `4663` for Robinhood Chain, etc.\n\n```typescript\n// \u2705 Correct\nawait skill.getOHLCV({ tokenAddress, chain: 622112261, resolution: '60', from, to });\nawait skill.getTopTraders({ chain: 622112261, period: '7d', limit: 5 });\n\n// \u274C Wrong \u2014 string chain names may not work for all endpoints\nawait skill.getOHLCV({ tokenAddress, chain: 'solana', resolution: '60', from, to });\n```\n\n### OHLCV Data May Be Empty\n\nNot all tokens have OHLCV data populated. If `candles` is an empty array, the data isn't available yet \u2014 this is not an SDK error. Try a different token or wider time range.\n\n### Token Safety Checks Before Buying\n\nBefore buying a token autonomously, check:\n1. **`dexId`**: Must be `'raydium'` on Solana (Meteora fails \u2014 see gdex-spot-trading)\n2. **`liquidityUsd`**: Should be > $1000 to avoid slippage problems\n3. **`securities.mintAbility`**: If `true`, the token can be infinitely minted (rug risk)\n4. **`securities.freezeAbility`**: If `true`, your tokens can be frozen\n5. **`securities.lpLockPercentage`**: Higher is safer (100% = fully locked LP)\n6. **`marketCap`**: Sanity check \u2014 very low mcap tokens are extremely volatile\n\n### Auth Required\n\nAll token discovery endpoints return `403 \"Access denied: Invalid client\"` without a Bearer token. Always call `loginWithApiKey()` first \u2014 even for read-only data.\n\n## Related Skills\n\n- **gdex-spot-trading** \u2014 Buy/sell tokens after researching them\n- **gdex-portfolio** \u2014 Check if you already hold a token\n- **gdex-authentication** \u2014 Required for all token discovery endpoints\n", files: [] }, { name: "gdex-token-import", description: "Import user-defined custom tokens so they appear in token details, balances, and portfolio across the platform", content: "\n# GDEX: Token Import\n\nRegister a user-defined custom token so it is recognised by the backend's\ntoken-details, balances, and portfolio endpoints. Useful for long-tail tokens\nthat are not yet indexed.\n\n## When to Use\n\n- A user wants to see a brand-new (or otherwise un-indexed) token in their\n  portfolio or token-search results\n- Pre-registering a token before launch so trading UI can resolve metadata\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via shared API key or wallet sign-in \u2014 see\n  **gdex-authentication**\n- The token's on-chain address (contract address on EVM, mint address on\n  Solana, object id on Sui)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `POST` | `/v1/import_token` | Register a user-imported custom token |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill, buildImportTokenComputedData } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\n// Structured shape \u2014 SDK builds computedData internally\nawait skill.importToken({\n  tokenAddress: '0xCustomToken',\n  chainId: 8453,\n  managed: {\n    apiKey: process.env.GDEX_API_KEY!,\n    walletAddress: '0xWallet',\n    sessionPrivateKey: '0x\u2026',\n    userId: '0xWallet',\n  },\n});\n\n// Or raw shape \u2014 caller pre-built computedData\nawait skill.importToken({\n  computedData: buildImportTokenComputedData({\n    apiKey: process.env.GDEX_API_KEY!,\n    walletAddress: '0xWallet',\n    sessionPrivateKey: '0x\u2026',\n    userId: '0xWallet',\n    tokenAddress: '0xCustomToken',\n    chainId: '8453',\n  }),\n  chainId: 8453,\n});\n```\n\n## Notes\n\n- `import_token` uses managed-custody **encrypted `computedData`**:\n  ABI `['import_token', [tokenAddress, chainId, nonce]]`,\n  sig message `import_token-${userId}-${data}`.\n- The backend deduplicates imports per `(userId, chain, tokenAddress)`.\n- After import, queries such as `getTokenDetails`, `getBalances`, and\n  `getPortfolio` will start returning data for the token (subject to\n  indexer latency).\n", files: [] }, { name: "gdex-token-risk", description: "GDEX token screen on 12 chains: price, liquidity, volume plus honeypot, taxes, LP lock, holder concentration. Deterministic NDJSON; missing security data never means safe.", content: "\n# GDEX: Token Risk Screen\n\nThe GDEX trending board for each chain, with market context and GDEX's back-end security\nassessment. One JSON object per token.\n\n## Run it\n\n```bash\npython3 scripts/token_risk.py                    # every supported chain\npython3 scripts/token_risk.py --chain-id 1 8453  # GDEX chain ids\npython3 scripts/token_risk.py --list-chains\n```\n\nStandard library only. Non-zero exit means a read failed.\n\n## Rules for agents\n\n1. **Report numbers exactly as the script prints them.** Never estimate or compute new figures.\n2. **Absent is unknown, never safe.** Security fields are omitted when GDEX has no value \u2014 on a\n   typical run `is_honeypot` is present for only about a quarter of tokens. A token with no\n   `is_honeypot` field has *not been checked*; say so rather than calling it clean.\n3. The board carries junk and scam tokens by design (it ranks trending, not quality). Treat\n   market figures as observations \u2014 a token can show a huge market cap on trivial liquidity.\n\n## Fields\n\nSecurity (percent fields are 0\u2013100): `is_honeypot`, `buy_tax_pct`, `sell_tax_pct`,\n`lp_lock_pct`, `top_holders_pct`, `is_contract_verified`, and \u2014 on Solana \u2014 `can_mint`,\n`can_freeze`. Market: `price_usd`, `market_cap_usd`, `liquidity_usd`, `volume_24h_usd`,\n`change_1h_pct`, `change_24h_pct`. `upstream_updated_source` names which clock stamped the row;\n`fetch_time_fallback` means GDEX had no timestamp, so the row's age is unknown.\n\nSolana and Sui addresses are case-sensitive and kept exactly; Sui type tags (`0x\u2026::mod::TYPE`)\nappear with `::` replaced by `.` in `gemach_id` only.\n", files: [{ path: "scripts/token_risk.py", content: `#!/usr/bin/env python3
+` }] }, { name: "gdex-hl-market-risk", description: "HyperLiquid core-perp risk via GDEX: funding, open interest, oracle premium, leverage caps, delisting for ~234 markets, as NDJSON from a deterministic script.", content: "\n# GDEX: HyperLiquid Market Risk\n\nA read-only risk snapshot of every market on HyperLiquid's **core** perpetual DEX, as served\nthrough GDEX. One JSON object per market.\n\n## Run it\n\n```bash\npython3 scripts/hl_market_risk.py                  # all core markets (NDJSON on stdout)\npython3 scripts/hl_market_risk.py --symbol BTC ETH\npython3 scripts/hl_market_risk.py --active-only\n```\n\nStandard library only \u2014 no install, no API key. A non-zero exit means the read failed; never\ntreat it as \"no markets\".\n\n## Rule for agents\n\n**Report numbers exactly as the script prints them.** Do not estimate, interpolate, round\naway precision, or compute new figures in prose. If a figure is needed that the script does\nnot print, say so.\n\n## Fields\n\n| Field | Meaning |\n|---|---|\n| `mark_px_usd`, `oracle_px_usd`, `mid_px_usd` | prices, USD |\n| `premium_pct` | `(mark \u2212 oracle) / oracle`, percent \u2014 oracle deviation versus market |\n| `funding_hourly_pct` | hourly funding rate, percent (HL's decimal fraction \xD7 100) |\n| `open_interest_base` / `open_interest_usd` | OI in coin units / \xD7 mark |\n| `volume_24h_usd` | 24h notional volume |\n| `max_leverage` | protocol cap; **core HL tops out at 40x** |\n| `is_delisted` / `is_active` | always present (upstream omits `isDelisted` when false) |\n\n**Delisted markets** (about a quarter of the universe) are kept with `is_active: false` so you\nfilter deliberately. They have no order book, so `mid_px_usd` and `premium_pct` are absent on\nexactly those rows. An *active* market without them makes the script fail loudly.\n\n## Scope\n\nCore DEX only. GDEX also lists ~140 builder-deployed perpetuals (equities, FX, commodities,\nindices); they are excluded here on purpose.\n", files: [{ path: "scripts/hl_market_risk.py", content: '#!/usr/bin/env python3\n"""HyperLiquid core-perpetual risk snapshot via GDEX. Standard library only.\n\nPrints one JSON object per market (NDJSON) to stdout. Every number comes from the API\nresponse; nothing is estimated. Exit code is non-zero on any upstream or shape error, so a\ncaller can never mistake a failed read for an empty market.\n\nScope: the core HyperLiquid DEX only (the `/v1/hl/meta_and_asset_ctxs` universe). Builder-\ndeployed markets (equities, FX, commodities, indices) are deliberately excluded.\n\nUsage:\n    hl_market_risk.py                     # all core markets\n    hl_market_risk.py --symbol BTC ETH    # just these\n    hl_market_risk.py --active-only       # drop delisted markets\n"""\nfrom __future__ import annotations\n\nimport argparse\nimport json\nimport sys\nimport urllib.request\nfrom datetime import datetime, timezone\n\nAPI = "https://trade-api.gemach.io/v1/hl/meta_and_asset_ctxs"\n# The GDEX API refuses non-browser clients (HTTP 403); these headers are load-bearing.\nHEADERS = {\n    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "\n                  "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",\n    "Origin": "https://gdex.pro",\n    "Accept": "application/json",\n}\nFEED = "hl_markets"\nCHAIN_ID = 999  # HyperEVM mainnet, used purely as a registry key\n\n\nclass ShapeError(RuntimeError):\n    pass\n\n\ndef fetch() -> dict:\n    req = urllib.request.Request(API, headers=HEADERS)\n    with urllib.request.urlopen(req, timeout=30) as r:\n        return json.load(r)\n\n\ndef _num(v) -> float:\n    if v is None or isinstance(v, bool):\n        raise ValueError(f"expected a number, got {v!r}")\n    return float(str(v).strip())\n\n\ndef _pct(fraction: float) -> float:\n    """Fraction -> percent, trimming the float noise that x100 introduces (e.g. ...0000004).\n    12 significant digits is far beyond the precision HyperLiquid publishes."""\n    return float(f"{fraction * 100.0:.12g}")\n\n\ndef _opt(v) -> float | None:\n    return None if v is None or v == "" else _num(v)\n\n\ndef pairs(payload: dict):\n    if not isinstance(payload, dict) or payload.get("isSuccess") is False:\n        raise ShapeError(f"upstream reported failure: {str(payload)[:200]}")\n    data = payload.get("data")\n    if not isinstance(data, list) or len(data) != 2:\n        raise ShapeError("expected data = [meta, contexts]")\n    universe, ctxs = (data[0] or {}).get("universe"), data[1]\n    if not isinstance(universe, list) or not isinstance(ctxs, list):\n        raise ShapeError("universe or contexts is not a list")\n    if len(universe) != len(ctxs):\n        # Pairing is by index; misaligned arrays would attach one market\'s prices to another.\n        raise ShapeError(f"universe has {len(universe)} entries but contexts has {len(ctxs)}")\n    return zip(universe, ctxs)\n\n\ndef market(meta: dict, ctx: dict, now: datetime) -> dict:\n    name = str(meta["name"]).strip()\n    delisted = bool(meta.get("isDelisted", False))  # upstream only sends it when true\n    mark, oracle, prev = _num(ctx["markPx"]), _num(ctx["oraclePx"]), _num(ctx["prevDayPx"])\n    oi = _num(ctx["openInterest"])\n    rec = {\n        "gemach_id": f"hl-{name}",\n        "source": "gemach", "feed": FEED, "product": "gdex", "deployment": "hyperliquid-core",\n        "chain_id": CHAIN_ID, "chain_name": "HyperLiquid", "symbol": name,\n        "is_active": not delisted, "is_delisted": delisted,\n        "only_isolated": bool(meta.get("onlyIsolated", False)),\n        "max_leverage": int(meta["maxLeverage"]), "sz_decimals": int(meta["szDecimals"]),\n        "mark_px_usd": mark, "oracle_px_usd": oracle, "prev_day_px_usd": prev,\n        # HL publishes funding and premium as decimal fractions; x100 gives percent.\n        "funding_hourly_pct": _pct(_num(ctx["funding"])),\n        "open_interest_base": oi, "open_interest_usd": float(f"{oi * mark:.12g}"),\n        "volume_24h_usd": _num(ctx["dayNtlVlm"]), "volume_24h_base": _num(ctx["dayBaseVlm"]),\n        "change_24h_pct": _pct(mark / prev - 1.0) if prev > 0 else 0.0,\n        "upstream_updated_at": int(now.timestamp()), "upstream_updated_source": "api_snapshot_time",\n        "ingestion_date": now.strftime("%Y-%m-%d"),\n        "fetched_at": now.strftime("%Y-%m-%dT%H:%M:%S.%f") + "+00:00",\n    }\n    # Delisted markets have no book: upstream nulls these two. Active ones must have them.\n    mid, prem = _opt(ctx.get("midPx")), _opt(ctx.get("premium"))\n    if mid is not None:\n        rec["mid_px_usd"] = mid\n    if prem is not None:\n        rec["premium_pct"] = _pct(prem)\n    if not delisted and (mid is None or prem is None):\n        raise ShapeError(f"active market {name} has no mid/premium; upstream shape changed")\n    return rec\n\n\ndef main(argv=None) -> int:\n    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])\n    ap.add_argument("--symbol", nargs="*", help="only these symbols (case-sensitive, e.g. BTC kPEPE)")\n    ap.add_argument("--active-only", action="store_true", help="drop delisted markets")\n    a = ap.parse_args(argv)\n    now = datetime.now(timezone.utc)\n    rows = [market(m, c, now) for m, c in pairs(fetch())]\n    if a.symbol:\n        want = set(a.symbol)\n        rows = [r for r in rows if r["symbol"] in want]\n    if a.active_only:\n        rows = [r for r in rows if r["is_active"]]\n    for r in rows:\n        sys.stdout.write(json.dumps(r, separators=(",", ":")) + "\\n")\n    return 0\n\n\nif __name__ == "__main__":\n    sys.exit(main())\n' }] }, { name: "gdex-hl-outcomes", description: "Hyperliquid HIP-4 outcome markets on GDEX \u2014 discover a market, pick a side, check spot collateral, place a limit order, track resting/fill state, cancel or exit (partial/full), and reconcile", content: "\n# GDEX: Hyperliquid HIP-4 Outcome Markets\n\nGDEX outcome markets are **Hyperliquid HIP-4 outcome markets**: each market has\ntwo or more sides; each side is a token that trades at a probability price in\n(0, 1), and the winning side settles on Hyperliquid. They are traded with spot\ncollateral (the market's `quoteToken`, USDC today) from the managed wallet's\n**Hyperliquid spot balance**.\n\nThey are **not** HIP-3 builder perps, not perps, and not spot tokens. **GDEX has\nno Polymarket or Kalshi integration.**\n\n## When to Use\n\n- \"What prediction / outcome markets can I trade?\" \u2192 discover\n- Buy or sell one side of an outcome market\n- Track a resting order, cancel it, or exit a position fully or partially\n- Explain what happens when a market expires or resolves\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed and a managed-custody session \u2014 see\n  **gdex-authentication**. You need `apiKey`, the **control** `walletAddress`\n  used at sign-in, and `sessionPrivateKey`. The SDK and the MCP tools build\n  and encrypt the payload for you; you don't need the backend ABI.\n- The **managed** wallet address (outcome balances and orders live there).\n- Quote collateral in the managed wallet's **HL spot** balance (step 3).\n\n## Workflow\n\n### 1. Discover\n\n```typescript\nconst { markets } = await skill.getHlOutcomeMarkets({ state: 'active', query: 'BTC' });\n```\n\nMCP: `hl_outcomes` (`state`, `query`, `excludeFallback`, `limit`, `withVolume`).\nEach market is normalised:\n\n| Field | Meaning | Source |\n|---|---|---|\n| `outcomeId` | Market id | `outcomeMeta.outcomes[].outcome` |\n| `title` | Readable question built from the market parameters | `name` + `description` (`key:value\\|\u2026`), question parameters |\n| `sides[]` | `{ sideIndex, label, rawName, coin, balanceCoin, assetId, exchangeAssetId, price }` | `sideSpecs[]`. `coin` = `#<token>` or `#<outcomeId*10+sideIndex>`. `balanceCoin` = `+<assetId>`. `price` = `allMids[coin]`. |\n| `quoteToken` | Collateral currency | `outcomes[].quoteToken` |\n| `state` | `active` \xB7 `pre_launch` (no mids yet) \xB7 `expired` (deadline passed, not yet settled) \xB7 `settled` | `questions[].settledNamedOutcomes`, the expiry parameter, `allMids` |\n| `rules` | Price 0.00001\u20130.99999, tick 0.00001 (5 dp); whole-contract size; min notional 11 quote; full-position sell exempt; market orders \xB15%; `reduceOnlyHonoured: false` | GDEX backend + gdex.pro (see Rules) |\n| `settlement` | `claimViaGdex: false`, resolution source and deadline, and what to do | see \"Expiry and settlement\" |\n| `volume24h` | Only with `withVolume`: `{ volume, asOf, source, coverage }`. `coverage` is `complete`, `partial` or `unavailable`. A zero that was actually read stays `0`; `null` means no reading. The wait is bounded (default 2.5 s), so a slow feed never blocks discovery. | Hyperliquid WS `activeAssetCtx.dayNtlVlm` |\n\n`isFallback: true` marks the \"none of the listed outcomes\" leg of a\nmulti-outcome question.\n\n### 2. Pick a side\n\nRead `sides[].label`. **Don't assume side 0 is \"Yes\".**\n\n- A match market's sides can be the two team names (`LOS` / `T1`).\n- A question can have one market per candidate, each with its own Yes/No.\n\nSelect a side with exactly one of these:\n\n- `coin` (e.g. `\"#143151\"`)\n- `sideIndex`\n- `sideLabel` (exact label)\n\nThe SDK rejects a coin that doesn't belong to `outcomeId`.\n\n### 3. Check collateral\n\n```typescript\nconst c = await skill.checkHlOutcomeCollateral({\n  managedAddress, quoteToken: market.quoteToken, size: '120', price: '0.12',\n});\n// { available, required: 14.4, sufficient: true|false, ... }\n```\n\nMCP: `hl_outcome_check_collateral`.\n\n- Buys draw on the managed wallet's HL **spot** balance of `quoteToken`\n  (`total \u2212 hold`), not on the perp account.\n- If it's short, move USDC from perp to spot or fund the account. See\n  **gdex-perp-funding**.\n- If a market is ever quoted in a token other than USDC, swap into it with\n  `hl_swap_collateral` first.\n\n### 4. Place a limit order\n\n```typescript\nconst r = await skill.createHlOutcomeOrder({\n  apiKey, walletAddress /* control */, sessionPrivateKey,\n  outcomeId: 14315, sideLabel: 'Yes', isBuy: true,\n  price: '0.12',   // probability, at most 5 decimals\n  size: '120',     // whole contracts; 120 \xD7 0.12 = 14.4 \u2265 11\n});\n// r.status: 'resting' (r.orderId) | 'filled' (r.filledSize, r.avgPrice) | 'rejected' (r.error)\n```\n\nMCP: `hl_create_outcome_order`.\n\n- `isBuy: false` sells side tokens you hold. It can't short.\n- `isMarket: true` takes the book at \xB15% of the top level. Omit `price`\n  (or pass `\"0\"`) for market orders.\n- Pass `managedAddress` on sells. The SDK then checks the real position, and\n  a sell of the whole position is allowed below the minimum.\n\n### 5. Track resting and fill state\n\n```typescript\nconst s = await skill.getHlOutcomeAccountState({ userAddress: managedAddress, outcomeId: 14315 });\n```\n\nMCP: `hl_outcome_account`. It returns:\n\n- `positions[]`: `size`, `hold`, `available`, `avgEntryPrice`, `markPrice`,\n  `value`, `unrealizedPnl`.\n- `openOrders[]`: `orderId`, `price`, `size`, `originalSize`, `filledSize`,\n  and `status` (`resting` or `partially_filled`).\n- `fills[]`.\n- `historicalOrders[]`, with Hyperliquid's status, e.g. `filled`, `canceled`,\n  `minTradeNtlRejected`.\n\n### 6. Cancel, or exit fully or partially\n\n```typescript\nawait skill.cancelHlOutcomeOrder({ apiKey, walletAddress, sessionPrivateKey,\n  outcomeId: 14315, coin: '#143150', orderId: String(r.orderId) });\n\n// Full exit: omit size (the backend sells everything available).\nawait skill.closeHlOutcomeOrder({ apiKey, walletAddress, sessionPrivateKey,\n  outcomeId: 14315, sideLabel: 'Yes', price: '0.15' });\n\n// Partial exit: the sold part AND the remainder must each be worth \u2265 11.\nawait skill.closeHlOutcomeOrder({ apiKey, walletAddress, sessionPrivateKey,\n  outcomeId: 14315, sideLabel: 'Yes', price: '0.15', size: '80', managedAddress });\n```\n\nMCP: `hl_cancel_outcome_order` and `hl_close_outcome_order`.\n\n- `orderId` is the numeric Hyperliquid oid.\n- A close is always a sell of held tokens.\n- Any partial fill that happened before a cancel stays in the position.\n\n### 7. Reconcile\n\nCall `hl_outcome_account` again. Check that:\n\n- a cancelled order has left `openOrders`;\n- fills are in `fills`;\n- `positions[].available` matches what you expect.\n\nIf a write's outcome is unknown, check here before you submit anything again.\n\n## Rules (and where they come from)\n\n- **Price** must be in (0, 1). The backend rounds to 5 decimals\n  (`hyperLiquidOutcomes.ts:85-91`). The SDK rejects anything outside\n  [0.00001, 0.99999] or with more than 5 decimals.\n- **Size** is whole contracts (`OUTCOME_SIZE_DECIMALS = 0`,\n  `hyperLiquidOutcomes.ts:69,185-188`).\n- **Minimum order** is size \xD7 price \u2265 **11** quote units. This is gdex.pro's\n  rule (`HyperliquidOutcomeDetail.tsx:84`). Hyperliquid's own floor is 10. A\n  sell of the full position is exempt. Partial closes must leave both legs at\n  11 or more.\n- **`reduceOnly`** is ignored: the backend always sends `r:false`.\n- **Tick size and minimum order** aren't per-market fields in `outcomeMeta`.\n  The rules above apply to every outcome market.\n\n## Parameter modes\n\nEvery write accepts **either** the structured fields **or** a pre-built\n`computedData` on its own. Never mix them.\n\n- **Structured fields:** the SDK validates against the live market first.\n- **Pre-built `computedData`:** posted as is, with no validation.\n\nA mix of the two is rejected with `VALIDATION_ERROR` before anything is signed\nor sent, as are missing structured fields. `dex` and `status` are not read by\nthe backend for outcomes.\n\n## Expiry and settlement\n\n- **`expired`:** the market's deadline has passed, but Hyperliquid hasn't\n  marked it settled yet. The SDK refuses new orders. You can still try to\n  exit with `hl_close_outcome_order`, but it may fail if the book has halted.\n- **`settled`:** the outcome is listed in its question's\n  `settledNamedOutcomes`. There is no book.\n- **Settlement is done on Hyperliquid** by the market deployer (the\n  `settleOutcome` and `settleQuestion` permissions in `outcomeMeta.deployers`).\n- **GDEX has no claim, redeem or settle endpoint.** The backend's outcome\n  routes are exactly: `outcomes`, `outcome_account`, `outcome/create_order`,\n  `outcome/cancel_order`, `outcome/close_order`. After resolution there is\n  nothing to claim through GDEX. Read the managed wallet's HL spot balances\n  (`hl_outcome_account`) to see the result.\n\n## Backend endpoints\n\n| Method | Path | Notes |\n|--------|------|-------|\n| `GET`  | `/v1/hl/outcomes` | `{ meta: outcomeMeta, mids: allMids }`. Ignores query params. `outcomeMeta` is cached for 60 s. |\n| `GET`  | `/v1/hl/outcome_account?address=<managed>&outcomeId=<id>` | positions (spot balances `+<assetId>`), openOrders, fills, historicalOrders |\n| `POST` | `/v1/hl/outcome/create_order` | `{ computedData }` |\n| `POST` | `/v1/hl/outcome/cancel_order` | `{ computedData }` |\n| `POST` | `/v1/hl/outcome/close_order` | `{ computedData }` (always a sell) |\n", files: [] }, { name: "gdex-hl-referral", description: "HyperLiquid referral info and reward claims \u2014 distinct from the HL copy-trading referral flows", content: "\n# GDEX: HyperLiquid Referral\n\nInspect a wallet's HyperLiquid referral status and submit claims for accrued\nrewards. This is the user-side HL referral flow exposed under\n`/v1/hl_ref/*` \u2014 **distinct** from the copy-trading top-traders referral\nflow under `/v1/hl/top_traders_by_pnl` and from the builder referral under\n`/v1/hl/builder_referral`.\n\n## When to Use\n\n- Checking how much HL referral reward a wallet has accrued\n- Submitting a claim transaction for accrued rewards\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via managed custody \u2014 see **gdex-authentication**\n- For claim: a pre-built `computedData` payload built by the caller using\n  the standard managed-custody encrypted-payload contract (claim ABI lives\n  in `src/api/services/ServiceHlReferral.ts` of the backend)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/hl_ref/info` | Referral info (earned, eligibility, code) |\n| `POST` | `/v1/hl_ref/request_claim` | Submit a reward claim |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\nconst info = await skill.getHlReferralInfo({ userAddress: '0xWallet' });\n\n// Claim rewards (caller pre-builds computedData)\nconst result = await skill.requestHlReferralClaim({ computedData });\n```\n\n## Notes\n\n- Eligibility is enforced server-side based on referral state and minimum\n  thresholds.\n- The claim response typically contains a `requestId` to poll via\n  `/v1/trade-status/:requestId` when the claim is processed asynchronously.\n", files: [] }, { name: "gdex-limit-orders", description: "Limit buy, limit sell, update/delete, and list limit orders via managed-custody encrypted payloads", content: "\n# GDEX: Limit Orders\n\nCreate limit buy/sell orders that trigger when a token reaches your target price. Uses the same managed-custody encryption flow as spot trades (ABI-encoded \u2192 signed \u2192 AES-encrypted `computedData`).\n\n## Critical: Endpoint Structure\n\nLimit orders use **separate endpoints for buy vs sell** (NOT a single create endpoint):\n\n| Action | Endpoint | SDK Method |\n|--------|----------|------------|\n| List orders | `GET /v1/orders` | `getLimitOrders()` |\n| Buy when price drops | `POST /v1/limit_buy` | `limitBuy()` |\n| Sell when price rises/drops | `POST /v1/limit_sell` | `limitSell()` |\n| Update or delete order | `POST /v1/update_order` | `updateOrder()` |\n\n> There is NO `/v1/orders/create` or `/v1/orders/cancel` endpoint.\n\n## When to Use\n\n- Buy a token when its price drops to a target \u2192 `limitBuy()`\n- Sell a token when its price rises (take-profit) or drops (stop-loss) \u2192 `limitSell()`\n- Cancel an existing order \u2192 `updateOrder({ isDelete: true })`\n- Update an order's price/amount \u2192 `updateOrder()`\n- List all active orders \u2192 `getLimitOrders()`\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via `loginWithApiKey()` \u2014 see **gdex-authentication**\n- Minimum order: `config.chains[chainId].minLimitOrder` (typically 0.01 native token)\n\n## Limit Buy \u2014 Buy Token When Price Drops\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\nconst result = await skill.limitBuy({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',  // control wallet\n  sessionPrivateKey: '<session-private-key-hex>',\n  chainId: 622112261,           // Solana\n  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', // WIF\n  amount: '10000000',           // 0.01 SOL in lamports\n  triggerPrice: '0.50',         // trigger when WIF price \u2264 $0.50\n  profitPercent: '50',          // take profit at 50% gain (optional)\n  lossPercent: '25',            // stop loss at 25% loss (optional)\n});\n```\n\n### LimitBuyParams\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `apiKey` | `string` | Yes | API key for AES encryption |\n| `userId` | `string` | Yes | Control wallet address (NOT managed) |\n| `sessionPrivateKey` | `string` | Yes | Session key from sign-in |\n| `chainId` | `number` | Yes | Numeric chain ID (e.g. 622112261 for Solana) |\n| `tokenAddress` | `string` | Yes | Token to buy |\n| `amount` | `string` | Yes | Native token to spend (raw units: wei/lamports) |\n| `triggerPrice` | `string` | Yes | USD price to trigger the buy |\n| `profitPercent` | `string` | No | Take-profit % above trigger (\"0\" to skip) |\n| `lossPercent` | `string` | No | Stop-loss % below trigger (\"0\" to skip) |\n\n**ABI schema:** `['string','string','string','uint256','uint256','string']` = `[tokenAddress, amount, triggerPrice, profitPercent, lossPercent, nonce]`\n**Signature:** `limit_buy-{userId}-{data}`\n\n> **CRITICAL (Live-Tested):** `profitPercent` and `lossPercent` MUST be ABI-encoded as `uint256`, NOT `string`. The backend decodes them as uint256 and validates `0-100` range. Using `string` type produces ABI byte-offsets (e.g. 192) that fail the range check with `\"lossPercent must be between 0 and 100\"`. The SDK handles this correctly \u2014 only matters if encoding manually.\n\n## Limit Sell \u2014 Sell Token at Target Price\n\n```typescript\n// Sell WIF when price reaches $999.99 (take-profit)\nconst result = await skill.limitSell({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',\n  sessionPrivateKey: '<session-private-key-hex>',\n  chainId: 622112261,\n  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', // WIF\n  amount: '100000',             // token amount in raw units\n  triggerPrice: '999.99',       // trigger when WIF price reaches $999.99\n});\n```\n\n### LimitSellParams\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `apiKey` | `string` | Yes | API key for AES encryption |\n| `userId` | `string` | Yes | Control wallet address |\n| `sessionPrivateKey` | `string` | Yes | Session key from sign-in |\n| `chainId` | `number` | Yes | Numeric chain ID |\n| `tokenAddress` | `string` | Yes | Token to sell |\n| `amount` | `string` | Yes | Token amount to sell (raw units) |\n| `triggerPrice` | `string` | Yes | USD price to trigger the sell |\n\n**ABI schema:** `['string','string','string','string']` = `[tokenAddress, amount, triggerPrice, nonce]`\n**Signature:** `limit_sell-{userId}-{data}`\n\n> The backend auto-classifies as take-profit (trigger > current price) or stop-loss (trigger < current price).\n\n## Update or Delete an Order\n\n```typescript\n// Delete an order\nawait skill.updateOrder({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',\n  sessionPrivateKey: '<session-private-key-hex>',\n  chainId: 622112261,\n  orderId: '64-char-hex-order-id',\n  isDelete: true,\n});\n\n// Update an order's trigger price\nawait skill.updateOrder({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',\n  sessionPrivateKey: '<session-private-key-hex>',\n  chainId: 622112261,\n  orderId: '64-char-hex-order-id',\n  triggerPrice: '1.50',\n  amount: '10000000',\n});\n```\n\n### UpdateOrderParams\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `apiKey` | `string` | Yes | API key for AES encryption |\n| `userId` | `string` | Yes | Control wallet address |\n| `sessionPrivateKey` | `string` | Yes | Session key from sign-in |\n| `chainId` | `number` | Yes | Numeric chain ID |\n| `orderId` | `string` | Yes | Order ID from getLimitOrders() |\n| `amount` | `string` | No | New amount (raw units) |\n| `triggerPrice` | `string` | No | New trigger price (USD) |\n| `profitPercent` | `string` | No | New take-profit % (buy orders) |\n| `lossPercent` | `string` | No | New stop-loss % (buy orders) |\n| `isDelete` | `boolean` | No | Set true to cancel/delete the order |\n\n**ABI schema:** `['string','string','string','uint256','uint256','string','string']` = `[orderId, amount, triggerPrice, profitPercent, lossPercent, nonce, isDelete]`\n**Signature:** `update_order-{userId}-{data}`\n\n> **CRITICAL:** Same as `limit_buy` \u2014 `profitPercent` and `lossPercent` are `uint256`, not `string`.\n\n## List Orders\n\n```typescript\nconst { count, orders } = await skill.getLimitOrders({\n  userId: '0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD',\n  data: encryptedSessionKey,  // from buildGdexUserSessionData()\n  chainId: 622112261,\n});\n```\n\n### GetLimitOrdersParams\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `userId` | `string` | Yes | Control wallet address |\n| `data` | `string` | Yes | Encrypted session key (from `buildGdexUserSessionData`) |\n| `chainId` | `number` | Yes | Numeric chain ID |\n\n### LimitOrder Object (response)\n\n```typescript\ninterface LimitOrder {\n  orderId: string;           // unique 64-char hex ID\n  fromToken: string;         // token being sold\n  toToken: string;           // token being bought\n  isBuyLimit: boolean;       // true = buy limit, false = sell limit\n  price: number;             // trigger price in USD\n  takeProfitPrice: number;   // TP price (0 = disabled)\n  stopLossPrice: number;     // SL price (0 = disabled)\n  fromTokenAmount: string;   // amount in raw units\n  toTokenAmount: string;     // computed output amount\n  walletAddress: string;     // managed wallet address\n  userId: string;            // control wallet address\n  chainId: number;           // numeric chain ID\n  pairAddress: string;       // DEX pair address\n  isActive: boolean;         // still pending?\n  isCancelled?: boolean;     // was cancelled?\n  expiredAt: number;         // expiry Unix timestamp\n  profitPercent?: string;    // TP % (buy orders)\n  lossPercent?: string;      // SL % (buy orders)\n}\n```\n\n## Order Fill Logic\n\nOrders are filled by background processes that monitor prices via NATS:\n- **Buy limit:** triggers when `tokenPrice <= order.price`\n- **Sell take-profit:** triggers when `tokenPrice >= takeProfitPrice`\n- **Sell stop-loss:** triggers when `tokenPrice <= stopLossPrice`\n\n## Error Codes\n\n| Code | Meaning |\n|------|---------|\n| 101 | Missing required parameters |\n| 102 | Invalid nonce or params |\n| 103 | Unauthorized (wrong userId or session key) |\n| 1011 | Invalid/expired order |\n| 1012 | Order expired |\n| 1031 | Unsupported token |\n| 400 | Insufficient balance (need \u2265 minLimitOrder in native token) |\n\n## Legacy Aliases\n\nFor backward compatibility, older method names still work:\n- `createLimitOrder()` \u2192 calls `limitBuy()`\n- `cancelLimitOrder()` \u2192 calls `updateOrder({ isDelete: true })`\n\n## Autonomous Agent Notes (Live-Tested)\n\n### Verified Working Flow (Solana/WIF Example)\n\nThis exact sequence was tested end-to-end and succeeded:\n\n```typescript\n// 1. List existing orders\nconst orders = await skill.getLimitOrders({ userId, data, chainId: 622112261 });\n\n// 2. Create a limit buy order\nconst result = await skill.limitBuy({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId: controlAddress,          // MUST be control address, lowercase\n  sessionPrivateKey,\n  chainId: 622112261,              // Solana\n  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', // WIF\n  amount: '1000000',               // ~0.001 SOL in lamports (raw units)\n  triggerPrice: '0.0001',          // trigger when price drops to $0.0001\n  profitPercent: '50',             // 50% take-profit\n  lossPercent: '30',               // 30% stop-loss\n});\n// \u2192 { isSuccess: true, message: \"Order created successfully\", order: {...} }\n\n// 3. Verify order appears in list\nconst updated = await skill.getLimitOrders({ userId, data, chainId: 622112261 });\n\n// 4. Cancel the order\nawait skill.updateOrder({\n  apiKey, userId, sessionPrivateKey,\n  chainId: 622112261,\n  orderId: result.order.orderId,\n  isDelete: true,\n});\n```\n\n### Key Requirements for Limit Buy\n\n- `amount` must be in **raw units** (lamports for Solana, wei for EVM) \u2014 NOT float\n- `profitPercent` and `lossPercent` are **mandatory** for `limit_buy` (both must be > 0)\n- `profitPercent` and `lossPercent` must be valid 0-100 range (ABI-encoded as `uint256`)\n- `userId` must be the **control** wallet address, **lowercase**\n- `triggerPrice` is in USD (string)\n\n### Minimum Order Size\n\nThe backend enforces `config.chains[chainId].minLimitOrder` per chain. For Solana, this is approximately 0.001 SOL (1000000 lamports). Going below returns \"Insufficient balance\".\n\n### Order Cancellation\n\nTo cancel, use `updateOrder({ isDelete: true })`. There is no separate cancel endpoint. The `cancelLimitOrder()` alias calls this internally.\n\n### Error Messages and What They Mean\n\n| Error | Cause | Fix |\n|-------|-------|-----|\n| `lossPercent must be between 0 and 100` | ABI encoding used `string` type instead of `uint256` | SDK handles this correctly; only matters for manual encoding |\n| `Insufficient balance` | Amount too small or managed wallet underfunded | Increase amount or fund the managed Solana wallet |\n| `Order not found` (on update/delete) | Wrong `orderId` or order already filled/expired | Refresh order list with `getLimitOrders()` first |\n| `Invalid nonce` | Reused or stale nonce | Generate fresh: `String(Date.now())` |\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup required before creating orders\n- **gdex-spot-trading** \u2014 Market orders (immediate execution) instead of limits\n- **gdex-portfolio** \u2014 Track order fills in trade history\n", files: [] }, { name: "gdex-livestream-discovery", description: "Solana livestream-token discovery \u2014 currently-live streams, per-token live status, and big-buy alert feeds", content: "\n# GDEX: Livestream Discovery\n\nSurface the Solana livestream token-launch ecosystem inside an AI agent or\ntrading UI: tokens that are currently live-streaming, per-token live status,\nand the \"big buy\" alert feed.\n\n## When to Use\n\n- Building a discovery feed for live token launches\n- Showing a live indicator next to a token\n- Alerting users to large incoming buys on a chain\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- No authentication required for these read endpoints (whitelisted)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/currently_live` | Tokens currently live-streaming |\n| `GET`  | `/v1/live_status/:address` | Per-token live status |\n| `GET`  | `/v1/bigbuys/:chainId` | Big-buy alert feed for a chain |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\n\n// Currently-live launches (Solana-centric)\nconst live = await skill.getCurrentlyLiveTokens({ limit: 50 });\n\n// Live status for one token\nconst status = await skill.getLiveStatus({ address: 'SoLanA1111...' });\n\n// Big-buy feed (chainId 622112261 = Solana)\nconst bigBuys = await skill.getBigBuys({ chainId: 622112261, limit: 100 });\n```\n\n## Notes\n\n- The livestream surface is currently Solana-only \u2014 the most common\n  `chainId` for `bigbuys` is `622112261`.\n- These endpoints are cached server-side and may return slightly stale data\n  (typically <30s).\n- The `live_status` path includes the token address inline; pass the raw\n  address (no chain prefix).\n", files: [] }, { name: "gdex-onboarding", description: "Start here \u2014 GDEX overview, architecture, supported chains, available skills, and quickstart for cross-chain DeFi trading via managed-custody wallets", content: "\n# GDEX: Agent Onboarding\n\nGDEX is a cross-chain DeFi trading infrastructure for AI agents. It provides spot trading, perpetual futures (HyperLiquid), portfolio management, token discovery, copy trading, and bridging across Solana, Sui, and 12+ EVM chains \u2014 all through a single SDK with managed-custody wallets.\n\n## When to Use\n\n- You're new to GDEX and need to understand the platform\n- You need to decide which skill to load for a specific task\n- You want a quick overview of supported chains and capabilities\n\n## Architecture\n\n```\nAgent \u2192 @gemachdao/gdex-skill SDK \u2192 GDEX Backend (trade-api.gemach.io/v1) \u2192 On-chain Execution\n```\n\n**Key concepts:**\n- **Managed custody** \u2014 GDEX provisions and manages all on-chain trading wallets server-side. Your control wallet only signs in once.\n- **Encrypted payloads** \u2014 All trades use AES-256-CBC encrypted `computedData` payloads. The API key derives the AES key deterministically via SHA256 hash chain.\n- **Session keypairs** \u2014 A secp256k1 session key signs trade payloads after initial control-wallet sign-in.\n- **Shared API keys** \u2014 Pre-configured keys let agents authenticate instantly without wallet signing.\n\n## Quick Start\n\n```bash\nnpm install @gemachdao/gdex-skill\n```\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// No-auth: check trending tokens\nconst trending = await skill.getTrendingTokens({ chain: 'solana', period: '24h', limit: 5 });\n\n// Trading needs the managed-custody session from sign-in (see \"Full Managed-Custody Setup\"\n// below or gdex-authentication): apiKey + control walletAddress + sessionPrivateKey.\nconst trade = await skill.buyToken({\n  chain: 8453,                     // Base\n  tokenAddress: '0xTokenAddress',\n  amount: '0.01',                  // 0.01 ETH\n  slippage: 1,\n  apiKey: GDEX_API_KEY_PRIMARY,\n  walletAddress: controlAddress,   // the control wallet that signed in\n  sessionPrivateKey,\n});\n```\n\n**Using the MCP server?** Run `gdex_connect` once and pass the returned `accountRef` to every\ntrading tool (`buy_token`, `open_perp_position`, `usdc_buy`, ...) instead of keys.\n\n**Shared API Keys (pre-configured for all agents):**\n- Primary: `9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54`\n- Secondary: `2c8f0a91-5d34-4e7b-9a62-f1c3d8e4b705`\n\n## Supported Chains\n\n| Chain | ChainId | DEXes | Perps | Bridge |\n|-------|---------|-------|-------|--------|\n| Ethereum | `1` | Uniswap v2/v3, Odos | \u2014 | Yes |\n| Optimism | `10` | Uniswap v3, Odos | \u2014 | Yes |\n| BSC | `56` | PancakeSwap, Odos | \u2014 | Yes |\n| Sonic | `146` | \u2014 | \u2014 | Yes |\n| Fraxtal | `252` | Uniswap v3 | \u2014 | Yes |\n| Robinhood Chain | `4663` | Uniswap v2, KyberSwap | \u2014 | No |\n| Nibiru | `6900` | \u2014 | \u2014 | Yes |\n| Base | `8453` | Uniswap v3, Odos, Arcadia | \u2014 | Yes |\n| Arbitrum | `42161` | Uniswap v3, Odos | \u2014 | Yes |\n| Berachain | `80094` | \u2014 | \u2014 | Yes |\n| Solana | `622112261` / `'solana'` | Raydium, Raydium v2, Orca | \u2014 | Yes |\n| Sui | `1313131213` / `'sui'` | Cetus, Bluefin | \u2014 | Yes |\n| HyperLiquid | \u2014 | \u2014 | Native perp engine | \u2014 |\n\n**Chain IDs for managed-custody:** 900 = Solana, 101 = Sui, or standard EVM chain IDs.\n\n## Available Skills\n\n| Category | Skill | Description |\n|----------|-------|-------------|\n| **Getting Started** | `gdex-onboarding` | **You are here** \u2014 Overview, architecture, quickstart |\n| **Auth** | `gdex-authentication` | Managed-custody auth, encryption, session key flow |\n| **Trading** | `gdex-spot-trading` | Buy/sell tokens on any supported chain |\n| | `gdex-perp-trading` | HyperLiquid perpetual futures \u2014 positions, orders, leverage |\n| | `gdex-perp-funding` | Deposit/withdraw USDC to/from HyperLiquid |\n| | `gdex-limit-orders` | Create, cancel, and list limit orders |\n| **Data** | `gdex-portfolio` | Cross-chain portfolio, balances, trade history |\n| | `gdex-token-discovery` | Token details, trending tokens, OHLCV charts (no auth) |\n| **Platform** | `gdex-copy-trading` | Copy trade wallets, create/manage configs, tx history, DEXes (Solana writes only) |\n| | `gdex-perp-copy-trading` | HL perp copy trading \u2014 top traders, create/manage configs, market data |\n| | `gdex-bridge` | Cross-chain bridging with quotes |\n| | `gdex-usdc-wallet` | Unified USDC wallet \u2014 one USDC balance across chains, auto-bridge funding |\n| | `gdex-wallet-setup` | Generate EVM wallets, session keys, get wallet info |\n| **Frontend** | `gdex-ui-install-setup` | React/Next.js project setup, SDK context providers |\n| | `gdex-ui-trading-components` | React component patterns for trading UIs |\n| | `gdex-ui-portfolio-dashboard` | Portfolio dashboard components |\n| | `gdex-ui-wallet-connection` | Wallet connection UI and auth flows |\n| | `gdex-ui-theming` | CSS theming \u2014 dark/light mode, trading colors |\n| | `gdex-ui-page-layouts` | Full page compositions for trading apps |\n| **Developer Tools** | `gdex-sdk-debugging` | Troubleshoot errors, chain quirks, common pitfalls |\n\n## Recommended Next Steps\n\n**If you want to trade tokens (spot):**\n1. Load **gdex-authentication** for auth setup\n2. Load **gdex-spot-trading** for buy/sell operations\n\n**If you want perpetual futures:**\n1. Load **gdex-authentication** for auth setup\n2. Load **gdex-perp-funding** to deposit USDC to HyperLiquid\n3. Load **gdex-perp-trading** for positions and orders\n\n**If you just need market data (no auth):**\n1. Load **gdex-token-discovery** \u2014 works immediately, no authentication needed\n\n**If the user has no wallet:**\n1. Load **gdex-wallet-setup** to generate an EVM control wallet\n2. Load **gdex-authentication** to sign in via managed custody\n\n**If you want to copy successful traders:**\n1. Load **gdex-authentication** for auth setup\n2. Load **gdex-copy-trading** for tracking wallets and settings\n\n**If you want to bridge assets cross-chain:**\n1. Load **gdex-authentication** for auth setup\n2. Load **gdex-bridge** for bridging operations\n3. For USDC, load **gdex-usdc-wallet**: it trades and bridges USDC across chains as one balance\n\n**If you want to build a trading frontend:**\n1. Load **gdex-ui-install-setup** for React/Next.js project setup\n2. Load **gdex-ui-trading-components** for order forms and position tables\n3. Load **gdex-ui-theming** for dark/light mode and trading colors\n4. Load **gdex-ui-page-layouts** for full page compositions\n\n**If you're debugging an issue:**\n1. Load **gdex-sdk-debugging** for error codes, chain quirks, and common pitfalls\n\n## Key Links\n\n| Resource | URL |\n|----------|-----|\n| SDK (npm) | https://www.npmjs.com/package/@gemachdao/gdex-skill |\n| Repository | https://github.com/GemachDAO/gdex-skill |\n| Trading Dashboard | https://gdex.pro |\n| Backend API | https://trade-api.gemach.io/v1 |\n\n## Installation\n\n```bash\n# Install all skills globally (recommended)\nnpx skills add GemachDAO/gdex-skill --all --agent '*' -g\n\n# Install specific skill\nnpx skills add GemachDAO/gdex-skill --skill gdex-spot-trading\n\n# Install SDK\nnpm install @gemachdao/gdex-skill\n```\n\n## MCP Server\n\nFor AI clients that support [Model Context Protocol](https://modelcontextprotocol.io),\nthe GDEX MCP server exposes **154 tools** covering the full SDK surface \u2014 spot and\nperp trading, HyperLiquid funding, limit orders, copy trading, bridging, portfolio\nand token data, transfers/social, and Hyperliquid HIP-4 outcome markets (e.g.\n`buy_token`, `open_perp_position`, `place_perp_order`, `hl_create_outcome_order`,\n`hl_swap_collateral`, `get_account_state`, `estimate_bridge`).\n\n### Auto-configure (one command, no npm account)\n\n```bash\nnpx -y github:GemachDAO/gdex-skill gdex-mcp-server init --client claude\n# clients: claude \xB7 cursor \xB7 vscode \xB7 codex \xB7 opencode\n```\n\nThis writes the MCP config for your agent (e.g. `.mcp.json`) wired to launch the\nserver straight from GitHub with the shared API key \u2014 no npm publish required:\n\n```jsonc\n{\n  \"mcpServers\": {\n    \"gdex-mcp-server\": {\n      \"command\": \"npx\",\n      \"args\": [\"-y\", \"github:GemachDAO/gdex-skill\", \"gdex-mcp-server\"],\n      \"env\": { \"GDEX_API_KEY\": \"9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54\" }\n    }\n  }\n}\n```\n\n> The skills.sh install configures **skills**, not MCP \u2014 run the command above to add\n> the MCP server. The skills also work via the SDK without MCP. The first launch\n> builds the package from source (cached afterward).\n\n## Autonomous Agent Quickstart\n\nIf you're an AI agent operating autonomously (no human to ask), here's the minimum viable flow:\n\n### 1. Initialize\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n```\n\n### 2. Research Before Trading\n```typescript\n// Check what's trending\nconst trending = await skill.getTrendingTokens({ chain: 622112261, period: '1h', limit: 10 });\n\n// Get details on a token \u2014 CHECK dexId BEFORE buying\nconst token = await skill.getTokenDetails({ tokenAddress: trending[0].address, chain: 622112261 });\nif (token.dexId === 'meteora') {\n  // \u274C Meteora tokens FAIL on Solana \u2014 skip this token\n}\nif (token.dexId === 'raydium') {\n  // \u2705 Safe to buy\n}\n```\n\n### 3. Full Managed-Custody Setup (for actual trading)\n```typescript\nimport { ethers } from 'ethers';\nimport {\n  generateGdexSessionKeyPair, buildGdexSignInMessage,\n  buildGdexSignInComputedData, buildGdexUserSessionData,\n} from '@gemachdao/gdex-skill';\n\nconst wallet = ethers.Wallet.fromPhrase('your mnemonic...');\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\nconst nonce = String(Date.now());\nconst msg = buildGdexSignInMessage(wallet.address, nonce, sessionKey);\nconst sig = await wallet.signMessage(msg);\nconst payload = buildGdexSignInComputedData({\n  apiKey: GDEX_API_KEY_PRIMARY, userId: wallet.address, sessionKey, nonce, signature: sig,\n});\nawait skill.signInWithComputedData({ computedData: payload.computedData, chainId: 1 });\n```\n\n### 4. Key Rules for Autonomous Operation\n- **Always use control wallet address** (the one that signed in) for `userId`/`walletAddress` in API calls\n- **Never use managed wallet address** in API calls (except `getHlUserStats()`)\n- **Amounts in raw units** for managed trades (lamports for Solana, wei for EVM)\n- **Check `dexId`** before buying on Solana \u2014 skip Meteora tokens\n- **Generate fresh nonce** for every operation\n- **Portfolio/balances use raw client** \u2014 high-level methods send wrong params\n- **If `hlCloseAll` fails**, use reduce-only order instead\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Managed-custody auth flow and encryption details\n- **gdex-spot-trading** \u2014 Buy/sell tokens on any chain\n- **gdex-perp-trading** \u2014 HyperLiquid perpetual futures\n- **gdex-token-discovery** \u2014 Token info without authentication\n- **gdex-wallet-setup** \u2014 Wallet generation for new users\n- **gdex-ui-install-setup** \u2014 Frontend project setup with React/Next.js\n- **gdex-sdk-debugging** \u2014 Error troubleshooting and debugging guide\n\n---\n\n# Live-Tested Operational Playbook\n\n_Consolidated reference (migrated from the umbrella skill). Critical notes and an autonomous-agent playbook validated against the live backend._\n\n## Critical Notes (Live-Tested)\n\n> **walletAddress = CONTROL address, NOT managed address.** All HL write operations (`hlCreateOrder`, `hlCloseAll`, `perpDeposit`, etc.) require `walletAddress` set to the **control wallet address** used during sign-in \u2014 NOT the managed-custody address returned by `/v1/user`. The backend verifies the session key signature against the sign-in `userId`. Passing the managed address causes `400 Unauthorized (code 103)`.\n\n> **`hlCloseAll` / `/v1/hl/close_all_positions` is unreliable.** It frequently returns `TIMEOUT` or JSON parse errors. Close per coin with `closePerpPosition` (MCP: `close_perp_position`), which places a **reduce-only** order for the exact live position size.\n\n> **`hlUpdateLeverage` / `/v1/hl/update_leverage` is not implemented** on the backend (returns 404). Set leverage on the order instead: `hlCreateOrder({ ..., leverage: 5 })` (MCP: `open_perp_position` with `leverage`) sends it as a top-level field with the order.\n\n> **Solana chainId is `622112261`, NOT `900`.** The correct Solana chain ID is `ChainId.SOLANA = 622112261`. Using `900` falls back to the EVM managed address with `balance: null`. The `/v1/user` endpoint returns a **different managed wallet** per `chainId`:\n> - `chainId=1` \u2192 EVM managed: `0x9967...`\n> - `chainId=622112261` \u2192 Solana managed: `CFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1` (base58)\n> Always use `ChainId.SOLANA` from the SDK's enum to avoid this mistake.\n\n> **Solana Meteora swaps are broken (backend bug).** Tokens that route through Meteora DLMM (e.g. BONK) fail with `Program error: 1` because the backend doesn\u2019t wrap SOL into WSOL before calling `Swap2`. **Raydium-routed tokens work correctly** (e.g. WIF). Check `token.dexId` \u2014 if it's `\"meteora\"`, the swap will fail. Prefer tokens with `isRaydium: true` or `dexId: \"raydium\"`.\n\n> **Solana trades need ~0.01 SOL minimum.** ATA (Associated Token Account) creation costs ~0.002 SOL per new token, plus priority fees (default 0.0005 SOL) and base tx fees. First trade on a new token needs ~0.007 SOL overhead beyond the swap amount.\n\n> **Bridge endpoints use different paths than expected.** The actual backend routes are `GET /v1/bridge/estimate_bridge`, `POST /v1/bridge/request_bridge`, and `GET /v1/bridge/bridge_orders`. The `request_bridge` endpoint requires ABI-encoded + signed + AES-encrypted `computedData` (same pattern as managed trades). Bridge is **native tokens only** and uses ChangeNow as provider. Amounts must be in **raw token units** (wei/lamports). See **gdex-bridge** skill for full details.\n\n> **Copy trade write operations (create/delete) use `chainId: 622112261` for sign-in, NOT `chainId: 1`.** The update endpoint decodes 15 typed ABI fields: `[traderWallet, copyTradeName, chainId(uint64), gasPrice, buyMode(uint64), copyBuyAmount, isBuyExistingToken(bool), lossPercent, profitPercent, nonce, isDelete(bool), isChangeStatus(bool), copyTradeId, copySell(bool), excludedDexNumbers(uint64[])]`. `isDelete` deletes the config; `isChangeStatus` toggles `isActive`. Use `pauseCopyTrade`/`resumeCopyTrade`/`deleteCopyTrade`; none of them closes positions.\n\n> **Limit order endpoints are `limit_buy` / `limit_sell` / `update_order` \u2014 NOT `orders/create` / `orders/cancel`.** Use `limitBuy()` for buy orders, `limitSell()` for sell orders (auto-classifies TP vs SL), and `updateOrder({ isDelete: true })` to cancel. Listing uses `GET /v1/orders` with `userId` + encrypted `data` + `chainId`. All write endpoints use ABI-encoded + signed + AES-encrypted `computedData` (same managed-custody pattern). Minimum order is ~0.01 native token. See **gdex-limit-orders** skill for full details.\n\n> **HL perp copy trading is completely separate from Solana copy trading.** Uses `chainId: 1` (EVM), ABI methods `hl_create`/`hl_update` (8 and 11 typed fields), and goes through `buildHlComputedData()`. `isDelete` deletes the config and `isChangeStatus` toggles `isActive`; use `pauseHlCopyTrade`/`resumeHlCopyTrade`/`deleteHlCopyTrade` (none closes positions). Both TP and SL are **mandatory** (> 0). Max 3 copy trades per user. Supports opposite-direction copying via `oppositeCopy`. Configs written by SDK <= 4.12 hold `copyMode=416/480` and `oppositeCopy=true` (string-encoded ABI); repair with `updateHlCopyTradeSettings`. `user_stats` requires the managed wallet address, not the control wallet. See **gdex-perp-copy-trading** skill for full details.\n\n## Autonomous Agent Playbook\n\n> **This section contains everything an autonomous AI agent needs to trade without human help.**\n\n### Portfolio / Balances / History (Fixed in SDK)\n\n```typescript\nconst session = { walletAddress: controlAddress, sessionPrivateKey, apiKey };\nconst { holdings } = await skill.getPortfolio({ ...session, chain: 622112261 });   // per chain\nconst funds = await skill.getTradingFunds({ ...session, chain: 622112261 });        // native balance\nconst page = await skill.getTradeHistory({ walletAddress: controlAddress, chain: 622112261 });\n```\n\nFailed or malformed reads throw instead of returning an empty, zero-balance account. See **gdex-portfolio**.\n\n### OHLCV / TopTraders \u2014 Numeric chainId Required (Live-Tested)\n\nBackend needs numeric `chainId`, not string `chain`. These work:\n```typescript\nawait skill.getOHLCV({ tokenAddress, chain: 622112261, resolution: '60', from, to });\nawait skill.getTopTraders({ chain: 622112261, period: '7d', limit: 5 });\n```\n\n### Spot Trading (Managed Custody) \u2014 Raw Units Required (Live-Tested)\n\nFor hand-built managed-custody payloads (`buildGdexManagedTradeComputedData` \u2192 `submitManagedPurchase` / `submitManagedSell`), amounts must be in **raw units** (lamports for Solana, wei for EVM), NOT float. (`buyToken` with a session key takes a decimal native amount and converts it.)\n```typescript\n// \u274C WRONG: amount: '0.01'\n// \u2705 CORRECT: amount: '10000000' (0.01 SOL = 10000000 lamports)\n```\n\n### Limit Orders \u2014 profitPercent/lossPercent MUST Be uint256 (Live-Tested)\n\nThe `limit_buy` and `update_order` ABI schemas use `uint256` for `profitPercent` and `lossPercent` \u2014 NOT `string`. The backend decodes them as uint256 and validates 0-100 range. Using `string` type produces ABI byte-offsets (e.g. 192) that always fail. The SDK handles this correctly.\n\n### Endpoints That Don't Work (Live-Tested)\n\n| Endpoint | Status | Alternative |\n|----------|--------|-------------|\n| `hlCloseAll` / `/v1/hl/close_all_positions` | Returns TIMEOUT/400 | Use `closePerpPosition` per coin (or `hlCreateOrder` with `reduceOnly: true, isMarket: true`) |\n| `hlUpdateLeverage` / `/v1/hl/update_leverage` | Returns 404 | Pass `leverage` on `hlCreateOrder` |\n| `getGbotUsdcBalance` | Returns 404 | Use `getHlAccountState()` to check USDC balance |\n| `getHlUserStats(controlAddress)` | Returns 400 | Must pass the **managed** wallet address, not control |\n\n### Error Recovery for Autonomous Agents\n\n| Error | What to Do |\n|-------|------------|\n| `400 Unauthorized (103)` | Check: (1) using control address not managed, (2) ABI types match exactly, (3) session key is from the same sign-in |\n| `Insufficient balance` | Check managed wallet balance on the correct chain. For HL, check USDC deposit amount. |\n| `TIMEOUT` on hlCloseAll | Use reduce-only order instead (see above) |\n| `Program error: 1` on Solana | Token routes through Meteora DLMM. Swap to a Raydium-routed token instead. |\n| `lossPercent must be between 0 and 100` | ABI encoding bug \u2014 profitPercent/lossPercent must be uint256, not string |\n| `404` on leverage | Expected from `hlUpdateLeverage` \u2014 pass `leverage` on `hlCreateOrder` instead. |\n| `Reused nonce` | Always generate fresh: `String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000))` |\n| Rate limited (429) | SDK auto-retries with exponential backoff. If manual, wait `retryAfter` seconds. |\n\n### Live-Tested E2E Results (39/42 Pass)\n\n| Section | Tests | Pass | Notes |\n|---------|-------|------|-------|\n| Auth & Portfolio | 7 | 7/7 | Sign-in, resolve user, portfolio (raw client), balances, trade history |\n| Token Discovery | 3 | 3/3 | Token details, trending, OHLCV |\n| Top Traders | 1 | 1/1 | Top traders by PnL |\n| Spot Trading | 3 | 3/3 | Buy WIF (Solana), sell WIF, poll status |\n| HL Perp Trading | 10 | 8/10 | Deposit, create order, positions, close (reduce-only). `getGbotUsdcBalance` 404, `hlCloseAll` 400 |\n| Limit Orders | 4 | 4/4 | List, create (limit buy), verify, cancel |\n| Copy Trading Reads | 4 | 4/4 | Wallets, custom wallets, gems, DEXes |\n| HL Copy Trading Reads | 8 | 7/8 | Top traders, top by PnL, assets, DEXes, deposit tokens. `getHlUserStats` needs managed addr |\n| Bridge Estimate | 1 | 1/1 | ETH\u2192ARB estimate |\n| Wallet Generation | 1 | 1/1 | Offline EVM wallet |\n\n## Quick Start\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// No-auth endpoints work immediately\nconst trending = await skill.getTrendingTokens({ chain: 'solana', period: '24h', limit: 5 });\n\n// Trades need the managed-custody session (apiKey + control walletAddress + sessionPrivateKey)\nconst trade = await skill.buyToken({\n  chain: 8453,\n  tokenAddress: '0xTokenAddress',\n  amount: '0.01',\n  slippage: 1,\n  apiKey: GDEX_API_KEY_PRIMARY,\n  walletAddress: controlAddress,\n  sessionPrivateKey,\n});\n```\n\n**Shared API Keys:** `9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54` (primary), `2c8f0a91-5d34-4e7b-9a62-f1c3d8e4b705` (secondary)\n\n## Installation\n\n```bash\n# Install all skills\nnpx skills add GemachDAO/gdex-skill --all --agent '*' -g\n\n# Install SDK (from GitHub \u2014 builds on install; imports stay '@gemachdao/gdex-skill')\nnpm install github:GemachDAO/gdex-skill\n```\n| userId | Control wallet address (from sign-in), NOT managed wallet |\n| Bridge receiver | `0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7` |\n\n### HL Signature Format\n\nAll HL write operations sign with the **session private key** (registered during sign-in):\n```\nmessage = \"{action}-{userId.toLowerCase()}-{dataHex}\" // e.g. \"hl_deposit-0x53d0...-0000...\"\ndigest  = keccak256(utf8Bytes(message))\noutput  = r(64hex) + s(64hex) + v(2hex)  // 130 chars, v=00/01, no 0x prefix\n```\n\n### HL Error Codes\n\n| Code | Error | Common Cause |\n|---|---|---|\n| 103 | Unauthorized | Wrong ABI type (uint256 instead of uint64), wrong userId, or signing with wrong key |\n| 102 | Invalid chainId | chainId is not 42161 |\n| 102 | Invalid params | Reused nonce or unsupported token |\n| \u2014 | Insufficient balance | Managed wallet needs more USDC + fee on Arbitrum |\n| \u2014 | Too low amount | Amount < 10 USDC (10000000 smallest unit) |\n", files: [] }, { name: "gdex-perp-copy-trading", description: "HyperLiquid perpetual futures copy trading \u2014 discover top perp traders, create/manage perp copy trades, fill history, opposite-direction copying, and market data", content: "\n# GDEX: Perp Copy Trading (HyperLiquid)\n\nAutomatically mirror perpetual futures positions (long/short) from top-performing HyperLiquid traders. Supports opposite-direction copying, fixed or proportional sizing, and TP/SL controls.\n\n> **This is completely separate from Solana spot copy trading (`gdex-copy-trading`).** Different chain (EVM, chainId=1 vs Solana 622112261), different ABI methods (`hl_create`/`hl_update` vs `create_copy_trade`/`update_copy_trade`), different field schemas. On both chains `isDelete` deletes the configuration and `isChangeStatus` toggles `isActive` (pause/resume); neither closes positions.\n\n## When to Use\n\n- Browsing top HyperLiquid perp traders (by volume, PnL, or deposit)\n- Getting detailed trading stats for a specific trader\n- Creating a perp copy trade to follow a trader's long/short positions\n- Updating or deleting a perp copy trade\n- Viewing perp copy trade fill history with enrichment\n- Checking market data (assets, DEXes, clearinghouse state, open orders)\n- Checking deposit tokens and USDC balance\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- For discovery: `loginWithApiKey()` only\n- For read (list/tx_list): Full sign-in with session key (`chainId: 1`)\n- For write (create/update): Full sign-in + computedData\n\n## Auth Tiers\n\n| Tier | Endpoints | Auth Needed |\n|------|-----------|-------------|\n| Discovery | `top_traders`, `top_traders_by_pnl`, `user_stats`, `perp_dexes`, `all_assets`, `clearinghouse_state`, `open_orders`, `deposit_tokens`, `usdc_balance` | API key only |\n| Read | `list`, `tx_list` | Session-key auth (`userId` + encrypted `data`) |\n| Write | `create`, `update` | computedData (ABI-encode + sign + AES-encrypt) |\n\n## Key Differences from Solana Copy Trading\n\n| Feature | Solana (`gdex-copy-trading`) | HL Perp (`gdex-perp-copy-trading`) |\n|---------|---------|------|\n| Chain | Solana (622112261) | EVM (chainId = 1) |\n| Asset Type | Spot tokens | Perpetual futures (long/short) |\n| ABI Methods | `create_copy_trade` / `update_copy_trade` | `hl_create` / `hl_update` |\n| ABI Fields | 12 create / 15 update (typed: uint64, bool, uint64[]) | 8 create / 11 update (typed: copyMode uint64, bool flags) |\n| Opposite Copy | \u274C Not supported | \u2705 `oppositeCopy` flag |\n| `isChangeStatus` | Toggles `isActive` (use `pauseCopyTrade`/`resumeCopyTrade`) | Toggles `isActive` (use `pauseHlCopyTrade`/`resumeHlCopyTrade`) |\n| Copy Modes | 1=fixed SOL, 2=% of trader | 1=fixed USD per order, 2=proportion of trader's size |\n| TP/SL | Optional | **Mandatory** (both > 0, lossPercent < 100) |\n| Max Copies | `config.maxCopyTrades` | Default 3 (`hyperLiquidConfig.maxFuturesCopy`) |\n\n## Discovery Endpoints (No Auth)\n\n### Top Traders by Volume/TradeCount/Deposit\n\n```typescript\nconst topByVolume = await skill.getHlTopTraders('volume');\nconst topByTrades = await skill.getHlTopTraders('tradeCount');\nconst topByDeposit = await skill.getHlTopTraders('deposit');\n// Cached 15 minutes\n```\n\n### Top 30 Traders by PnL\n\n```typescript\nconst topPnl = await skill.getHlTopTradersByPnl();\n// Response: { isSuccess: true, topTraders: { day: [...], week: [...], month: [...] } }\n// Each entry: { ethAddress, accountValue, windowPerformances: [{ window, percentage, pnl }] }\n```\n\n### Detailed User Stats\n\n```typescript\n// NOTE: Requires the MANAGED wallet address, not the control wallet.\n// Control wallet and external trader addresses return \"Wallet not found\".\nconst stats = await skill.getHlUserStats('0xManagedWalletAddress');\n// Cached 1 hour in Redis\n```\n\n#### HlUserStats Shape\n\n```typescript\ninterface HlUserStats {\n  '24h': number;        // PnL last 24 hours\n  '7d': number;         // PnL last 7 days\n  '30d': number;        // PnL last 30 days\n  week: number;\n  dailyPnls: Array<{\n    timeMs: number;\n    date: string;\n    pnl: number;\n    pnlPercentage: number;\n    capitalDeployed: number;\n  }>;\n  volumes: Record<string, number>;\n  tradesCount: Record<string, { win: number; lose: number; total: number }>;\n  percentagePnl: Record<string, number>;\n  capitalDeployed: Record<string, number>;\n  allTime: { pnl: number; pnlPercentage: number; capitalDeployed: number };\n}\n```\n\n### Perp DEXes\n\n```typescript\nconst dexes = await skill.getHlPerpDexes();\n// { isSuccess: true, perpDexes: ['HyperLiquid', ...] }\n```\n\n### All Tradeable Assets\n\n```typescript\nconst assets = await skill.getHlAllAssets();\n// { isSuccess: true, count: N, assets: [...] }\n```\n\n### Clearinghouse State (Account Positions)\n\n```typescript\n// Single DEX\nconst state = await skill.getHlClearinghouseState('0xTraderAddress');\n\n// All DEXes\nconst stateAll = await skill.getHlClearinghouseStateAll('0xTraderAddress');\n```\n\n### Open Orders\n\n```typescript\n// Single DEX\nconst orders = await skill.getHlOpenOrdersForCopy('0xTraderAddress');\n\n// All DEXes\nconst ordersAll = await skill.getHlOpenOrdersAllForCopy('0xTraderAddress');\n```\n\n### Deposit Tokens\n\n```typescript\nconst tokens = await skill.getHlDepositTokens();\n// { isSuccess: true, tokens: { \"42161\": [{ name, symbol, address, chainId, decimals, minDeposit, HLReceiver }] } }\n// Key is chain ID (\"42161\" = Arbitrum One)\n```\n\n### USDC Balance (Arbitrum)\n\n```typescript\nconst balance = await skill.getHlUsdcBalanceForCopy('0xTraderAddress');\n```\n\n## Read Endpoints (Session-Key Auth)\n\nRequire `userId` and `data` (AES-encrypted session key from `buildGdexUserSessionData`).\n\n### List User's HL Copy Trades\n\n```typescript\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\n\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\nconst list = await skill.getHlCopyTradeList({ userId, data });\n// { isSuccess: true, count: 2, allCopyTrades: [...] }\n```\n\n#### HlCopyTradeConfig Shape\n\n```typescript\ninterface HlCopyTradeConfig {\n  copyTradeId: string;\n  copyTradeName: string;\n  copyMode: number;              // 1 or 2; configs written by SDK <= 4.12 hold 416/480 (string-encoded ABI)\n  chainId: number;               // Always 1 (EVM)\n  isActive: boolean;\n  userId: string;\n  userWallet: string;            // MANAGED wallet address\n  traderWallet: string;          // EVM address\n  lossPercent: number;\n  profitPercent: number;\n  fixedAmountCostPerOrder: string;\n  oppositeCopy: boolean;         // configs written by SDK <= 4.12 hold true regardless of the request\n  createdAt: number;\n  lastUpdated: number;\n  totalTrades: number;\n  totalVolumes: number;\n  totalPnl: number;\n}\n```\n\n### Fill History\n\n```typescript\nconst txList = await skill.getHlCopyTradeTxList({\n  userId,\n  data,\n  page: '1',\n  limit: '20',  // max 100\n});\n// { isSuccess: true, totalCount: 42, txes: [...] }\n// Cached 15 seconds\n```\n\n#### HlCopyTradeTx Shape\n\n```typescript\ninterface HlCopyTradeTx {\n  coin: string;              // e.g. \"BTC\"\n  px: string;                // Fill price\n  sz: string;                // Fill size\n  side: string;              // \"B\" (buy) or \"S\" (sell)\n  time: number;              // Unix ms\n  closedPnl: string;\n  oid: string;               // HyperLiquid order ID\n  dir: string;               // e.g. \"Open Long\"\n  copyTradeName: string;     // or \"N/A\"\n  traderTxHash: string;      // or \"N/A\"\n  traderSize: string;        // or \"N/A\"\n  traderPrice: string;       // or \"N/A\"\n  traderWallet: string;      // or \"N/A\"\n}\n```\n\n## Write Endpoints (ComputedData Auth)\n\n### Create an HL Perp Copy Trade\n\n```typescript\nawait skill.createHlCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  traderWallet: '0xTraderEvmAddress',\n  copyTradeName: 'BTC Whale Follower',\n  copyMode: 1,                    // Fixed USD amount per order\n  fixedAmountCostPerOrder: '50',  // $50 per copied trade\n  lossPercent: '25',              // 25% stop-loss (mandatory, > 0)\n  profitPercent: '100',           // 100% take-profit (mandatory, > 0)\n  oppositeCopy: false,            // Copy same direction\n});\n```\n\n**ABI Schema (`hl_create`, 8 fields, typed as backend decoder.ts decodes it):**\n\n| # | Field | Type | Description |\n|---|-------|------|-------------|\n| 0 | traderWallet | string | EVM address to copy |\n| 1 | copyTradeName | string | Human-readable label |\n| 2 | copyMode | uint64 | 1 or 2 |\n| 3 | fixedAmountCostPerOrder | string | USD amount (mode 1) or ratio (mode 2) |\n| 4 | lossPercent | string | Stop-loss % |\n| 5 | profitPercent | string | Take-profit % |\n| 6 | nonce | string | Auto-generated |\n| 7 | oppositeCopy | bool | |\n\n### Update, Pause, Resume, Delete\n\nUse the explicit operations. Each reads the current configuration first (the\nbackend rewrites every field on update), so pass only what changes.\n\n```typescript\nconst ids = { apiKey, userId, sessionPrivateKey, copyTradeId: 'abc123...' };\n\n// Settings only; never deletes or pauses. Omitted fields keep current values.\nawait skill.updateHlCopyTradeSettings({ ...ids, copyMode: 2, fixedAmountCostPerOrder: '0.5', oppositeCopy: false });\n\nawait skill.pauseHlCopyTrade(ids);   // isActive=false, no-op if already paused\nawait skill.resumeHlCopyTrade(ids);  // isActive=true, no-op if already active\nawait skill.deleteHlCopyTrade(ids);  // permanent\n```\n\n| Operation | Backend effect (`ServiceHyperLiquid.update`) | Open perp positions / TP-SL |\n|---|---|---|\n| `updateHlCopyTradeSettings` | rewrites the config fields | unchanged |\n| `pauseHlCopyTrade` | toggle \u2192 `isActive=false`; the copier skips inactive configs for opens AND closes | stay open and will not follow the trader's exits; TP/SL stays |\n| `resumeHlCopyTrade` | toggle \u2192 `isActive=true` | fills made while paused are not replayed |\n| `deleteHlCopyTrade` | `HLFuturesCopySetting.deleteOne` | NOT closed, TP/SL NOT cancelled |\n\nPause/resume raise `PAUSE_STATE_UNVERIFIED` when the current state cannot be\nread (nothing is sent) and `PAUSE_UNSUPPORTED` when the stored `copyMode` is not\n1 or 2 (a config written by SDK <= 4.12): repair it with\n`updateHlCopyTradeSettings({ copyMode, fixedAmountCostPerOrder, oppositeCopy })`\nfirst, or delete (positions stay open). The low-level `updateHlCopyTrade` still\nexists; setting both `isDelete` and `isChangeStatus` is rejected.\n\n**ABI Schema (`hl_update`, 11 fields, typed):**\n\n| # | Field | Type | Description |\n|---|-------|------|-------------|\n| 0 | traderWallet | string | EVM address |\n| 1 | copyTradeName | string | Label |\n| 2 | copyMode | uint64 | 1 or 2 |\n| 3 | fixedAmountCostPerOrder | string | Amount or ratio |\n| 4 | lossPercent | string | Stop-loss % |\n| 5 | profitPercent | string | Take-profit % |\n| 6 | nonce | string | Auto-generated |\n| 7 | isDelete | bool | |\n| 8 | isChangeStatus | bool | toggles isActive |\n| 9 | copyTradeId | string | Existing trade ID |\n| 10 | oppositeCopy | bool | |\n\n## Backend Quirks (Live E2E Findings)\n\n> These are verified behaviors observed during live E2E testing.\n\n1. **Legacy `copyMode` values.** SDK versions up to 4.12 encoded every `hl_create`/`hl_update` field as an ABI string. The backend decodes `copyMode` as `uint64` and the flags as `bool`, so it stored the head-slot offset (416 after create, 480 after update) as `copyMode` and `true` for `oppositeCopy`, and read `isDelete=true` on every update (which is why updates \"always deleted\"). The SDK now sends the typed ABI. Configs created by old versions keep the bad values until you call `updateHlCopyTradeSettings` with explicit ones.\n\n2. **`isChangeStatus` toggles `isActive`** (`isActive = !existing.isActive`); it does not delete. Only `isDelete` deletes. Neither closes positions.\n\n3. **The copier only mirrors `isActive: true` configs** (`copyTradeHyperLiquid.ts`), for both opens and closes.\n\n4. **`user_stats` requires the MANAGED wallet address** (`userWallet` from the copy trade config), not the control wallet address. The control wallet and external trader wallets return `{\"code\":103,\"error\":\"Wallet not found\"}`.\n\n5. **Discovery endpoints use different query params:**\n   - `user_stats`: `?user=<address>` (managed wallet only)\n   - `clearinghouse_state`, `clearinghouse_state_all`: `?address=<address>`\n   - `open_orders`, `open_orders_all`: `?address=<address>`\n   - `usdc_balance`: `?address=<address>`\n\n6. **`top_traders_by_pnl`** returns nested structure: `{ day: [...], week: [...], month: [...] }` where each entry has `ethAddress`, `accountValue`, and `windowPerformances`.\n\n7. **`deposit_tokens`** response keys are chain IDs (e.g., `\"42161\"` for Arbitrum), not chain names. Each token includes `name`, `symbol`, `address`, `chainId`, `decimals`, `minDeposit`, `HLReceiver`.\n\n## Backend Validation Rules\n\n- **TP/SL mandatory**: Both `lossPercent` > 0 (and < 100) and `profitPercent` > 0\n- **Copy modes**: Mode 1 = fixed USD per order, Mode 2 = proportion of trader's size\n- **Max copies**: Default 3 per user (`hyperLiquidConfig.maxFuturesCopy`)\n- **No self-copy**: Can't copy your own wallet\n- **Circular dependency**: Full DFS graph cycle detection (A\u2192B\u2192C\u2192A prevented)\n- **No duplicates**: Can't copy the same trader wallet twice\n\n## How Copies Execute\n\nCopies are NOT executed at API call time. A background watcher monitors tracked traders:\n1. Detects trader's new perp position (open/close/modify)\n2. Calculates your position size based on copyMode\n3. Opens/closes a mirrored position (or opposite if `oppositeCopy=true`)\n4. Applies TP/SL based on your lossPercent/profitPercent settings\n5. Tracks fill in `HLCopyTradeTrack` collection for tx_list\n\n## Example: Full HL Perp Copy Trading Flow\n\n```typescript\nimport {\n  GdexSkill,\n  buildGdexUserSessionData,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n} from '@gemachdao/gdex-skill';\nimport { ethers } from 'ethers';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(apiKey);\n\n// 1. Sign in (chainId: 1 for HL operations)\nconst wallet = ethers.Wallet.fromPhrase(mnemonic);\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\nconst nonce = String(Date.now());\nconst msg = buildGdexSignInMessage(wallet.address, nonce, sessionKey);\nconst sig = await wallet.signMessage(msg);\nconst payload = buildGdexSignInComputedData({\n  apiKey, userId: wallet.address, sessionKey, nonce, signature: sig,\n});\nawait skill.signInWithComputedData({ computedData: payload.computedData, chainId: 1 });\nconst data = buildGdexUserSessionData(sessionKey, apiKey);\nconst userId = wallet.address.toLowerCase();\n\n// 2. Discover top traders\nconst topTraders = await skill.getHlTopTradersByPnl();\nconst bestTrader = topTraders.topTraders[0];\nconsole.log(`Top trader: ${bestTrader.address}, volume: $${bestTrader.volume}`);\n\n// 3. Check trader's stats\nconst stats = await skill.getHlUserStats(bestTrader.address);\nconsole.log(`30d PnL: $${stats.userStats['30d']}`);\n\n// 4. Create a copy trade\nawait skill.createHlCopyTrade({\n  apiKey,\n  userId,\n  sessionPrivateKey,\n  traderWallet: bestTrader.address,\n  copyTradeName: `Top PnL: ${bestTrader.address.slice(0, 8)}`,\n  copyMode: 1,\n  fixedAmountCostPerOrder: '25',  // $25 per copied trade\n  lossPercent: '30',\n  profitPercent: '100',\n});\n\n// 5. Monitor\nconst list = await skill.getHlCopyTradeList({ userId, data });\nfor (const ct of list.allCopyTrades) {\n  console.log(`${ct.copyTradeName}: active=${ct.isActive}, trades=${ct.totalTrades}, PnL=$${ct.totalPnl}`);\n}\n\n// 6. Check fill history\nconst fills = await skill.getHlCopyTradeTxList({ userId, data, limit: '20' });\nfor (const tx of fills.txes) {\n  console.log(`${tx.coin} ${tx.dir}: ${tx.sz} @ $${tx.px}, PnL=${tx.closedPnl}`);\n}\n```\n\n## Autonomous Agent Notes (Live-Tested)\n\n1. **`getHlUserStats()` requires the MANAGED wallet address.** Passing the control address or any external trader address returns 400 `\"Wallet not found\"`. Use the managed EVM address from `/v1/user?chainId=1`.\n2. **All 7 other discovery endpoints (topTraders, topTradersByPnl, allAssets, perpDexes, depositTokens, clearinghouseState, openOrders) work with the control address or any external address.** Only `user_stats` has the managed-address requirement.\n3. **A `copyMode` other than 1 or 2 in a response is a legacy config** written by SDK <= 4.12; repair it with `updateHlCopyTradeSettings`.\n4. **To pause, call `pauseHlCopyTrade`, never delete.** Pausing leaves copied positions open and unmanaged by the copier.\n5. **Sign-in for HL copy trading must use `chainId: 1`** (EVM), not `622112261` (Solana).\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup and sign-in required for read/write\n- **gdex-copy-trading** \u2014 Solana spot copy trading (separate system)\n- **gdex-perp-trading** \u2014 HL perp order management, positions, leverage\n- **gdex-perp-funding** \u2014 Deposit/withdraw USDC to HL account\n- **gdex-portfolio** \u2014 Monitor portfolio including copied positions\n", files: [] }, { name: "gdex-perp-funding", description: "Deposit and withdraw USDC to/from HyperLiquid for perpetual futures trading \u2014 constraints, amounts, and managed-custody flow", content: "\n# GDEX: HyperLiquid Funding (Deposit / Withdraw)\n\nManage USDC deposits and withdrawals between your managed wallet and HyperLiquid perp account.\n\n## When to Use\n\n- Depositing USDC to HyperLiquid before trading perps\n- Withdrawing USDC from HyperLiquid back to managed wallet\n- Understanding deposit constraints and delivery times\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via managed-custody sign-in \u2014 see **gdex-authentication**\n\n## Deposit USDC to HyperLiquid\n\nEvery deposit needs the managed-custody credentials from sign-in (sign in with\n`chainId: 1`). MCP users pass `accountRef` from `gdex_connect` to `perp_deposit` instead.\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n// ... managed sign-in (see gdex-authentication) \u2192 apiKey, walletAddress (control), sessionPrivateKey\n\n// Amount is human-readable USDC \u2014 SDK converts to smallest unit (6 decimals) internally. Min 10 USDC.\nawait skill.perpDeposit({\n  amount: '50',\n  tokenAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', // USDC on Arbitrum\n  chainId: 42161,     // Arbitrum\n  apiKey,\n  walletAddress,      // MUST be the CONTROL wallet address (from sign-in), NOT the managed address\n  sessionPrivateKey,\n});\n```\n\n> **CRITICAL:** `walletAddress` must be the **control wallet address** used during sign-in \u2014 NOT the managed-custody address returned by `/v1/user`. Passing the managed address causes `400 Unauthorized (code 103)`. See **gdex-authentication** for details.\n\n## Withdraw USDC from HyperLiquid\n\n```typescript\nawait skill.perpWithdraw({\n  amount: '25',\n  apiKey,\n  walletAddress,\n  sessionPrivateKey,\n});\n```\n\n## Deposit Constraints\n\n| Constraint | Value |\n|------------|-------|\n| **Chain** | Arbitrum only (chainId `42161`) |\n| **Token** | USDC only (`0xaf88d065e77c8cC2239327C5EDb3A432268e5831`) |\n| **Min deposit** | 10 USDC |\n| **Amount format** | Human-readable (e.g., `'10'` for 10 USDC); SDK converts to 6 decimal smallest unit internally |\n| **Fee buffer** | Managed wallet must hold `amount \xD7 1.01` (1% fee) |\n| **Delivery time** | ~10 minutes after Arbitrum tx confirms |\n| **On-chain amount** | 10 USDC = `10000000` (6 decimals) in the ABI encoding |\n\n## Check USDC Balance on HyperLiquid\n\n```typescript\n// HL funds sit on the managed EVM wallet (getManagedUser with chainId 1)\nconst balance = await skill.getHlUsdcBalance(managedEvmAddress);\nconsole.log('Available USDC:', balance);\n```\n\n## ABI Encoding Details\n\nThe deposit uses a specific ABI schema with `uint64` for chainId:\n\n| Field | ABI Type | Example |\n|-------|----------|---------|\n| `chainId` | `uint64` | `42161` |\n| `tokenAddress` | `address` | `0xaf88d065e77c8cC2239327C5EDb3A432268e5831` |\n| `amount` | `uint256` | `10000000` (10 USDC) |\n| `nonce` | `string` | Client-generated timestamp + random |\n\n**CRITICAL:** `chainId` is `uint64`, NOT `uint256`. Using `uint256` causes `400 Unauthorized (code 103)`.\n\nWithdraw ABI schema:\n\n| Field | ABI Type | Example |\n|-------|----------|---------|\n| `amount` | `string` | `'5000000'` (5 USDC in smallest unit) |\n| `nonce` | `string` | Client-generated |\n\n## Common Issues\n\n### \"Insufficient balance\" on deposit\n- Managed wallet needs `amount \xD7 1.01` USDC on Arbitrum (1% fee buffer)\n- Check managed wallet balance, not HL perp balance\n\n### Deposit doesn't appear on HL\n- Normal delivery time is ~10 minutes after Arbitrum tx confirmation\n- Use `getHlUsdcBalance()` or `getHlAccountState()` to check\n\n### \u26A0\uFE0F Deposit may return an error even when it succeeded (verify before retrying)\nThe backend can return an error (HTTP 400, \"Transaction has been reverted\u2026\")\n**even though the on-chain USDC transfer to the HL bridge succeeded** and the\nfunds are en route. **Do not blindly retry** \u2014 a retry spends gas and can move\nfunds twice. On any deposit error, first check the managed wallet's USDC\nbalance on Arbitrum and `getHlAccountState()` / `getHlUsdcBalance()`; only\nretry if the balance is unchanged after a few minutes.\n\n### Deposited funds show under the managed address (and may move to spot)\nHyperLiquid credits the depositing wallet (the **managed** address), so check\n`getHlAccountState(managedAddress)`. Enabling HL trading or placing\na HIP-4 outcome order can move USDC from the perp account to the **spot** balance \u2014\ncheck `getHlSpotState(managedAddress)` if the perp balance reads `$0`.\n\n### 400 Unauthorized (code 103)\n- **Most common cause:** Passing the managed address as `walletAddress` instead of the control wallet address \u2014 see **gdex-authentication**\n- Second cause: `uint256` vs `uint64` encoding mismatch for chainId \u2014 see **gdex-perp-trading** for full ABI details\n\n## Autonomous Agent Notes (Live-Tested)\n\n1. **Deposit of 10 USDC was E2E verified.** Takes ~10 minutes for USDC to appear on HyperLiquid after Arbitrum tx confirms.\n2. **After deposit, check balance with `getHlAccountState()`** \u2014 `getGbotUsdcBalance` returns 404.\n3. **Amount is human-readable for high-level methods** (`perpDeposit({ amount: '10' })`), but the ABI encoding internally converts to 6-decimal smallest unit (10 USDC = 10000000).\n4. **Sign-in must use `chainId: 1`** (EVM) for HL deposit/withdraw operations.\n5. **`walletAddress` MUST be control wallet** \u2014 passing managed address \u2192 400 Unauthorized (code 103).\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Managed-custody auth required for deposits/withdrawals\n- **gdex-perp-trading** \u2014 Trade perps after funding your HL account\n- **gdex-portfolio** \u2014 Check overall portfolio including HL positions\n", files: [] }, { name: "gdex-perp-trading", description: "HyperLiquid perpetual futures \u2014 open/close positions, set leverage, place market and limit orders with TP/SL, and manage open orders", content: "\n# GDEX: Perpetual Futures Trading (HyperLiquid)\n\nTrade perpetual futures on HyperLiquid through GDEX managed-custody. Supports long/short positions, configurable leverage, take-profit/stop-loss, and market/limit orders.\n\n## When to Use\n\n- Opening or closing perp positions\n- Setting leverage for an asset\n- Placing HL orders (market/limit) with TP/SL\n- Querying positions, mark prices, or account state\n- Canceling orders\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via `loginWithApiKey()` \u2014 see **gdex-authentication**\n- USDC deposited to HyperLiquid \u2014 see **gdex-perp-funding**\n\n## Open a Position (managed custody)\n\nPerp orders go through `hlCreateOrder` after a managed sign-in. There is **no**\n`openPerpPosition`/`setPerpLeverage` \u2014 those don't exist (closing has\n`closePerpPosition`, below). The real flow:\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n// ... do the managed sign-in (see gdex-authentication) to get sessionPrivateKey ...\nconst creds = { apiKey, walletAddress: controlAddress, sessionPrivateKey };\n\nconst res = await skill.hlCreateOrder({\n  coin: 'ETH',           // 'BTC'|'ETH'|'SOL'\u2026 or a builder market 'xyz:NVDA' (lowercase dex prefix)\n  isLong: true,\n  price: String(mark),   // mark price; for market orders this is the slippage bound\n  size: '0.05',          // size in CONTRACTS (coin units), not USD\n  isMarket: true,\n  tpPrice: String(tp),   // '' to skip\n  slPrice: String(sl),   // '' to skip\n  leverage: 3,           // 1\u201350; see below\n  ...creds,\n});\n```\n\n**Leverage is supported** and is sent as a **top-level field** in the order\nrequest (the SDK forwards it for you). Verified: setting `leverage: 3` opens at\n3\xD7 (liquidation at the matching buffer) instead of HL's 20\xD7 default.\n\n> The standalone `/hl/update_leverage` endpoint (`hlUpdateLeverage`) is **404 \u2014 do\n> not use it.** Leverage is set as part of the order via the `leverage` field above.\n\n## Close a Position\n\nPrefer `closePerpPosition`: it reads the live position (dex-scoped\nclearinghouse state, signed `szi`) and picks the side for you \u2014 a long closes\nwith a sell, a short with a buy. Omit `size` for a full close; a larger `size`,\na flat position, or a bare coin open on several builder dexes is rejected.\n`positionAddress` is the address whose HL account holds the position (the\nmanaged wallet; defaults to `walletAddress`).\n\n```typescript\nconst r = await skill.closePerpPosition({ ...creds, coin: 'xyz:TSLA', positionAddress: managedAddress });\n// r: { closeSide: 'buy' | 'sell', size, positionSize, remainingSize, order, ... }\n```\n\nOr by hand with a reduce-only order (the opposite side, full size), or close everything:\n\n```typescript\nawait skill.hlCreateOrder({ coin: 'ETH', isLong: false, price: String(mark),\n  size: String(positionSize), reduceOnly: true, isMarket: true, tpPrice: '', slPrice: '', ...creds });\n\nawait skill.hlCloseAll({ ...creds }); // close all positions\n```\n\nNote HL's **$11 minimum order value** applies to closes too \u2014 you can't reduce a\nsub-$11 remainder; add to it first or let the stop close it.\n\n## Builder / HIP-3 markets (stocks, commodities)\n\nBuilder-dex assets are named `dex:ASSET` with a **lowercase** dex prefix\n(`xyz:NVDA`, `xyz:SPCX`, `flx:OIL`). Pass the coin in that exact form (the SDK\nnormalizes casing). They trade through the same `hlCreateOrder` flow as default\nmarkets and honor the `leverage` you pass (live-confirmed: `xyz` stock perps open\nat **3\xD7 isolated**, not 20\xD7).\n\n**Collateral depends on the dex.** The `xyz` stock/commodity perps are\n**USDC-collateralized and 24-hour** \u2014 no collateral swap needed; trade them with\nyour existing HL USDC. Only dexes that settle in a different token (e.g. HYNA \u2192\nUSDE) need `hlSwapCollateral` first. The account must be a **unified account**\n(`hlEnableTrading`) to share margin across dexes.\n\n**Reading builder positions is dex-scoped.** A `xyz:NVDA` position lives under the\n`xyz` dex's isolated account, **not** the default clearinghouse \u2014 query\n`getHlClearinghouseState({ userAddress, dex: 'xyz' })`. The default query (and\n`getHlClearinghouseStateAll`, which omits `xyz`) returns it empty, which looks\nlike \"the order never filled\" when it actually did.\n\n## Query Positions & Account State\n\nPositions live on the **managed** EVM wallet (from sign-in / `getManagedUser`), so\nreads take that address; writes take the control wallet.\n\n```typescript\n// Get open positions\nconst positions = await skill.getPerpPositions({\n  walletAddress: managedEvmAddress,\n  coin: 'BTC',   // optional filter\n});\n// Each: { coin, side, size, entryPrice, markPrice, leverage, unrealizedPnl, liquidationPrice }\n\n// Full account state\nconst state = await skill.getHlAccountState(managedEvmAddress);\n// { accountValue, totalNtlPos, totalRawUsd, totalMarginUsed, withdrawable, positions[] }\n\n// Mark price for an asset\nconst price = await skill.getHlMarkPrice('BTC');\n```\n\n## Place Orders (HL Managed-Custody)\n\n### Market Order with TP/SL\n\n```typescript\nawait skill.hlCreateOrder({\n  coin: 'ETH',\n  isLong: true,\n  price: '0',       // '0' for market orders\n  size: '0.5',      // position size\n  reduceOnly: false,\n  isMarket: true,\n  tpPrice: '4000',  // take-profit (optional)\n  slPrice: '3200',  // stop-loss (optional)\n  apiKey,\n  walletAddress,\n  sessionPrivateKey,\n});\n```\n\n### Simple Order (no TP/SL)\n\n```typescript\nawait skill.hlPlaceOrder({\n  coin: 'SOL',\n  isLong: false,     // short\n  price: '180',      // limit price\n  size: '10',\n  reduceOnly: false,\n  apiKey,\n  walletAddress,\n  sessionPrivateKey,\n});\n```\n\n## Cancel Orders\n\n```typescript\n// Cancel specific order\nawait skill.hlCancelOrder({\n  coin: 'BTC',\n  orderId: '12345',\n  apiKey,\n  walletAddress,\n  sessionPrivateKey,\n});\n\n// Cancel all orders\nawait skill.hlCancelAllOrders({\n  apiKey,\n  walletAddress,\n  sessionPrivateKey,\n});\n```\n\n## Close All Positions\n\n> **WARNING:** The `hlCloseAll` / `/v1/hl/close_all_positions` endpoint is unreliable \u2014 it frequently returns `TIMEOUT` or JSON parse errors from the backend. **Close per coin with `closePerpPosition`, or a reduce-only order** (see below).\n\n```typescript\n// \u274C Unreliable \u2014 may timeout\nawait skill.hlCloseAll({\n  apiKey,\n  walletAddress,   // MUST be control address, not managed address\n  sessionPrivateKey,\n});\n\n// \u2705 Reliable \u2014 close one coin; side and size come from the live position\nawait skill.closePerpPosition({ coin: 'BTC', positionAddress: managedEvmAddress, apiKey, walletAddress, sessionPrivateKey });\n\n// \u2705 Or by hand: to close a LONG, place a SHORT reduce-only order for the exact size\nconst btcPrice = await skill.getHlMarkPrice('BTC');\nawait skill.hlCreateOrder({\n  coin: 'BTC',\n  isLong: false,                               // opposite of your position\n  price: Math.round(btcPrice * 0.97).toString(), // 3% below mid for market sell\n  size: '0.001',                                 // exact position size\n  reduceOnly: true,                              // close only, don't open new position\n  isMarket: true,\n  tpPrice: '',\n  slPrice: '',\n  apiKey,\n  walletAddress,   // MUST be control address\n  sessionPrivateKey,\n});\n```\n\n## HL ABI Schemas (Critical)\n\nHL operations use a **different crypto pipeline** than spot trades. Getting any detail wrong produces `400 Unauthorized (code 103)`.\n\n| Action | ABI Types | Fields |\n|--------|-----------|--------|\n| `hl_deposit` | `['uint64', 'address', 'uint256', 'string']` | `[chainId, tokenAddress, amount, nonce]` |\n| `hl_withdraw` | `['string', 'string']` | `[amount, nonce]` |\n| `hl_create_order` | `['string', 'bool', 'string', 'string', 'bool', 'string', 'string', 'string', 'bool']` | `[coin, isLong, price, size, reduceOnly, nonce, tpPrice, slPrice, isMarket]` |\n| `hl_place_order` | `['string', 'bool', 'string', 'string', 'bool', 'string']` | `[coin, isLong, price, size, reduceOnly, nonce]` |\n| `hl_close_all` | `['string']` | `[nonce]` |\n| `hl_cancel_order` | `['string', 'string', 'string']` | `[nonce, coin, orderId]` |\n| `hl_cancel_all_orders` | `['string']` | `[nonce]` |\n| `hl_update_leverage` | `['string', 'uint32', 'bool', 'string']` | `[coin, leverage, isCross, nonce]` |\n\n**CRITICAL:** `hl_deposit` chainId is `uint64`, NOT `uint256`. This is the #1 cause of Unauthorized errors. The backend re-encodes with `uint64` for signature verification \u2014 if you encode with `uint256`, the hex differs and you get code 103.\n\n## HL Managed-Custody Credentials\n\nAll HL write operations require `HlManagedCredentials`:\n\n```typescript\ninterface HlManagedCredentials {\n  apiKey: string;            // GDEX API key for AES encryption\n  walletAddress: string;     // CONTROL wallet address (from sign-in), NOT managed address\n  sessionPrivateKey: string; // Session key from sign-in flow\n}\n```\n\n## Default HL Assets\n\nBTC, ETH, SOL, DOGE, AVAX, APE, APT, ARB, ATOM, BCH, BLUR, BNB, COMP, CRV, DOT, EOS, FIL, FTM, HBAR, ICP, IMX, INJ, JUP, KPEPE, LDO, LINK, LTC, MATIC, MKR, NEAR, OP, ORDI, PEPE, PYTH, RNDR, RUNE, SEI, SHIB, SNX, STX, SUI, TIA, TON, TRX, UNI, WIF, WLD, XRP\n\n## Critical: walletAddress Must Be Control Address\n\n**The #1 cause of `400 Unauthorized (code 103)` on HL operations is passing the wrong `walletAddress`.**\n\n- During sign-in, the session key is registered against your **control wallet address** (e.g., `0x53D0...2eD`).\n- The backend returns a **managed address** (e.g., `0x9967...0f`) that holds the actual funds.\n- All HL write operations sign the message as `{action}-{walletAddress}-{data}`, and the backend verifies the signature against the session key registered for that address.\n- If you pass the managed address, the signature verification fails \u2192 code 103.\n\n```typescript\n// \u274C WRONG \u2014 causes 400 Unauthorized (code 103)\nconst creds = { apiKey, walletAddress: managedAddress, sessionPrivateKey };\n\n// \u2705 CORRECT \u2014 use the control wallet address from sign-in\nconst creds = { apiKey, walletAddress: controlAddress, sessionPrivateKey };\n```\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup required for all HL operations\n- **gdex-perp-funding** \u2014 Deposit/withdraw USDC to HyperLiquid\n- **gdex-portfolio** \u2014 View positions and P&L\n\n## Autonomous Agent Notes (Live-Tested)\n\n### Endpoints That Don't Work\n\n| Endpoint | Status | What to Do |\n|----------|--------|------------|\n| `hlCloseAll` / `/v1/hl/close_all_positions` | Returns TIMEOUT or 400 | Place a reduce-only `hlCreateOrder` for the exact position size |\n| `hlUpdateLeverage` / `/v1/hl/update_leverage` | Returns 404 | Pass `leverage` on `hlCreateOrder` (sent top-level with the order) |\n| `getGbotUsdcBalance` | Returns 404 | Use `getHlAccountState()` or clearinghouse state to check balance |\n\n### Close Position Reliably (Live-Tested)\n\n```typescript\n// Positions are read from the MANAGED wallet; the close is signed with the CONTROL wallet.\nconst positions = await skill.getPerpPositions({ walletAddress: managedEvmAddress });\n\nfor (const pos of positions) {\n  // Reads the live side/size and sends a reduce-only market order on the opposite side\n  await skill.closePerpPosition({\n    coin: pos.coin,\n    positionAddress: managedEvmAddress,\n    apiKey,\n    walletAddress: controlAddress,   // MUST be control address\n    sessionPrivateKey,\n  });\n}\n```\n\n### HL Deposit Minimum\n\n- **Minimum deposit: 10 USDC** (10000000 in smallest unit)\n- Managed wallet must hold `amount \xD7 1.01` (1% fee buffer)\n- Delivery takes ~10 minutes after Arbitrum tx confirms\n\n### Leverage and Position Sizing\n\n- Set leverage per order with `leverage` on `hlCreateOrder` (MCP: `open_perp_position`); it is sent as a\n  top-level field with the order. Omitted, HL uses its default (20x on most markets).\n- `hlUpdateLeverage` (MCP: `set_leverage`) hits `/hl/update_leverage`, which has returned 404 \u2014 don't rely on it.\n- **Effective leverage** = position notional value / account equity, so size positions with that in mind.\n\n### Critical Checks Before Opening a Position\n\n1. Verify USDC is deposited on HL (use `getHlAccountState()`)\n2. Use **control** wallet address (not managed) for all write operations\n3. Generate a fresh nonce for every order\n4. For market orders: set `isMarket: true` and pass the mark price (`'0'` is resolved to the mark price by the SDK)\n5. Pass `''` for `tpPrice` / `slPrice` to skip TP/SL\n", files: [] }, { name: "gdex-portfolio", description: "Managed-account holdings, balances, native trading funds and cursor-paginated trade history per chain", content: "\n# GDEX: Portfolio & Balances\n\nQuery cross-chain portfolio summaries, chain-specific balances, and trade history.\n\n> **USDC across chains:** `getUsdcBalances` returns the user's USDC and gas balance on every USDC chain plus the total. See **gdex-usdc-wallet**.\n\n## When to Use\n\n- Reading a managed account's token holdings on a chain\n- Checking token balances or native trading funds on a specific chain\n- Retrieving trade history with cursor pagination\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- A managed session (control wallet + session key + API key, or `accountRef` in MCP) \u2014 see **gdex-authentication**\n\n## Managed Holdings (`getPortfolio`)\n\n`/v1/portfolio` is per chain and authenticated: `userId` (the **control**\nwallet, not the managed wallet) + encrypted session `data` + `chainId`. The SDK\nbuilds the query from your session; there is no public address-only holdings read.\n\n```typescript\nimport { GdexSkill, ChainId } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nconst session = { walletAddress: controlAddress, sessionPrivateKey, apiKey };\n\nconst p = await skill.getPortfolio({ ...session, chain: ChainId.SOLANA });\n// { status: 'ok', mode: 'managed', userId, chainId, holdings: Balance[], balances: (same) }\nfor (const h of p.holdings) console.log(h.symbol, h.balance, h.rawBalance);\n```\n\nPass `data` (from `buildGdexReadSessionData(sessionPrivateKey, apiKey)`) instead\nof `sessionPrivateKey` + `apiKey` if you already have it. In MCP, pass `accountRef`.\n\n```typescript\ninterface Balance {\n  tokenAddress: string;\n  symbol: string;\n  name: string;\n  decimals: number;\n  rawBalance: string;      // exact integer base units\n  balance: string;         // exact decimal of rawBalance\n  priceUsd?: string;\n  usdValue?: string;\n  priceNative?: string;\n  valueNative?: string;    // backend `holding` (current worth, native)\n  investedNative?: string; // backend `invested`\n  pnlPercentage?: number;\n  chain: number;\n  chainId?: number;\n}\n```\n\n**Failures are errors, not zeros.** A refused session (400 code 102/104) or a\nresponse without `holding[]` throws; `[]` only ever means the backend answered\nwith no holdings.\n\n## Balances and Trading Funds\n\n```typescript\n// Token balances on one chain (optionally one token)\nconst usdc = await skill.getBalances({ ...session, chain: 8453, tokenAddress: '0x8335...' });\n\n// Native balance available to trade (GET /v1/user)\nconst funds = await skill.getTradingFunds({ ...session, chain: 8453 });\n// { address (managed wallet), nativeBalance, nativeSymbol, walletsByChain, precision: 'approximate' }\n```\n\n`nativeBalance` is a backend float, and the backend reports 0 when its RPC read\nfails, so treat a zero as unconfirmed. Cross-chain USDC: `getUsdcBalances`\n(**gdex-usdc-wallet**).\n\n## Trade History\n\n`/v1/user_history` is keyed by the control wallet (`user`) and `chainId`; it\nneeds no session. Cursor pagination, at most 50 per page:\n\n```typescript\nlet page = await skill.getTradeHistory({ walletAddress: controlAddress, chain: 8453, limit: 50 });\nwhile (page.nextCursor) {\n  page = await skill.getTradeHistory({ walletAddress: controlAddress, chain: 8453, cursor: page.nextCursor });\n}\n// page.trades: TradeRecord[] \u2014 { type: 'buy'|'sell', tokenAddress, tokenAmount, nativeAmount (raw), txHash, timestamp, ... }\n```\n\n`page`, `startTime` and `endTime` are not supported by the backend and are rejected.\nThe backend returns an empty page on its own database errors, so an empty page is\nnot proof of no trades.\n\n## Autonomous Agent Notes\n\n1. Use `getPortfolio` / `getBalances` / `getTradingFunds` / `getTradeHistory`; no raw-client workaround is needed.\n2. `walletAddress` is always the **control** wallet (GDEX `userId`).\n3. Reads are per chain: pass `chain` every time (Solana `622112261`).\n4. For percentage sells, `sellToken({ amount: '50%' })` reads the holding itself (**gdex-spot-trading**).\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup required for portfolio queries\n- **gdex-spot-trading** \u2014 Execute trades based on portfolio analysis\n- **gdex-perp-trading** \u2014 View perp positions in portfolio\n- **gdex-token-discovery** \u2014 Research tokens found in portfolio\n", files: [] }, { name: "gdex-retailer-onboarding", description: "Retailer partner integrations \u2014 list branded onboarding partners that white-label the GDEX trading stack", content: "\n# GDEX: Retailer Onboarding\n\nInspect the list of registered retailer partners \u2014 third-party brands that\nwhite-label the GDEX trading stack and have their own branded onboarding\nexperience.\n\n## When to Use\n\n- Building a partner-aware onboarding flow that routes users to their\n  retailer's branded sign-up\n- Surfacing partner branding (logo, theme, name) at the application level\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- No authentication required (public retailer registry)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/retailer` | List registered retailer integrations |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nconst retailers = await skill.getRetailers();\n// Optionally filter by retailer slug / identifier:\nconst single = await skill.getRetailers({ retailer: 'partner-slug' });\n```\n\n## Notes\n\n- The retailer registry is the source of truth for the partner-onboarding\n  routing layer \u2014 clients should treat it as authoritative.\n- Per-retailer schema (logo, theme, redirect URLs) is determined by the\n  backend deployment.\n", files: [] }, { name: "gdex-sdk-debugging", description: "Troubleshoot GDEX SDK errors \u2014 error codes, encryption debugging, chain-specific quirks, HL gotchas, and copy trade pitfalls", content: '\n# GDEX: SDK Debugging & Troubleshooting\n\nComprehensive troubleshooting guide for GDEX SDK errors, covering API error codes, encryption debugging, chain-specific quirks, HyperLiquid gotchas, and copy trade pitfalls. All issues documented from live E2E testing.\n\n## When to Use\n\n- Getting unexpected API errors (103, 102, TIMEOUT)\n- Trades failing silently or returning wrong data\n- Debugging encryption / `computedData` payload issues\n- Chain-specific problems (wrong chainId, wrong managed wallet)\n- HyperLiquid perp issues\n- Copy trade configuration problems\n\n## API Error Codes\n\n| Code | Error | Common Cause | Fix |\n|------|-------|-------------|-----|\n| `103` | Unauthorized | Wrong `walletAddress` (using managed instead of control), wrong ABI type, signing with wrong key | Use **control wallet address** as `walletAddress` / `userId`. Verify session key matches sign-in. |\n| `102` | Invalid chainId | Using wrong chainId for HL operations | HL operations require `chainId: 42161` (Arbitrum). Copy trades need specific chainIds (see below). |\n| `102` | Invalid params | Reused nonce, unsupported token, or malformed ABI payload | Check nonce is fresh (`Date.now()`). Verify token is supported on chain. |\n| `400` | Bad Request | Missing required fields or wrong field types | Check all required params are present and correctly typed. |\n| `TIMEOUT` | Request timeout | Backend processing delay (common with `hlCloseAll`) | Retry once, or use alternative approach (reduce-only order to close). |\n| `JSON parse error` | Invalid response | Backend returned non-JSON (HTML error page, Cloudflare block) | Check User-Agent header is set. Verify API key is valid. |\n\n## Critical: Control Wallet vs Managed Wallet\n\nThis is the **#1 source of errors**:\n\n```\nControl wallet:  0x53D029a671bd1CF61a2fB1F4F6e4bD830BFBb2eD  \u2190 used for API calls (userId, walletAddress)\nManaged wallet:  0x9967179de55bd67e6b90fcc4f908556d93938c0f  \u2190 server-side, executes trades on-chain\n```\n\n**Rule:** All API calls use the **control address** \u2014 the one you signed in with. The managed address is only used when querying on-chain state directly (e.g., `user_stats` on HL needs the managed address).\n\n> The `/v1/user` endpoint returns a **different managed wallet per chainId**:\n> - `chainId=1` \u2192 EVM managed: `0x9967...`\n> - `chainId=622112261` \u2192 Solana managed: `CFSi4Y...` (base58)\n\n## Chain ID Gotchas\n\n| Issue | Wrong | Correct | Notes |\n|-------|-------|---------|-------|\n| Solana chain ID | `900` | `622112261` (`ChainId.SOLANA`) | `900` returns EVM managed address with `balance: null` |\n| Copy trade sign-in | `chainId: 1` | `chainId: 622112261` | Solana copy trades need Solana chainId for sign-in |\n| Perp copy trade sign-in | `chainId: 622112261` | `chainId: 1` | HL perp copy trades need EVM chainId for sign-in |\n| HL operations | Any other | `42161` (Arbitrum) | HL deposit, create order, close \u2014 all use Arbitrum chainId |\n\n## HyperLiquid-Specific Issues\n\n### `hlCloseAll` is Unreliable\n\nThe `/v1/hl/close_all_positions` endpoint frequently returns `TIMEOUT` or JSON parse errors.\n\n**Workaround:** Close each coin with `closePerpPosition` (MCP: `close_perp_position`). It reads the live\nposition and sends a reduce-only market order for the exact size on the opposite side:\n```typescript\n// Instead of skill.hlCloseAll() \u2014 use this:\nconst positions = await skill.getPerpPositions({ walletAddress: managedEvmAddress }); // positions live on the managed wallet\nfor (const pos of positions) {\n  await skill.closePerpPosition({\n    coin: pos.coin,\n    positionAddress: managedEvmAddress,\n    apiKey,\n    walletAddress: controlAddress,  // control wallet signs\n    sessionPrivateKey,\n  });\n}\n```\n\n### Leverage Is Set Per Order\n\nThe standalone `hlUpdateLeverage` / `/v1/hl/update_leverage` endpoint returns **404**. Set leverage on the\norder instead: `hlCreateOrder({ ..., leverage: 5 })` (MCP: `open_perp_position` with `leverage`). The SDK\nsends it as a top-level field next to `computedData`, which is where the backend reads it. Omitted, HL\nuses its default (20x on most markets).\n\n### HL Signature Format\n\n```\nmessage = "{action}-{userId.toLowerCase()}-{dataHex}"\ndigest  = keccak256(utf8Bytes(message))\noutput  = r(64hex) + s(64hex) + v(2hex)  // 130 chars total, v=00/01, no 0x prefix\n```\n\nCommon signature errors:\n- Wrong `userId` (must be control wallet, lowercase)\n- Wrong `action` string (e.g., `"hl_deposit"` not `"deposit"`)\n- Leading `0x` on signature output (must be stripped)\n- Wrong `v` value (must be `00` or `01`, not `27`/`28`)\n\n## Encryption Debugging\n\nAll managed-custody trades use AES-256-CBC encrypted `computedData`:\n\n```\n1. ABI-encode trade parameters \u2192 hex string (no 0x prefix)\n2. Sign: keccak256(action + userId + dataHex) \u2192 r+s+v (130 chars)\n3. Encrypt: AES-256-CBC(dataHex + signature, derivedKey, iv)\n4. POST to backend with { computedData, userId, chainId }\n```\n\n### Common Encryption Errors\n\n| Symptom | Cause | Fix |\n|---------|-------|-----|\n| `103 Unauthorized` | ABI using `uint256` when backend expects `uint64`, or vice versa | Check the exact ABI types for each endpoint \u2014 HL deposit uses `uint64`, not `uint256` |\n| `Invalid signature` | Signing with wrong key or wrong message format | Ensure session key (not control wallet key) signs the message. Check action string exactly matches. |\n| Empty response | `computedData` encrypted with wrong key | Verify AES key derivation: `SHA256(SHA256(SHA256(apiKey)))` |\n| `Reused nonce` | Same nonce value in consecutive trades | Always use fresh `Date.now()` or incrementing nonce |\n\n### AES Key Derivation\n\n```typescript\nconst key = SHA256(SHA256(SHA256(apiKey)));  // 3\xD7 SHA256 hash chain\nconst iv = randomBytes(16);                  // fresh IV per request\nconst encrypted = AES_CBC_encrypt(payload, key, iv);\n// computedData = iv.hex + encrypted.hex (concatenated)\n```\n\n## Solana-Specific Issues\n\n### Meteora Swaps Are Broken\n\nTokens routed through Meteora DLMM (e.g., BONK) fail with `Program error: 1` because the backend doesn\'t wrap SOL into WSOL.\n\n**Workaround:** Use Raydium-routed tokens. Check `token.dexId`:\n- `"raydium"` / `"raydium_v2"` \u2192 works\n- `"meteora"` \u2192 **will fail**\n- `"orca"` \u2192 works\n\n### ATA Creation Costs\n\nFirst trade on a new Solana token incurs ~0.007 SOL overhead:\n- ATA creation: ~0.002 SOL\n- Priority fee: ~0.0005 SOL (default)\n- Keep at least 0.01 SOL in the managed wallet for safety\n\n### Solana Managed Wallet\n\nAfter sign-in with `chainId: 622112261`, the Solana managed wallet is a **base58 address** (not hex):\n```\nCFSi4YimeCbfSNqH2WmHwJKwj1YYG1cWBtQyVPB4sCe1\n```\n\n## Copy Trade Pitfalls\n\n### `isDelete` Deletes, `isChangeStatus` Toggles\n\nOn both Solana and HyperLiquid the backend deletes only on `isDelete`; `isChangeStatus`\nflips `isActive` (`isActive = !existing.isActive`). Neither closes positions or cancels\ntheir TP/SL orders. Use `pauseCopyTrade`/`resumeCopyTrade`/`deleteCopyTrade` (and the\n`Hl` variants), which read the current state before toggling.\n\nSDK versions up to 4.12 ABI-encoded every copy-trade field as a string. The backend\ndecodes `uint64`/`bool` slots, so those versions sent `isDelete=true` on every update\n(the old "both flags delete" behaviour) and stored `copyMode=416/480`,\n`oppositeCopy=true`. The SDK now encodes the typed ABI the backend and gdex.pro use.\n\n### Legacy Values in Responses\n\n`copyMode` 416/480 and `oppositeCopy: true` in a response come from configs written by\nSDK <= 4.12. Repair them with `updateHlCopyTradeSettings` and explicit values.\n\n### Max 3 HL Copy Trades\n\nThe HyperLiquid perp copy trading system allows a maximum of 3 active copy trades per user. Creating a 4th will fail.\n\n## Network Issues\n\n### Cloudflare Blocking\n\nThe GDEX backend sits behind Cloudflare. Requests without a browser-like `User-Agent` may be blocked.\n\n```typescript\n// The SDK handles this automatically, but for manual requests:\nheaders: {\n  \'User-Agent\': \'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36\',\n  \'Content-Type\': \'application/json\',\n  \'Authorization\': `Bearer ${apiKey}`,\n}\n```\n\n### Bridge Endpoint Paths\n\nBridge endpoints use non-obvious paths:\n- `GET /v1/bridge/estimate_bridge` (not `/bridge/estimate`)\n- `POST /v1/bridge/request_bridge` (not `/bridge/execute`)\n- `GET /v1/bridge/bridge_orders` (not `/bridge/orders`)\n\n## Debugging Checklist\n\nWhen a trade fails, check in order:\n\n1. **Auth:** Is `loginWithApiKey()` called? Is the API key valid?\n2. **Wallet:** Are you using the **control** wallet address (not managed)?\n3. **Chain ID:** Is chain ID correct for the operation? (See table above)\n4. **Nonce:** Is the nonce fresh (`Date.now()`)?\n5. **ABI types:** Do the ABI types exactly match what the backend expects?\n6. **Signature:** Is the session key signing (not control key)? Is the message format correct?\n7. **Balance:** Does the managed wallet have enough funds + gas?\n\n## Portfolio / Balances / Trade History (Fixed in SDK)\n\nThe high-level methods now send what the backend reads; no raw-client workaround is needed.\n\n| Method | Backend call |\n|--------|--------------|\n| `getPortfolio({ walletAddress, sessionPrivateKey, apiKey, chain })` | `GET /v1/portfolio?userId&data&chainId` \u2192 `{ holding: [] }` |\n| `getBalances({ ..., chain, tokenAddress? })` | same read, filtered |\n| `getTradingFunds({ ..., chain })` | `GET /v1/user?userId&data&chainId` \u2192 native `balance` |\n| `getTradeHistory({ walletAddress, chain, limit?, cursor? })` | `GET /v1/user_history?user&chainId&limit&cursor` (no session) |\n\n- `walletAddress` / `userId` is the **control** wallet; `data` is derived from the session key.\n- A refused or malformed response throws (`GdexApiError`); `[]` only means the backend reported no holdings.\n- History pages with `cursor` (= `nextCursor`), at most 50 per page; `page`/`startTime`/`endTime` are rejected.\n- Solana history uses the same chain id as every other Solana read (`622112261`); older notes said `900`. If a live Solana history call comes back empty, compare both.\n\n## Limit Order ABI Bug (Fixed in SDK)\n\nThe `limit_buy` and `update_order` ABI schemas encode `profitPercent` and `lossPercent` as `uint256`, NOT `string`. Using `string` type causes the backend to receive ABI byte-offsets (e.g. 192) instead of the actual percentage values, which always fails the 0-100 range validation.\n\n**Symptom:** `"lossPercent must be between 0 and 100"` even with valid values like `lossPercent: \'25\'`\n**Cause:** ABI `string` type \u2192 encoded offset (192) \u2192 fails range check\n**Fix:** SDK encodes as `uint256` (correct). Only matters if encoding manually.\n8. **Token support:** Is the token supported on this chain? Is the DEX working? (Meteora is broken)\n\n## Backend-Limited Behavior (Not SDK Bugs)\n\nThese are server-side behaviors, verified live. They are **not fixable in the SDK** \u2014 don\'t\nwaste a debugging loop on them. Treat the listed responses as expected.\n\n### Deposit returns HTTP 400 even when the transfer succeeds\n\n`perpDeposit` (USDC \u2192 HyperLiquid) frequently returns HTTP 400 while the on-chain transfer\n**still completes**. The error is a backend response-handling bug, not a failed deposit.\n\n**Symptom:** `perpDeposit` throws a 400, but the USDC arrives in the HL account moments later.\n**Do:** Don\'t retry blindly on the 400 (you\'ll double-deposit). Poll the HL perp balance /\n`getHlAccount` to confirm before retrying. Verify state, not the HTTP status.\n\n### Outcome-market listings are controlled by the backend, not the SDK\n\nThe SDK can place/cancel/close orders on **any** outcome market (coin format\n`#<outcomeId><sideIndex>`, e.g. `#1010` = outcome 101, Yes side), but *which* markets exist \u2014\nand that they may currently be limited (e.g. only a BTC over/under) \u2014 is decided by the\nbackend / HIP-3 deployer, not the SDK.\n\n**Symptom:** `listOutcomeMarkets` returns few/limited markets, or a `#\u2026` coin you expect is absent.\n**Do:** Only trade markets returned by `listOutcomeMarkets` / the outcome account query. An empty\nor short list is a market-config state on the backend, not a discovery bug. HIP-3/HIP-4 markets\nmay also quote in non-USDC collateral (USDH/USDE/USDT0) \u2014 use `swap_collateral` first.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Full auth flow and encryption details\n- **gdex-spot-trading** \u2014 Spot trade parameters and chain support\n- **gdex-perp-trading** \u2014 HL perp specifics\n- **gdex-copy-trading** \u2014 Solana copy trade ABI format\n- **gdex-perp-copy-trading** \u2014 HL perp copy trade ABI format\n', files: [] }, { name: "gdex-spot-trading", description: "Managed-custody buy and sell with native on Solana and EVM chains (session-signed purchase_v2/sell_v2), exact amounts, percentage sells from the held balance, and trade-status follow-up", content: "\n# GDEX: Spot Trading\n\nBuy and sell tokens for the chain's native token from the managed GDEX wallet. Every spot trade is session-signed (`purchase_v2` / `sell_v2` require `computedData`); the backend picks the route.\n\n> **Paying with USDC?** To buy with USDC from any chain (GDEX bridges it in automatically) or sell straight into USDC, see **gdex-usdc-wallet**.\n## When to Use\n\n- Buying a token with native currency (SOL, ETH, etc.)\n- Selling a token (absolute amount or percentage of holdings)\n- Executing managed-custody spot trades with encrypted payloads\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- A managed session: control wallet (`walletAddress`), `sessionPrivateKey`, `apiKey` (MCP: `accountRef`). See **gdex-authentication**\n\n## Buy a Token\n\n```typescript\nimport { GdexSkill, ChainId } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nconst session = { walletAddress: controlAddress, sessionPrivateKey, apiKey };\n\nconst { requestId, amountRaw } = await skill.buyToken({\n  chain: 'solana',\n  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',\n  amount: '0.1',        // 0.1 SOL, converted exactly to lamports ('100000000')\n  slippage: 10,         // optional, Solana/Sui only, sent as bps (max 50%)\n  priorityFee: 500000,  // optional, Solana only, lamports (max 0.05 SOL)\n  ...session,\n});\nconst done = await skill.waitForTrade({ requestId });\n// { outcome: 'filled' | 'failed' | 'not_found' | 'pending', hash, tokenAmount, ethAmount, error }\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `chain` | `string \\| ChainId` | Yes | Buys: 1, 10, 56, 146, 252, 4663, 8453, 42161, Solana `622112261` (`'solana'`). Sui, Nibiru and Berachain are sell-only (retired for trading). |\n| `tokenAddress` | `string` | Yes | Token to buy |\n| `amount` | `string` | Yes | Decimal native amount; never rounded (more decimals than the chain has is an error) |\n| `walletAddress`, `sessionPrivateKey`, `apiKey` | `string` | Yes | Managed session (or `accountRef` in MCP) |\n| `slippage` | `number` | No | Percent. **Solana/Sui only**: on EVM the backend uses the account's stored slippage, so passing it is rejected. Omit to use the stored setting. |\n| `priorityFee` | `number` | No | Solana tip in lamports (integer, max 50,000,000) |\n| `inputToken` | `string` | No | Only the native token. For USDC use `buyWithUsdc` (**gdex-usdc-wallet**) |\n| `dex`, `referrer` | \u2014 | \u2014 | Not supported by `purchase_v2`; rejected |\n\n> **Critical:** The Solana numeric chainId is `622112261` (`ChainId.SOLANA`), NOT `900`.\n\n## Sell a Token\n\n```typescript\n// Absolute amount: converted with the token's decimals from the managed holding\nawait skill.sellToken({ chain: 8453, tokenAddress: '0x8335...', amount: '100', ...session });\n\n// Percentage of the held balance: floor(held * pct / 100) in integer math; 100% sells the exact raw balance\nconst r = await skill.sellToken({ chain: 'solana', tokenAddress: 'DezX...B263', amount: '50%', ...session });\n// r.amountRaw, r.heldRaw\n```\n\nBoth read `/v1/portfolio` first (as gdex.pro does before sizing a sell). A token\nmissing from the managed holdings cannot be sold by percentage; for an absolute\namount pass `tokenDecimals`. An amount above the held balance is rejected before\nsigning. `outputToken` must be native (use `sellToUsdc` for USDC).\n\n## Trade Status\n\n`buyToken` / `sellToken` return `{ requestId, status: 'pending', amountRaw, ... }`.\n`/v1/trade-status/:requestId` reports `pending` \u2192 `processing` \u2192 `success` | `error`.\n\n```typescript\nconst r = await skill.waitForTrade({ requestId, timeoutMs: 120000 });\nif (r.outcome === 'pending') {\n  // still settling: never resubmit; check again later\n}\n```\n\n## Low-Level Managed Submission\n\n`buildGdexManagedTradeComputedData()` + `submitManagedPurchase()` / `submitManagedSell()`\nare still available. The signed data is ABI `['string','uint256','string']` =\n`[tokenAddress, amountRaw, nonce]` (raw native units for a buy, raw token units\nfor a sell). Prefer `buyToken` / `sellToken`, which do the unit conversion and\noption checks.\n\n### Solana-Specific Notes (Live-Tested)\n\n- **Raydium-routed tokens work; Meteora tokens fail.** The backend has a bug where Meteora DLMM swaps don't wrap SOL into WSOL before swapping. Check `token.dexId` \u2014 if `\"meteora\"`, the swap will fail with `Program error: 1`. Tokens with `dexId: \"raydium\"` work correctly.\n- **Minimum ~0.01 SOL balance needed.** Each new token ATA costs ~0.002 SOL rent + priority fee (0.0005 default) + base tx fee. The first trade on a token needs significantly more SOL than just the swap amount.\n- **Amount is in lamports** (1 SOL = 1,000,000,000 lamports). Pass as a string, e.g. `'5000000'` for 0.005 SOL.\n- **Use `chainId: 622112261`**, not `900`. Using `900` will submit the trade to the wrong chain context.\n## Supported Chains \xD7 DEXes\n\n| Chain | Available DEXes |\n|-------|-----------------|\n| Solana | Raydium, Raydium v2, Orca |\n| Sui | Cetus, Bluefin |\n| Ethereum | Uniswap v2, Uniswap v3, Odos |\n| Base | Uniswap v3, Odos, Arcadia |\n| Robinhood Chain | Uniswap v2, KyberSwap aggregator |\n| Arbitrum | Uniswap v3, Odos |\n| BSC | PancakeSwap, Odos |\n| Optimism | Uniswap v3, Odos |\n| Fraxtal | Uniswap v3 |\n\n## Error Handling\n\n```typescript\nimport { GdexValidationError, GdexApiError, GdexRateLimitError } from '@gemachdao/gdex-skill';\n\ntry {\n  await skill.buyToken({ chain: 'solana', tokenAddress: '...', amount: '0.1', ...session });\n} catch (err) {\n  if (err instanceof GdexRateLimitError) {\n    await delay(err.retryAfter * 1000);  // wait and retry\n  } else if (err instanceof GdexValidationError) {\n    console.error('Invalid param:', err.message);\n  } else if (err instanceof GdexApiError) {\n    console.error('API error:', err.status, err.message);\n  }\n}\n```\n\n## Notes\n\n- All amounts are strings to preserve precision (e.g., `'0.1'`, `'1000'`)\n- Chain can be string (`'solana'`) or ChainId number (`622112261`)\n- The SDK retries on transient errors (429, 503) with exponential backoff\n- The backend selects the route; `dex` is not accepted\n\n## Autonomous Agent Notes (Live-Tested)\n\n### Managed-Custody Trades Require Raw Units\n\nFor `buildGdexManagedTradeComputedData()` + `submitManagedPurchase()` / `submitManagedSell()`, the `amount` must be in **raw units** (lamports for Solana, wei for EVM), NOT human-readable:\n\n```typescript\n// \u274C WRONG: amount: '0.01' (this is a float, not raw units)\n// \u2705 CORRECT: amount: '10000000' (0.01 SOL = 10,000,000 lamports)\n// \u2705 CORRECT: amount: '10000000000000000' (0.01 ETH = 10^16 wei)\n```\n\n### Raydium vs Meteora on Solana\n\n- **Raydium-routed tokens work correctly** (WIF, most liquid tokens)\n- **Meteora DLMM tokens fail** with `Program error: 1` (backend bug \u2014 doesn't wrap SOL into WSOL)\n- **Check before buying:** `token.dexId === 'raydium'` \u2705 / `token.dexId === 'meteora'` \u274C\n- If you get `Program error: 1`, the token is Meteora-routed \u2014 don't retry, pick a different token\n\n### Minimum SOL Balance\n\nKeep at least **0.01 SOL** in the managed Solana wallet. First trade on a new token costs ~0.007 SOL overhead (ATA creation + priority fee + base tx fee) on top of the trade amount.\n\n### Trade Status Polling\n\nUse `waitForTrade({ requestId })` (MCP: `wait_for_trade`). Terminal statuses are\n`success` and `error`; `processing` means it is still running.\n\n### Sell by Percentage\n\n`amount: '50%'` is resolved by the SDK from the managed holding (exact integer\nmath) before signing; the backend only ever sees a raw amount.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Auth setup required before trading\n- **gdex-portfolio** \u2014 Check balances and trade history after trading\n- **gdex-token-discovery** \u2014 Research tokens before buying (no auth needed)\n- **gdex-limit-orders** \u2014 Set limit orders instead of market buys/sells\n", files: [] }, { name: "gdex-token-discovery", description: "Token details, trending tokens, OHLCV candlestick data, and top traders \u2014 requires API key auth (Bearer token)", content: "\n# GDEX: Token Discovery\n\nResearch tokens with price data, market metrics, trending rankings, candlestick charts, and top trader leaderboards.\n\n> **Auth required:** All token discovery endpoints (except `/v1/token_details`) return 403 \"Access denied: Invalid client\" without a Bearer token. Always call `loginWithApiKey()` first.\n\n## When to Use\n\n- Looking up token price, market cap, volume, liquidity, and socials\n- Finding trending tokens on a specific chain\n- Getting OHLCV candlestick data for charting or analysis\n- Researching a token before buying (DEX info, security audit, holder count)\n- Finding top-performing trader wallets\n\n## Prerequisites\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n```\n\n## Token Details\n\n```typescript\nconst token = await skill.getTokenDetails({\n  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',\n  chain: 622112261,  // Solana\n});\n\nconsole.log(token.symbol);        // \"$WIF\"\nconsole.log(token.priceUsd);      // 0.176\nconsole.log(token.marketCap);     // 176054268\nconsole.log(token.liquidityUsd);  // 4574052\nconsole.log(token.dexId);         // \"raydium\"\nconsole.log(token.isRaydium);     // true\nconsole.log(token.priceChanges);  // { m5: 0, h1: -0.2, h6: -2.2, h24: -1.3 }\nconsole.log(token.volumes);       // { m5: 482, h1: 15438, h6: 74105, h24: 316704 }\nconsole.log(token.securities?.holderCount);  // 201554\n```\n\n### TokenDetails (response)\n\n```typescript\ninterface TokenDetails {\n  address: string;           // token contract address\n  chainId: number;           // numeric chain ID\n  symbol: string;            // may include $ prefix (e.g. \"$WIF\")\n  name: string;              // full name\n  decimals: number;\n  priceUsd?: number;         // current USD price\n  priceNative?: number;      // price in native token (SOL/ETH)\n  marketCap?: number;        // market cap in USD\n  liquidityUsd?: number;     // liquidity in USD\n  liquidityEth?: number;     // liquidity in native token\n  totalSupply?: string;      // raw units\n  pairAddress?: string;      // DEX pair address\n  dexId?: string;            // primary DEX (e.g. \"raydium\")\n  dexes?: string[];          // all DEXes\n  isRaydium?: boolean;\n  isMeteora?: boolean;\n  isPumpfun?: boolean;\n  isPumpSwap?: boolean;\n  priceChanges?: {           // price changes by period\n    m5?: number; h1?: number; h6?: number; h24?: number;\n  };\n  volumes?: {                // volume by period\n    m5?: number; h1?: number; h6?: number; h24?: number;\n  };\n  socialInfo?: {\n    telegramUrl?: string; twitterUrl?: string;\n    websiteUrl?: string; logoUrl?: string;\n  };\n  securities?: {             // security audit\n    mintAbility?: boolean; freezeAbility?: boolean;\n    lpLockPercentage?: number; holderCount?: number;\n    topHoldersPercentage?: number;\n  };\n  createdTime?: number;      // creation timestamp (Unix ms)\n}\n```\n\n## Trending Tokens\n\n```typescript\nconst trending = await skill.getTrendingTokens({\n  chain: 622112261,   // Solana (chainId)\n  period: '24h',      // '1h' | '6h' | '24h' | '7d'\n  limit: 5,\n});\n\ntrending.forEach(t => {\n  console.log(`${t.symbol}: $${t.priceUsd} mcap=$${t.marketCap} liq=$${t.liquidityUsd}`);\n});\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `chain` | `SupportedChain` | No | Chain to filter by (numeric chainId) |\n| `period` | `string` | No | `'1h'`, `'6h'`, `'24h'`, `'7d'` (default: `'24h'`) |\n| `limit` | `number` | No | Max results (default: 20) |\n| `minLiquidity` | `number` | No | Minimum liquidity in USD |\n| `minVolume` | `number` | No | Minimum 24h volume in USD |\n\n> Trending tokens have the **same shape as TokenDetails** \u2014 same fields from the tokens collection.\n\n## OHLCV Candlestick Data\n\n```typescript\nconst ohlcv = await skill.getOHLCV({\n  tokenAddress: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',\n  chain: 622112261,\n  resolution: '60',   // 1-hour candles\n  from: Math.floor(Date.now() / 1000) - 86400,  // 24h ago\n  to: Math.floor(Date.now() / 1000),\n});\n\nconsole.log('Candles:', ohlcv.candles.length);\nohlcv.candles.forEach(c => {\n  console.log(`[${new Date(c.time * 1000).toISOString()}] O=${c.open} H=${c.high} L=${c.low} C=${c.close}`);\n});\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `tokenAddress` | `string` | Yes | Token contract address |\n| `chain` | `SupportedChain` | Yes | Chain (numeric chainId) |\n| `resolution` | `string` | Yes | `'1'`, `'5'`, `'15'`, `'30'`, `'60'`, `'240'`, `'D'`, `'W'` |\n| `from` | `number` | No | Start timestamp (Unix seconds) |\n| `to` | `number` | No | End timestamp (Unix seconds) |\n| `limit` | `number` | No | Number of candles |\n\n> **Note:** The backend candle data may not be populated for all tokens. If `candles` is empty, the data isn't available yet \u2014 not an SDK error.\n\n## Top Traders\n\n```typescript\nconst traders = await skill.getTopTraders({\n  chain: 622112261,  // Solana\n  period: '7d',\n  limit: 5,\n});\n\ntraders.forEach((t, i) => {\n  console.log(`#${i + 1}: ${t.wallet_address} PnL(7d)=$${t.realized_profit_7d} name=${t.name || '?'}`);\n});\n```\n\n### Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `chain` | `SupportedChain` | No | Chain filter |\n| `period` | `string` | No | `'1d'`, `'7d'`, `'30d'`, `'all'` (default: `'7d'`) |\n| `limit` | `number` | No | Max results (default: 10) |\n| `sortBy` | `string` | No | `'pnl'`, `'winRate'`, `'volume'`, `'tradeCount'` |\n\n### TopTrader (response)\n\n```typescript\ninterface TopTrader {\n  wallet_address: string;     // wallet address\n  address: string;            // same as wallet_address\n  name?: string;              // display name\n  twitter_username?: string;\n  twitter_name?: string;\n  avatar?: string;\n  tags?: string[];            // e.g. [\"app_smart_money\", \"kol\"]\n  realized_profit_1d?: number;\n  realized_profit_7d?: number;\n  realized_profit_30d?: number;\n  pnl_1d?: number;           // PnL ratio (1d)\n  pnl_7d?: number;\n  pnl_30d?: number;\n  buy?: number;               // recent buy count\n  sell?: number;\n  last_active?: number;       // Unix timestamp\n}\n```\n\n## Example: Token Research Before Buying\n\n```typescript\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// 1. Find trending tokens on Solana\nconst trending = await skill.getTrendingTokens({\n  chain: 622112261,\n  period: '1h',\n  limit: 5,\n});\n\n// 2. Get details on the top trending token\nconst top = trending[0];\nconst details = await skill.getTokenDetails({\n  tokenAddress: top.address,\n  chain: 622112261,\n});\n\nconsole.log(`${details.symbol}: $${details.priceUsd}`);\nconsole.log(`Market Cap: $${details.marketCap}`);\nconsole.log(`Liquidity: $${details.liquidityUsd}`);\nconsole.log(`Holders: ${details.securities?.holderCount}`);\nconsole.log(`DEX: ${details.dexId} (Raydium: ${details.isRaydium})`);\n\n// 3. Check who the top traders are\nconst traders = await skill.getTopTraders({ chain: 622112261, period: '7d', limit: 3 });\ntraders.forEach(t => console.log(`  ${t.name || t.wallet_address}: $${t.realized_profit_7d} PnL`));\n```\n\n## Autonomous Agent Notes (Live-Tested)\n\n### Chain Parameter Must Be Numeric\n\nAll token discovery endpoints (`getOHLCV`, `getTopTraders`, `getTrendingTokens`, `getTokenDetails`) require **numeric** `chainId`, not string `chain`. Use `622112261` for Solana, `8453` for Base, `4663` for Robinhood Chain, etc.\n\n```typescript\n// \u2705 Correct\nawait skill.getOHLCV({ tokenAddress, chain: 622112261, resolution: '60', from, to });\nawait skill.getTopTraders({ chain: 622112261, period: '7d', limit: 5 });\n\n// \u274C Wrong \u2014 string chain names may not work for all endpoints\nawait skill.getOHLCV({ tokenAddress, chain: 'solana', resolution: '60', from, to });\n```\n\n### OHLCV Data May Be Empty\n\nNot all tokens have OHLCV data populated. If `candles` is an empty array, the data isn't available yet \u2014 this is not an SDK error. Try a different token or wider time range.\n\n### Token Safety Checks Before Buying\n\nBefore buying a token autonomously, check:\n1. **`dexId`**: Must be `'raydium'` on Solana (Meteora fails \u2014 see gdex-spot-trading)\n2. **`liquidityUsd`**: Should be > $1000 to avoid slippage problems\n3. **`securities.mintAbility`**: If `true`, the token can be infinitely minted (rug risk)\n4. **`securities.freezeAbility`**: If `true`, your tokens can be frozen\n5. **`securities.lpLockPercentage`**: Higher is safer (100% = fully locked LP)\n6. **`marketCap`**: Sanity check \u2014 very low mcap tokens are extremely volatile\n\n### Auth Required\n\nAll token discovery endpoints return `403 \"Access denied: Invalid client\"` without a Bearer token. Always call `loginWithApiKey()` first \u2014 even for read-only data.\n\n## Related Skills\n\n- **gdex-spot-trading** \u2014 Buy/sell tokens after researching them\n- **gdex-portfolio** \u2014 Check if you already hold a token\n- **gdex-authentication** \u2014 Required for all token discovery endpoints\n", files: [] }, { name: "gdex-token-import", description: "Import user-defined custom tokens so they appear in token details, balances, and portfolio across the platform", content: "\n# GDEX: Token Import\n\nRegister a user-defined custom token so it is recognised by the backend's\ntoken-details, balances, and portfolio endpoints. Useful for long-tail tokens\nthat are not yet indexed.\n\n## When to Use\n\n- A user wants to see a brand-new (or otherwise un-indexed) token in their\n  portfolio or token-search results\n- Pre-registering a token before launch so trading UI can resolve metadata\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via shared API key or wallet sign-in \u2014 see\n  **gdex-authentication**\n- The token's on-chain address (contract address on EVM, mint address on\n  Solana, object id on Sui)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `POST` | `/v1/import_token` | Register a user-imported custom token |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill, buildImportTokenComputedData } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\n// Structured shape \u2014 SDK builds computedData internally\nawait skill.importToken({\n  tokenAddress: '0xCustomToken',\n  chainId: 8453,\n  managed: {\n    apiKey: process.env.GDEX_API_KEY!,\n    walletAddress: '0xWallet',\n    sessionPrivateKey: '0x\u2026',\n    userId: '0xWallet',\n  },\n});\n\n// Or raw shape \u2014 caller pre-built computedData\nawait skill.importToken({\n  computedData: buildImportTokenComputedData({\n    apiKey: process.env.GDEX_API_KEY!,\n    walletAddress: '0xWallet',\n    sessionPrivateKey: '0x\u2026',\n    userId: '0xWallet',\n    tokenAddress: '0xCustomToken',\n    chainId: '8453',\n  }),\n  chainId: 8453,\n});\n```\n\n## Notes\n\n- `import_token` uses managed-custody **encrypted `computedData`**:\n  ABI `['import_token', [tokenAddress, chainId, nonce]]`,\n  sig message `import_token-${userId}-${data}`.\n- The backend deduplicates imports per `(userId, chain, tokenAddress)`.\n- After import, queries such as `getTokenDetails`, `getBalances`, and\n  `getPortfolio` will start returning data for the token (subject to\n  indexer latency).\n", files: [] }, { name: "gdex-token-risk", description: "GDEX token screen on 12 chains: price, liquidity, volume plus honeypot, taxes, LP lock, holder concentration. Deterministic NDJSON; missing security data never means safe.", content: "\n# GDEX: Token Risk Screen\n\nThe GDEX trending board for each chain, with market context and GDEX's back-end security\nassessment. One JSON object per token.\n\n## Run it\n\n```bash\npython3 scripts/token_risk.py                    # every supported chain\npython3 scripts/token_risk.py --chain-id 1 8453  # GDEX chain ids\npython3 scripts/token_risk.py --list-chains\n```\n\nStandard library only. Non-zero exit means a read failed.\n\n## Rules for agents\n\n1. **Report numbers exactly as the script prints them.** Never estimate or compute new figures.\n2. **Absent is unknown, never safe.** Security fields are omitted when GDEX has no value \u2014 on a\n   typical run `is_honeypot` is present for only about a quarter of tokens. A token with no\n   `is_honeypot` field has *not been checked*; say so rather than calling it clean.\n3. The board carries junk and scam tokens by design (it ranks trending, not quality). Treat\n   market figures as observations \u2014 a token can show a huge market cap on trivial liquidity.\n\n## Fields\n\nSecurity (percent fields are 0\u2013100): `is_honeypot`, `buy_tax_pct`, `sell_tax_pct`,\n`lp_lock_pct`, `top_holders_pct`, `is_contract_verified`, and \u2014 on Solana \u2014 `can_mint`,\n`can_freeze`. Market: `price_usd`, `market_cap_usd`, `liquidity_usd`, `volume_24h_usd`,\n`change_1h_pct`, `change_24h_pct`. `upstream_updated_source` names which clock stamped the row;\n`fetch_time_fallback` means GDEX had no timestamp, so the row's age is unknown.\n\nSolana and Sui addresses are case-sensitive and kept exactly; Sui type tags (`0x\u2026::mod::TYPE`)\nappear with `::` replaced by `.` in `gemach_id` only.\n", files: [{ path: "scripts/token_risk.py", content: `#!/usr/bin/env python3
 """GDEX token market + security screen, per chain. Standard library only.
 
 Prints one JSON object per token (NDJSON). Security fields are copied from GDEX's own
@@ -805,7 +805,7 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-` }] }, { name: "gdex-transfers", description: "Native and ERC20/SPL token transfers via GDEX managed custody \u2014 send assets to any recipient on supported chains", content: '\n# GDEX: Transfers\n\nSend native assets (ETH, SOL, SUI, BNB, \u2026) or ERC20 / SPL tokens from a\nmanaged-custody wallet to any recipient.\n\n## When to Use\n\n- Withdrawing native assets to an external wallet\n- Sending ERC20 / SPL tokens to a recipient\n- Paying out winnings, rewards, or peer-to-peer transfers\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via managed-custody sign-in \u2014 see **gdex-authentication**\n- Session keypair (`sessionPrivateKey` + `sessionKey`) from sign-in\n- Pre-built `computedData` payload (encrypted via the standard AES-256-CBC\n  managed-custody contract). Caller is responsible for ABI-encoding the\n  transfer parameters and signing with the session key \u2014 schema is\n  documented in `src/api/services/ServiceMain.ts` of the backend.\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `POST` | `/v1/transfer` | Native token transfer |\n| `POST` | `/v1/transfer_token` | ERC20 / SPL token transfer |\n\nBoth endpoints accept:\n```json\n{ "computedData": "<hex>", "chainId": 8453 }\n```\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill } from \'@gemachdao/gdex-skill\';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\n// Native ETH transfer (caller pre-builds computedData)\nconst result = await skill.transferNative({\n  computedData,           // hex-encoded encrypted payload\n  chainId: 8453,\n});\n\n// ERC20 / SPL transfer\nconst result2 = await skill.transferToken({\n  computedData,\n  chainId: 622112261,     // Solana SPL\n});\n```\n\n## Response\n\nTypically:\n```json\n{ "requestId": "...", "status": "pending", "createdAt": 1717000000 }\n```\nPoll status via `GET /v1/trade-status/:requestId` (or `skill.getManagedTradeStatus(requestId)`).\n\n## Notes\n\n- Both endpoints follow the standard managed-custody encrypted-payload pattern.\n- For Solana SPL transfers, the first transfer to a recipient may incur an\n  Associated Token Account (ATA) creation fee (~0.002 SOL).\n- Chain id semantics match the rest of the SDK \u2014 Solana uses `622112261`,\n  Sui uses `1313131213`.\n', files: [] }, { name: "gdex-trending-promotion", description: "Paid trending-slot promotion \u2014 book featured slots on the trending feed and check booking status", content: "\n# GDEX: Trending Promotion\n\nBook paid trending slots so a token appears in the platform's promoted\ntrending feed for a defined period.\n\n## When to Use\n\n- A token creator / marketer wants to buy visibility for their token\n- Listing the available trending packages, prices, and durations\n- Checking the booking status of a previously-registered slot\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via shared API key or wallet sign-in \u2014 see **gdex-authentication**\n- For paid bookings: a managed-custody `computedData` payload, OR a\n  user wallet able to pay on-chain (depending on backend deployment)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/trending/list` | Currently active / booked promoted tokens |\n| `GET`  | `/v1/trending/options` | Available slot packages, durations, prices |\n| `POST` | `/v1/trending/register` | Register / pay for a trending slot |\n| `GET`  | `/v1/trending/booking_status` | Check booking status |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\n// 1. List available packages\nconst options = await skill.getTrendingOptions();\n\n// 2. Register a slot\nconst booking = await skill.registerTrending({\n  tokenAddress: '0x...',\n  chain: 8453,\n  slot: 'gold',\n  durationHours: 24,\n  userId: '0xUserControlWallet',\n  computedData,                  // when paying via managed custody\n});\n\n// 3. Poll status\nconst status = await skill.getTrendingBookingStatus({\n  bookingId: booking.bookingId as string,\n});\n```\n\n## Notes\n\n- Packages (slots) and pricing are configured server-side and may change.\n- The backend returns a `bookingId` from `register` that should be persisted\n  for status polling.\n- Booking status values are typically `pending_payment`, `active`, or\n  `expired`.\n", files: [] }, { name: "gdex-ui-install-setup", description: "React and Next.js project setup for GDEX \u2014 SDK initialization, context providers, environment variables, and TypeScript configuration", content: '\n# GDEX: Frontend Installation & Setup\n\nSet up a React or Next.js project to build trading UIs with the GDEX SDK. This skill covers project scaffolding, provider patterns, and SDK initialization.\n\n## When to Use\n\n- Starting a new frontend project that integrates GDEX trading\n- Adding GDEX SDK to an existing React/Next.js app\n- Setting up the provider hierarchy and context pattern\n- Configuring TypeScript and environment variables for GDEX\n\n## Prerequisites\n\n- Node.js 18+ installed\n- Basic React/Next.js knowledge\n\n## Project Setup\n\n### Next.js (Recommended)\n\n```bash\nnpx create-next-app@latest my-gdex-app --typescript --tailwind --app\ncd my-gdex-app\nnpm install @gemachdao/gdex-skill ethers\n```\n\n### Vite + React\n\n```bash\nnpm create vite@latest my-gdex-app -- --template react-ts\ncd my-gdex-app\nnpm install @gemachdao/gdex-skill ethers\n```\n\n## Environment Variables\n\n```env\n# .env.local (Next.js) or .env (Vite)\nNEXT_PUBLIC_GDEX_API_KEY=9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54\n# Or use the secondary key:\n# NEXT_PUBLIC_GDEX_API_KEY=2c8f0a91-5d34-4e7b-9a62-f1c3d8e4b705\n```\n\n> For Vite, use `VITE_GDEX_API_KEY` prefix instead of `NEXT_PUBLIC_`.\n\n## SDK Context Provider\n\nCreate a React context that initializes and shares the `GdexSkill` instance across your app:\n\n```typescript\n// src/providers/GdexProvider.tsx\n\'use client\'; // Next.js App Router\n\nimport React, { createContext, useContext, useEffect, useRef, useState } from \'react\';\nimport { GdexSkill } from \'@gemachdao/gdex-skill\';\n\ninterface GdexContextValue {\n  skill: GdexSkill;\n  isReady: boolean;\n  error: string | null;\n}\n\nconst GdexContext = createContext<GdexContextValue | null>(null);\n\nexport function GdexProvider({ children, apiKey }: { children: React.ReactNode; apiKey: string }) {\n  const skillRef = useRef(new GdexSkill());\n  const [isReady, setIsReady] = useState(false);\n  const [error, setError] = useState<string | null>(null);\n\n  useEffect(() => {\n    try {\n      skillRef.current.loginWithApiKey(apiKey);\n      setIsReady(true);\n    } catch (err) {\n      setError(err instanceof Error ? err.message : \'Failed to initialize GDEX SDK\');\n    }\n  }, [apiKey]);\n\n  return (\n    <GdexContext.Provider value={{ skill: skillRef.current, isReady, error }}>\n      {children}\n    </GdexContext.Provider>\n  );\n}\n\nexport function useGdex(): GdexContextValue {\n  const ctx = useContext(GdexContext);\n  if (!ctx) throw new Error(\'useGdex must be used within <GdexProvider>\');\n  return ctx;\n}\n```\n\n## App Layout with Provider\n\n### Next.js App Router\n\n```typescript\n// src/app/layout.tsx\nimport { GdexProvider } from \'@/providers/GdexProvider\';\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en">\n      <body>\n        <GdexProvider apiKey={process.env.NEXT_PUBLIC_GDEX_API_KEY!}>\n          {children}\n        </GdexProvider>\n      </body>\n    </html>\n  );\n}\n```\n\n### Vite + React\n\n```typescript\n// src/main.tsx\nimport { GdexProvider } from \'./providers/GdexProvider\';\n\nReactDOM.createRoot(document.getElementById(\'root\')!).render(\n  <GdexProvider apiKey={import.meta.env.VITE_GDEX_API_KEY}>\n    <App />\n  </GdexProvider>\n);\n```\n\n## Custom Hooks Pattern\n\nBuild feature-specific hooks on top of `useGdex()`:\n\n```typescript\n// src/hooks/usePortfolio.ts\nimport { useState, useCallback } from \'react\';\nimport { useGdex } from \'@/providers/GdexProvider\';\n\nexport function usePortfolio(walletAddress: string) {\n  const { skill, isReady } = useGdex();\n  const [portfolio, setPortfolio] = useState<any>(null);\n  const [loading, setLoading] = useState(false);\n\n  const refresh = useCallback(async () => {\n    if (!isReady || !walletAddress) return;\n    setLoading(true);\n    try {\n      const data = await skill.getPortfolio({ walletAddress });\n      setPortfolio(data);\n    } finally {\n      setLoading(false);\n    }\n  }, [skill, isReady, walletAddress]);\n\n  return { portfolio, loading, refresh };\n}\n```\n\n```typescript\n// src/hooks/useTrade.ts\nimport { useState } from \'react\';\nimport type { SupportedChain } from \'@gemachdao/gdex-skill\';\nimport { useGdex } from \'@/providers/GdexProvider\';\nimport { useAuth } from \'@/providers/AuthProvider\'; // managed-custody creds, see gdex-ui-wallet-connection\n\ntype TradeInput = { chain: SupportedChain; tokenAddress: string; amount: string; slippage?: number };\n\nexport function useTrade() {\n  const { skill, isReady } = useGdex();\n  const { creds } = useAuth();\n  const [pending, setPending] = useState(false);\n  const [result, setResult] = useState<any>(null);\n\n  const buyToken = async (params: TradeInput) => {\n    if (!isReady || !creds) throw new Error(\'Sign in with a wallet first\');\n    setPending(true);\n    try {\n      const res = await skill.buyToken({ ...params, ...creds });\n      setResult(res);\n      return res;\n    } finally {\n      setPending(false);\n    }\n  };\n\n  const sellToken = async (params: TradeInput) => {\n    if (!isReady || !creds) throw new Error(\'Sign in with a wallet first\');\n    setPending(true);\n    try {\n      const res = await skill.sellToken({ ...params, walletAddress: creds.walletAddress });\n      setResult(res);\n      return res;\n    } finally {\n      setPending(false);\n    }\n  };\n\n  return { buyToken, sellToken, pending, result };\n}\n```\n\n## TypeScript Configuration\n\nEnsure your `tsconfig.json` includes Node.js types for the SDK:\n\n```json\n{\n  "compilerOptions": {\n    "target": "ES2022",\n    "module": "ESNext",\n    "moduleResolution": "bundler",\n    "lib": ["ES2022", "DOM", "DOM.Iterable"],\n    "strict": true,\n    "jsx": "react-jsx",\n    "paths": {\n      "@/*": ["./src/*"]\n    }\n  }\n}\n```\n\n## Provider Hierarchy\n\nFor apps with wallet connection + GDEX + theming:\n\n```\nThemeProvider          \u2190 dark/light mode (see gdex-ui-theming)\n  \u2514\u2500 WalletProvider   \u2190 wallet connection (see gdex-ui-wallet-connection)\n       \u2514\u2500 GdexProvider \u2190 SDK instance + auth state\n            \u2514\u2500 App     \u2190 your trading UI\n```\n\n## Related Skills\n\n- **gdex-ui-trading-components** \u2014 Trading UI component patterns (order forms, position tables)\n- **gdex-ui-wallet-connection** \u2014 Wallet connection UI and auth flows\n- **gdex-ui-theming** \u2014 CSS theming for trading interfaces\n- **gdex-ui-page-layouts** \u2014 Full page compositions (trading, portfolio, copy trade)\n- **gdex-authentication** \u2014 Backend auth details (encryption, session keys)\n', files: [] }, { name: "gdex-ui-page-layouts", description: "Full page layout compositions for GDEX \u2014 trading page, portfolio page, copy trading page, and bridge page with responsive grid patterns", content: "\n# GDEX: Page Layouts\n\nFull page layout compositions for GDEX trading apps. Each layout combines components from other UI skills into a complete, responsive page.\n\n## When to Use\n\n- Building a full trading page with chart, order form, and positions\n- Creating a portfolio dashboard page\n- Composing a copy trading management page\n- Building a bridge page\n\n## Prerequisites\n\n- Components from **gdex-ui-trading-components** and **gdex-ui-portfolio-dashboard**\n- Theme set up per **gdex-ui-theming**\n- SDK context provider from **gdex-ui-install-setup**\n\n## Trading Page\n\nThe primary trading interface \u2014 chart, order form, positions, and optionally an orderbook.\n\n```typescript\n// app/trade/page.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { SpotTradeForm } from '@/components/SpotTradeForm';\nimport { PerpOrderForm } from '@/components/PerpOrderForm';\nimport { PositionTable } from '@/components/PositionTable';\nimport { TokenSearch } from '@/components/TokenSearch';\nimport { ChainSelector } from '@/components/ChainSelector';\nimport { PnLDisplay } from '@/components/PnLDisplay';\n\nexport default function TradingPage() {\n  const [chain, setChain] = useState('solana');\n  const [mode, setMode] = useState<'spot' | 'perp'>('spot');\n  const [selectedToken, setSelectedToken] = useState<string>('');\n\n  return (\n    <div className=\"min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]\">\n      {/* Top bar */}\n      <header className=\"border-b border-[var(--border-primary)] px-4 py-3 flex items-center justify-between\">\n        <div className=\"flex items-center gap-4\">\n          <h1 className=\"text-lg font-bold\">GDEX Trade</h1>\n          <div className=\"flex gap-1\">\n            <button onClick={() => setMode('spot')}\n              className={`px-3 py-1 rounded text-sm ${mode === 'spot' ? 'bg-brand text-white' : ''}`}>\n              Spot\n            </button>\n            <button onClick={() => setMode('perp')}\n              className={`px-3 py-1 rounded text-sm ${mode === 'perp' ? 'bg-brand text-white' : ''}`}>\n              Perp\n            </button>\n          </div>\n        </div>\n        <ChainSelector value={chain} onChange={setChain} />\n      </header>\n\n      {/* Main grid \u2014 responsive */}\n      <div className=\"grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-0 lg:gap-4 p-4\">\n        {/* Left: Chart + Token search + Positions */}\n        <div className=\"space-y-4\">\n          {mode === 'spot' && (\n            <TokenSearch chain={chain}\n              onSelect={token => setSelectedToken(token.address)} />\n          )}\n\n          {/* Chart placeholder \u2014 integrate TradingView or Lightweight Charts */}\n          <div className=\"bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg h-[400px] flex items-center justify-center text-[var(--text-secondary)]\">\n            Chart \u2014 TradingView or Lightweight Charts\n          </div>\n\n          {/* Positions / Open orders */}\n          {mode === 'perp' && (\n            <div className=\"bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg p-4\">\n              <h2 className=\"text-sm font-bold mb-3\">Open Positions</h2>\n              <PositionTable />\n            </div>\n          )}\n        </div>\n\n        {/* Right: Order form */}\n        <div className=\"bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg p-4 h-fit lg:sticky lg:top-4\">\n          <h2 className=\"text-sm font-bold mb-3\">\n            {mode === 'spot' ? 'Spot Trade' : 'Perp Order'}\n          </h2>\n          {mode === 'spot'\n            ? <SpotTradeForm defaultChain={chain} />\n            : <PerpOrderForm />\n          }\n        </div>\n      </div>\n    </div>\n  );\n}\n```\n\n### Layout Grid (responsive)\n\n```\nMobile (< 1024px):          Desktop (\u2265 1024px):\n\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510          \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502 Token Search   \u2502          \u2502 Token Search \u2502 Order   \u2502\n\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524          \u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524 Form    \u2502\n\u2502 Chart          \u2502          \u2502 Chart        \u2502         \u2502\n\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524          \u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524         \u2502\n\u2502 Positions      \u2502          \u2502 Positions    \u2502         \u2502\n\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524          \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n\u2502 Order Form     \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n```\n\n## Portfolio Page\n\n```typescript\n// app/portfolio/page.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { PortfolioOverview } from '@/components/PortfolioOverview';\nimport { TokenBalanceGrid } from '@/components/TokenBalanceGrid';\nimport { TradeHistoryTable } from '@/components/TradeHistoryTable';\nimport { ChainSelector } from '@/components/ChainSelector';\n\nexport default function PortfolioPage() {\n  const [chain, setChain] = useState('all');\n  const [tab, setTab] = useState<'balances' | 'history'>('balances');\n\n  return (\n    <div className=\"min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] p-4 space-y-6\">\n      <h1 className=\"text-2xl font-bold\">Portfolio</h1>\n\n      {/* Overview cards */}\n      <PortfolioOverview />\n\n      {/* Chain filter */}\n      <ChainSelector value={chain} onChange={setChain} />\n\n      {/* Tabs */}\n      <div className=\"flex gap-4 border-b border-[var(--border-primary)]\">\n        <button onClick={() => setTab('balances')}\n          className={`pb-2 text-sm ${tab === 'balances' ? 'border-b-2 border-brand font-bold' : 'text-[var(--text-secondary)]'}`}>\n          Token Balances\n        </button>\n        <button onClick={() => setTab('history')}\n          className={`pb-2 text-sm ${tab === 'history' ? 'border-b-2 border-brand font-bold' : 'text-[var(--text-secondary)]'}`}>\n          Trade History\n        </button>\n      </div>\n\n      {/* Content */}\n      {tab === 'balances'\n        ? <TokenBalanceGrid chain={chain === 'all' ? undefined : chain} />\n        : <TradeHistoryTable />\n      }\n    </div>\n  );\n}\n```\n\n## Copy Trading Page\n\n```typescript\n// app/copy-trade/page.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { CopyTradePanel } from '@/components/CopyTradePanel';\n\nexport default function CopyTradingPage() {\n  const [platform, setPlatform] = useState<'solana' | 'hyperliquid'>('solana');\n\n  return (\n    <div className=\"min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] p-4 space-y-6\">\n      <div className=\"flex items-center justify-between\">\n        <h1 className=\"text-2xl font-bold\">Copy Trading</h1>\n        <div className=\"flex gap-2\">\n          <button onClick={() => setPlatform('solana')}\n            className={`px-3 py-1.5 rounded text-sm ${platform === 'solana' ? 'bg-[var(--color-chain-solana)] text-white' : 'border'}`}>\n            Solana Spot\n          </button>\n          <button onClick={() => setPlatform('hyperliquid')}\n            className={`px-3 py-1.5 rounded text-sm ${platform === 'hyperliquid' ? 'bg-brand text-white' : 'border'}`}>\n            HL Perp\n          </button>\n        </div>\n      </div>\n\n      <div className=\"grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6\">\n        {/* Left: Leaderboard / Top traders */}\n        <div className=\"bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg p-4\">\n          <h2 className=\"text-lg font-bold mb-4\">Top Traders</h2>\n          <p className=\"text-sm text-[var(--text-secondary)]\">\n            {platform === 'solana' ? 'Top Solana spot traders by PnL' : 'Top HyperLiquid perp traders by PnL'}\n          </p>\n          {/* Trader leaderboard list */}\n        </div>\n\n        {/* Right: Active copy trades */}\n        <div className=\"bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg p-4\">\n          <h2 className=\"text-lg font-bold mb-4\">Your Copy Trades</h2>\n          <CopyTradePanel />\n        </div>\n      </div>\n    </div>\n  );\n}\n```\n\n## Bridge Page\n\n```typescript\n// app/bridge/page.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { ChainSwitcher } from '@/components/ChainSwitcher';\n\nexport default function BridgePage() {\n  const { skill, isReady } = useGdex();\n  const [fromChain, setFromChain] = useState(1);\n  const [toChain, setToChain] = useState(622112261);\n  const [amount, setAmount] = useState('');\n  const [estimate, setEstimate] = useState<any>(null);\n  const [loading, setLoading] = useState(false);\n\n  const getEstimate = async () => {\n    if (!isReady || !amount) return;\n    setLoading(true);\n    try {\n      const est = await skill.estimateBridge({\n        fromChainId: fromChain,\n        toChainId: toChain,\n        amount,   // raw units of the source native token (wei / lamports)\n      });\n      setEstimate(est);\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  return (\n    <div className=\"min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] p-4\">\n      <h1 className=\"text-2xl font-bold mb-6\">Bridge</h1>\n\n      <div className=\"max-w-lg mx-auto bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg p-6 space-y-4\">\n        {/* From chain */}\n        <div>\n          <label className=\"text-xs text-[var(--text-secondary)] mb-1 block\">From</label>\n          <ChainSwitcher value={fromChain} onChange={setFromChain} />\n        </div>\n\n        {/* Swap button */}\n        <div className=\"flex justify-center\">\n          <button onClick={() => { setFromChain(toChain); setToChain(fromChain); }}\n            className=\"p-2 border rounded-full hover:bg-[var(--bg-tertiary)]\">\n            \u2195\n          </button>\n        </div>\n\n        {/* To chain */}\n        <div>\n          <label className=\"text-xs text-[var(--text-secondary)] mb-1 block\">To</label>\n          <ChainSwitcher value={toChain} onChange={setToChain} />\n        </div>\n\n        {/* Amount */}\n        <input type=\"number\" placeholder=\"Amount (native token)\" value={amount}\n          onChange={e => setAmount(e.target.value)} step=\"any\" min=\"0\"\n          className=\"w-full p-3 border rounded-lg bg-[var(--bg-input)]\" />\n\n        {/* Estimate */}\n        <button onClick={getEstimate} disabled={loading || !amount}\n          className=\"w-full py-3 bg-brand text-white rounded-lg font-bold disabled:opacity-50\">\n          {loading ? 'Getting estimate...' : 'Get Estimate'}\n        </button>\n\n        {estimate && (\n          <div className=\"border border-[var(--border-primary)] rounded-lg p-4 space-y-2 text-sm\">\n            <div className=\"flex justify-between\">\n              <span className=\"text-[var(--text-secondary)]\">You receive</span>\n              <span className=\"font-bold\">{estimate.estimateAmount}</span>\n            </div>\n            <div className=\"flex justify-between\">\n              <span className=\"text-[var(--text-secondary)]\">ETA</span>\n              <span>{estimate.minEstimateTime}\u2013{estimate.maxEstimateTime}s via {estimate.tool}</span>\n            </div>\n            <button className=\"w-full py-2 mt-2 bg-brand text-white rounded-lg\">\n              Bridge Now\n            </button>\n          </div>\n        )}\n      </div>\n    </div>\n  );\n}\n```\n\n## Navigation Layout\n\n```typescript\n// components/Navigation.tsx\n'use client';\n\nimport Link from 'next/link';\nimport { usePathname } from 'next/navigation';\nimport { ConnectButton } from './ConnectButton';\nimport { ThemeToggle } from './ThemeToggle';\n\nconst NAV_ITEMS = [\n  { href: '/trade', label: 'Trade' },\n  { href: '/portfolio', label: 'Portfolio' },\n  { href: '/copy-trade', label: 'Copy Trade' },\n  { href: '/bridge', label: 'Bridge' },\n];\n\nexport function Navigation() {\n  const pathname = usePathname();\n\n  return (\n    <nav className=\"border-b border-[var(--border-primary)] bg-[var(--bg-primary)]\">\n      <div className=\"max-w-7xl mx-auto px-4 flex items-center justify-between h-14\">\n        <div className=\"flex items-center gap-6\">\n          <span className=\"font-bold text-lg\">GDEX</span>\n          {NAV_ITEMS.map(item => (\n            <Link key={item.href} href={item.href}\n              className={`text-sm ${pathname === item.href\n                ? 'text-brand font-bold'\n                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>\n              {item.label}\n            </Link>\n          ))}\n        </div>\n        <div className=\"flex items-center gap-3\">\n          <ThemeToggle />\n          <ConnectButton />\n        </div>\n      </div>\n    </nav>\n  );\n}\n```\n\n## Page \u2192 Component \u2192 SDK Method Map\n\n| Page | Components Used | SDK Methods |\n|------|----------------|-------------|\n| Trading | `SpotTradeForm`, `PerpOrderForm`, `PositionTable`, `TokenSearch`, `ChainSelector` | `buyToken`, `sellToken`, `hlCreateOrder`, `getPerpPositions`, `closePerpPosition`, `getTokenDetails` |\n| Portfolio | `PortfolioOverview`, `TokenBalanceGrid`, `TradeHistoryTable`, `ChainSelector` | `getPortfolio`, `getTradeHistory` |\n| Copy Trading | `CopyTradePanel` | `getCopyTradeList`, `getCopyTradeWallets` |\n| Bridge | `ChainSwitcher` | `estimateBridge`, `requestBridge` |\n\n## Related Skills\n\n- **gdex-ui-install-setup** \u2014 Project scaffolding to build these pages\n- **gdex-ui-trading-components** \u2014 Individual component patterns\n- **gdex-ui-portfolio-dashboard** \u2014 Dashboard-specific components\n- **gdex-ui-theming** \u2014 Theme tokens and CSS variables used throughout\n- **gdex-ui-wallet-connection** \u2014 ConnectButton and auth flows\n", files: [] }, { name: "gdex-ui-portfolio-dashboard", description: "React component patterns for GDEX portfolio dashboards \u2014 token balances, trade history, chain selectors, and live data polling", content: "\n# GDEX: Portfolio Dashboard Components\n\nReact component patterns for building portfolio dashboards with the GDEX SDK. Covers balance displays, trade history with pagination, and live data polling.\n\n## When to Use\n\n- Displaying cross-chain token balances\n- Building paginated trade history tables\n- Creating chain selector dropdowns with balance summaries\n- Implementing auto-refresh for live portfolio data\n\n## Prerequisites\n\n- GDEX SDK context provider set up \u2014 see **gdex-ui-install-setup**\n- Authenticated via `loginWithApiKey()` \u2014 see **gdex-authentication**\n\n## Portfolio Overview\n\n```typescript\n// components/PortfolioOverview.tsx\n'use client';\n\nimport { useState, useEffect, useCallback } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\nexport function PortfolioOverview({ pollInterval = 30000 }: { pollInterval?: number }) {\n  const { skill, isReady } = useGdex();\n  const { walletAddress } = useAuth();\n  const [portfolio, setPortfolio] = useState<any>(null);\n  const [loading, setLoading] = useState(true);\n\n  const refresh = useCallback(async () => {\n    if (!isReady || !walletAddress) return;\n    try {\n      const data = await skill.getPortfolio({ walletAddress });\n      setPortfolio(data);\n    } finally {\n      setLoading(false);\n    }\n  }, [skill, isReady, walletAddress]);\n\n  useEffect(() => {\n    refresh();\n    const id = setInterval(refresh, pollInterval);\n    return () => clearInterval(id);\n  }, [refresh, pollInterval]);\n\n  if (loading) return <div className=\"animate-pulse h-24 bg-gray-200 rounded\" />;\n\n  return (\n    <div className=\"grid grid-cols-2 md:grid-cols-4 gap-4\">\n      <StatCard label=\"Total Value\" value={`$${portfolio?.totalValue?.toFixed(2) ?? '0.00'}`} />\n      <StatCard label=\"24h PnL\" value={portfolio?.pnl24h}\n        className={portfolio?.pnl24h >= 0 ? 'text-green-500' : 'text-red-500'} />\n      <StatCard label=\"Chains\" value={portfolio?.chains?.length ?? 0} />\n      <StatCard label=\"Tokens\" value={portfolio?.tokens?.length ?? 0} />\n    </div>\n  );\n}\n\nfunction StatCard({ label, value, className = '' }: { label: string; value: any; className?: string }) {\n  return (\n    <div className=\"border rounded-lg p-4\">\n      <p className=\"text-xs text-gray-500\">{label}</p>\n      <p className={`text-xl font-bold ${className}`}>{value}</p>\n    </div>\n  );\n}\n```\n\n**SDK method called:** `skill.getPortfolio()`\n\n## Token Balance Grid\n\n```typescript\n// components/TokenBalanceGrid.tsx\n'use client';\n\nimport { useState, useEffect } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\nimport type { SupportedChain } from '@gemachdao/gdex-skill';\n\ninterface Token {\n  symbol: string;\n  name: string;\n  balance: string;\n  valueUsd: number;\n  chain: string;\n  address: string;\n  logoUrl?: string;\n}\n\nexport function TokenBalanceGrid({ chain }: { chain?: SupportedChain }) {\n  const { skill, isReady } = useGdex();\n  const { walletAddress } = useAuth();\n  const [tokens, setTokens] = useState<Token[]>([]);\n  const [loading, setLoading] = useState(true);\n\n  useEffect(() => {\n    if (!isReady || !walletAddress) return;\n    setLoading(true);\n    skill.getPortfolio({ walletAddress, chain })\n      .then(data => {\n        setTokens(data?.tokens ?? []);\n      })\n      .finally(() => setLoading(false));\n  }, [skill, isReady, chain]);\n\n  if (loading) return <div className=\"animate-pulse h-48 bg-gray-200 rounded\" />;\n\n  return (\n    <div className=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3\">\n      {tokens.map((token, i) => (\n        <div key={i} className=\"border rounded-lg p-3 flex items-center gap-3\">\n          {token.logoUrl && <img src={token.logoUrl} alt={token.symbol} className=\"w-8 h-8 rounded-full\" />}\n          <div className=\"flex-1\">\n            <div className=\"flex justify-between\">\n              <span className=\"font-bold\">{token.symbol}</span>\n              <span className=\"text-sm text-gray-500\">{token.chain}</span>\n            </div>\n            <div className=\"flex justify-between text-sm\">\n              <span>{token.balance}</span>\n              <span className=\"text-gray-600\">${token.valueUsd?.toFixed(2)}</span>\n            </div>\n          </div>\n        </div>\n      ))}\n      {!tokens.length && <p className=\"text-gray-500 col-span-full\">No tokens found</p>}\n    </div>\n  );\n}\n```\n\n## Trade History Table\n\n```typescript\n// components/TradeHistoryTable.tsx\n'use client';\n\nimport { useState, useEffect } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\nexport function TradeHistoryTable({ pageSize = 20 }: { pageSize?: number }) {\n  const { skill, isReady } = useGdex();\n  const { walletAddress } = useAuth();\n  const [trades, setTrades] = useState<any[]>([]);\n  const [page, setPage] = useState(1);\n  const [hasMore, setHasMore] = useState(true);\n  const [loading, setLoading] = useState(true);\n\n  useEffect(() => {\n    if (!isReady || !walletAddress) return;\n    setLoading(true);\n    skill.getTradeHistory({ walletAddress, page, limit: pageSize })\n      .then(data => {\n        setTrades(data?.trades ?? []);\n        setHasMore((data?.trades?.length ?? 0) >= pageSize);\n      })\n      .finally(() => setLoading(false));\n  }, [skill, isReady, page, pageSize]);\n\n  return (\n    <div>\n      <table className=\"w-full text-sm\">\n        <thead>\n          <tr className=\"text-left border-b text-gray-500\">\n            <th className=\"py-2\">Date</th>\n            <th>Type</th>\n            <th>Token</th>\n            <th>Amount</th>\n            <th>Chain</th>\n            <th>Status</th>\n          </tr>\n        </thead>\n        <tbody>\n          {loading ? (\n            <tr><td colSpan={6} className=\"text-center py-8\">Loading...</td></tr>\n          ) : (\n            trades.map((trade, i) => (\n              <tr key={i} className=\"border-b hover:bg-gray-50\">\n                <td className=\"py-2\">{new Date(trade.timestamp).toLocaleDateString()}</td>\n                <td className={trade.side === 'buy' ? 'text-green-600' : 'text-red-600'}>\n                  {trade.side?.toUpperCase()}\n                </td>\n                <td className=\"font-mono\">{trade.symbol ?? trade.tokenAddress?.slice(0, 8)}</td>\n                <td>{trade.amount}</td>\n                <td>{trade.chain}</td>\n                <td>\n                  <span className={`px-2 py-0.5 rounded text-xs ${\n                    trade.status === 'completed' ? 'bg-green-100 text-green-800' :\n                    trade.status === 'failed' ? 'bg-red-100 text-red-800' :\n                    'bg-yellow-100 text-yellow-800'\n                  }`}>\n                    {trade.status}\n                  </span>\n                </td>\n              </tr>\n            ))\n          )}\n        </tbody>\n      </table>\n\n      {/* Pagination */}\n      <div className=\"flex justify-between items-center mt-4\">\n        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}\n          className=\"px-3 py-1 border rounded disabled:opacity-50\">\n          Previous\n        </button>\n        <span className=\"text-sm text-gray-500\">Page {page}</span>\n        <button onClick={() => setPage(p => p + 1)} disabled={!hasMore}\n          className=\"px-3 py-1 border rounded disabled:opacity-50\">\n          Next\n        </button>\n      </div>\n    </div>\n  );\n}\n```\n\n**SDK method called:** `skill.getTradeHistory()`\n\n## Chain Selector\n\n```typescript\n// components/ChainSelector.tsx\nconst CHAINS = [\n  { id: 'all', name: 'All Chains', icon: '\u{1F310}' },\n  { id: 'solana', name: 'Solana', icon: '\u25CE' },\n  { id: '1', name: 'Ethereum', icon: '\u039E' },\n  { id: '8453', name: 'Base', icon: '\u{1F535}' },\n  { id: '42161', name: 'Arbitrum', icon: '\u{1F537}' },\n  { id: '56', name: 'BSC', icon: '\u{1F7E1}' },\n  { id: '10', name: 'Optimism', icon: '\u{1F534}' },\n  { id: 'sui', name: 'Sui', icon: '\u{1F4A7}' },\n];\n\ninterface ChainSelectorProps {\n  value: string;\n  onChange: (chain: string) => void;\n}\n\nexport function ChainSelector({ value, onChange }: ChainSelectorProps) {\n  return (\n    <div className=\"flex gap-2 flex-wrap\">\n      {CHAINS.map(chain => (\n        <button key={chain.id} onClick={() => onChange(chain.id)}\n          className={`px-3 py-1.5 rounded-full text-sm border transition ${\n            value === chain.id ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:border-gray-400'\n          }`}>\n          {chain.icon} {chain.name}\n        </button>\n      ))}\n    </div>\n  );\n}\n```\n\n## Data Fetching Pattern: SWR / React Query\n\nFor production apps, wrap SDK calls with a caching library:\n\n```typescript\n// hooks/usePortfolioQuery.ts (React Query example)\nimport { useQuery } from '@tanstack/react-query';\nimport type { SupportedChain } from '@gemachdao/gdex-skill';\nimport { useGdex } from '@/providers/GdexProvider';\n\nexport function usePortfolioQuery(walletAddress: string, chain?: SupportedChain) {\n  const { skill, isReady } = useGdex();\n\n  return useQuery({\n    queryKey: ['portfolio', walletAddress, chain],\n    queryFn: () => skill.getPortfolio({ walletAddress, chain }),\n    enabled: isReady && !!walletAddress,\n    refetchInterval: 30_000,      // poll every 30s\n    staleTime: 10_000,            // consider fresh for 10s\n  });\n}\n```\n\n```typescript\n// hooks/useTradeHistoryQuery.ts\nimport { useQuery } from '@tanstack/react-query';\nimport { useGdex } from '@/providers/GdexProvider';\n\nexport function useTradeHistoryQuery(walletAddress: string, page: number, limit = 20) {\n  const { skill, isReady } = useGdex();\n\n  return useQuery({\n    queryKey: ['tradeHistory', walletAddress, page, limit],\n    queryFn: () => skill.getTradeHistory({ walletAddress, page, limit }),\n    enabled: isReady && !!walletAddress,\n    keepPreviousData: true,       // smooth pagination\n  });\n}\n```\n\n## Backend Quirk: SDK Methods Need Raw Client (Live-Tested)\n\n> **WARNING:** The high-level `skill.getPortfolio()` and `skill.getTradeHistory()` methods send incorrect params to the backend. For managed-custody users, the UI components above will return empty/incorrect data unless you use the raw client workaround. See **gdex-portfolio** skill for correct raw client calls.\n\n**For frontend React Query hooks, use raw client instead:**\n\n```typescript\n// hooks/usePortfolioQuery.ts \u2014 CORRECT for managed custody\nimport { useQuery } from '@tanstack/react-query';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\n\nexport function usePortfolioQuery(userId: string, sessionKey: string, apiKey: string, chainId: number) {\n  const { skill, isReady } = useGdex();\n  const data = buildGdexUserSessionData(sessionKey, apiKey);\n\n  return useQuery({\n    queryKey: ['portfolio', userId, chainId],\n    queryFn: () => skill.client.get('/v1/portfolio', {\n      params: { userId, chainId, data }\n    }),\n    enabled: isReady,\n    refetchInterval: 30_000,\n  });\n}\n```\n\n## Component \u2192 SDK Method Reference\n\n| Component | SDK Method | Skill |\n|-----------|------------|-------|\n| `PortfolioOverview` | `skill.client.get('/v1/portfolio', ...)` | gdex-portfolio |\n| `TokenBalanceGrid` | `skill.client.get('/v1/portfolio', ...)` (balances embedded under `portfolio.balances[]`) | gdex-portfolio |\n| `TradeHistoryTable` | `skill.client.get('/v1/user_history', ...)` | gdex-portfolio |\n| `ChainSelector` | (UI only) | \u2014 |\n\n## Related Skills\n\n- **gdex-ui-install-setup** \u2014 Project setup and SDK context provider\n- **gdex-ui-trading-components** \u2014 Trading forms and order entry components\n- **gdex-ui-page-layouts** \u2014 Full page layouts using these dashboard components\n- **gdex-portfolio** \u2014 Portfolio SDK API details and raw client workarounds\n", files: [] }, { name: "gdex-ui-theming", description: "CSS theming system for GDEX trading UIs \u2014 dark/light modes, trading colors, responsive breakpoints, and Tailwind CSS configuration", content: "\n# GDEX: UI Theming\n\nCSS theming system for building polished trading interfaces. Covers dark/light mode, trading-specific color semantics (long/short/PnL), responsive layouts, and Tailwind CSS integration.\n\n## When to Use\n\n- Setting up dark/light mode for a trading app\n- Defining trading-specific color semantics (buy/sell, PnL, chains)\n- Configuring responsive breakpoints for trading layouts\n- Extending Tailwind CSS with trading theme tokens\n\n## CSS Custom Properties\n\nDefine a base theme using CSS variables. Trading UIs need specialized color semantics beyond generic UI:\n\n```css\n/* styles/theme.css */\n\n:root {\n  /* Brand \u2014 Gemach (see assets/brand) */\n  --color-brand: #704FF6;        /* Majorelle Blue (primary accent) */\n  --color-brand-hover: #5A3FE0;\n  --color-brand-2: #61B8FF;      /* Argentinian Blue (secondary accent) */\n\n  /* Gemach product lines */\n  --color-gbot: #DF2E2E;         /* Rojo */\n  --color-loans: #61B8FF;        /* Argentinian Blue */\n  --color-vaults: #704FF6;       /* Majorelle Blue */\n  --color-index: #49B875;        /* Emerald */\n\n  /* Trading \u2014 Long / Short */\n  --color-long: #49B875;         /* Emerald */\n  --color-long-bg: #49B8751A;\n  --color-short: #DF2E2E;        /* Rojo */\n  --color-short-bg: #DF2E2E1A;\n\n  /* PnL */\n  --color-pnl-positive: #49B875;\n  --color-pnl-negative: #DF2E2E;\n  --color-pnl-neutral: #697083;\n\n  /* Order Status */\n  --color-status-filled: #49B875;\n  --color-status-pending: #61B8FF;\n  --color-status-cancelled: #697083;\n  --color-status-failed: #DF2E2E;\n\n  /* Chain Colors (chain brand colors, not Gemach) */\n  --color-chain-solana: #9945FF;\n  --color-chain-ethereum: #627EEA;\n  --color-chain-base: #0052FF;\n  --color-chain-arbitrum: #2D374B;\n  --color-chain-bsc: #F0B90B;\n  --color-chain-sui: #4DA2FF;\n  --color-chain-optimism: #FF0420;\n\n  /* Surfaces (light mode) */\n  --bg-primary: #FFFFFF;\n  --bg-secondary: #F9FAFB;\n  --bg-tertiary: #F3F4F6;\n  --bg-card: #FFFFFF;\n  --bg-input: #F9FAFB;\n  --border-primary: #E5E7EB;\n  --border-secondary: #D1D5DB;\n\n  /* Text (light mode) */\n  --text-primary: #060A17;       /* Rich Black */\n  --text-secondary: #4D5972;\n  --text-tertiary: #81899F;\n  --text-on-brand: #FFFFFF;\n\n  /* Typography \u2014 Gemach uses Inter */\n  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;\n  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;\n\n  /* Spacing */\n  --radius-sm: 6px;\n  --radius-md: 8px;\n  --radius-lg: 12px;\n  --radius-full: 9999px;\n}\n\n/* Dark Mode (Gemach default \u2014 Rich Black + navy ramp) */\n[data-theme='dark'], .dark {\n  --bg-primary: #060A17;         /* Rich Black */\n  --bg-secondary: #0C1322;\n  --bg-tertiary: #162139;\n  --bg-card: #0D1424;\n  --bg-input: #152037;\n  --border-primary: #192843;\n  --border-secondary: #2E4164;\n\n  --text-primary: #FFFFFF;\n  --text-secondary: #A1A5B3;\n  --text-tertiary: #697083;\n}\n```\n\n## Gemach brand palette (official)\n\nFrom the Gemach brand guide. The dark theme above is the Gemach default.\n\n| Token | Hex | Use |\n|-------|-----|-----|\n| Rich Black | `#060A17` | App background (dark) |\n| Majorelle Blue | `#704FF6` | Primary brand accent (Vaults) |\n| Argentinian Blue | `#61B8FF` | Secondary accent (Loans) |\n| Emerald | `#49B875` | Long / positive (Index Funds) |\n| Rojo | `#DF2E2E` | Short / negative (GBOT) |\n\nNavy \u2192 white neutral ramp: `#161D2F #152037 #162139 #192843 #2E4164 #4D5972 #697083 #81899F #A1A5B3 #D5D9E1 #FFFFFF`\n\n**Logo:** the white Gemach lion mark is at `assets/brand/gemach-lion.png`. Pair it with the\n`GEMACH` / `GDEX` wordmark in **Inter** (700\u2013800 weight). On dark, use the white mark; on\nlight, the black mark. **Font:** Inter (400/500/600/700/800) \u2014 load via Google Fonts or self-host.\n\n## Dark / Light Mode Toggle\n\n```typescript\n// components/ThemeToggle.tsx\n'use client';\n\nimport { useEffect, useState } from 'react';\n\nexport function ThemeToggle() {\n  const [dark, setDark] = useState(false);\n\n  useEffect(() => {\n    const saved = localStorage.getItem('gdex-theme');\n    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;\n    setDark(saved ? saved === 'dark' : prefersDark);\n  }, []);\n\n  useEffect(() => {\n    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');\n    document.documentElement.classList.toggle('dark', dark);\n    localStorage.setItem('gdex-theme', dark ? 'dark' : 'light');\n  }, [dark]);\n\n  return (\n    <button onClick={() => setDark(!dark)}\n      className=\"p-2 rounded-lg border border-[var(--border-primary)] hover:bg-[var(--bg-tertiary)]\">\n      {dark ? '\u2600\uFE0F' : '\u{1F319}'}\n    </button>\n  );\n}\n```\n\n## Tailwind CSS Configuration\n\nExtend Tailwind with GDEX trading theme tokens:\n\n```typescript\n// tailwind.config.ts\nimport type { Config } from 'tailwindcss';\n\nconst config: Config = {\n  darkMode: 'class',\n  content: ['./src/**/*.{ts,tsx}', './app/**/*.{ts,tsx}'],\n  theme: {\n    extend: {\n      colors: {\n        brand: 'var(--color-brand)',\n        'brand-hover': 'var(--color-brand-hover)',\n        long: 'var(--color-long)',\n        'long-bg': 'var(--color-long-bg)',\n        short: 'var(--color-short)',\n        'short-bg': 'var(--color-short-bg)',\n        'pnl-positive': 'var(--color-pnl-positive)',\n        'pnl-negative': 'var(--color-pnl-negative)',\n        'pnl-neutral': 'var(--color-pnl-neutral)',\n        'surface-primary': 'var(--bg-primary)',\n        'surface-secondary': 'var(--bg-secondary)',\n        'surface-card': 'var(--bg-card)',\n      },\n      fontFamily: {\n        sans: ['var(--font-sans)'],\n        mono: ['var(--font-mono)'],\n      },\n      borderRadius: {\n        sm: 'var(--radius-sm)',\n        md: 'var(--radius-md)',\n        lg: 'var(--radius-lg)',\n      },\n    },\n  },\n};\n\nexport default config;\n```\n\n### Usage in Components\n\n```tsx\n{/* Trading colors via Tailwind */}\n<span className=\"text-long\">+$420.69</span>     {/* green \u2014 long position / profit */}\n<span className=\"text-short\">-$69.42</span>      {/* red \u2014 short position / loss */}\n<div className=\"bg-long-bg p-2\">Long highlight</div>\n<div className=\"bg-surface-card border border-[var(--border-primary)]\">Card</div>\n```\n\n## Responsive Breakpoints\n\nTrading UIs have unique layout needs \u2014 the primary trading view should maximize horizontal space:\n\n```css\n/* Trading layout breakpoints */\n@media (min-width: 768px) {\n  /* Tablet: stack chart above order form */\n  .trading-layout { grid-template-columns: 1fr; }\n}\n\n@media (min-width: 1024px) {\n  /* Desktop: chart + order form side by side */\n  .trading-layout { grid-template-columns: 1fr 360px; }\n}\n\n@media (min-width: 1440px) {\n  /* Wide: chart + orderbook + order form */\n  .trading-layout { grid-template-columns: 280px 1fr 360px; }\n}\n```\n\n```tsx\n{/* Responsive trading grid */}\n<div className=\"grid grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[280px_1fr_360px] gap-4\">\n  <aside className=\"hidden xl:block\">{/* Orderbook */}</aside>\n  <main>{/* Chart + Positions */}</main>\n  <aside>{/* Order Form */}</aside>\n</div>\n```\n\n## Component Styling Patterns\n\n### Trading Buttons\n\n```tsx\n{/* Long / Short buttons */}\n<button className=\"w-full py-3 rounded-lg font-bold text-white bg-long hover:opacity-90\">\n  Long BTC\n</button>\n<button className=\"w-full py-3 rounded-lg font-bold text-white bg-short hover:opacity-90\">\n  Short BTC\n</button>\n```\n\n### PnL with Color\n\n```tsx\nfunction PnL({ value }: { value: number }) {\n  const color = value > 0 ? 'text-pnl-positive' : value < 0 ? 'text-pnl-negative' : 'text-pnl-neutral';\n  const sign = value > 0 ? '+' : '';\n  return <span className={`font-mono font-bold ${color}`}>{sign}${value.toFixed(2)}</span>;\n}\n```\n\n### Chain Badge\n\n```tsx\nconst CHAIN_COLORS: Record<string, string> = {\n  solana: 'var(--color-chain-solana)',\n  ethereum: 'var(--color-chain-ethereum)',\n  base: 'var(--color-chain-base)',\n  arbitrum: 'var(--color-chain-arbitrum)',\n  bsc: 'var(--color-chain-bsc)',\n  sui: 'var(--color-chain-sui)',\n};\n\nfunction ChainBadge({ chain }: { chain: string }) {\n  return (\n    <span className=\"px-2 py-0.5 rounded-full text-xs font-medium text-white\"\n      style={{ backgroundColor: CHAIN_COLORS[chain] ?? '#6B7280' }}>\n      {chain}\n    </span>\n  );\n}\n```\n\n## Related Skills\n\n- **gdex-ui-install-setup** \u2014 Project setup (includes Tailwind setup)\n- **gdex-ui-page-layouts** \u2014 Full page layouts using these theme tokens\n- **gdex-ui-trading-components** \u2014 Trading components that use theme colors\n", files: [] }, { name: "gdex-ui-trading-components", description: "React component patterns for GDEX trading UIs \u2014 order entry forms, position tables, copy trade panels, orderbook displays, and PnL views", content: "\n# GDEX: Trading UI Components\n\nReact component patterns for building trading interfaces with the GDEX SDK. Each component shows the props interface, SDK method it calls, and state management pattern.\n\n## When to Use\n\n- Building a spot or perp trading form\n- Displaying open positions or orders\n- Creating a copy trade management panel\n- Showing PnL or orderbook data\n\n## Prerequisites\n\n- GDEX SDK context provider set up \u2014 see **gdex-ui-install-setup**\n- Wallet sign-in via `AuthProvider.loginWithWallet()` \u2014 see **gdex-ui-wallet-connection**. It runs the managed-custody\n  sign-in and exposes `creds` (`{ apiKey, walletAddress, sessionPrivateKey }`, walletAddress = control wallet) and\n  `managedAddress`. Every write call below takes `creds`; `loginWithApiKey()` alone only covers read-only data.\n\n## Spot Trade Form\n\n```typescript\n// components/SpotTradeForm.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\ninterface SpotTradeFormProps {\n  defaultChain?: string;\n  onTradeComplete?: (result: any) => void;\n}\n\nexport function SpotTradeForm({ defaultChain = 'solana', onTradeComplete }: SpotTradeFormProps) {\n  const { skill, isReady } = useGdex();\n  const { creds } = useAuth();\n  const [mode, setMode] = useState<'buy' | 'sell'>('buy');\n  const [chain, setChain] = useState(defaultChain);\n  const [tokenAddress, setTokenAddress] = useState('');\n  const [amount, setAmount] = useState('');\n  const [slippage, setSlippage] = useState(1);\n  const [loading, setLoading] = useState(false);\n  const [error, setError] = useState<string | null>(null);\n\n  const handleSubmit = async (e: React.FormEvent) => {\n    e.preventDefault();\n    if (!isReady || !creds) return;\n    setLoading(true);\n    setError(null);\n    try {\n      const chainArg = /^\\d+$/.test(chain) ? Number(chain) : chain; // numeric ChainId or 'solana' / 'sui'\n      const result = mode === 'buy'\n        ? await skill.buyToken({ chain: chainArg, tokenAddress, amount, slippage, ...creds })\n        : await skill.sellToken({ chain: chainArg, tokenAddress, amount, slippage, walletAddress: creds.walletAddress });\n      onTradeComplete?.(result);\n    } catch (err) {\n      setError(err instanceof Error ? err.message : 'Trade failed');\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  return (\n    <form onSubmit={handleSubmit} className=\"space-y-4\">\n      {/* Buy / Sell toggle */}\n      <div className=\"flex gap-2\">\n        <button type=\"button\" onClick={() => setMode('buy')}\n          className={mode === 'buy' ? 'bg-green-600 text-white' : 'bg-gray-200'}>\n          Buy\n        </button>\n        <button type=\"button\" onClick={() => setMode('sell')}\n          className={mode === 'sell' ? 'bg-red-600 text-white' : 'bg-gray-200'}>\n          Sell\n        </button>\n      </div>\n\n      {/* Chain selector */}\n      <select value={chain} onChange={e => setChain(e.target.value)}>\n        <option value=\"solana\">Solana</option>\n        <option value=\"8453\">Base</option>\n        <option value=\"42161\">Arbitrum</option>\n        <option value=\"1\">Ethereum</option>\n        <option value=\"56\">BSC</option>\n        <option value=\"sui\">Sui</option>\n      </select>\n\n      <input placeholder=\"Token address\" value={tokenAddress}\n        onChange={e => setTokenAddress(e.target.value)} required />\n      <input type=\"number\" placeholder=\"Amount\" value={amount}\n        onChange={e => setAmount(e.target.value)} step=\"any\" min=\"0\" required />\n      <input type=\"number\" placeholder=\"Slippage %\" value={slippage}\n        onChange={e => setSlippage(Number(e.target.value))} step=\"0.1\" min=\"0.1\" max=\"50\" />\n\n      {error && <p className=\"text-red-500\">{error}</p>}\n      <button type=\"submit\" disabled={loading || !isReady}>\n        {loading ? 'Executing...' : `${mode === 'buy' ? 'Buy' : 'Sell'} Token`}\n      </button>\n    </form>\n  );\n}\n```\n\n**SDK methods called:** `skill.buyToken()`, `skill.sellToken()`\n\n## Perp Order Form\n\n```typescript\n// components/PerpOrderForm.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\ninterface PerpOrderFormProps {\n  onOrderPlaced?: (result: any) => void;\n}\n\nexport function PerpOrderForm({ onOrderPlaced }: PerpOrderFormProps) {\n  const { skill, isReady } = useGdex();\n  const { creds } = useAuth();\n  const [coin, setCoin] = useState('BTC');\n  const [side, setSide] = useState<'long' | 'short'>('long');\n  const [sizeUsd, setSizeUsd] = useState('');\n  const [leverage, setLeverage] = useState(5);\n  const [takeProfitPrice, setTakeProfitPrice] = useState('');\n  const [stopLossPrice, setStopLossPrice] = useState('');\n  const [loading, setLoading] = useState(false);\n  const [error, setError] = useState<string | null>(null);\n\n  const handleSubmit = async (e: React.FormEvent) => {\n    e.preventDefault();\n    if (!isReady || !creds) return;\n    setLoading(true);\n    setError(null);\n    try {\n      // hlCreateOrder takes size in contracts (coin units): convert the USD notional at the mark price\n      const mark = await skill.getHlMarkPrice(coin);\n      const size = (Number(sizeUsd) / mark).toFixed(5); // round to the market's szDecimals in production\n      const result = await skill.hlCreateOrder({\n        coin,\n        isLong: side === 'long',\n        price: String(mark),\n        size,\n        isMarket: true,\n        leverage,                   // sent top-level with the order\n        tpPrice: takeProfitPrice,   // '' skips TP\n        slPrice: stopLossPrice,     // '' skips SL\n        ...creds,\n      });\n      onOrderPlaced?.(result);\n    } catch (err) {\n      setError(err instanceof Error ? err.message : 'Order failed');\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  return (\n    <form onSubmit={handleSubmit} className=\"space-y-4\">\n      <div className=\"flex gap-2\">\n        <button type=\"button\" onClick={() => setSide('long')}\n          className={side === 'long' ? 'bg-green-600 text-white' : 'bg-gray-200'}>\n          Long\n        </button>\n        <button type=\"button\" onClick={() => setSide('short')}\n          className={side === 'short' ? 'bg-red-600 text-white' : 'bg-gray-200'}>\n          Short\n        </button>\n      </div>\n\n      <select value={coin} onChange={e => setCoin(e.target.value)}>\n        <option value=\"BTC\">BTC</option>\n        <option value=\"ETH\">ETH</option>\n        <option value=\"SOL\">SOL</option>\n        <option value=\"ARB\">ARB</option>\n      </select>\n\n      <input type=\"number\" placeholder=\"Size (USD)\" value={sizeUsd}\n        onChange={e => setSizeUsd(e.target.value)} min=\"10\" required />\n      <input type=\"range\" min=\"1\" max=\"50\" value={leverage}\n        onChange={e => setLeverage(Number(e.target.value))} />\n      <span>Leverage: {leverage}\xD7</span>\n\n      <input type=\"number\" placeholder=\"Take Profit Price (optional)\" value={takeProfitPrice}\n        onChange={e => setTakeProfitPrice(e.target.value)} step=\"any\" />\n      <input type=\"number\" placeholder=\"Stop Loss Price (optional)\" value={stopLossPrice}\n        onChange={e => setStopLossPrice(e.target.value)} step=\"any\" />\n\n      {error && <p className=\"text-red-500\">{error}</p>}\n      <button type=\"submit\" disabled={loading || !isReady}\n        className={side === 'long' ? 'bg-green-600' : 'bg-red-600'}>\n        {loading ? 'Placing...' : `${side === 'long' ? 'Long' : 'Short'} ${coin}`}\n      </button>\n    </form>\n  );\n}\n```\n\n**SDK methods called:** `skill.getHlMarkPrice()`, `skill.hlCreateOrder()`\n\n## Position Table\n\n```typescript\n// components/PositionTable.tsx\n'use client';\n\nimport { useState, useEffect, useCallback } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\nexport function PositionTable({ pollInterval = 10000 }: { pollInterval?: number }) {\n  const { skill, isReady } = useGdex();\n  const { creds, managedAddress } = useAuth();\n  const [positions, setPositions] = useState<any[]>([]);\n\n  // Positions live on the managed EVM wallet, not the control wallet\n  const refresh = useCallback(async () => {\n    if (!isReady || !managedAddress) return;\n    setPositions(await skill.getPerpPositions({ walletAddress: managedAddress }));\n  }, [skill, isReady, managedAddress]);\n\n  useEffect(() => {\n    refresh();\n    const id = setInterval(refresh, pollInterval);\n    return () => clearInterval(id);\n  }, [refresh, pollInterval]);\n\n  if (!positions.length) return <p className=\"text-gray-500\">No open positions</p>;\n\n  return (\n    <table className=\"w-full text-sm\">\n      <thead>\n        <tr className=\"text-left border-b\">\n          <th>Asset</th><th>Side</th><th>Size</th><th>Entry</th>\n          <th>Mark</th><th>PnL</th><th>Leverage</th><th>Actions</th>\n        </tr>\n      </thead>\n      <tbody>\n        {positions.map((pos, i) => {\n          // PerpPosition: { coin, side, size, entryPrice, markPrice, leverage, unrealizedPnl, liquidationPrice }\n          const pnl = Number(pos.unrealizedPnl ?? 0);\n          const isLong = pos.side === 'long';\n          return (\n            <tr key={i} className=\"border-b\">\n              <td>{pos.coin}</td>\n              <td className={isLong ? 'text-green-500' : 'text-red-500'}>\n                {isLong ? 'LONG' : 'SHORT'}\n              </td>\n              <td>{pos.size}</td>\n              <td>${Number(pos.entryPrice ?? 0).toFixed(2)}</td>\n              <td>${Number(pos.markPrice ?? 0).toFixed(2)}</td>\n              <td className={pnl >= 0 ? 'text-green-500' : 'text-red-500'}>\n                ${Number(pnl).toFixed(2)}\n              </td>\n              <td>{pos.leverage ?? '\u2014'}\xD7</td>\n              <td>\n                <button\n                  onClick={() => {\n                    if (creds && managedAddress) void skill.closePerpPosition({ ...creds, coin: pos.coin, positionAddress: managedAddress });\n                  }}\n                  className=\"text-red-500 hover:underline\">\n                  Close\n                </button>\n              </td>\n            </tr>\n          );\n        })}\n      </tbody>\n    </table>\n  );\n}\n```\n\n**SDK methods called:** `skill.getPerpPositions()`, `skill.closePerpPosition()`\n\n## Copy Trade Panel\n\n```typescript\n// components/CopyTradePanel.tsx\n'use client';\n\nimport { useState, useEffect } from 'react';\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\nexport function CopyTradePanel({ sessionKey }: { sessionKey: string }) {\n  const { skill, isReady } = useGdex();\n  const { creds } = useAuth();\n  const [activeTrades, setActiveTrades] = useState<any[]>([]);\n  const [topTraders, setTopTraders] = useState<any[]>([]);\n  const [tab, setTab] = useState<'active' | 'discover'>('active');\n\n  useEffect(() => {\n    if (!isReady || !creds) return;\n    // Load the user's copy trades (Solana sign-in; data = encrypted session key)\n    skill.getCopyTradeList({\n      userId: creds.walletAddress,\n      data: buildGdexUserSessionData(sessionKey, creds.apiKey),\n    }).then((r) => setActiveTrades(r.allCopyTrades ?? [])).catch(() => {});\n    // Load top traders for discovery (no auth)\n    skill.getCopyTradeWallets().then((w) => setTopTraders(w.slice(0, 10))).catch(() => {});\n  }, [skill, isReady, creds, sessionKey]);\n\n  return (\n    <div>\n      <div className=\"flex gap-2 mb-4\">\n        <button onClick={() => setTab('active')}\n          className={tab === 'active' ? 'font-bold border-b-2' : ''}>\n          Active ({activeTrades.length})\n        </button>\n        <button onClick={() => setTab('discover')}\n          className={tab === 'discover' ? 'font-bold border-b-2' : ''}>\n          Discover\n        </button>\n      </div>\n\n      {tab === 'active' && (\n        <div className=\"space-y-2\">\n          {activeTrades.map((trade, i) => (\n            <div key={i} className=\"border rounded p-3 flex justify-between\">\n              <div>\n                <p className=\"font-mono text-sm\">{trade.traderWallet}</p>\n                <p className=\"text-xs text-gray-500\">{trade.copyTradeName}</p>\n              </div>\n              <span className=\"text-sm\">\n                {trade.buyMode === 1 ? `${trade.copyBuyFixedAmount} SOL` : `${trade.copyBuyPercent}%`}\n              </span>\n            </div>\n          ))}\n          {!activeTrades.length && <p className=\"text-gray-500\">No active copy trades</p>}\n        </div>\n      )}\n\n      {tab === 'discover' && (\n        <div className=\"space-y-2\">\n          {topTraders.map((trader, i) => (\n            <div key={i} className=\"border rounded p-3 flex justify-between items-center\">\n              <div>\n                <p className=\"font-mono text-sm\">{trader.address}</p>\n                <p className=\"text-xs text-green-500\">PnL: {trader.totalPnl}</p>\n              </div>\n              <button className=\"bg-blue-600 text-white px-3 py-1 rounded text-sm\">\n                Copy\n              </button>\n            </div>\n          ))}\n        </div>\n      )}\n    </div>\n  );\n}\n```\n\n**SDK methods called:** `skill.getCopyTradeList()`, `skill.getCopyTradeWallets()`\n\n## PnL Display\n\n```typescript\n// components/PnLDisplay.tsx\ninterface PnLDisplayProps {\n  value: number;\n  label?: string;\n  showSign?: boolean;\n  currency?: string;\n}\n\nexport function PnLDisplay({ value, label, showSign = true, currency = '$' }: PnLDisplayProps) {\n  const isPositive = value >= 0;\n  const formatted = `${showSign && isPositive ? '+' : ''}${currency}${Math.abs(value).toFixed(2)}`;\n\n  return (\n    <div className=\"text-center\">\n      {label && <p className=\"text-xs text-gray-500 mb-1\">{label}</p>}\n      <p className={`text-lg font-bold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>\n        {formatted}\n      </p>\n    </div>\n  );\n}\n```\n\n## Token Search with Autocomplete\n\n```typescript\n// components/TokenSearch.tsx\n'use client';\n\nimport { useState, useCallback } from 'react';\nimport type { SupportedChain } from '@gemachdao/gdex-skill';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { debounce } from '@/utils/debounce'; // simple debounce utility\n\ninterface TokenSearchProps {\n  chain: SupportedChain;\n  onSelect: (token: { address: string; symbol: string; name: string }) => void;\n}\n\nexport function TokenSearch({ chain, onSelect }: TokenSearchProps) {\n  const { skill, isReady } = useGdex();\n  const [query, setQuery] = useState('');\n  const [results, setResults] = useState<any[]>([]);\n\n  const search = useCallback(\n    debounce(async (q: string) => {\n      if (!isReady || q.length < 2) { setResults([]); return; }\n      const data = await skill.getTokenDetails({ chain, tokenAddress: q });\n      setResults(data ? [data] : []);\n    }, 300),\n    [skill, isReady, chain]\n  );\n\n  return (\n    <div className=\"relative\">\n      <input placeholder=\"Token address or symbol\" value={query}\n        onChange={e => { setQuery(e.target.value); search(e.target.value); }} />\n      {results.length > 0 && (\n        <ul className=\"absolute bg-white border rounded shadow-lg w-full z-10\">\n          {results.map((token, i) => (\n            <li key={i} onClick={() => { onSelect(token); setResults([]); setQuery(token.symbol); }}\n              className=\"p-2 hover:bg-gray-100 cursor-pointer\">\n              <span className=\"font-bold\">{token.symbol}</span> \u2014 {token.name}\n            </li>\n          ))}\n        </ul>\n      )}\n    </div>\n  );\n}\n```\n\n**SDK method called:** `skill.getTokenDetails()`\n\n## Component \u2192 SDK Method Reference\n\n| Component | SDK Method | Skill |\n|-----------|------------|-------|\n| `SpotTradeForm` | `buyToken()`, `sellToken()` | gdex-spot-trading |\n| `PerpOrderForm` | `getHlMarkPrice()`, `hlCreateOrder()` | gdex-perp-trading |\n| `PositionTable` | `getPerpPositions()`, `closePerpPosition()` | gdex-perp-trading |\n| `CopyTradePanel` | `getCopyTradeList()`, `getCopyTradeWallets()` | gdex-copy-trading |\n| `PnLDisplay` | (display only) | \u2014 |\n| `TokenSearch` | `getTokenDetails()` | gdex-token-discovery |\n\n## Backend Quirks Affecting UI (Live-Tested)\n\n1. **Spot trading amounts in managed custody are RAW UNITS** (lamports/wei), not human-readable. The `SpotTradeForm` above uses `skill.buyToken()` which handles conversion, but if using `submitManagedPurchase()` directly, convert first.\n2. **`hlCloseAll` is unreliable** \u2014 the `PositionTable` close button uses `closePerpPosition()` per coin (a reduce-only order for the live size), not `skill.hlCloseAll()`.\n3. **Solana Meteora tokens fail** \u2014 if building a token selector, filter out `dexId === 'meteora'` tokens to avoid failed trades.\n4. **Leverage goes on the order** \u2014 the slider value is passed as `leverage` to `hlCreateOrder()` (sent top-level with the order). The standalone `hlUpdateLeverage` endpoint returns 404.\n5. **`getTopTraders()` needs numeric chainId** \u2014 use `622112261`, not `'solana'`.\n\n## Related Skills\n\n- **gdex-ui-install-setup** \u2014 Project setup and provider pattern\n- **gdex-ui-portfolio-dashboard** \u2014 Portfolio display components\n- **gdex-ui-page-layouts** \u2014 Full page compositions using these components\n- **gdex-spot-trading** \u2014 Spot trading SDK API details and managed-custody quirks\n- **gdex-perp-trading** \u2014 Perpetual futures SDK API details and close-position workaround\n", files: [] }, { name: "gdex-ui-wallet-connection", description: "React patterns for GDEX wallet connection \u2014 connect buttons, account displays, chain switching, and API key vs wallet auth UI flows", content: "\n# GDEX: Wallet Connection UI\n\nReact component patterns for wallet connection, authentication state management, and account display in GDEX trading apps.\n\n## When to Use\n\n- Adding a connect wallet / login button to your app\n- Displaying account info (address, chain, balance)\n- Managing authentication state (API key vs wallet-based)\n- Implementing chain switching UI\n\n## Prerequisites\n\n- GDEX SDK context provider set up \u2014 see **gdex-ui-install-setup**\n- Understanding of auth flows \u2014 see **gdex-authentication**\n\n## Auth State Provider\n\nExtend the base `GdexProvider` with wallet connection state:\n\n```typescript\n// providers/AuthProvider.tsx\n'use client';\n\nimport React, { createContext, useContext, useState, useCallback } from 'react';\nimport {\n  GDEX_API_KEY_PRIMARY,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n  buildGdexUserSessionData,\n} from '@gemachdao/gdex-skill';\nimport { useGdex } from '@/providers/GdexProvider';\n\ntype AuthMethod = 'none' | 'api-key' | 'wallet';\n\n/** Managed-custody credentials every write call takes (walletAddress = control wallet). */\nexport interface GdexCreds {\n  apiKey: string;\n  walletAddress: string;\n  sessionPrivateKey: string;\n}\n\ninterface AuthContextValue {\n  authMethod: AuthMethod;\n  walletAddress: string | null;\n  managedAddress: string | null;\n  creds: GdexCreds | null;\n  isAuthenticated: boolean;\n  loginWithApiKey: (key: string) => void;\n  loginWithWallet: (address: string, signFn: (msg: string) => Promise<string>) => Promise<void>;\n  logout: () => void;\n}\n\nconst AuthContext = createContext<AuthContextValue | null>(null);\n\nexport function AuthProvider({ children }: { children: React.ReactNode }) {\n  const { skill } = useGdex();\n  const [authMethod, setAuthMethod] = useState<AuthMethod>('none');\n  const [walletAddress, setWalletAddress] = useState<string | null>(null);\n  const [managedAddress, setManagedAddress] = useState<string | null>(null);\n  const [creds, setCreds] = useState<GdexCreds | null>(null);\n\n  // Read-only access (token data, trending, charts). Trading needs loginWithWallet.\n  const loginWithApiKey = useCallback((key: string) => {\n    skill.loginWithApiKey(key);\n    setAuthMethod('api-key');\n    setWalletAddress(null);\n    setCreds(null);\n  }, [skill]);\n\n  // Managed-custody sign-in: the user's wallet signs once (personal_sign), then a\n  // browser-held session key signs every trade.\n  const loginWithWallet = useCallback(async (\n    address: string,\n    signFn: (msg: string) => Promise<string>\n  ) => {\n    const apiKey = GDEX_API_KEY_PRIMARY;\n    skill.loginWithApiKey(apiKey);\n    const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\n    const nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));\n    const signature = await signFn(buildGdexSignInMessage(address, nonce, sessionKey));\n    const signIn = buildGdexSignInComputedData({ apiKey, userId: address, sessionKey, nonce, signature });\n    await skill.signInWithComputedData({ computedData: signIn.computedData, chainId: 1 });\n\n    // Managed EVM wallet: receives funds and holds HyperLiquid positions\n    const user = await skill.getManagedUser({\n      userId: address,\n      data: buildGdexUserSessionData(sessionKey, apiKey),\n      chainId: 1,\n    });\n    setAuthMethod('wallet');\n    setWalletAddress(address);\n    setManagedAddress(typeof user.address === 'string' ? user.address : null);\n    setCreds({ apiKey, walletAddress: address, sessionPrivateKey });\n  }, [skill]);\n\n  const logout = useCallback(() => {\n    skill.logout();\n    setAuthMethod('none');\n    setWalletAddress(null);\n    setManagedAddress(null);\n    setCreds(null);\n  }, [skill]);\n\n  return (\n    <AuthContext.Provider value={{\n      authMethod,\n      walletAddress,\n      managedAddress,\n      creds,\n      isAuthenticated: authMethod !== 'none',\n      loginWithApiKey,\n      loginWithWallet,\n      logout,\n    }}>\n      {children}\n    </AuthContext.Provider>\n  );\n}\n\nexport function useAuth() {\n  const ctx = useContext(AuthContext);\n  if (!ctx) throw new Error('useAuth must be used within <AuthProvider>');\n  return ctx;\n}\n```\n\n## Connect Button\n\n```typescript\n// components/ConnectButton.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { useAuth } from '@/providers/AuthProvider';\nimport { GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nexport function ConnectButton() {\n  const { isAuthenticated, authMethod, walletAddress, loginWithApiKey, logout } = useAuth();\n  const [showMenu, setShowMenu] = useState(false);\n\n  if (isAuthenticated) {\n    return (\n      <div className=\"relative\">\n        <button onClick={() => setShowMenu(!showMenu)}\n          className=\"px-4 py-2 border rounded-lg flex items-center gap-2\">\n          <span className=\"w-2 h-2 rounded-full bg-green-500\" />\n          {authMethod === 'wallet'\n            ? `${walletAddress!.slice(0, 6)}...${walletAddress!.slice(-4)}`\n            : 'API Key Connected'}\n        </button>\n        {showMenu && (\n          <div className=\"absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-50\">\n            <button onClick={() => { logout(); setShowMenu(false); }}\n              className=\"w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600\">\n              Disconnect\n            </button>\n          </div>\n        )}\n      </div>\n    );\n  }\n\n  return (\n    <div className=\"flex gap-2\">\n      {/* Quick connect with shared API key */}\n      <button onClick={() => loginWithApiKey(GDEX_API_KEY_PRIMARY)}\n        className=\"px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700\">\n        Quick Connect\n      </button>\n    </div>\n  );\n}\n```\n\n## Account Display\n\n```typescript\n// components/AccountDisplay.tsx\n'use client';\n\nimport { useAuth } from '@/providers/AuthProvider';\n\nexport function AccountDisplay() {\n  const { isAuthenticated, authMethod, walletAddress, managedAddress } = useAuth();\n\n  if (!isAuthenticated) return null;\n\n  return (\n    <div className=\"border rounded-lg p-4 space-y-2\">\n      <div className=\"flex justify-between items-center\">\n        <span className=\"text-xs text-gray-500\">Auth Method</span>\n        <span className=\"text-sm font-medium capitalize\">{authMethod.replace('-', ' ')}</span>\n      </div>\n\n      {walletAddress && (\n        <div className=\"flex justify-between items-center\">\n          <span className=\"text-xs text-gray-500\">Control Wallet</span>\n          <span className=\"font-mono text-sm\">\n            {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}\n          </span>\n        </div>\n      )}\n\n      {managedAddress && (\n        <div className=\"flex justify-between items-center\">\n          <span className=\"text-xs text-gray-500\">Managed Wallet</span>\n          <span className=\"font-mono text-sm\">\n            {managedAddress.slice(0, 6)}...{managedAddress.slice(-4)}\n          </span>\n        </div>\n      )}\n\n      <p className=\"text-xs text-gray-400 mt-2\">\n        All trades execute from the managed wallet. Your control wallet only signs authentication.\n      </p>\n    </div>\n  );\n}\n```\n\n> **Critical:** `walletAddress` is the **control wallet** (used for sign-in). The **managed wallet** is GDEX's server-side wallet that executes trades. Never confuse them \u2014 all API calls use the control address as `userId`.\n\n## Chain Switcher\n\n```typescript\n// components/ChainSwitcher.tsx\n'use client';\n\nimport { useState } from 'react';\n\nconst SUPPORTED_CHAINS = [\n  { id: 1, name: 'Ethereum', symbol: 'ETH' },\n  { id: 8453, name: 'Base', symbol: 'ETH' },\n  { id: 42161, name: 'Arbitrum', symbol: 'ETH' },\n  { id: 56, name: 'BSC', symbol: 'BNB' },\n  { id: 10, name: 'Optimism', symbol: 'ETH' },\n  { id: 622112261, name: 'Solana', symbol: 'SOL' },\n  { id: 1313131213, name: 'Sui', symbol: 'SUI' },\n];\n\ninterface ChainSwitcherProps {\n  value: number;\n  onChange: (chainId: number) => void;\n}\n\nexport function ChainSwitcher({ value, onChange }: ChainSwitcherProps) {\n  const [open, setOpen] = useState(false);\n  const selected = SUPPORTED_CHAINS.find(c => c.id === value);\n\n  return (\n    <div className=\"relative\">\n      <button onClick={() => setOpen(!open)} className=\"px-3 py-2 border rounded-lg flex items-center gap-2\">\n        {selected?.name ?? 'Select Chain'}\n        <span className=\"text-xs\">\u25BC</span>\n      </button>\n      {open && (\n        <ul className=\"absolute mt-1 w-48 bg-white border rounded-lg shadow-lg z-50\">\n          {SUPPORTED_CHAINS.map(chain => (\n            <li key={chain.id}>\n              <button onClick={() => { onChange(chain.id); setOpen(false); }}\n                className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${\n                  chain.id === value ? 'font-bold bg-gray-50' : ''\n                }`}>\n                {chain.name} ({chain.symbol})\n              </button>\n            </li>\n          ))}\n        </ul>\n      )}\n    </div>\n  );\n}\n```\n\n## Provider Hierarchy\n\n```\nThemeProvider\n  \u2514\u2500 AuthProvider          \u2190 wallet/API key state\n       \u2514\u2500 GdexProvider     \u2190 SDK instance\n            \u2514\u2500 App\n```\n\n```typescript\n// app/layout.tsx\nimport { GdexProvider } from '@/providers/GdexProvider';\nimport { AuthProvider } from '@/providers/AuthProvider';\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html>\n      <body>\n        <GdexProvider apiKey={process.env.NEXT_PUBLIC_GDEX_API_KEY!}>\n          <AuthProvider>\n            {children}\n          </AuthProvider>\n        </GdexProvider>\n      </body>\n    </html>\n  );\n}\n```\n\n## Two Auth Paths\n\n| Path | When | Flow |\n|------|------|------|\n| **API Key (quick)** | Shared/demo accounts, agent-driven apps | Call `loginWithApiKey(GDEX_API_KEY_PRIMARY)` \u2014 instant, no wallet needed |\n| **Wallet (full)** | User's own wallet, production apps, any trading | User connects wallet \u2192 signs the sign-in message \u2192 `loginWithWallet(address, signFn)` runs the managed sign-in and exposes `creds` + `managedAddress` |\n\n> Most agent-driven apps use the **API key path** since shared keys are built into the SDK. Wallet-based auth is for production apps where users bring their own wallets.\n\n## Related Skills\n\n- **gdex-ui-install-setup** \u2014 Base project setup and GdexProvider\n- **gdex-authentication** \u2014 Full auth flow details (encryption, session keys, managed custody)\n- **gdex-ui-trading-components** \u2014 Trading forms that require authenticated SDK\n- **gdex-wallet-setup** \u2014 Generate wallets for users who don't have one\n", files: [] }, { name: "gdex-usdc-wallet", description: "Unified USDC wallet \u2014 one USDC balance across chains, buy with USDC or native, sell to USDC, auto-bridge funding, native-to-USDC convert, USDC bridge", content: "\n# GDEX: Unified USDC Wallet\n\nA GDEX user's USDC on Ethereum, Optimism, BSC, Sonic, Base, Arbitrum and Solana works as **one balance**.\nBuy any token with USDC (or the chain's native token) on any of those chains; if the target chain is short,\nGDEX bridges USDC in from the user's other chains automatically (`autoBridge`), never spending more than\nthe source budget the user signed. Sells settle back to USDC.\n\n## When to Use\n\n- \"What's my USDC balance?\" across all chains \u2192 `getUsdcBalances`\n- Buying a token with USDC without first bridging by hand \u2192 `buyWithUsdc`\n- Selling a token into USDC \u2192 `sellToUsdc`\n- Paying with ETH/BNB/SOL but letting GDEX top up from other chains \u2192 `buyWithNative`\n- Turning leftover gas tokens into USDC \u2192 `convertNativeToUsdc`\n- Moving USDC between chains yourself \u2192 `estimateUsdcBridge` + `executeUsdcBridge`\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Managed-custody sign-in done \u2014 see **gdex-authentication**. Every call takes\n  `{ apiKey, walletAddress, sessionPrivateKey }`, where `walletAddress` is the **control wallet**\n  used at sign-in (not the managed address).\n\n## Automatic Funding and Gas (On by Default)\n\nLike gdex.pro's **\"Automatic funding \u2014 bridge USDC & top up gas\"** checkbox, which is ticked by default,\nthe SDK turns it on for every **buy** (`autoBridge: true`, paying with USDC or native; gdex.pro's Native tab\nhas the same \"Auto-bridge from other chains\" option). **Sells** settle on their own chain and never auto-fund,\nexactly as gdex.pro does. If a buy's chain is\nshort of USDC or of native gas, GDEX bridges USDC and tops up gas from the user's other chains. It\nnever spends more than the signed `maxSourceSpendRaw`. Bridges to EVM chains also add a **$1 destination\ngas top-up** by default (`gasTopUp`, off for Solana destinations, where Relay can't top up gas). Its cost\nis already in the estimate. Pass `autoBridge: false` or `gasTopUp: false` only when the user asks to opt out.\n\n## Supported Chains\n\n| Chain | chainId | USDC decimals | Native decimals |\n|-------|---------|---------------|-----------------|\n| Ethereum | 1 | 6 | 18 |\n| Optimism | 10 | 6 | 18 |\n| BSC | 56 | **18** | 18 |\n| Sonic | 146 | 6 | 18 |\n| Base | 8453 | 6 | 18 |\n| Arbitrum | 42161 | 6 | 18 |\n| Solana | 622112261 | 6 | 9 |\n\nRobinhood Chain (4663, uses USDG) and Fraxtal (252) have **no USDC**. All amounts are **raw integer\nstrings** (`'5000000'` = 5 USDC on a 6-decimal chain); decimals are rejected, not rounded.\n\n## Balances\n\n```typescript\nimport { GdexSkill, describeUsdcFundingStep } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nconst creds = { apiKey, walletAddress, sessionPrivateKey };\n\nconst b = await skill.getUsdcBalances(creds);\n// { asOf, totalUsdc: '42.10', totalUsd: '57.33',\n//   chains: [{ chainId: 8453, usdc: '30.1', usdcRaw: '30100000', native: '0.004', nativeSymbol: 'ETH', ... }] }\n```\n\n## Buy With USDC\n\nQuote first, apply slippage, then buy:\n\n```typescript\nconst quote = await skill.getUsdcTradeQuote({\n  ...creds, chainId: 8453, tokenAddress, payAsset: 'usdc', amountInRaw: '5000000', side: 'buy',\n});\n// { amountOutRaw: '123456789', source: 'kyberswap' }\n\nconst minTokenOutRaw = (BigInt(quote.amountOutRaw as string) * 99n / 100n).toString(); // 1% slippage\n\nconst res = await skill.buyWithUsdc({\n  ...creds,\n  chainId: 8453,\n  tokenAddress,\n  usdcAmountRaw: '5000000',   // 5 USDC\n  minTokenOutRaw,\n  // autoBridge defaults to true: USDC and gas are pulled from other chains if Base is short\n  // maxSourceSpendRaw: '6000000', // optional; default ceil(amount \xD7 1.2)\n});\n```\n\nA direct fill returns `status` and `hash`. When funding or confirmation is still running the response is\n`{ status: 'pending', requestId }`. Follow it the way gdex.pro's live progress note does:\n\n```typescript\nconst r = await skill.watchUsdcTrade({\n  ...creds, requestId: res.requestId as string,\n  onUpdate: (funding, steps) => console.log(funding.status, steps.map(describeUsdcFundingStep)),\n});\n// planning [] -> bridging ['bridge USDC Arbitrum -> Base: active'] -> done ['bridge USDC Arbitrum -> Base: done', 'swap: done']\n// r.outcome: 'success' | 'failed' (r.errorCode) | 'needs_retry' (dropped sell, see below) | 'pending' (still settling: never resubmit)\n```\n\nIt polls `/v1/usdc/funding/status` every 3 s and, once funding succeeds, reads the trade result from\n`/v1/trade-status/:requestId`. Step keys: `balance_check`, `bridge`, `native_topup` (gas), `approve`, `swap`.\n\n### The Signed Source Budget\n\nWith `autoBridge`, the user signs `maxSourceSpendRaw`: the most the backend may spend across all funding\nlegs, in the target chain's units. The SDK defaults it to gdex.pro's rule: `ceil((amount + gas headroom) \xD7 1.2)`, where the gas headroom is\n3 USDC on EVM chains and 2 USDC on Solana (for a buy with ~0 native gas) and the 20% covers bridge fees. If funding would cost more, the trade fails with `EXCEEDS_SIGNED_MAX` instead of\noverspending. With `autoBridge: false` the budget is `0` and only the target chain's USDC is used.\n\n## Sell to USDC\n\n```typescript\nconst q = await skill.getUsdcTradeQuote({\n  ...creds, chainId: 42161, tokenAddress, payAsset: 'usdc', amountInRaw: tokenAmountRaw, side: 'sell',\n});\nawait skill.sellToUsdc({\n  ...creds, chainId: 42161, tokenAddress, tokenAmountRaw,\n  minUsdcOutRaw: (BigInt(q.amountOutRaw as string) * 99n / 100n).toString(),\n});\n```\n\nIf a sell's broadcast is dropped, `watchUsdcTrade` returns `outcome: 'needs_retry'` with the backend's\n`retry` capability (`SAME_NONCE_RETRY_AVAILABLE`). Retry it in place: the SDK reads chain, token, amount and\nnonce from that capability and generates the retry id (a UUID, as gdex.pro does). It reuses the same\ntransaction nonce, so the sell cannot execute twice. The backend allows two retries.\n\n```typescript\nconst q2 = await skill.getUsdcTradeQuote({ ...creds, chainId, tokenAddress, payAsset: 'usdc', amountInRaw: tokenAmountRaw, side: 'sell' });\nawait skill.retryUsdcSell({ ...creds, requestId, minUsdcOutRaw: (BigInt(q2.amountOutRaw as string) * 97n / 100n).toString() });\n```\n\n## Buy With Native\n\n```typescript\nawait skill.buyWithNative({\n  ...creds, chainId: 622112261, tokenAddress: mint,\n  nativeAmountRaw: '100000000',   // 0.1 SOL\n  minTokenOutRaw, autoBridge: true,\n});\n```\n\n## Convert Gas Tokens to USDC\n\n```typescript\nconst cq = await skill.getUsdcConvertQuote({ ...creds, chainId: 8453, amount: 'max' });\n// { nativeSpent, nativeRetained (gas reserve kept), estimatedUsdcOut, minUsdcOut }\nawait skill.convertNativeToUsdc({\n  ...creds, chainId: 8453, nativeAmountRaw: cq.nativeSpent as string, minUsdcOutRaw: cq.minUsdcOut as string,\n});\n```\n\n## Bridge USDC Between Chains\n\n`amountRaw` is what **arrives** on the destination, in destination decimals. Sign the estimate's source\nspend (plus a little headroom) as the cap:\n\n```typescript\nconst est = await skill.estimateUsdcBridge({\n  ...creds, fromChainId: 8453, toChainId: 42161, amountRaw: '10000000',\n  // gas top-up defaults to $1 for EVM destinations; gasTopUpAmountUsd sets up to $50\n});\nconst maxFromAmountRaw = (BigInt(est.fromAmountRaw as string) * 101n / 100n).toString();\nconst br = await skill.executeUsdcBridge({\n  ...creds, fromChainId: 8453, toChainId: 42161, amountRaw: '10000000', maxFromAmountRaw,\n});\nawait skill.getUsdcBridgeStatus({ ...creds, bridgeId: br.bridgeId as string, refresh: true });\nawait skill.getUsdcBridgeOrders(creds);\n```\n\n## Never Double-Submit\n\nIf a trade's outcome is unknown (timeout, `503 USDC_STATUS_UNCONFIRMED`, `indeterminate: true`), do **not**\nsubmit it again. Check `getUsdcPendingTrades({ ...creds, chainId })` and `getUsdcFundingStatus` first.\n\n## MCP Tools\n\n`usdc_get_balances`, `usdc_get_trade_quote`, `usdc_buy`, `usdc_sell`, `usdc_buy_with_native`,\n`usdc_retry_sell`, `usdc_get_funding_status`, `usdc_wait_for_trade`, `usdc_get_deferred_trade`, `usdc_get_pending_trades`,\n`usdc_get_convert_quote`, `usdc_convert_native`, `usdc_estimate_bridge`, `usdc_execute_bridge`,\n`usdc_get_bridge_status`, `usdc_get_bridge_orders`.\n\n## Common Errors\n\n| Code | Meaning |\n|------|---------|\n| `V2_REQUIRED` | Called a retired v1 route; the SDK always uses v2 |\n| `CHAIN_MISMATCH` | Body `chainId` differs from the signed one |\n| `MISSING_SIGNED_MAX` | Auto-funding needed but the signed budget was `0` |\n| `EXCEEDS_SIGNED_MAX` | Funding or bridge would cost more than the signed cap; re-quote |\n| `BELOW_MINIMUM` | Bridge amount under the minimum |\n| `INVALID_GAS_TOPUP` | Gas top-up outside (0, 50] USD |\n| `USDC_QUOTE_UNAVAILABLE` | No executable route right now |\n| `USDC_STATUS_UNCONFIRMED` | Status still being confirmed; do not resubmit |\n\n## Related Skills\n\n- **gdex-spot-trading** \u2014 classic native-paid swaps\n- **gdex-bridge** \u2014 the native-asset bridge (`/v1/bridge/*`)\n- **gdex-portfolio** \u2014 balances and trade history\n- **gdex-perp-funding** \u2014 moving USDC into Hyperliquid\n", files: [] }, { name: "gdex-wallet-setup", description: "Generate EVM control wallets offline, create session keypairs, get wallet info \u2014 first step for users without wallets", content: "\n# GDEX: Wallet Setup\n\nGenerate EVM control wallets for new users and session keypairs for managed-custody trading. Wallet generation is fully offline \u2014 no network or auth required.\n\n## When to Use\n\n- A user says they don't have a wallet\n- Setting up a new user for the first time\n- Generating session keypairs for managed-custody trading\n- Querying wallet info on a specific chain\n\n## Prerequisites\n\n```bash\nnpm install @gemachdao/gdex-skill\n```\n\nNo authentication needed for wallet generation.\n\n## Generate an EVM Control Wallet\n\n```typescript\nimport { generateEvmWallet } from '@gemachdao/gdex-skill';\n\nconst wallet = generateEvmWallet();\nconsole.log('Address:', wallet.address);        // public \u2014 safe to display\nconsole.log('Private Key:', wallet.privateKey);  // SECRET \u2014 store securely\nconsole.log('Mnemonic:', wallet.mnemonic);       // SECRET \u2014 12-word backup phrase\n\n// wallet.type         \u2192 'evm'\n// wallet.derivationPath \u2192 \"m/44'/60'/0'/0/0\"\n```\n\n**Important:**\n- Works fully offline \u2014 no network or API calls\n- The private key and mnemonic must be stored securely\n- Never log, display in UI, or transmit the private key\n- The EVM control wallet is all you need \u2014 after managed-custody sign-in, the backend provisions Solana + other chain wallets automatically\n\n## Generate a Session Keypair\n\nSession keypairs (secp256k1) are used to sign trades after the initial control-wallet sign-in:\n\n```typescript\nimport { generateGdexSessionKeyPair } from '@gemachdao/gdex-skill';\n\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\n// sessionPrivateKey: hex string (store securely, reuse across requests)\n// sessionKey: compressed public key (0x + 66 hex chars)\n```\n\n## Get Wallet Info\n\nQuery native balance and token count on a specific chain (requires auth):\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\nconst info = await skill.getWalletInfo({\n  walletAddress: '0xYourAddress',\n  chain: 1,   // Ethereum\n});\n```\n\n### Wallet Info Response\n\n```typescript\ninterface WalletInfo {\n  address: string;\n  chain: string | number;\n  nativeBalance: string;\n  nativeSymbol: string;    // 'ETH', 'SOL', 'SUI', etc.\n  totalValueUsd?: number;\n  tokenCount?: number;\n}\n```\n\n## Full New User Onboarding Flow\n\n```typescript\nimport {\n  generateEvmWallet,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n  GdexSkill,\n  GDEX_API_KEY_PRIMARY,\n} from '@gemachdao/gdex-skill';\n\n// Step 1: Generate a control wallet (offline)\nconst wallet = generateEvmWallet();\nconsole.log('Your new wallet address:', wallet.address);\n// \u26A0\uFE0F Tell user to save privateKey and mnemonic securely!\n\n// Step 2: Generate session keypair\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\n\n// Step 3: Initialize SDK\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// Step 4: Build sign-in message and sign with the new wallet\nconst userId = wallet.address;\nconst nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));\nconst message = buildGdexSignInMessage(userId, nonce, sessionKey);\n\n// For a generated wallet, sign directly with ethers:\nimport { ethers } from 'ethers';\nconst signer = new ethers.Wallet(wallet.privateKey);\nconst signature = await signer.signMessage(message);\n\n// Step 5: Sign in via managed custody\nconst signInPayload = buildGdexSignInComputedData({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId,\n  sessionKey,\n  nonce,\n  signature,\n});\nawait skill.signInWithComputedData({\n  computedData: signInPayload.computedData,\n  chainId: 1,  // EVM\n});\n\n// \u2705 User is now authenticated and can trade\n// The backend has provisioned Solana + other chain wallets automatically\n```\n\n## Autonomous Agent Notes (Live-Tested)\n\n1. **`generateEvmWallet()` works fully offline (E2E verified).** No network calls needed. Returns `{ address, privateKey, mnemonic, type, derivationPath }`.\n2. **After sign-in, the backend auto-provisions managed wallets** on all chains. You only need one EVM control wallet.\n3. **Store the mnemonic and private key securely.** Loss = permanent loss of access.\n4. **The session keypair is separate from the wallet.** Generate it with `generateGdexSessionKeyPair()` \u2014 it's used for signing trades, not wallet derivation.\n5. **Multiple sign-ins are fine.** You can generate new session keys and re-sign-in at any time.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Full managed-custody auth details\n- **gdex-onboarding** \u2014 Platform overview for new users\n- **gdex-spot-trading** \u2014 Start trading after wallet setup\n", files: [] }, { name: "gdex-watchlist-social", description: "Watchlist, comments, and sentiment voting \u2014 social community features around individual tokens", content: "\n# GDEX: Watchlist & Social\n\nManage a per-user watchlist and interact with the social layer around each\ntoken (comments and bullish/bearish sentiment votes).\n\n## When to Use\n\n- Letting a user pin tokens for quick access\n- Reading or posting comments on a token's page\n- Voting bullish / bearish on a token\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via shared API key or wallet sign-in \u2014 see\n  **gdex-authentication**\n- For write operations: a session-key authentication context (`userId` and\n  encrypted `data` payload) or a managed-custody token, depending on\n  backend deployment\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/watch_list` | Get the user's watchlist |\n| `POST` | `/v1/change_watch_list` | Add or remove a token from the watchlist |\n| `GET`  | `/v1/comments` | Get comments for a token |\n| `POST` | `/v1/add_comment` | Post a comment |\n| `POST` | `/v1/vote_sentiment` | Cast a bullish/bearish sentiment vote |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill, buildWatchListComputedData } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\n// Watchlist (managed custody \u2014 backend decodes computedData)\nconst list = await skill.getWatchList({ userId: '0xWallet', data: encryptedSessionKey });\n\n// Structured shape \u2014 SDK builds computedData internally\nawait skill.changeWatchList({\n  tokenAddress: '0xToken',\n  chainId: 8453,\n  action: 'add',\n  managed: {\n    apiKey: process.env.GDEX_API_KEY!,\n    walletAddress: '0xWallet',\n    sessionPrivateKey: '0x\u2026',\n    userId: '0xWallet',\n  },\n});\n\n// Or raw shape \u2014 caller pre-built computedData\nawait skill.changeWatchList({\n  computedData: buildWatchListComputedData({\n    apiKey: process.env.GDEX_API_KEY!,\n    walletAddress: '0xWallet',\n    sessionPrivateKey: '0x\u2026',\n    userId: '0xWallet',\n    tokenAddress: '0xToken',\n    chainId: '8453',\n    isAdded: true,\n  }),\n  chainId: 8453,\n});\n\n// Comments (plain JSON)\nconst comments = await skill.getComments({ tokenAddress: '0xToken', chain: 8453 });\nawait skill.addComment({\n  tokenAddress: '0xToken',\n  chain: 8453,\n  message: 'Looking strong on the 4h',\n  userId: '0xWallet',\n  data: encryptedSessionKey,\n});\n\n// Sentiment (plain JSON)\nawait skill.voteSentiment({\n  tokenAddress: '0xToken',\n  chain: 8453,\n  sentiment: 'bullish',\n  userId: '0xWallet',\n  data: encryptedSessionKey,\n});\n```\n\n## Notes\n\n- `change_watch_list` uses managed-custody **encrypted `computedData`**:\n  ABI `['watch_list', [tokenAddress, chainId, isAdded, nonce]]`,\n  sig message `watch_list-${userId}-${data}`.\n- `add_comment` and `vote_sentiment` use **plain JSON** with the standard\n  session header for auth \u2014 they do NOT go through `serverDecryptData`.\n- Watchlist entries are scoped to `(userId, chain, tokenAddress)`.\n- Sentiment votes are deduplicated per `(userId, tokenAddress)` \u2014 re-voting\n  updates the existing vote.\n- Comment moderation policies (rate limits, profanity filters) are enforced\n  server-side; expect API errors when limits are hit.\n", files: [] }, { name: "gdex-xstocks", description: "List tokenised equities (xStocks) \u2014 real-world stocks traded as tokens on GDEX \u2014 requires API key auth (Bearer token)", content: "\n# GDEX: xStocks\n\nList tokenised equities. xStocks are real-world stocks issued as on-chain tokens, so they trade\nthrough the same spot rails as any other token on GDEX: you discover them here, then buy or sell\nthem with `gdex-spot-trading`.\n\n> **Auth required:** returns 403 \"Access denied: Invalid client\" without a Bearer token. Call\n> `loginWithApiKey()` first.\n\n## When to Use\n\n- Listing the tokenised stocks available to trade\n- Checking price, market cap, liquidity, or 24h volume on an xStock before buying\n- Answering \"can I trade Nvidia / Circle / McDonald's on GDEX\"\n\nUse `gdex-spot-trading` to actually execute. This skill is discovery only.\n\n## Prerequisites\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY, ChainId } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n```\n\n## List xStocks\n\n```typescript\nconst xstocks = await skill.getXstocks({\n  chain: ChainId.SOLANA,  // optional\n  limit: 50,              // optional\n  page: 1,                // optional\n});\n```\n\n### Parameters\n\n`getXstocks` takes `TokenListParams`, which is the same shape used by `getNewestTokens` and\n`getTopTokens`:\n\n```typescript\ninterface TokenListParams {\n  chain?: SupportedChain;  // chain id or alias; omit for all chains\n  limit?: number;          // page size\n  page?: number;           // 1-based page number\n}\n```\n\nThere are no other filters. Sorting, market-cap floors, and age windows are not exposed.\n\n### Response\n\n```typescript\nPromise<Record<string, unknown>>\n```\n\n**The response is untyped.** Unlike `getTokenDetails`, this endpoint has no declared interface in\nthe SDK, so inspect the payload rather than assuming a shape:\n\n```typescript\nconst xstocks = await skill.getXstocks({ limit: 5 });\nconsole.log(JSON.stringify(xstocks, null, 2));\n```\n\nThe product surface at `gdex.pro/<network>/xstock` renders each row with token symbol and name,\nage, price, 24h price change, market cap, liquidity, and 24h volume, so expect fields covering at\nleast those. Confirm the exact keys against a live call before you depend on them.\n\n## Trading an xStock\n\nxStocks are ordinary SPL/ERC-20 tokens, so once you have an address from this listing you buy and\nsell them with the normal spot methods:\n\n```typescript\nawait skill.buyToken({\n  tokenAddress: '<address from getXstocks>',\n  chain: ChainId.SOLANA,\n  amount: '0.5',\n});\n```\n\nSee `gdex-spot-trading` for the full buy and sell surface, slippage handling, and trade-status\npolling.\n\n## Endpoint\n\n| Method | Endpoint |\n|---|---|\n| `getXstocks` | `GET /v1/xstocks` |\n\n## Notes\n\n- Tokenised equities carry issuer and market-hours risk that ordinary tokens do not. Liquidity on\n  individual names can be very thin \u2014 the live board shows several with under $10k \u2014 so size\n  accordingly and check the liquidity figure before quoting a fill.\n- This method ships with no tests and no typed response in the SDK. Treat the shape as\n  provisional.\n", files: [] }, { name: "gvault", description: "GVault (GMACL, Gemach's Enzyme vault on Ethereum) \u2014 NAV, share price, holdings and return both cumulative and annualised, read from Enzyme's own accounting by a deterministic script.", content: '\n# GVault\n\nRead-only state of GVault (ticker GMACL, "Gemach LP"), an Enzyme vault on Ethereum\ndenominated in USDC.\n\n## Run it\n\n```bash\npython3 scripts/gvault.py      # one JSON object on stdout\n```\n\nStandard library only. Every value is read at one Ethereum block (`observed_block`).\n\n## Rules for agents\n\n1. **Report numbers exactly as the script prints them.**\n2. **Always quote return with its horizon.** `all_time_return_pct` is cumulative since\n   inception (2022-07-31); `annualised_return_pct` is the same over `age_years`. Quoting the\n   cumulative figure alone invites it to be read as a one-year rate. Say both, or say the\n   annualised one.\n3. NAV comes from Enzyme\'s `calcGav()`, not from token balances \u2014 do not "check" it by summing\n   balances; the vault holds stETH as well as USDC.\n\n## Fields\n\n`nav_usd`, `share_price_usd`, `shares_outstanding`, `tracked_assets`,\n`all_time_return_pct`, `annualised_return_pct`, `age_years`, `inception_date`,\n`denomination_symbol`, `observed_block`.\n', files: [{ path: "scripts/gvault.py", content: `#!/usr/bin/env python3
+` }] }, { name: "gdex-transfers", description: "Native and ERC20/SPL token transfers via GDEX managed custody \u2014 send assets to any recipient on supported chains", content: '\n# GDEX: Transfers\n\nSend native assets (ETH, SOL, SUI, BNB, \u2026) or ERC20 / SPL tokens from a\nmanaged-custody wallet to any recipient.\n\n## When to Use\n\n- Withdrawing native assets to an external wallet\n- Sending ERC20 / SPL tokens to a recipient\n- Paying out winnings, rewards, or peer-to-peer transfers\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via managed-custody sign-in \u2014 see **gdex-authentication**\n- Session keypair (`sessionPrivateKey` + `sessionKey`) from sign-in\n- Pre-built `computedData` payload (encrypted via the standard AES-256-CBC\n  managed-custody contract). Caller is responsible for ABI-encoding the\n  transfer parameters and signing with the session key \u2014 schema is\n  documented in `src/api/services/ServiceMain.ts` of the backend.\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `POST` | `/v1/transfer` | Native token transfer |\n| `POST` | `/v1/transfer_token` | ERC20 / SPL token transfer |\n\nBoth endpoints accept:\n```json\n{ "computedData": "<hex>", "chainId": 8453 }\n```\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill } from \'@gemachdao/gdex-skill\';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\n// Native ETH transfer (caller pre-builds computedData)\nconst result = await skill.transferNative({\n  computedData,           // hex-encoded encrypted payload\n  chainId: 8453,\n});\n\n// ERC20 / SPL transfer\nconst result2 = await skill.transferToken({\n  computedData,\n  chainId: 622112261,     // Solana SPL\n});\n```\n\n## Response\n\nTypically:\n```json\n{ "requestId": "...", "status": "pending", "createdAt": 1717000000 }\n```\nPoll status via `GET /v1/trade-status/:requestId` (or `skill.getManagedTradeStatus(requestId)`).\n\n## Notes\n\n- Both endpoints follow the standard managed-custody encrypted-payload pattern.\n- For Solana SPL transfers, the first transfer to a recipient may incur an\n  Associated Token Account (ATA) creation fee (~0.002 SOL).\n- Chain id semantics match the rest of the SDK \u2014 Solana uses `622112261`,\n  Sui uses `1313131213`.\n', files: [] }, { name: "gdex-trending-promotion", description: "Paid trending-slot promotion \u2014 book featured slots on the trending feed and check booking status", content: "\n# GDEX: Trending Promotion\n\nBook paid trending slots so a token appears in the platform's promoted\ntrending feed for a defined period.\n\n## When to Use\n\n- A token creator / marketer wants to buy visibility for their token\n- Listing the available trending packages, prices, and durations\n- Checking the booking status of a previously-registered slot\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via shared API key or wallet sign-in \u2014 see **gdex-authentication**\n- For paid bookings: a managed-custody `computedData` payload, OR a\n  user wallet able to pay on-chain (depending on backend deployment)\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/trending/list` | Currently active / booked promoted tokens |\n| `GET`  | `/v1/trending/options` | Available slot packages, durations, prices |\n| `POST` | `/v1/trending/register` | Register / pay for a trending slot |\n| `GET`  | `/v1/trending/booking_status` | Check booking status |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\n// 1. List available packages\nconst options = await skill.getTrendingOptions();\n\n// 2. Register a slot\nconst booking = await skill.registerTrending({\n  tokenAddress: '0x...',\n  chain: 8453,\n  slot: 'gold',\n  durationHours: 24,\n  userId: '0xUserControlWallet',\n  computedData,                  // when paying via managed custody\n});\n\n// 3. Poll status\nconst status = await skill.getTrendingBookingStatus({\n  bookingId: booking.bookingId as string,\n});\n```\n\n## Notes\n\n- Packages (slots) and pricing are configured server-side and may change.\n- The backend returns a `bookingId` from `register` that should be persisted\n  for status polling.\n- Booking status values are typically `pending_payment`, `active`, or\n  `expired`.\n", files: [] }, { name: "gdex-ui-install-setup", description: "React and Next.js project setup for GDEX \u2014 SDK initialization, context providers, environment variables, and TypeScript configuration", content: '\n# GDEX: Frontend Installation & Setup\n\nSet up a React or Next.js project to build trading UIs with the GDEX SDK. This skill covers project scaffolding, provider patterns, and SDK initialization.\n\n## When to Use\n\n- Starting a new frontend project that integrates GDEX trading\n- Adding GDEX SDK to an existing React/Next.js app\n- Setting up the provider hierarchy and context pattern\n- Configuring TypeScript and environment variables for GDEX\n\n## Prerequisites\n\n- Node.js 18+ installed\n- Basic React/Next.js knowledge\n\n## Project Setup\n\n### Next.js (Recommended)\n\n```bash\nnpx create-next-app@latest my-gdex-app --typescript --tailwind --app\ncd my-gdex-app\nnpm install @gemachdao/gdex-skill ethers\n```\n\n### Vite + React\n\n```bash\nnpm create vite@latest my-gdex-app -- --template react-ts\ncd my-gdex-app\nnpm install @gemachdao/gdex-skill ethers\n```\n\n## Environment Variables\n\n```env\n# .env.local (Next.js) or .env (Vite)\nNEXT_PUBLIC_GDEX_API_KEY=9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54\n# Or use the secondary key:\n# NEXT_PUBLIC_GDEX_API_KEY=2c8f0a91-5d34-4e7b-9a62-f1c3d8e4b705\n```\n\n> For Vite, use `VITE_GDEX_API_KEY` prefix instead of `NEXT_PUBLIC_`.\n\n## SDK Context Provider\n\nCreate a React context that initializes and shares the `GdexSkill` instance across your app:\n\n```typescript\n// src/providers/GdexProvider.tsx\n\'use client\'; // Next.js App Router\n\nimport React, { createContext, useContext, useEffect, useRef, useState } from \'react\';\nimport { GdexSkill } from \'@gemachdao/gdex-skill\';\n\ninterface GdexContextValue {\n  skill: GdexSkill;\n  isReady: boolean;\n  error: string | null;\n}\n\nconst GdexContext = createContext<GdexContextValue | null>(null);\n\nexport function GdexProvider({ children, apiKey }: { children: React.ReactNode; apiKey: string }) {\n  const skillRef = useRef(new GdexSkill());\n  const [isReady, setIsReady] = useState(false);\n  const [error, setError] = useState<string | null>(null);\n\n  useEffect(() => {\n    try {\n      skillRef.current.loginWithApiKey(apiKey);\n      setIsReady(true);\n    } catch (err) {\n      setError(err instanceof Error ? err.message : \'Failed to initialize GDEX SDK\');\n    }\n  }, [apiKey]);\n\n  return (\n    <GdexContext.Provider value={{ skill: skillRef.current, isReady, error }}>\n      {children}\n    </GdexContext.Provider>\n  );\n}\n\nexport function useGdex(): GdexContextValue {\n  const ctx = useContext(GdexContext);\n  if (!ctx) throw new Error(\'useGdex must be used within <GdexProvider>\');\n  return ctx;\n}\n```\n\n## App Layout with Provider\n\n### Next.js App Router\n\n```typescript\n// src/app/layout.tsx\nimport { GdexProvider } from \'@/providers/GdexProvider\';\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en">\n      <body>\n        <GdexProvider apiKey={process.env.NEXT_PUBLIC_GDEX_API_KEY!}>\n          {children}\n        </GdexProvider>\n      </body>\n    </html>\n  );\n}\n```\n\n### Vite + React\n\n```typescript\n// src/main.tsx\nimport { GdexProvider } from \'./providers/GdexProvider\';\n\nReactDOM.createRoot(document.getElementById(\'root\')!).render(\n  <GdexProvider apiKey={import.meta.env.VITE_GDEX_API_KEY}>\n    <App />\n  </GdexProvider>\n);\n```\n\n## Custom Hooks Pattern\n\nBuild feature-specific hooks on top of `useGdex()`:\n\n```typescript\n// src/hooks/usePortfolio.ts\nimport { useState, useCallback } from \'react\';\nimport { useGdex } from \'@/providers/GdexProvider\';\n\nexport function usePortfolio(walletAddress: string) {\n  const { skill, isReady } = useGdex();\n  const [portfolio, setPortfolio] = useState<any>(null);\n  const [loading, setLoading] = useState(false);\n\n  const refresh = useCallback(async () => {\n    if (!isReady || !walletAddress) return;\n    setLoading(true);\n    try {\n      const data = await skill.getPortfolio({ walletAddress, chain: 8453 });\n      setPortfolio(data);\n    } finally {\n      setLoading(false);\n    }\n  }, [skill, isReady, walletAddress]);\n\n  return { portfolio, loading, refresh };\n}\n```\n\n```typescript\n// src/hooks/useTrade.ts\nimport { useState } from \'react\';\nimport type { SupportedChain } from \'@gemachdao/gdex-skill\';\nimport { useGdex } from \'@/providers/GdexProvider\';\nimport { useAuth } from \'@/providers/AuthProvider\'; // managed-custody creds, see gdex-ui-wallet-connection\n\ntype TradeInput = { chain: SupportedChain; tokenAddress: string; amount: string; slippage?: number };\n\nexport function useTrade() {\n  const { skill, isReady } = useGdex();\n  const { creds } = useAuth();\n  const [pending, setPending] = useState(false);\n  const [result, setResult] = useState<any>(null);\n\n  const buyToken = async (params: TradeInput) => {\n    if (!isReady || !creds) throw new Error(\'Sign in with a wallet first\');\n    setPending(true);\n    try {\n      const res = await skill.buyToken({ ...params, ...creds });\n      setResult(res);\n      return res;\n    } finally {\n      setPending(false);\n    }\n  };\n\n  const sellToken = async (params: TradeInput) => {\n    if (!isReady || !creds) throw new Error(\'Sign in with a wallet first\');\n    setPending(true);\n    try {\n      const res = await skill.sellToken({ ...params, walletAddress: creds.walletAddress });\n      setResult(res);\n      return res;\n    } finally {\n      setPending(false);\n    }\n  };\n\n  return { buyToken, sellToken, pending, result };\n}\n```\n\n## TypeScript Configuration\n\nEnsure your `tsconfig.json` includes Node.js types for the SDK:\n\n```json\n{\n  "compilerOptions": {\n    "target": "ES2022",\n    "module": "ESNext",\n    "moduleResolution": "bundler",\n    "lib": ["ES2022", "DOM", "DOM.Iterable"],\n    "strict": true,\n    "jsx": "react-jsx",\n    "paths": {\n      "@/*": ["./src/*"]\n    }\n  }\n}\n```\n\n## Provider Hierarchy\n\nFor apps with wallet connection + GDEX + theming:\n\n```\nThemeProvider          \u2190 dark/light mode (see gdex-ui-theming)\n  \u2514\u2500 WalletProvider   \u2190 wallet connection (see gdex-ui-wallet-connection)\n       \u2514\u2500 GdexProvider \u2190 SDK instance + auth state\n            \u2514\u2500 App     \u2190 your trading UI\n```\n\n## Related Skills\n\n- **gdex-ui-trading-components** \u2014 Trading UI component patterns (order forms, position tables)\n- **gdex-ui-wallet-connection** \u2014 Wallet connection UI and auth flows\n- **gdex-ui-theming** \u2014 CSS theming for trading interfaces\n- **gdex-ui-page-layouts** \u2014 Full page compositions (trading, portfolio, copy trade)\n- **gdex-authentication** \u2014 Backend auth details (encryption, session keys)\n', files: [] }, { name: "gdex-ui-page-layouts", description: "Full page layout compositions for GDEX \u2014 trading page, portfolio page, copy trading page, and bridge page with responsive grid patterns", content: "\n# GDEX: Page Layouts\n\nFull page layout compositions for GDEX trading apps. Each layout combines components from other UI skills into a complete, responsive page.\n\n## When to Use\n\n- Building a full trading page with chart, order form, and positions\n- Creating a portfolio dashboard page\n- Composing a copy trading management page\n- Building a bridge page\n\n## Prerequisites\n\n- Components from **gdex-ui-trading-components** and **gdex-ui-portfolio-dashboard**\n- Theme set up per **gdex-ui-theming**\n- SDK context provider from **gdex-ui-install-setup**\n\n## Trading Page\n\nThe primary trading interface \u2014 chart, order form, positions, and optionally an orderbook.\n\n```typescript\n// app/trade/page.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { SpotTradeForm } from '@/components/SpotTradeForm';\nimport { PerpOrderForm } from '@/components/PerpOrderForm';\nimport { PositionTable } from '@/components/PositionTable';\nimport { TokenSearch } from '@/components/TokenSearch';\nimport { ChainSelector } from '@/components/ChainSelector';\nimport { PnLDisplay } from '@/components/PnLDisplay';\n\nexport default function TradingPage() {\n  const [chain, setChain] = useState('solana');\n  const [mode, setMode] = useState<'spot' | 'perp'>('spot');\n  const [selectedToken, setSelectedToken] = useState<string>('');\n\n  return (\n    <div className=\"min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]\">\n      {/* Top bar */}\n      <header className=\"border-b border-[var(--border-primary)] px-4 py-3 flex items-center justify-between\">\n        <div className=\"flex items-center gap-4\">\n          <h1 className=\"text-lg font-bold\">GDEX Trade</h1>\n          <div className=\"flex gap-1\">\n            <button onClick={() => setMode('spot')}\n              className={`px-3 py-1 rounded text-sm ${mode === 'spot' ? 'bg-brand text-white' : ''}`}>\n              Spot\n            </button>\n            <button onClick={() => setMode('perp')}\n              className={`px-3 py-1 rounded text-sm ${mode === 'perp' ? 'bg-brand text-white' : ''}`}>\n              Perp\n            </button>\n          </div>\n        </div>\n        <ChainSelector value={chain} onChange={setChain} />\n      </header>\n\n      {/* Main grid \u2014 responsive */}\n      <div className=\"grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-0 lg:gap-4 p-4\">\n        {/* Left: Chart + Token search + Positions */}\n        <div className=\"space-y-4\">\n          {mode === 'spot' && (\n            <TokenSearch chain={chain}\n              onSelect={token => setSelectedToken(token.address)} />\n          )}\n\n          {/* Chart placeholder \u2014 integrate TradingView or Lightweight Charts */}\n          <div className=\"bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg h-[400px] flex items-center justify-center text-[var(--text-secondary)]\">\n            Chart \u2014 TradingView or Lightweight Charts\n          </div>\n\n          {/* Positions / Open orders */}\n          {mode === 'perp' && (\n            <div className=\"bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg p-4\">\n              <h2 className=\"text-sm font-bold mb-3\">Open Positions</h2>\n              <PositionTable />\n            </div>\n          )}\n        </div>\n\n        {/* Right: Order form */}\n        <div className=\"bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg p-4 h-fit lg:sticky lg:top-4\">\n          <h2 className=\"text-sm font-bold mb-3\">\n            {mode === 'spot' ? 'Spot Trade' : 'Perp Order'}\n          </h2>\n          {mode === 'spot'\n            ? <SpotTradeForm defaultChain={chain} />\n            : <PerpOrderForm />\n          }\n        </div>\n      </div>\n    </div>\n  );\n}\n```\n\n### Layout Grid (responsive)\n\n```\nMobile (< 1024px):          Desktop (\u2265 1024px):\n\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510          \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502 Token Search   \u2502          \u2502 Token Search \u2502 Order   \u2502\n\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524          \u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524 Form    \u2502\n\u2502 Chart          \u2502          \u2502 Chart        \u2502         \u2502\n\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524          \u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524         \u2502\n\u2502 Positions      \u2502          \u2502 Positions    \u2502         \u2502\n\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524          \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n\u2502 Order Form     \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n```\n\n## Portfolio Page\n\n```typescript\n// app/portfolio/page.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { PortfolioOverview } from '@/components/PortfolioOverview';\nimport { TokenBalanceGrid } from '@/components/TokenBalanceGrid';\nimport { TradeHistoryTable } from '@/components/TradeHistoryTable';\nimport { ChainSelector } from '@/components/ChainSelector';\n\nexport default function PortfolioPage() {\n  const [chain, setChain] = useState('all');\n  const [tab, setTab] = useState<'balances' | 'history'>('balances');\n\n  return (\n    <div className=\"min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] p-4 space-y-6\">\n      <h1 className=\"text-2xl font-bold\">Portfolio</h1>\n\n      {/* Overview cards */}\n      <PortfolioOverview />\n\n      {/* Chain filter */}\n      <ChainSelector value={chain} onChange={setChain} />\n\n      {/* Tabs */}\n      <div className=\"flex gap-4 border-b border-[var(--border-primary)]\">\n        <button onClick={() => setTab('balances')}\n          className={`pb-2 text-sm ${tab === 'balances' ? 'border-b-2 border-brand font-bold' : 'text-[var(--text-secondary)]'}`}>\n          Token Balances\n        </button>\n        <button onClick={() => setTab('history')}\n          className={`pb-2 text-sm ${tab === 'history' ? 'border-b-2 border-brand font-bold' : 'text-[var(--text-secondary)]'}`}>\n          Trade History\n        </button>\n      </div>\n\n      {/* Content */}\n      {tab === 'balances'\n        ? <TokenBalanceGrid chain={chain === 'all' ? undefined : chain} />\n        : <TradeHistoryTable />\n      }\n    </div>\n  );\n}\n```\n\n## Copy Trading Page\n\n```typescript\n// app/copy-trade/page.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { CopyTradePanel } from '@/components/CopyTradePanel';\n\nexport default function CopyTradingPage() {\n  const [platform, setPlatform] = useState<'solana' | 'hyperliquid'>('solana');\n\n  return (\n    <div className=\"min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] p-4 space-y-6\">\n      <div className=\"flex items-center justify-between\">\n        <h1 className=\"text-2xl font-bold\">Copy Trading</h1>\n        <div className=\"flex gap-2\">\n          <button onClick={() => setPlatform('solana')}\n            className={`px-3 py-1.5 rounded text-sm ${platform === 'solana' ? 'bg-[var(--color-chain-solana)] text-white' : 'border'}`}>\n            Solana Spot\n          </button>\n          <button onClick={() => setPlatform('hyperliquid')}\n            className={`px-3 py-1.5 rounded text-sm ${platform === 'hyperliquid' ? 'bg-brand text-white' : 'border'}`}>\n            HL Perp\n          </button>\n        </div>\n      </div>\n\n      <div className=\"grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6\">\n        {/* Left: Leaderboard / Top traders */}\n        <div className=\"bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg p-4\">\n          <h2 className=\"text-lg font-bold mb-4\">Top Traders</h2>\n          <p className=\"text-sm text-[var(--text-secondary)]\">\n            {platform === 'solana' ? 'Top Solana spot traders by PnL' : 'Top HyperLiquid perp traders by PnL'}\n          </p>\n          {/* Trader leaderboard list */}\n        </div>\n\n        {/* Right: Active copy trades */}\n        <div className=\"bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg p-4\">\n          <h2 className=\"text-lg font-bold mb-4\">Your Copy Trades</h2>\n          <CopyTradePanel />\n        </div>\n      </div>\n    </div>\n  );\n}\n```\n\n## Bridge Page\n\n```typescript\n// app/bridge/page.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { ChainSwitcher } from '@/components/ChainSwitcher';\n\nexport default function BridgePage() {\n  const { skill, isReady } = useGdex();\n  const [fromChain, setFromChain] = useState(1);\n  const [toChain, setToChain] = useState(622112261);\n  const [amount, setAmount] = useState('');\n  const [estimate, setEstimate] = useState<any>(null);\n  const [loading, setLoading] = useState(false);\n\n  const getEstimate = async () => {\n    if (!isReady || !amount) return;\n    setLoading(true);\n    try {\n      const est = await skill.estimateBridge({\n        fromChainId: fromChain,\n        toChainId: toChain,\n        amount,   // raw units of the source native token (wei / lamports)\n      });\n      setEstimate(est);\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  return (\n    <div className=\"min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] p-4\">\n      <h1 className=\"text-2xl font-bold mb-6\">Bridge</h1>\n\n      <div className=\"max-w-lg mx-auto bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg p-6 space-y-4\">\n        {/* From chain */}\n        <div>\n          <label className=\"text-xs text-[var(--text-secondary)] mb-1 block\">From</label>\n          <ChainSwitcher value={fromChain} onChange={setFromChain} />\n        </div>\n\n        {/* Swap button */}\n        <div className=\"flex justify-center\">\n          <button onClick={() => { setFromChain(toChain); setToChain(fromChain); }}\n            className=\"p-2 border rounded-full hover:bg-[var(--bg-tertiary)]\">\n            \u2195\n          </button>\n        </div>\n\n        {/* To chain */}\n        <div>\n          <label className=\"text-xs text-[var(--text-secondary)] mb-1 block\">To</label>\n          <ChainSwitcher value={toChain} onChange={setToChain} />\n        </div>\n\n        {/* Amount */}\n        <input type=\"number\" placeholder=\"Amount (native token)\" value={amount}\n          onChange={e => setAmount(e.target.value)} step=\"any\" min=\"0\"\n          className=\"w-full p-3 border rounded-lg bg-[var(--bg-input)]\" />\n\n        {/* Estimate */}\n        <button onClick={getEstimate} disabled={loading || !amount}\n          className=\"w-full py-3 bg-brand text-white rounded-lg font-bold disabled:opacity-50\">\n          {loading ? 'Getting estimate...' : 'Get Estimate'}\n        </button>\n\n        {estimate && (\n          <div className=\"border border-[var(--border-primary)] rounded-lg p-4 space-y-2 text-sm\">\n            <div className=\"flex justify-between\">\n              <span className=\"text-[var(--text-secondary)]\">You receive</span>\n              <span className=\"font-bold\">{estimate.estimateAmount}</span>\n            </div>\n            <div className=\"flex justify-between\">\n              <span className=\"text-[var(--text-secondary)]\">ETA</span>\n              <span>{estimate.minEstimateTime}\u2013{estimate.maxEstimateTime}s via {estimate.tool}</span>\n            </div>\n            <button className=\"w-full py-2 mt-2 bg-brand text-white rounded-lg\">\n              Bridge Now\n            </button>\n          </div>\n        )}\n      </div>\n    </div>\n  );\n}\n```\n\n## Navigation Layout\n\n```typescript\n// components/Navigation.tsx\n'use client';\n\nimport Link from 'next/link';\nimport { usePathname } from 'next/navigation';\nimport { ConnectButton } from './ConnectButton';\nimport { ThemeToggle } from './ThemeToggle';\n\nconst NAV_ITEMS = [\n  { href: '/trade', label: 'Trade' },\n  { href: '/portfolio', label: 'Portfolio' },\n  { href: '/copy-trade', label: 'Copy Trade' },\n  { href: '/bridge', label: 'Bridge' },\n];\n\nexport function Navigation() {\n  const pathname = usePathname();\n\n  return (\n    <nav className=\"border-b border-[var(--border-primary)] bg-[var(--bg-primary)]\">\n      <div className=\"max-w-7xl mx-auto px-4 flex items-center justify-between h-14\">\n        <div className=\"flex items-center gap-6\">\n          <span className=\"font-bold text-lg\">GDEX</span>\n          {NAV_ITEMS.map(item => (\n            <Link key={item.href} href={item.href}\n              className={`text-sm ${pathname === item.href\n                ? 'text-brand font-bold'\n                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>\n              {item.label}\n            </Link>\n          ))}\n        </div>\n        <div className=\"flex items-center gap-3\">\n          <ThemeToggle />\n          <ConnectButton />\n        </div>\n      </div>\n    </nav>\n  );\n}\n```\n\n## Page \u2192 Component \u2192 SDK Method Map\n\n| Page | Components Used | SDK Methods |\n|------|----------------|-------------|\n| Trading | `SpotTradeForm`, `PerpOrderForm`, `PositionTable`, `TokenSearch`, `ChainSelector` | `buyToken`, `sellToken`, `hlCreateOrder`, `getPerpPositions`, `closePerpPosition`, `getTokenDetails` |\n| Portfolio | `PortfolioOverview`, `TokenBalanceGrid`, `TradeHistoryTable`, `ChainSelector` | `getPortfolio`, `getTradeHistory` |\n| Copy Trading | `CopyTradePanel` | `getCopyTradeList`, `getCopyTradeWallets` |\n| Bridge | `ChainSwitcher` | `estimateBridge`, `requestBridge` |\n\n## Related Skills\n\n- **gdex-ui-install-setup** \u2014 Project scaffolding to build these pages\n- **gdex-ui-trading-components** \u2014 Individual component patterns\n- **gdex-ui-portfolio-dashboard** \u2014 Dashboard-specific components\n- **gdex-ui-theming** \u2014 Theme tokens and CSS variables used throughout\n- **gdex-ui-wallet-connection** \u2014 ConnectButton and auth flows\n", files: [] }, { name: "gdex-ui-portfolio-dashboard", description: "React component patterns for GDEX portfolio dashboards \u2014 token balances, trade history, chain selectors, and live data polling", content: "\n# GDEX: Portfolio Dashboard Components\n\nReact component patterns for building portfolio dashboards with the GDEX SDK. Covers balance displays, trade history with pagination, and live data polling.\n\n## When to Use\n\n- Displaying cross-chain token balances\n- Building paginated trade history tables\n- Creating chain selector dropdowns with balance summaries\n- Implementing auto-refresh for live portfolio data\n\n## Prerequisites\n\n- GDEX SDK context provider set up \u2014 see **gdex-ui-install-setup**\n- Authenticated via `loginWithApiKey()` \u2014 see **gdex-authentication**\n\n## Portfolio Overview\n\n```typescript\nimport type { SupportedChain } from '@gemachdao/gdex-skill';\n// components/PortfolioOverview.tsx\n'use client';\n\nimport { useState, useEffect, useCallback } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\nexport function PortfolioOverview({ chain = 8453, pollInterval = 30000 }: { chain?: SupportedChain; pollInterval?: number }) {\n  const { skill, isReady } = useGdex();\n  const { walletAddress } = useAuth();\n  const [portfolio, setPortfolio] = useState<any>(null);\n  const [loading, setLoading] = useState(true);\n\n  const refresh = useCallback(async () => {\n    if (!isReady || !walletAddress) return;\n    try {\n      const data = await skill.getPortfolio({ walletAddress, chain });\n      setPortfolio(data);\n    } finally {\n      setLoading(false);\n    }\n  }, [skill, isReady, walletAddress]);\n\n  useEffect(() => {\n    refresh();\n    const id = setInterval(refresh, pollInterval);\n    return () => clearInterval(id);\n  }, [refresh, pollInterval]);\n\n  if (loading) return <div className=\"animate-pulse h-24 bg-gray-200 rounded\" />;\n\n  return (\n    <div className=\"grid grid-cols-2 md:grid-cols-4 gap-4\">\n      <StatCard label=\"Total Value\" value={`$${portfolio?.totalValue?.toFixed(2) ?? '0.00'}`} />\n      <StatCard label=\"24h PnL\" value={portfolio?.pnl24h}\n        className={portfolio?.pnl24h >= 0 ? 'text-green-500' : 'text-red-500'} />\n      <StatCard label=\"Chains\" value={portfolio?.chains?.length ?? 0} />\n      <StatCard label=\"Tokens\" value={portfolio?.tokens?.length ?? 0} />\n    </div>\n  );\n}\n\nfunction StatCard({ label, value, className = '' }: { label: string; value: any; className?: string }) {\n  return (\n    <div className=\"border rounded-lg p-4\">\n      <p className=\"text-xs text-gray-500\">{label}</p>\n      <p className={`text-xl font-bold ${className}`}>{value}</p>\n    </div>\n  );\n}\n```\n\n**SDK method called:** `skill.getPortfolio()`\n\n## Token Balance Grid\n\n```typescript\n// components/TokenBalanceGrid.tsx\n'use client';\n\nimport { useState, useEffect } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\nimport type { SupportedChain } from '@gemachdao/gdex-skill';\n\ninterface Token {\n  symbol: string;\n  name: string;\n  balance: string;\n  valueUsd: number;\n  chain: string;\n  address: string;\n  logoUrl?: string;\n}\n\nexport function TokenBalanceGrid({ chain }: { chain: SupportedChain }) {\n  const { skill, isReady } = useGdex();\n  const { walletAddress } = useAuth();\n  const [tokens, setTokens] = useState<Token[]>([]);\n  const [loading, setLoading] = useState(true);\n\n  useEffect(() => {\n    if (!isReady || !walletAddress) return;\n    setLoading(true);\n    skill.getPortfolio({ walletAddress, chain })\n      .then(data => {\n        setTokens(data?.tokens ?? []);\n      })\n      .finally(() => setLoading(false));\n  }, [skill, isReady, chain]);\n\n  if (loading) return <div className=\"animate-pulse h-48 bg-gray-200 rounded\" />;\n\n  return (\n    <div className=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3\">\n      {tokens.map((token, i) => (\n        <div key={i} className=\"border rounded-lg p-3 flex items-center gap-3\">\n          {token.logoUrl && <img src={token.logoUrl} alt={token.symbol} className=\"w-8 h-8 rounded-full\" />}\n          <div className=\"flex-1\">\n            <div className=\"flex justify-between\">\n              <span className=\"font-bold\">{token.symbol}</span>\n              <span className=\"text-sm text-gray-500\">{token.chain}</span>\n            </div>\n            <div className=\"flex justify-between text-sm\">\n              <span>{token.balance}</span>\n              <span className=\"text-gray-600\">${token.valueUsd?.toFixed(2)}</span>\n            </div>\n          </div>\n        </div>\n      ))}\n      {!tokens.length && <p className=\"text-gray-500 col-span-full\">No tokens found</p>}\n    </div>\n  );\n}\n```\n\n## Trade History Table\n\n```typescript\nimport type { SupportedChain } from '@gemachdao/gdex-skill';\n// components/TradeHistoryTable.tsx\n'use client';\n\nimport { useState, useEffect } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\nexport function TradeHistoryTable({ chain, pageSize = 20 }: { chain: SupportedChain; pageSize?: number }) {\n  const { skill, isReady } = useGdex();\n  const { walletAddress } = useAuth();\n  const [trades, setTrades] = useState<any[]>([]);\n  const [page, setPage] = useState(1);\n  const [hasMore, setHasMore] = useState(true);\n  const [loading, setLoading] = useState(true);\n\n  useEffect(() => {\n    if (!isReady || !walletAddress) return;\n    setLoading(true);\n    skill.getTradeHistory({ walletAddress, chain, page, limit: pageSize })\n      .then(data => {\n        setTrades(data?.trades ?? []);\n        setHasMore((data?.trades?.length ?? 0) >= pageSize);\n      })\n      .finally(() => setLoading(false));\n  }, [skill, isReady, page, pageSize]);\n\n  return (\n    <div>\n      <table className=\"w-full text-sm\">\n        <thead>\n          <tr className=\"text-left border-b text-gray-500\">\n            <th className=\"py-2\">Date</th>\n            <th>Type</th>\n            <th>Token</th>\n            <th>Amount</th>\n            <th>Chain</th>\n            <th>Status</th>\n          </tr>\n        </thead>\n        <tbody>\n          {loading ? (\n            <tr><td colSpan={6} className=\"text-center py-8\">Loading...</td></tr>\n          ) : (\n            trades.map((trade, i) => (\n              <tr key={i} className=\"border-b hover:bg-gray-50\">\n                <td className=\"py-2\">{new Date(trade.timestamp).toLocaleDateString()}</td>\n                <td className={trade.side === 'buy' ? 'text-green-600' : 'text-red-600'}>\n                  {trade.side?.toUpperCase()}\n                </td>\n                <td className=\"font-mono\">{trade.symbol ?? trade.tokenAddress?.slice(0, 8)}</td>\n                <td>{trade.amount}</td>\n                <td>{trade.chain}</td>\n                <td>\n                  <span className={`px-2 py-0.5 rounded text-xs ${\n                    trade.status === 'completed' ? 'bg-green-100 text-green-800' :\n                    trade.status === 'failed' ? 'bg-red-100 text-red-800' :\n                    'bg-yellow-100 text-yellow-800'\n                  }`}>\n                    {trade.status}\n                  </span>\n                </td>\n              </tr>\n            ))\n          )}\n        </tbody>\n      </table>\n\n      {/* Pagination */}\n      <div className=\"flex justify-between items-center mt-4\">\n        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}\n          className=\"px-3 py-1 border rounded disabled:opacity-50\">\n          Previous\n        </button>\n        <span className=\"text-sm text-gray-500\">Page {page}</span>\n        <button onClick={() => setPage(p => p + 1)} disabled={!hasMore}\n          className=\"px-3 py-1 border rounded disabled:opacity-50\">\n          Next\n        </button>\n      </div>\n    </div>\n  );\n}\n```\n\n**SDK method called:** `skill.getTradeHistory()`\n\n## Chain Selector\n\n```typescript\n// components/ChainSelector.tsx\nconst CHAINS = [\n  { id: 'all', name: 'All Chains', icon: '\u{1F310}' },\n  { id: 'solana', name: 'Solana', icon: '\u25CE' },\n  { id: '1', name: 'Ethereum', icon: '\u039E' },\n  { id: '8453', name: 'Base', icon: '\u{1F535}' },\n  { id: '42161', name: 'Arbitrum', icon: '\u{1F537}' },\n  { id: '56', name: 'BSC', icon: '\u{1F7E1}' },\n  { id: '10', name: 'Optimism', icon: '\u{1F534}' },\n  { id: 'sui', name: 'Sui', icon: '\u{1F4A7}' },\n];\n\ninterface ChainSelectorProps {\n  value: string;\n  onChange: (chain: string) => void;\n}\n\nexport function ChainSelector({ value, onChange }: ChainSelectorProps) {\n  return (\n    <div className=\"flex gap-2 flex-wrap\">\n      {CHAINS.map(chain => (\n        <button key={chain.id} onClick={() => onChange(chain.id)}\n          className={`px-3 py-1.5 rounded-full text-sm border transition ${\n            value === chain.id ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:border-gray-400'\n          }`}>\n          {chain.icon} {chain.name}\n        </button>\n      ))}\n    </div>\n  );\n}\n```\n\n## Data Fetching Pattern: SWR / React Query\n\nFor production apps, wrap SDK calls with a caching library:\n\n```typescript\n// hooks/usePortfolioQuery.ts (React Query example)\nimport { useQuery } from '@tanstack/react-query';\nimport type { SupportedChain } from '@gemachdao/gdex-skill';\nimport { useGdex } from '@/providers/GdexProvider';\n\nexport function usePortfolioQuery(walletAddress: string, chain: SupportedChain) {\n  const { skill, isReady } = useGdex();\n\n  return useQuery({\n    queryKey: ['portfolio', walletAddress, chain],\n    queryFn: () => skill.getPortfolio({ walletAddress, chain }),\n    enabled: isReady && !!walletAddress,\n    refetchInterval: 30_000,      // poll every 30s\n    staleTime: 10_000,            // consider fresh for 10s\n  });\n}\n```\n\n```typescript\nimport type { SupportedChain } from '@gemachdao/gdex-skill';\n// hooks/useTradeHistoryQuery.ts\nimport { useQuery } from '@tanstack/react-query';\nimport { useGdex } from '@/providers/GdexProvider';\n\nexport function useTradeHistoryQuery(walletAddress: string, chain: SupportedChain, page: number, limit = 20) {\n  const { skill, isReady } = useGdex();\n\n  return useQuery({\n    queryKey: ['tradeHistory', walletAddress, chain, page, limit],\n    queryFn: () => skill.getTradeHistory({ walletAddress, chain, page, limit }),\n    enabled: isReady && !!walletAddress,\n    keepPreviousData: true,       // smooth pagination\n  });\n}\n```\n\n## Backend Quirk: SDK Methods Need Raw Client (Live-Tested)\n\n> **Note:** `skill.getPortfolio()`, `getBalances()` and `getTradeHistory()` are managed-account reads: pass the control `walletAddress`, the session (`sessionPrivateKey` + `apiKey`, or `data`) and a `chain` on every call. The examples above omit them for brevity. Holdings are returned under `holdings[]`; history pages with `cursor`. See **gdex-portfolio**.\n\n**For frontend React Query hooks, use raw client instead:**\n\n```typescript\n// hooks/usePortfolioQuery.ts \u2014 CORRECT for managed custody\nimport { useQuery } from '@tanstack/react-query';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\n\nexport function usePortfolioQuery(userId: string, sessionKey: string, apiKey: string, chainId: number) {\n  const { skill, isReady } = useGdex();\n  const data = buildGdexUserSessionData(sessionKey, apiKey);\n\n  return useQuery({\n    queryKey: ['portfolio', userId, chainId],\n    queryFn: () => skill.client.get('/v1/portfolio', {\n      params: { userId, chainId, data }\n    }),\n    enabled: isReady,\n    refetchInterval: 30_000,\n  });\n}\n```\n\n## Component \u2192 SDK Method Reference\n\n| Component | SDK Method | Skill |\n|-----------|------------|-------|\n| `PortfolioOverview` | `skill.client.get('/v1/portfolio', ...)` | gdex-portfolio |\n| `TokenBalanceGrid` | `skill.client.get('/v1/portfolio', ...)` (balances embedded under `portfolio.balances[]`) | gdex-portfolio |\n| `TradeHistoryTable` | `skill.client.get('/v1/user_history', ...)` | gdex-portfolio |\n| `ChainSelector` | (UI only) | \u2014 |\n\n## Related Skills\n\n- **gdex-ui-install-setup** \u2014 Project setup and SDK context provider\n- **gdex-ui-trading-components** \u2014 Trading forms and order entry components\n- **gdex-ui-page-layouts** \u2014 Full page layouts using these dashboard components\n- **gdex-portfolio** \u2014 Portfolio SDK API details and raw client workarounds\n", files: [] }, { name: "gdex-ui-theming", description: "CSS theming system for GDEX trading UIs \u2014 dark/light modes, trading colors, responsive breakpoints, and Tailwind CSS configuration", content: "\n# GDEX: UI Theming\n\nCSS theming system for building polished trading interfaces. Covers dark/light mode, trading-specific color semantics (long/short/PnL), responsive layouts, and Tailwind CSS integration.\n\n## When to Use\n\n- Setting up dark/light mode for a trading app\n- Defining trading-specific color semantics (buy/sell, PnL, chains)\n- Configuring responsive breakpoints for trading layouts\n- Extending Tailwind CSS with trading theme tokens\n\n## CSS Custom Properties\n\nDefine a base theme using CSS variables. Trading UIs need specialized color semantics beyond generic UI:\n\n```css\n/* styles/theme.css */\n\n:root {\n  /* Brand \u2014 Gemach (see assets/brand) */\n  --color-brand: #704FF6;        /* Majorelle Blue (primary accent) */\n  --color-brand-hover: #5A3FE0;\n  --color-brand-2: #61B8FF;      /* Argentinian Blue (secondary accent) */\n\n  /* Gemach product lines */\n  --color-gbot: #DF2E2E;         /* Rojo */\n  --color-loans: #61B8FF;        /* Argentinian Blue */\n  --color-vaults: #704FF6;       /* Majorelle Blue */\n  --color-index: #49B875;        /* Emerald */\n\n  /* Trading \u2014 Long / Short */\n  --color-long: #49B875;         /* Emerald */\n  --color-long-bg: #49B8751A;\n  --color-short: #DF2E2E;        /* Rojo */\n  --color-short-bg: #DF2E2E1A;\n\n  /* PnL */\n  --color-pnl-positive: #49B875;\n  --color-pnl-negative: #DF2E2E;\n  --color-pnl-neutral: #697083;\n\n  /* Order Status */\n  --color-status-filled: #49B875;\n  --color-status-pending: #61B8FF;\n  --color-status-cancelled: #697083;\n  --color-status-failed: #DF2E2E;\n\n  /* Chain Colors (chain brand colors, not Gemach) */\n  --color-chain-solana: #9945FF;\n  --color-chain-ethereum: #627EEA;\n  --color-chain-base: #0052FF;\n  --color-chain-arbitrum: #2D374B;\n  --color-chain-bsc: #F0B90B;\n  --color-chain-sui: #4DA2FF;\n  --color-chain-optimism: #FF0420;\n\n  /* Surfaces (light mode) */\n  --bg-primary: #FFFFFF;\n  --bg-secondary: #F9FAFB;\n  --bg-tertiary: #F3F4F6;\n  --bg-card: #FFFFFF;\n  --bg-input: #F9FAFB;\n  --border-primary: #E5E7EB;\n  --border-secondary: #D1D5DB;\n\n  /* Text (light mode) */\n  --text-primary: #060A17;       /* Rich Black */\n  --text-secondary: #4D5972;\n  --text-tertiary: #81899F;\n  --text-on-brand: #FFFFFF;\n\n  /* Typography \u2014 Gemach uses Inter */\n  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;\n  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;\n\n  /* Spacing */\n  --radius-sm: 6px;\n  --radius-md: 8px;\n  --radius-lg: 12px;\n  --radius-full: 9999px;\n}\n\n/* Dark Mode (Gemach default \u2014 Rich Black + navy ramp) */\n[data-theme='dark'], .dark {\n  --bg-primary: #060A17;         /* Rich Black */\n  --bg-secondary: #0C1322;\n  --bg-tertiary: #162139;\n  --bg-card: #0D1424;\n  --bg-input: #152037;\n  --border-primary: #192843;\n  --border-secondary: #2E4164;\n\n  --text-primary: #FFFFFF;\n  --text-secondary: #A1A5B3;\n  --text-tertiary: #697083;\n}\n```\n\n## Gemach brand palette (official)\n\nFrom the Gemach brand guide. The dark theme above is the Gemach default.\n\n| Token | Hex | Use |\n|-------|-----|-----|\n| Rich Black | `#060A17` | App background (dark) |\n| Majorelle Blue | `#704FF6` | Primary brand accent (Vaults) |\n| Argentinian Blue | `#61B8FF` | Secondary accent (Loans) |\n| Emerald | `#49B875` | Long / positive (Index Funds) |\n| Rojo | `#DF2E2E` | Short / negative (GBOT) |\n\nNavy \u2192 white neutral ramp: `#161D2F #152037 #162139 #192843 #2E4164 #4D5972 #697083 #81899F #A1A5B3 #D5D9E1 #FFFFFF`\n\n**Logo:** the white Gemach lion mark is at `assets/brand/gemach-lion.png`. Pair it with the\n`GEMACH` / `GDEX` wordmark in **Inter** (700\u2013800 weight). On dark, use the white mark; on\nlight, the black mark. **Font:** Inter (400/500/600/700/800) \u2014 load via Google Fonts or self-host.\n\n## Dark / Light Mode Toggle\n\n```typescript\n// components/ThemeToggle.tsx\n'use client';\n\nimport { useEffect, useState } from 'react';\n\nexport function ThemeToggle() {\n  const [dark, setDark] = useState(false);\n\n  useEffect(() => {\n    const saved = localStorage.getItem('gdex-theme');\n    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;\n    setDark(saved ? saved === 'dark' : prefersDark);\n  }, []);\n\n  useEffect(() => {\n    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');\n    document.documentElement.classList.toggle('dark', dark);\n    localStorage.setItem('gdex-theme', dark ? 'dark' : 'light');\n  }, [dark]);\n\n  return (\n    <button onClick={() => setDark(!dark)}\n      className=\"p-2 rounded-lg border border-[var(--border-primary)] hover:bg-[var(--bg-tertiary)]\">\n      {dark ? '\u2600\uFE0F' : '\u{1F319}'}\n    </button>\n  );\n}\n```\n\n## Tailwind CSS Configuration\n\nExtend Tailwind with GDEX trading theme tokens:\n\n```typescript\n// tailwind.config.ts\nimport type { Config } from 'tailwindcss';\n\nconst config: Config = {\n  darkMode: 'class',\n  content: ['./src/**/*.{ts,tsx}', './app/**/*.{ts,tsx}'],\n  theme: {\n    extend: {\n      colors: {\n        brand: 'var(--color-brand)',\n        'brand-hover': 'var(--color-brand-hover)',\n        long: 'var(--color-long)',\n        'long-bg': 'var(--color-long-bg)',\n        short: 'var(--color-short)',\n        'short-bg': 'var(--color-short-bg)',\n        'pnl-positive': 'var(--color-pnl-positive)',\n        'pnl-negative': 'var(--color-pnl-negative)',\n        'pnl-neutral': 'var(--color-pnl-neutral)',\n        'surface-primary': 'var(--bg-primary)',\n        'surface-secondary': 'var(--bg-secondary)',\n        'surface-card': 'var(--bg-card)',\n      },\n      fontFamily: {\n        sans: ['var(--font-sans)'],\n        mono: ['var(--font-mono)'],\n      },\n      borderRadius: {\n        sm: 'var(--radius-sm)',\n        md: 'var(--radius-md)',\n        lg: 'var(--radius-lg)',\n      },\n    },\n  },\n};\n\nexport default config;\n```\n\n### Usage in Components\n\n```tsx\n{/* Trading colors via Tailwind */}\n<span className=\"text-long\">+$420.69</span>     {/* green \u2014 long position / profit */}\n<span className=\"text-short\">-$69.42</span>      {/* red \u2014 short position / loss */}\n<div className=\"bg-long-bg p-2\">Long highlight</div>\n<div className=\"bg-surface-card border border-[var(--border-primary)]\">Card</div>\n```\n\n## Responsive Breakpoints\n\nTrading UIs have unique layout needs \u2014 the primary trading view should maximize horizontal space:\n\n```css\n/* Trading layout breakpoints */\n@media (min-width: 768px) {\n  /* Tablet: stack chart above order form */\n  .trading-layout { grid-template-columns: 1fr; }\n}\n\n@media (min-width: 1024px) {\n  /* Desktop: chart + order form side by side */\n  .trading-layout { grid-template-columns: 1fr 360px; }\n}\n\n@media (min-width: 1440px) {\n  /* Wide: chart + orderbook + order form */\n  .trading-layout { grid-template-columns: 280px 1fr 360px; }\n}\n```\n\n```tsx\n{/* Responsive trading grid */}\n<div className=\"grid grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[280px_1fr_360px] gap-4\">\n  <aside className=\"hidden xl:block\">{/* Orderbook */}</aside>\n  <main>{/* Chart + Positions */}</main>\n  <aside>{/* Order Form */}</aside>\n</div>\n```\n\n## Component Styling Patterns\n\n### Trading Buttons\n\n```tsx\n{/* Long / Short buttons */}\n<button className=\"w-full py-3 rounded-lg font-bold text-white bg-long hover:opacity-90\">\n  Long BTC\n</button>\n<button className=\"w-full py-3 rounded-lg font-bold text-white bg-short hover:opacity-90\">\n  Short BTC\n</button>\n```\n\n### PnL with Color\n\n```tsx\nfunction PnL({ value }: { value: number }) {\n  const color = value > 0 ? 'text-pnl-positive' : value < 0 ? 'text-pnl-negative' : 'text-pnl-neutral';\n  const sign = value > 0 ? '+' : '';\n  return <span className={`font-mono font-bold ${color}`}>{sign}${value.toFixed(2)}</span>;\n}\n```\n\n### Chain Badge\n\n```tsx\nconst CHAIN_COLORS: Record<string, string> = {\n  solana: 'var(--color-chain-solana)',\n  ethereum: 'var(--color-chain-ethereum)',\n  base: 'var(--color-chain-base)',\n  arbitrum: 'var(--color-chain-arbitrum)',\n  bsc: 'var(--color-chain-bsc)',\n  sui: 'var(--color-chain-sui)',\n};\n\nfunction ChainBadge({ chain }: { chain: string }) {\n  return (\n    <span className=\"px-2 py-0.5 rounded-full text-xs font-medium text-white\"\n      style={{ backgroundColor: CHAIN_COLORS[chain] ?? '#6B7280' }}>\n      {chain}\n    </span>\n  );\n}\n```\n\n## Related Skills\n\n- **gdex-ui-install-setup** \u2014 Project setup (includes Tailwind setup)\n- **gdex-ui-page-layouts** \u2014 Full page layouts using these theme tokens\n- **gdex-ui-trading-components** \u2014 Trading components that use theme colors\n", files: [] }, { name: "gdex-ui-trading-components", description: "React component patterns for GDEX trading UIs \u2014 order entry forms, position tables, copy trade panels, orderbook displays, and PnL views", content: "\n# GDEX: Trading UI Components\n\nReact component patterns for building trading interfaces with the GDEX SDK. Each component shows the props interface, SDK method it calls, and state management pattern.\n\n## When to Use\n\n- Building a spot or perp trading form\n- Displaying open positions or orders\n- Creating a copy trade management panel\n- Showing PnL or orderbook data\n\n## Prerequisites\n\n- GDEX SDK context provider set up \u2014 see **gdex-ui-install-setup**\n- Wallet sign-in via `AuthProvider.loginWithWallet()` \u2014 see **gdex-ui-wallet-connection**. It runs the managed-custody\n  sign-in and exposes `creds` (`{ apiKey, walletAddress, sessionPrivateKey }`, walletAddress = control wallet) and\n  `managedAddress`. Every write call below takes `creds`; `loginWithApiKey()` alone only covers read-only data.\n\n## Spot Trade Form\n\n```typescript\n// components/SpotTradeForm.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\ninterface SpotTradeFormProps {\n  defaultChain?: string;\n  onTradeComplete?: (result: any) => void;\n}\n\nexport function SpotTradeForm({ defaultChain = 'solana', onTradeComplete }: SpotTradeFormProps) {\n  const { skill, isReady } = useGdex();\n  const { creds } = useAuth();\n  const [mode, setMode] = useState<'buy' | 'sell'>('buy');\n  const [chain, setChain] = useState(defaultChain);\n  const [tokenAddress, setTokenAddress] = useState('');\n  const [amount, setAmount] = useState('');\n  const [slippage, setSlippage] = useState(1);\n  const [loading, setLoading] = useState(false);\n  const [error, setError] = useState<string | null>(null);\n\n  const handleSubmit = async (e: React.FormEvent) => {\n    e.preventDefault();\n    if (!isReady || !creds) return;\n    setLoading(true);\n    setError(null);\n    try {\n      const chainArg = /^\\d+$/.test(chain) ? Number(chain) : chain; // numeric ChainId or 'solana' / 'sui'\n      const result = mode === 'buy'\n        ? await skill.buyToken({ chain: chainArg, tokenAddress, amount, slippage, ...creds })\n        : await skill.sellToken({ chain: chainArg, tokenAddress, amount, slippage, walletAddress: creds.walletAddress });\n      onTradeComplete?.(result);\n    } catch (err) {\n      setError(err instanceof Error ? err.message : 'Trade failed');\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  return (\n    <form onSubmit={handleSubmit} className=\"space-y-4\">\n      {/* Buy / Sell toggle */}\n      <div className=\"flex gap-2\">\n        <button type=\"button\" onClick={() => setMode('buy')}\n          className={mode === 'buy' ? 'bg-green-600 text-white' : 'bg-gray-200'}>\n          Buy\n        </button>\n        <button type=\"button\" onClick={() => setMode('sell')}\n          className={mode === 'sell' ? 'bg-red-600 text-white' : 'bg-gray-200'}>\n          Sell\n        </button>\n      </div>\n\n      {/* Chain selector */}\n      <select value={chain} onChange={e => setChain(e.target.value)}>\n        <option value=\"solana\">Solana</option>\n        <option value=\"8453\">Base</option>\n        <option value=\"42161\">Arbitrum</option>\n        <option value=\"1\">Ethereum</option>\n        <option value=\"56\">BSC</option>\n        <option value=\"sui\">Sui</option>\n      </select>\n\n      <input placeholder=\"Token address\" value={tokenAddress}\n        onChange={e => setTokenAddress(e.target.value)} required />\n      <input type=\"number\" placeholder=\"Amount\" value={amount}\n        onChange={e => setAmount(e.target.value)} step=\"any\" min=\"0\" required />\n      <input type=\"number\" placeholder=\"Slippage %\" value={slippage}\n        onChange={e => setSlippage(Number(e.target.value))} step=\"0.1\" min=\"0.1\" max=\"50\" />\n\n      {error && <p className=\"text-red-500\">{error}</p>}\n      <button type=\"submit\" disabled={loading || !isReady}>\n        {loading ? 'Executing...' : `${mode === 'buy' ? 'Buy' : 'Sell'} Token`}\n      </button>\n    </form>\n  );\n}\n```\n\n**SDK methods called:** `skill.buyToken()`, `skill.sellToken()`\n\n## Perp Order Form\n\n```typescript\n// components/PerpOrderForm.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\ninterface PerpOrderFormProps {\n  onOrderPlaced?: (result: any) => void;\n}\n\nexport function PerpOrderForm({ onOrderPlaced }: PerpOrderFormProps) {\n  const { skill, isReady } = useGdex();\n  const { creds } = useAuth();\n  const [coin, setCoin] = useState('BTC');\n  const [side, setSide] = useState<'long' | 'short'>('long');\n  const [sizeUsd, setSizeUsd] = useState('');\n  const [leverage, setLeverage] = useState(5);\n  const [takeProfitPrice, setTakeProfitPrice] = useState('');\n  const [stopLossPrice, setStopLossPrice] = useState('');\n  const [loading, setLoading] = useState(false);\n  const [error, setError] = useState<string | null>(null);\n\n  const handleSubmit = async (e: React.FormEvent) => {\n    e.preventDefault();\n    if (!isReady || !creds) return;\n    setLoading(true);\n    setError(null);\n    try {\n      // hlCreateOrder takes size in contracts (coin units): convert the USD notional at the mark price\n      const mark = await skill.getHlMarkPrice(coin);\n      const size = (Number(sizeUsd) / mark).toFixed(5); // round to the market's szDecimals in production\n      const result = await skill.hlCreateOrder({\n        coin,\n        isLong: side === 'long',\n        price: String(mark),\n        size,\n        isMarket: true,\n        leverage,                   // sent top-level with the order\n        tpPrice: takeProfitPrice,   // '' skips TP\n        slPrice: stopLossPrice,     // '' skips SL\n        ...creds,\n      });\n      onOrderPlaced?.(result);\n    } catch (err) {\n      setError(err instanceof Error ? err.message : 'Order failed');\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  return (\n    <form onSubmit={handleSubmit} className=\"space-y-4\">\n      <div className=\"flex gap-2\">\n        <button type=\"button\" onClick={() => setSide('long')}\n          className={side === 'long' ? 'bg-green-600 text-white' : 'bg-gray-200'}>\n          Long\n        </button>\n        <button type=\"button\" onClick={() => setSide('short')}\n          className={side === 'short' ? 'bg-red-600 text-white' : 'bg-gray-200'}>\n          Short\n        </button>\n      </div>\n\n      <select value={coin} onChange={e => setCoin(e.target.value)}>\n        <option value=\"BTC\">BTC</option>\n        <option value=\"ETH\">ETH</option>\n        <option value=\"SOL\">SOL</option>\n        <option value=\"ARB\">ARB</option>\n      </select>\n\n      <input type=\"number\" placeholder=\"Size (USD)\" value={sizeUsd}\n        onChange={e => setSizeUsd(e.target.value)} min=\"10\" required />\n      <input type=\"range\" min=\"1\" max=\"50\" value={leverage}\n        onChange={e => setLeverage(Number(e.target.value))} />\n      <span>Leverage: {leverage}\xD7</span>\n\n      <input type=\"number\" placeholder=\"Take Profit Price (optional)\" value={takeProfitPrice}\n        onChange={e => setTakeProfitPrice(e.target.value)} step=\"any\" />\n      <input type=\"number\" placeholder=\"Stop Loss Price (optional)\" value={stopLossPrice}\n        onChange={e => setStopLossPrice(e.target.value)} step=\"any\" />\n\n      {error && <p className=\"text-red-500\">{error}</p>}\n      <button type=\"submit\" disabled={loading || !isReady}\n        className={side === 'long' ? 'bg-green-600' : 'bg-red-600'}>\n        {loading ? 'Placing...' : `${side === 'long' ? 'Long' : 'Short'} ${coin}`}\n      </button>\n    </form>\n  );\n}\n```\n\n**SDK methods called:** `skill.getHlMarkPrice()`, `skill.hlCreateOrder()`\n\n## Position Table\n\n```typescript\n// components/PositionTable.tsx\n'use client';\n\nimport { useState, useEffect, useCallback } from 'react';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\nexport function PositionTable({ pollInterval = 10000 }: { pollInterval?: number }) {\n  const { skill, isReady } = useGdex();\n  const { creds, managedAddress } = useAuth();\n  const [positions, setPositions] = useState<any[]>([]);\n\n  // Positions live on the managed EVM wallet, not the control wallet\n  const refresh = useCallback(async () => {\n    if (!isReady || !managedAddress) return;\n    setPositions(await skill.getPerpPositions({ walletAddress: managedAddress }));\n  }, [skill, isReady, managedAddress]);\n\n  useEffect(() => {\n    refresh();\n    const id = setInterval(refresh, pollInterval);\n    return () => clearInterval(id);\n  }, [refresh, pollInterval]);\n\n  if (!positions.length) return <p className=\"text-gray-500\">No open positions</p>;\n\n  return (\n    <table className=\"w-full text-sm\">\n      <thead>\n        <tr className=\"text-left border-b\">\n          <th>Asset</th><th>Side</th><th>Size</th><th>Entry</th>\n          <th>Mark</th><th>PnL</th><th>Leverage</th><th>Actions</th>\n        </tr>\n      </thead>\n      <tbody>\n        {positions.map((pos, i) => {\n          // PerpPosition: { coin, side, size, entryPrice, markPrice, leverage, unrealizedPnl, liquidationPrice }\n          const pnl = Number(pos.unrealizedPnl ?? 0);\n          const isLong = pos.side === 'long';\n          return (\n            <tr key={i} className=\"border-b\">\n              <td>{pos.coin}</td>\n              <td className={isLong ? 'text-green-500' : 'text-red-500'}>\n                {isLong ? 'LONG' : 'SHORT'}\n              </td>\n              <td>{pos.size}</td>\n              <td>${Number(pos.entryPrice ?? 0).toFixed(2)}</td>\n              <td>${Number(pos.markPrice ?? 0).toFixed(2)}</td>\n              <td className={pnl >= 0 ? 'text-green-500' : 'text-red-500'}>\n                ${Number(pnl).toFixed(2)}\n              </td>\n              <td>{pos.leverage ?? '\u2014'}\xD7</td>\n              <td>\n                <button\n                  onClick={() => {\n                    if (creds && managedAddress) void skill.closePerpPosition({ ...creds, coin: pos.coin, positionAddress: managedAddress });\n                  }}\n                  className=\"text-red-500 hover:underline\">\n                  Close\n                </button>\n              </td>\n            </tr>\n          );\n        })}\n      </tbody>\n    </table>\n  );\n}\n```\n\n**SDK methods called:** `skill.getPerpPositions()`, `skill.closePerpPosition()`\n\n## Copy Trade Panel\n\n```typescript\n// components/CopyTradePanel.tsx\n'use client';\n\nimport { useState, useEffect } from 'react';\nimport { buildGdexUserSessionData } from '@gemachdao/gdex-skill';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { useAuth } from '@/providers/AuthProvider';\n\nexport function CopyTradePanel({ sessionKey }: { sessionKey: string }) {\n  const { skill, isReady } = useGdex();\n  const { creds } = useAuth();\n  const [activeTrades, setActiveTrades] = useState<any[]>([]);\n  const [topTraders, setTopTraders] = useState<any[]>([]);\n  const [tab, setTab] = useState<'active' | 'discover'>('active');\n\n  useEffect(() => {\n    if (!isReady || !creds) return;\n    // Load the user's copy trades (Solana sign-in; data = encrypted session key)\n    skill.getCopyTradeList({\n      userId: creds.walletAddress,\n      data: buildGdexUserSessionData(sessionKey, creds.apiKey),\n    }).then((r) => setActiveTrades(r.allCopyTrades ?? [])).catch(() => {});\n    // Load top traders for discovery (no auth)\n    skill.getCopyTradeWallets().then((w) => setTopTraders(w.slice(0, 10))).catch(() => {});\n  }, [skill, isReady, creds, sessionKey]);\n\n  return (\n    <div>\n      <div className=\"flex gap-2 mb-4\">\n        <button onClick={() => setTab('active')}\n          className={tab === 'active' ? 'font-bold border-b-2' : ''}>\n          Active ({activeTrades.length})\n        </button>\n        <button onClick={() => setTab('discover')}\n          className={tab === 'discover' ? 'font-bold border-b-2' : ''}>\n          Discover\n        </button>\n      </div>\n\n      {tab === 'active' && (\n        <div className=\"space-y-2\">\n          {activeTrades.map((trade, i) => (\n            <div key={i} className=\"border rounded p-3 flex justify-between\">\n              <div>\n                <p className=\"font-mono text-sm\">{trade.traderWallet}</p>\n                <p className=\"text-xs text-gray-500\">{trade.copyTradeName}</p>\n              </div>\n              <span className=\"text-sm\">\n                {trade.buyMode === 1 ? `${trade.copyBuyFixedAmount} SOL` : `${trade.copyBuyPercent}%`}\n              </span>\n            </div>\n          ))}\n          {!activeTrades.length && <p className=\"text-gray-500\">No active copy trades</p>}\n        </div>\n      )}\n\n      {tab === 'discover' && (\n        <div className=\"space-y-2\">\n          {topTraders.map((trader, i) => (\n            <div key={i} className=\"border rounded p-3 flex justify-between items-center\">\n              <div>\n                <p className=\"font-mono text-sm\">{trader.address}</p>\n                <p className=\"text-xs text-green-500\">PnL: {trader.totalPnl}</p>\n              </div>\n              <button className=\"bg-blue-600 text-white px-3 py-1 rounded text-sm\">\n                Copy\n              </button>\n            </div>\n          ))}\n        </div>\n      )}\n    </div>\n  );\n}\n```\n\n**SDK methods called:** `skill.getCopyTradeList()`, `skill.getCopyTradeWallets()`\n\n## PnL Display\n\n```typescript\n// components/PnLDisplay.tsx\ninterface PnLDisplayProps {\n  value: number;\n  label?: string;\n  showSign?: boolean;\n  currency?: string;\n}\n\nexport function PnLDisplay({ value, label, showSign = true, currency = '$' }: PnLDisplayProps) {\n  const isPositive = value >= 0;\n  const formatted = `${showSign && isPositive ? '+' : ''}${currency}${Math.abs(value).toFixed(2)}`;\n\n  return (\n    <div className=\"text-center\">\n      {label && <p className=\"text-xs text-gray-500 mb-1\">{label}</p>}\n      <p className={`text-lg font-bold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>\n        {formatted}\n      </p>\n    </div>\n  );\n}\n```\n\n## Token Search with Autocomplete\n\n```typescript\n// components/TokenSearch.tsx\n'use client';\n\nimport { useState, useCallback } from 'react';\nimport type { SupportedChain } from '@gemachdao/gdex-skill';\nimport { useGdex } from '@/providers/GdexProvider';\nimport { debounce } from '@/utils/debounce'; // simple debounce utility\n\ninterface TokenSearchProps {\n  chain: SupportedChain;\n  onSelect: (token: { address: string; symbol: string; name: string }) => void;\n}\n\nexport function TokenSearch({ chain, onSelect }: TokenSearchProps) {\n  const { skill, isReady } = useGdex();\n  const [query, setQuery] = useState('');\n  const [results, setResults] = useState<any[]>([]);\n\n  const search = useCallback(\n    debounce(async (q: string) => {\n      if (!isReady || q.length < 2) { setResults([]); return; }\n      const data = await skill.getTokenDetails({ chain, tokenAddress: q });\n      setResults(data ? [data] : []);\n    }, 300),\n    [skill, isReady, chain]\n  );\n\n  return (\n    <div className=\"relative\">\n      <input placeholder=\"Token address or symbol\" value={query}\n        onChange={e => { setQuery(e.target.value); search(e.target.value); }} />\n      {results.length > 0 && (\n        <ul className=\"absolute bg-white border rounded shadow-lg w-full z-10\">\n          {results.map((token, i) => (\n            <li key={i} onClick={() => { onSelect(token); setResults([]); setQuery(token.symbol); }}\n              className=\"p-2 hover:bg-gray-100 cursor-pointer\">\n              <span className=\"font-bold\">{token.symbol}</span> \u2014 {token.name}\n            </li>\n          ))}\n        </ul>\n      )}\n    </div>\n  );\n}\n```\n\n**SDK method called:** `skill.getTokenDetails()`\n\n## Component \u2192 SDK Method Reference\n\n| Component | SDK Method | Skill |\n|-----------|------------|-------|\n| `SpotTradeForm` | `buyToken()`, `sellToken()` | gdex-spot-trading |\n| `PerpOrderForm` | `getHlMarkPrice()`, `hlCreateOrder()` | gdex-perp-trading |\n| `PositionTable` | `getPerpPositions()`, `closePerpPosition()` | gdex-perp-trading |\n| `CopyTradePanel` | `getCopyTradeList()`, `getCopyTradeWallets()` | gdex-copy-trading |\n| `PnLDisplay` | (display only) | \u2014 |\n| `TokenSearch` | `getTokenDetails()` | gdex-token-discovery |\n\n## Backend Quirks Affecting UI (Live-Tested)\n\n1. **Spot trading amounts in managed custody are RAW UNITS** (lamports/wei), not human-readable. The `SpotTradeForm` above uses `skill.buyToken()` which handles conversion, but if using `submitManagedPurchase()` directly, convert first.\n2. **`hlCloseAll` is unreliable** \u2014 the `PositionTable` close button uses `closePerpPosition()` per coin (a reduce-only order for the live size), not `skill.hlCloseAll()`.\n3. **Solana Meteora tokens fail** \u2014 if building a token selector, filter out `dexId === 'meteora'` tokens to avoid failed trades.\n4. **Leverage goes on the order** \u2014 the slider value is passed as `leverage` to `hlCreateOrder()` (sent top-level with the order). The standalone `hlUpdateLeverage` endpoint returns 404.\n5. **`getTopTraders()` needs numeric chainId** \u2014 use `622112261`, not `'solana'`.\n\n## Related Skills\n\n- **gdex-ui-install-setup** \u2014 Project setup and provider pattern\n- **gdex-ui-portfolio-dashboard** \u2014 Portfolio display components\n- **gdex-ui-page-layouts** \u2014 Full page compositions using these components\n- **gdex-spot-trading** \u2014 Spot trading SDK API details and managed-custody quirks\n- **gdex-perp-trading** \u2014 Perpetual futures SDK API details and close-position workaround\n", files: [] }, { name: "gdex-ui-wallet-connection", description: "React patterns for GDEX wallet connection \u2014 connect buttons, account displays, chain switching, and API key vs wallet auth UI flows", content: "\n# GDEX: Wallet Connection UI\n\nReact component patterns for wallet connection, authentication state management, and account display in GDEX trading apps.\n\n## When to Use\n\n- Adding a connect wallet / login button to your app\n- Displaying account info (address, chain, balance)\n- Managing authentication state (API key vs wallet-based)\n- Implementing chain switching UI\n\n## Prerequisites\n\n- GDEX SDK context provider set up \u2014 see **gdex-ui-install-setup**\n- Understanding of auth flows \u2014 see **gdex-authentication**\n\n## Auth State Provider\n\nExtend the base `GdexProvider` with wallet connection state:\n\n```typescript\n// providers/AuthProvider.tsx\n'use client';\n\nimport React, { createContext, useContext, useState, useCallback } from 'react';\nimport {\n  GDEX_API_KEY_PRIMARY,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n  buildGdexUserSessionData,\n} from '@gemachdao/gdex-skill';\nimport { useGdex } from '@/providers/GdexProvider';\n\ntype AuthMethod = 'none' | 'api-key' | 'wallet';\n\n/** Managed-custody credentials every write call takes (walletAddress = control wallet). */\nexport interface GdexCreds {\n  apiKey: string;\n  walletAddress: string;\n  sessionPrivateKey: string;\n}\n\ninterface AuthContextValue {\n  authMethod: AuthMethod;\n  walletAddress: string | null;\n  managedAddress: string | null;\n  creds: GdexCreds | null;\n  isAuthenticated: boolean;\n  loginWithApiKey: (key: string) => void;\n  loginWithWallet: (address: string, signFn: (msg: string) => Promise<string>) => Promise<void>;\n  logout: () => void;\n}\n\nconst AuthContext = createContext<AuthContextValue | null>(null);\n\nexport function AuthProvider({ children }: { children: React.ReactNode }) {\n  const { skill } = useGdex();\n  const [authMethod, setAuthMethod] = useState<AuthMethod>('none');\n  const [walletAddress, setWalletAddress] = useState<string | null>(null);\n  const [managedAddress, setManagedAddress] = useState<string | null>(null);\n  const [creds, setCreds] = useState<GdexCreds | null>(null);\n\n  // Read-only access (token data, trending, charts). Trading needs loginWithWallet.\n  const loginWithApiKey = useCallback((key: string) => {\n    skill.loginWithApiKey(key);\n    setAuthMethod('api-key');\n    setWalletAddress(null);\n    setCreds(null);\n  }, [skill]);\n\n  // Managed-custody sign-in: the user's wallet signs once (personal_sign), then a\n  // browser-held session key signs every trade.\n  const loginWithWallet = useCallback(async (\n    address: string,\n    signFn: (msg: string) => Promise<string>\n  ) => {\n    const apiKey = GDEX_API_KEY_PRIMARY;\n    skill.loginWithApiKey(apiKey);\n    const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\n    const nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));\n    const signature = await signFn(buildGdexSignInMessage(address, nonce, sessionKey));\n    const signIn = buildGdexSignInComputedData({ apiKey, userId: address, sessionKey, nonce, signature });\n    await skill.signInWithComputedData({ computedData: signIn.computedData, chainId: 1 });\n\n    // Managed EVM wallet: receives funds and holds HyperLiquid positions\n    const user = await skill.getManagedUser({\n      userId: address,\n      data: buildGdexUserSessionData(sessionKey, apiKey),\n      chainId: 1,\n    });\n    setAuthMethod('wallet');\n    setWalletAddress(address);\n    setManagedAddress(typeof user.address === 'string' ? user.address : null);\n    setCreds({ apiKey, walletAddress: address, sessionPrivateKey });\n  }, [skill]);\n\n  const logout = useCallback(() => {\n    skill.logout();\n    setAuthMethod('none');\n    setWalletAddress(null);\n    setManagedAddress(null);\n    setCreds(null);\n  }, [skill]);\n\n  return (\n    <AuthContext.Provider value={{\n      authMethod,\n      walletAddress,\n      managedAddress,\n      creds,\n      isAuthenticated: authMethod !== 'none',\n      loginWithApiKey,\n      loginWithWallet,\n      logout,\n    }}>\n      {children}\n    </AuthContext.Provider>\n  );\n}\n\nexport function useAuth() {\n  const ctx = useContext(AuthContext);\n  if (!ctx) throw new Error('useAuth must be used within <AuthProvider>');\n  return ctx;\n}\n```\n\n## Connect Button\n\n```typescript\n// components/ConnectButton.tsx\n'use client';\n\nimport { useState } from 'react';\nimport { useAuth } from '@/providers/AuthProvider';\nimport { GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nexport function ConnectButton() {\n  const { isAuthenticated, authMethod, walletAddress, loginWithApiKey, logout } = useAuth();\n  const [showMenu, setShowMenu] = useState(false);\n\n  if (isAuthenticated) {\n    return (\n      <div className=\"relative\">\n        <button onClick={() => setShowMenu(!showMenu)}\n          className=\"px-4 py-2 border rounded-lg flex items-center gap-2\">\n          <span className=\"w-2 h-2 rounded-full bg-green-500\" />\n          {authMethod === 'wallet'\n            ? `${walletAddress!.slice(0, 6)}...${walletAddress!.slice(-4)}`\n            : 'API Key Connected'}\n        </button>\n        {showMenu && (\n          <div className=\"absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-50\">\n            <button onClick={() => { logout(); setShowMenu(false); }}\n              className=\"w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600\">\n              Disconnect\n            </button>\n          </div>\n        )}\n      </div>\n    );\n  }\n\n  return (\n    <div className=\"flex gap-2\">\n      {/* Quick connect with shared API key */}\n      <button onClick={() => loginWithApiKey(GDEX_API_KEY_PRIMARY)}\n        className=\"px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700\">\n        Quick Connect\n      </button>\n    </div>\n  );\n}\n```\n\n## Account Display\n\n```typescript\n// components/AccountDisplay.tsx\n'use client';\n\nimport { useAuth } from '@/providers/AuthProvider';\n\nexport function AccountDisplay() {\n  const { isAuthenticated, authMethod, walletAddress, managedAddress } = useAuth();\n\n  if (!isAuthenticated) return null;\n\n  return (\n    <div className=\"border rounded-lg p-4 space-y-2\">\n      <div className=\"flex justify-between items-center\">\n        <span className=\"text-xs text-gray-500\">Auth Method</span>\n        <span className=\"text-sm font-medium capitalize\">{authMethod.replace('-', ' ')}</span>\n      </div>\n\n      {walletAddress && (\n        <div className=\"flex justify-between items-center\">\n          <span className=\"text-xs text-gray-500\">Control Wallet</span>\n          <span className=\"font-mono text-sm\">\n            {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}\n          </span>\n        </div>\n      )}\n\n      {managedAddress && (\n        <div className=\"flex justify-between items-center\">\n          <span className=\"text-xs text-gray-500\">Managed Wallet</span>\n          <span className=\"font-mono text-sm\">\n            {managedAddress.slice(0, 6)}...{managedAddress.slice(-4)}\n          </span>\n        </div>\n      )}\n\n      <p className=\"text-xs text-gray-400 mt-2\">\n        All trades execute from the managed wallet. Your control wallet only signs authentication.\n      </p>\n    </div>\n  );\n}\n```\n\n> **Critical:** `walletAddress` is the **control wallet** (used for sign-in). The **managed wallet** is GDEX's server-side wallet that executes trades. Never confuse them \u2014 all API calls use the control address as `userId`.\n\n## Chain Switcher\n\n```typescript\n// components/ChainSwitcher.tsx\n'use client';\n\nimport { useState } from 'react';\n\nconst SUPPORTED_CHAINS = [\n  { id: 1, name: 'Ethereum', symbol: 'ETH' },\n  { id: 8453, name: 'Base', symbol: 'ETH' },\n  { id: 42161, name: 'Arbitrum', symbol: 'ETH' },\n  { id: 56, name: 'BSC', symbol: 'BNB' },\n  { id: 10, name: 'Optimism', symbol: 'ETH' },\n  { id: 622112261, name: 'Solana', symbol: 'SOL' },\n  { id: 1313131213, name: 'Sui', symbol: 'SUI' },\n];\n\ninterface ChainSwitcherProps {\n  value: number;\n  onChange: (chainId: number) => void;\n}\n\nexport function ChainSwitcher({ value, onChange }: ChainSwitcherProps) {\n  const [open, setOpen] = useState(false);\n  const selected = SUPPORTED_CHAINS.find(c => c.id === value);\n\n  return (\n    <div className=\"relative\">\n      <button onClick={() => setOpen(!open)} className=\"px-3 py-2 border rounded-lg flex items-center gap-2\">\n        {selected?.name ?? 'Select Chain'}\n        <span className=\"text-xs\">\u25BC</span>\n      </button>\n      {open && (\n        <ul className=\"absolute mt-1 w-48 bg-white border rounded-lg shadow-lg z-50\">\n          {SUPPORTED_CHAINS.map(chain => (\n            <li key={chain.id}>\n              <button onClick={() => { onChange(chain.id); setOpen(false); }}\n                className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${\n                  chain.id === value ? 'font-bold bg-gray-50' : ''\n                }`}>\n                {chain.name} ({chain.symbol})\n              </button>\n            </li>\n          ))}\n        </ul>\n      )}\n    </div>\n  );\n}\n```\n\n## Provider Hierarchy\n\n```\nThemeProvider\n  \u2514\u2500 AuthProvider          \u2190 wallet/API key state\n       \u2514\u2500 GdexProvider     \u2190 SDK instance\n            \u2514\u2500 App\n```\n\n```typescript\n// app/layout.tsx\nimport { GdexProvider } from '@/providers/GdexProvider';\nimport { AuthProvider } from '@/providers/AuthProvider';\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html>\n      <body>\n        <GdexProvider apiKey={process.env.NEXT_PUBLIC_GDEX_API_KEY!}>\n          <AuthProvider>\n            {children}\n          </AuthProvider>\n        </GdexProvider>\n      </body>\n    </html>\n  );\n}\n```\n\n## Two Auth Paths\n\n| Path | When | Flow |\n|------|------|------|\n| **API Key (quick)** | Shared/demo accounts, agent-driven apps | Call `loginWithApiKey(GDEX_API_KEY_PRIMARY)` \u2014 instant, no wallet needed |\n| **Wallet (full)** | User's own wallet, production apps, any trading | User connects wallet \u2192 signs the sign-in message \u2192 `loginWithWallet(address, signFn)` runs the managed sign-in and exposes `creds` + `managedAddress` |\n\n> Most agent-driven apps use the **API key path** since shared keys are built into the SDK. Wallet-based auth is for production apps where users bring their own wallets.\n\n## Related Skills\n\n- **gdex-ui-install-setup** \u2014 Base project setup and GdexProvider\n- **gdex-authentication** \u2014 Full auth flow details (encryption, session keys, managed custody)\n- **gdex-ui-trading-components** \u2014 Trading forms that require authenticated SDK\n- **gdex-wallet-setup** \u2014 Generate wallets for users who don't have one\n", files: [] }, { name: "gdex-usdc-wallet", description: "Unified USDC wallet \u2014 one USDC balance across chains, buy with USDC or native, sell to USDC, auto-bridge funding, native-to-USDC convert, USDC bridge", content: "\n# GDEX: Unified USDC Wallet\n\nA GDEX user's USDC on Ethereum, Optimism, BSC, Sonic, Base, Arbitrum and Solana works as **one balance**.\nBuy any token with USDC (or the chain's native token) on any of those chains; if the target chain is short,\nGDEX bridges USDC in from the user's other chains automatically (`autoBridge`), never spending more than\nthe source budget the user signed. Sells settle back to USDC.\n\n## When to Use\n\n- \"What's my USDC balance?\" across all chains \u2192 `getUsdcBalances`\n- Buying a token with USDC without first bridging by hand \u2192 `buyWithUsdc`\n- Selling a token into USDC \u2192 `sellToUsdc`\n- Paying with ETH/BNB/SOL but letting GDEX top up from other chains \u2192 `buyWithNative`\n- Turning leftover gas tokens into USDC \u2192 `convertNativeToUsdc`\n- Moving USDC between chains yourself \u2192 `estimateUsdcBridge` + `executeUsdcBridge`\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Managed-custody sign-in done \u2014 see **gdex-authentication**. Every call takes\n  `{ apiKey, walletAddress, sessionPrivateKey }`, where `walletAddress` is the **control wallet**\n  used at sign-in (not the managed address).\n\n## Automatic Funding and Gas (On by Default)\n\nLike gdex.pro's **\"Automatic funding \u2014 bridge USDC & top up gas\"** checkbox, which is ticked by default,\nthe SDK turns it on for every **buy** (`autoBridge: true`, paying with USDC or native; gdex.pro's Native tab\nhas the same \"Auto-bridge from other chains\" option). **Sells** settle on their own chain and never auto-fund,\nexactly as gdex.pro does. If a buy's chain is\nshort of USDC or of native gas, GDEX bridges USDC and tops up gas from the user's other chains. It\nnever spends more than the signed `maxSourceSpendRaw`. Bridges to EVM chains also add a **$1 destination\ngas top-up** by default (`gasTopUp`, off for Solana destinations, where Relay can't top up gas). Its cost\nis already in the estimate. Pass `autoBridge: false` or `gasTopUp: false` only when the user asks to opt out.\n\n## Supported Chains\n\n| Chain | chainId | USDC decimals | Native decimals |\n|-------|---------|---------------|-----------------|\n| Ethereum | 1 | 6 | 18 |\n| Optimism | 10 | 6 | 18 |\n| BSC | 56 | **18** | 18 |\n| Sonic | 146 | 6 | 18 |\n| Base | 8453 | 6 | 18 |\n| Arbitrum | 42161 | 6 | 18 |\n| Solana | 622112261 | 6 | 9 |\n\nRobinhood Chain (4663, uses USDG) and Fraxtal (252) have **no USDC**. All amounts are **raw integer\nstrings** (`'5000000'` = 5 USDC on a 6-decimal chain); decimals are rejected, not rounded.\n\n## Balances\n\n```typescript\nimport { GdexSkill, describeUsdcFundingStep } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nconst creds = { apiKey, walletAddress, sessionPrivateKey };\n\nconst b = await skill.getUsdcBalances(creds);\n// { asOf, totalUsdc: '42.10', totalUsd: '57.33',\n//   chains: [{ chainId: 8453, usdc: '30.1', usdcRaw: '30100000', native: '0.004', nativeSymbol: 'ETH', ... }] }\n```\n\n## Buy With USDC\n\nQuote first, apply slippage, then buy:\n\n```typescript\nconst quote = await skill.getUsdcTradeQuote({\n  ...creds, chainId: 8453, tokenAddress, payAsset: 'usdc', amountInRaw: '5000000', side: 'buy',\n});\n// { amountOutRaw: '123456789', source: 'kyberswap' }\n\nconst minTokenOutRaw = (BigInt(quote.amountOutRaw as string) * 99n / 100n).toString(); // 1% slippage\n\nconst res = await skill.buyWithUsdc({\n  ...creds,\n  chainId: 8453,\n  tokenAddress,\n  usdcAmountRaw: '5000000',   // 5 USDC\n  minTokenOutRaw,\n  // autoBridge defaults to true: USDC and gas are pulled from other chains if Base is short\n  // maxSourceSpendRaw: '6000000', // optional; default ceil(amount \xD7 1.2)\n});\n```\n\nA direct fill returns `status` and `hash`. When funding or confirmation is still running the response is\n`{ status: 'pending', requestId }`. Follow it the way gdex.pro's live progress note does:\n\n```typescript\nconst r = await skill.watchUsdcTrade({\n  ...creds, requestId: res.requestId as string,\n  onUpdate: (funding, steps) => console.log(funding.status, steps.map(describeUsdcFundingStep)),\n});\n// planning [] -> bridging ['bridge USDC Arbitrum -> Base: active'] -> done ['bridge USDC Arbitrum -> Base: done', 'swap: done']\n// r.outcome: 'success' | 'failed' (r.errorCode) | 'needs_retry' (dropped sell, see below) | 'pending' (still settling: never resubmit)\n```\n\nIt polls `/v1/usdc/funding/status` every 3 s and, once funding succeeds, reads the trade result from\n`/v1/trade-status/:requestId`. Step keys: `balance_check`, `bridge`, `native_topup` (gas), `approve`, `swap`.\n\n### The Signed Source Budget\n\nWith `autoBridge`, the user signs `maxSourceSpendRaw`: the most the backend may spend across all funding\nlegs, in the target chain's units. The SDK defaults it to gdex.pro's rule: `ceil((amount + gas headroom) \xD7 1.2)`, where the gas headroom is\n3 USDC on EVM chains and 2 USDC on Solana (for a buy with ~0 native gas) and the 20% covers bridge fees. If funding would cost more, the trade fails with `EXCEEDS_SIGNED_MAX` instead of\noverspending. With `autoBridge: false` the budget is `0` and only the target chain's USDC is used.\n\n## Sell to USDC\n\n```typescript\nconst q = await skill.getUsdcTradeQuote({\n  ...creds, chainId: 42161, tokenAddress, payAsset: 'usdc', amountInRaw: tokenAmountRaw, side: 'sell',\n});\nawait skill.sellToUsdc({\n  ...creds, chainId: 42161, tokenAddress, tokenAmountRaw,\n  minUsdcOutRaw: (BigInt(q.amountOutRaw as string) * 99n / 100n).toString(),\n});\n```\n\nIf a sell's broadcast is dropped, `watchUsdcTrade` returns `outcome: 'needs_retry'` with the backend's\n`retry` capability (`SAME_NONCE_RETRY_AVAILABLE`). Retry it in place: the SDK reads chain, token, amount and\nnonce from that capability and generates the retry id (a UUID, as gdex.pro does). It reuses the same\ntransaction nonce, so the sell cannot execute twice. The backend allows two retries.\n\n```typescript\nconst q2 = await skill.getUsdcTradeQuote({ ...creds, chainId, tokenAddress, payAsset: 'usdc', amountInRaw: tokenAmountRaw, side: 'sell' });\nawait skill.retryUsdcSell({ ...creds, requestId, minUsdcOutRaw: (BigInt(q2.amountOutRaw as string) * 97n / 100n).toString() });\n```\n\n## Buy With Native\n\n```typescript\nawait skill.buyWithNative({\n  ...creds, chainId: 622112261, tokenAddress: mint,\n  nativeAmountRaw: '100000000',   // 0.1 SOL\n  minTokenOutRaw, autoBridge: true,\n});\n```\n\n## Convert Gas Tokens to USDC\n\n```typescript\nconst cq = await skill.getUsdcConvertQuote({ ...creds, chainId: 8453, amount: 'max' });\n// { nativeSpent, nativeRetained (gas reserve kept), estimatedUsdcOut, minUsdcOut }\nawait skill.convertNativeToUsdc({\n  ...creds, chainId: 8453, nativeAmountRaw: cq.nativeSpent as string, minUsdcOutRaw: cq.minUsdcOut as string,\n});\n```\n\n## Bridge USDC Between Chains\n\n`amountRaw` is what **arrives** on the destination, in destination decimals. Sign the estimate's source\nspend (plus a little headroom) as the cap:\n\n```typescript\nconst est = await skill.estimateUsdcBridge({\n  ...creds, fromChainId: 8453, toChainId: 42161, amountRaw: '10000000',\n  // gas top-up defaults to $1 for EVM destinations; gasTopUpAmountUsd sets up to $50\n});\nconst maxFromAmountRaw = (BigInt(est.fromAmountRaw as string) * 101n / 100n).toString();\nconst br = await skill.executeUsdcBridge({\n  ...creds, fromChainId: 8453, toChainId: 42161, amountRaw: '10000000', maxFromAmountRaw,\n});\nawait skill.getUsdcBridgeStatus({ ...creds, bridgeId: br.bridgeId as string, refresh: true });\nawait skill.getUsdcBridgeOrders(creds);\n```\n\n## Never Double-Submit\n\nIf a trade's outcome is unknown (timeout, `503 USDC_STATUS_UNCONFIRMED`, `indeterminate: true`), do **not**\nsubmit it again. Check `getUsdcPendingTrades({ ...creds, chainId })` and `getUsdcFundingStatus` first.\n\n## MCP Tools\n\n`usdc_get_balances`, `usdc_get_trade_quote`, `usdc_buy`, `usdc_sell`, `usdc_buy_with_native`,\n`usdc_retry_sell`, `usdc_get_funding_status`, `usdc_wait_for_trade`, `usdc_get_deferred_trade`, `usdc_get_pending_trades`,\n`usdc_get_convert_quote`, `usdc_convert_native`, `usdc_estimate_bridge`, `usdc_execute_bridge`,\n`usdc_get_bridge_status`, `usdc_get_bridge_orders`.\n\n## Common Errors\n\n| Code | Meaning |\n|------|---------|\n| `V2_REQUIRED` | Called a retired v1 route; the SDK always uses v2 |\n| `CHAIN_MISMATCH` | Body `chainId` differs from the signed one |\n| `MISSING_SIGNED_MAX` | Auto-funding needed but the signed budget was `0` |\n| `EXCEEDS_SIGNED_MAX` | Funding or bridge would cost more than the signed cap; re-quote |\n| `BELOW_MINIMUM` | Bridge amount under the minimum |\n| `INVALID_GAS_TOPUP` | Gas top-up outside (0, 50] USD |\n| `USDC_QUOTE_UNAVAILABLE` | No executable route right now |\n| `USDC_STATUS_UNCONFIRMED` | Status still being confirmed; do not resubmit |\n\n## Related Skills\n\n- **gdex-spot-trading** \u2014 classic native-paid swaps\n- **gdex-bridge** \u2014 the native-asset bridge (`/v1/bridge/*`)\n- **gdex-portfolio** \u2014 balances and trade history\n- **gdex-perp-funding** \u2014 moving USDC into Hyperliquid\n", files: [] }, { name: "gdex-wallet-setup", description: "Generate EVM control wallets offline, create session keypairs, get wallet info \u2014 first step for users without wallets", content: "\n# GDEX: Wallet Setup\n\nGenerate EVM control wallets for new users and session keypairs for managed-custody trading. Wallet generation is fully offline \u2014 no network or auth required.\n\n## When to Use\n\n- A user says they don't have a wallet\n- Setting up a new user for the first time\n- Generating session keypairs for managed-custody trading\n- Querying wallet info on a specific chain\n\n## Prerequisites\n\n```bash\nnpm install @gemachdao/gdex-skill\n```\n\nNo authentication needed for wallet generation.\n\n## Generate an EVM Control Wallet\n\n```typescript\nimport { generateEvmWallet } from '@gemachdao/gdex-skill';\n\nconst wallet = generateEvmWallet();\nconsole.log('Address:', wallet.address);        // public \u2014 safe to display\nconsole.log('Private Key:', wallet.privateKey);  // SECRET \u2014 store securely\nconsole.log('Mnemonic:', wallet.mnemonic);       // SECRET \u2014 12-word backup phrase\n\n// wallet.type         \u2192 'evm'\n// wallet.derivationPath \u2192 \"m/44'/60'/0'/0/0\"\n```\n\n**Important:**\n- Works fully offline \u2014 no network or API calls\n- The private key and mnemonic must be stored securely\n- Never log, display in UI, or transmit the private key\n- The EVM control wallet is all you need \u2014 after managed-custody sign-in, the backend provisions Solana + other chain wallets automatically\n\n## Generate a Session Keypair\n\nSession keypairs (secp256k1) are used to sign trades after the initial control-wallet sign-in:\n\n```typescript\nimport { generateGdexSessionKeyPair } from '@gemachdao/gdex-skill';\n\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\n// sessionPrivateKey: hex string (store securely, reuse across requests)\n// sessionKey: compressed public key (0x + 66 hex chars)\n```\n\n## Get Wallet Info\n\nQuery native balance and token count on a specific chain (requires auth):\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\nconst info = await skill.getWalletInfo({\n  walletAddress: '0xYourAddress',\n  chain: 1,   // Ethereum\n});\n```\n\n### Wallet Info Response\n\n```typescript\ninterface WalletInfo {\n  address: string;\n  chain: string | number;\n  nativeBalance: string;\n  nativeSymbol: string;    // 'ETH', 'SOL', 'SUI', etc.\n  totalValueUsd?: number;\n  tokenCount?: number;\n}\n```\n\n## Full New User Onboarding Flow\n\n```typescript\nimport {\n  generateEvmWallet,\n  generateGdexSessionKeyPair,\n  buildGdexSignInMessage,\n  buildGdexSignInComputedData,\n  GdexSkill,\n  GDEX_API_KEY_PRIMARY,\n} from '@gemachdao/gdex-skill';\n\n// Step 1: Generate a control wallet (offline)\nconst wallet = generateEvmWallet();\nconsole.log('Your new wallet address:', wallet.address);\n// \u26A0\uFE0F Tell user to save privateKey and mnemonic securely!\n\n// Step 2: Generate session keypair\nconst { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();\n\n// Step 3: Initialize SDK\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n\n// Step 4: Build sign-in message and sign with the new wallet\nconst userId = wallet.address;\nconst nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));\nconst message = buildGdexSignInMessage(userId, nonce, sessionKey);\n\n// For a generated wallet, sign directly with ethers:\nimport { ethers } from 'ethers';\nconst signer = new ethers.Wallet(wallet.privateKey);\nconst signature = await signer.signMessage(message);\n\n// Step 5: Sign in via managed custody\nconst signInPayload = buildGdexSignInComputedData({\n  apiKey: GDEX_API_KEY_PRIMARY,\n  userId,\n  sessionKey,\n  nonce,\n  signature,\n});\nawait skill.signInWithComputedData({\n  computedData: signInPayload.computedData,\n  chainId: 1,  // EVM\n});\n\n// \u2705 User is now authenticated and can trade\n// The backend has provisioned Solana + other chain wallets automatically\n```\n\n## Autonomous Agent Notes (Live-Tested)\n\n1. **`generateEvmWallet()` works fully offline (E2E verified).** No network calls needed. Returns `{ address, privateKey, mnemonic, type, derivationPath }`.\n2. **After sign-in, the backend auto-provisions managed wallets** on all chains. You only need one EVM control wallet.\n3. **Store the mnemonic and private key securely.** Loss = permanent loss of access.\n4. **The session keypair is separate from the wallet.** Generate it with `generateGdexSessionKeyPair()` \u2014 it's used for signing trades, not wallet derivation.\n5. **Multiple sign-ins are fine.** You can generate new session keys and re-sign-in at any time.\n\n## Related Skills\n\n- **gdex-authentication** \u2014 Full managed-custody auth details\n- **gdex-onboarding** \u2014 Platform overview for new users\n- **gdex-spot-trading** \u2014 Start trading after wallet setup\n", files: [] }, { name: "gdex-watchlist-social", description: "Watchlist, comments, and sentiment voting \u2014 social community features around individual tokens", content: "\n# GDEX: Watchlist & Social\n\nManage a per-user watchlist and interact with the social layer around each\ntoken (comments and bullish/bearish sentiment votes).\n\n## When to Use\n\n- Letting a user pin tokens for quick access\n- Reading or posting comments on a token's page\n- Voting bullish / bearish on a token\n\n## Prerequisites\n\n- `@gemachdao/gdex-skill` installed\n- Authenticated via shared API key or wallet sign-in \u2014 see\n  **gdex-authentication**\n- For write operations: a session-key authentication context (`userId` and\n  encrypted `data` payload) or a managed-custody token, depending on\n  backend deployment\n\n## Backend Endpoints\n\n| Method | Path | Purpose |\n|--------|------|---------|\n| `GET`  | `/v1/watch_list` | Get the user's watchlist |\n| `POST` | `/v1/change_watch_list` | Add or remove a token from the watchlist |\n| `GET`  | `/v1/comments` | Get comments for a token |\n| `POST` | `/v1/add_comment` | Post a comment |\n| `POST` | `/v1/vote_sentiment` | Cast a bullish/bearish sentiment vote |\n\n## SDK Usage\n\n```typescript\nimport { GdexSkill, buildWatchListComputedData } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(process.env.GDEX_API_KEY!);\n\n// Watchlist (managed custody \u2014 backend decodes computedData)\nconst list = await skill.getWatchList({ userId: '0xWallet', data: encryptedSessionKey });\n\n// Structured shape \u2014 SDK builds computedData internally\nawait skill.changeWatchList({\n  tokenAddress: '0xToken',\n  chainId: 8453,\n  action: 'add',\n  managed: {\n    apiKey: process.env.GDEX_API_KEY!,\n    walletAddress: '0xWallet',\n    sessionPrivateKey: '0x\u2026',\n    userId: '0xWallet',\n  },\n});\n\n// Or raw shape \u2014 caller pre-built computedData\nawait skill.changeWatchList({\n  computedData: buildWatchListComputedData({\n    apiKey: process.env.GDEX_API_KEY!,\n    walletAddress: '0xWallet',\n    sessionPrivateKey: '0x\u2026',\n    userId: '0xWallet',\n    tokenAddress: '0xToken',\n    chainId: '8453',\n    isAdded: true,\n  }),\n  chainId: 8453,\n});\n\n// Comments (plain JSON)\nconst comments = await skill.getComments({ tokenAddress: '0xToken', chain: 8453 });\nawait skill.addComment({\n  tokenAddress: '0xToken',\n  chain: 8453,\n  message: 'Looking strong on the 4h',\n  userId: '0xWallet',\n  data: encryptedSessionKey,\n});\n\n// Sentiment (plain JSON)\nawait skill.voteSentiment({\n  tokenAddress: '0xToken',\n  chain: 8453,\n  sentiment: 'bullish',\n  userId: '0xWallet',\n  data: encryptedSessionKey,\n});\n```\n\n## Notes\n\n- `change_watch_list` uses managed-custody **encrypted `computedData`**:\n  ABI `['watch_list', [tokenAddress, chainId, isAdded, nonce]]`,\n  sig message `watch_list-${userId}-${data}`.\n- `add_comment` and `vote_sentiment` use **plain JSON** with the standard\n  session header for auth \u2014 they do NOT go through `serverDecryptData`.\n- Watchlist entries are scoped to `(userId, chain, tokenAddress)`.\n- Sentiment votes are deduplicated per `(userId, tokenAddress)` \u2014 re-voting\n  updates the existing vote.\n- Comment moderation policies (rate limits, profanity filters) are enforced\n  server-side; expect API errors when limits are hit.\n", files: [] }, { name: "gdex-xstocks", description: "List tokenised equities (xStocks) \u2014 real-world stocks traded as tokens on GDEX \u2014 requires API key auth (Bearer token)", content: "\n# GDEX: xStocks\n\nList tokenised equities. xStocks are real-world stocks issued as on-chain tokens, so they trade\nthrough the same spot rails as any other token on GDEX: you discover them here, then buy or sell\nthem with `gdex-spot-trading`.\n\n> **Auth required:** returns 403 \"Access denied: Invalid client\" without a Bearer token. Call\n> `loginWithApiKey()` first.\n\n## When to Use\n\n- Listing the tokenised stocks available to trade\n- Checking price, market cap, liquidity, or 24h volume on an xStock before buying\n- Answering \"can I trade Nvidia / Circle / McDonald's on GDEX\"\n\nUse `gdex-spot-trading` to actually execute. This skill is discovery only.\n\n## Prerequisites\n\n```typescript\nimport { GdexSkill, GDEX_API_KEY_PRIMARY, ChainId } from '@gemachdao/gdex-skill';\n\nconst skill = new GdexSkill();\nskill.loginWithApiKey(GDEX_API_KEY_PRIMARY);\n```\n\n## List xStocks\n\n```typescript\nconst xstocks = await skill.getXstocks({\n  chain: ChainId.SOLANA,  // optional\n  limit: 50,              // optional\n  page: 1,                // optional\n});\n```\n\n### Parameters\n\n`getXstocks` takes `TokenListParams`, which is the same shape used by `getNewestTokens` and\n`getTopTokens`:\n\n```typescript\ninterface TokenListParams {\n  chain?: SupportedChain;  // chain id or alias; omit for all chains\n  limit?: number;          // page size\n  page?: number;           // 1-based page number\n}\n```\n\nThere are no other filters. Sorting, market-cap floors, and age windows are not exposed.\n\n### Response\n\n```typescript\nPromise<Record<string, unknown>>\n```\n\n**The response is untyped.** Unlike `getTokenDetails`, this endpoint has no declared interface in\nthe SDK, so inspect the payload rather than assuming a shape:\n\n```typescript\nconst xstocks = await skill.getXstocks({ limit: 5 });\nconsole.log(JSON.stringify(xstocks, null, 2));\n```\n\nThe product surface at `gdex.pro/<network>/xstock` renders each row with token symbol and name,\nage, price, 24h price change, market cap, liquidity, and 24h volume, so expect fields covering at\nleast those. Confirm the exact keys against a live call before you depend on them.\n\n## Trading an xStock\n\nxStocks are ordinary SPL/ERC-20 tokens, so once you have an address from this listing you buy and\nsell them with the normal spot methods:\n\n```typescript\nawait skill.buyToken({\n  tokenAddress: '<address from getXstocks>',\n  chain: ChainId.SOLANA,\n  amount: '0.5',\n});\n```\n\nSee `gdex-spot-trading` for the full buy and sell surface, slippage handling, and trade-status\npolling.\n\n## Endpoint\n\n| Method | Endpoint |\n|---|---|\n| `getXstocks` | `GET /v1/xstocks` |\n\n## Notes\n\n- Tokenised equities carry issuer and market-hours risk that ordinary tokens do not. Liquidity on\n  individual names can be very thin \u2014 the live board shows several with under $10k \u2014 so size\n  accordingly and check the liquidity figure before quoting a fill.\n- This method ships with no tests and no typed response in the SDK. Treat the shape as\n  provisional.\n", files: [] }, { name: "gvault", description: "GVault (GMACL, Gemach's Enzyme vault on Ethereum) \u2014 NAV, share price, holdings and return both cumulative and annualised, read from Enzyme's own accounting by a deterministic script.", content: '\n# GVault\n\nRead-only state of GVault (ticker GMACL, "Gemach LP"), an Enzyme vault on Ethereum\ndenominated in USDC.\n\n## Run it\n\n```bash\npython3 scripts/gvault.py      # one JSON object on stdout\n```\n\nStandard library only. Every value is read at one Ethereum block (`observed_block`).\n\n## Rules for agents\n\n1. **Report numbers exactly as the script prints them.**\n2. **Always quote return with its horizon.** `all_time_return_pct` is cumulative since\n   inception (2022-07-31); `annualised_return_pct` is the same over `age_years`. Quoting the\n   cumulative figure alone invites it to be read as a one-year rate. Say both, or say the\n   annualised one.\n3. NAV comes from Enzyme\'s `calcGav()`, not from token balances \u2014 do not "check" it by summing\n   balances; the vault holds stETH as well as USDC.\n\n## Fields\n\n`nav_usd`, `share_price_usd`, `shares_outstanding`, `tracked_assets`,\n`all_time_return_pct`, `annualised_return_pct`, `age_years`, `inception_date`,\n`denomination_symbol`, `observed_block`.\n', files: [{ path: "scripts/gvault.py", content: `#!/usr/bin/env python3
 """GVault (GMACL, an Enzyme vault) NAV, share price and return. Standard library only.
 
 Figures come from Enzyme's own accounting on the vault's comptroller, not from summing token
@@ -4154,8 +4154,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path2) {
-      let input = path2;
+    function removeDotSegments(path3) {
+      let input = path3;
       const output2 = [];
       let nextSlash = -1;
       let len = 0;
@@ -4408,8 +4408,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path2, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path2 && path2 !== "/" ? path2 : void 0;
+        const [path3, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path3 && path3 !== "/" ? path3 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -13605,12 +13605,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f2;
     };
-    function addFormats(ajv, list, fs2, exportName) {
+    function addFormats(ajv, list, fs3, exportName) {
       var _a;
       var _b;
       (_a = (_b = ajv.opts.code).formats) !== null && _a !== void 0 ? _a : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f2 of list)
-        ajv.addFormat(f2, fs2[f2]);
+        ajv.addFormat(f2, fs3[f2]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -16344,17 +16344,17 @@ var require_fixednumber = __commonJS({
         const match = _value.match(/^(-?)([0-9]*)\.?([0-9]*)$/);
         (0, errors_js_1.assertArgument)(match && match[2].length + match[3].length > 0, "invalid FixedNumber string value", "value", _value);
         const format = getFormat(_format);
-        let whole = match[2] || "0", decimal = match[3] || "";
-        while (decimal.length < format.decimals) {
-          decimal += Zeros;
+        let whole = match[2] || "0", decimal2 = match[3] || "";
+        while (decimal2.length < format.decimals) {
+          decimal2 += Zeros;
         }
-        (0, errors_js_1.assert)(decimal.substring(format.decimals).match(/^0*$/), "too many decimals for format", "NUMERIC_FAULT", {
+        (0, errors_js_1.assert)(decimal2.substring(format.decimals).match(/^0*$/), "too many decimals for format", "NUMERIC_FAULT", {
           operation: "fromString",
           fault: "underflow",
           value: _value
         });
-        decimal = decimal.substring(0, format.decimals);
-        const value = BigInt(match[1] + whole + decimal);
+        decimal2 = decimal2.substring(0, format.decimals);
+        const value = BigInt(match[1] + whole + decimal2);
         checkValue(value, format, "fromString");
         return new _FixedNumber(_guard4, value, format);
       }
@@ -16538,7 +16538,7 @@ var require_units = __commonJS({
       "finney",
       "ether"
     ];
-    function formatUnits(value, unit) {
+    function formatUnits2(value, unit) {
       let decimals = 18;
       if (typeof unit === "string") {
         const index = names.indexOf(unit);
@@ -16549,7 +16549,7 @@ var require_units = __commonJS({
       }
       return fixednumber_js_1.FixedNumber.fromValue(value, decimals, { decimals, width: 512 }).toString();
     }
-    exports.formatUnits = formatUnits;
+    exports.formatUnits = formatUnits2;
     function parseUnits(value, unit) {
       (0, errors_js_1.assertArgument)(typeof value === "string", "value must be a string", "value", value);
       let decimals = 18;
@@ -16564,7 +16564,7 @@ var require_units = __commonJS({
     }
     exports.parseUnits = parseUnits;
     function formatEther(wei) {
-      return formatUnits(wei, 18);
+      return formatUnits2(wei, 18);
     }
     exports.formatEther = formatEther;
     function parseEther(ether) {
@@ -17031,12 +17031,12 @@ var require_abstract_coder = __commonJS({
     exports.Result = Result;
     function checkResultErrors(result) {
       const errors = [];
-      const checkErrors = function(path2, object3) {
+      const checkErrors = function(path3, object3) {
         if (!Array.isArray(object3)) {
           return;
         }
         for (let key in object3) {
-          const childPath = path2.slice();
+          const childPath = path3.slice();
           childPath.push(key);
           try {
             checkErrors(childPath, object3[key]);
@@ -38265,7 +38265,7 @@ var require_websocket = __commonJS({
     var http = __require("http");
     var net = __require("net");
     var tls = __require("tls");
-    var { randomBytes: randomBytes6, createHash: createHash3 } = __require("crypto");
+    var { randomBytes: randomBytes6, createHash: createHash4 } = __require("crypto");
     var { Duplex, Readable } = __require("stream");
     var { URL: URL2 } = __require("url");
     var PerMessageDeflate = require_permessage_deflate();
@@ -38921,7 +38921,7 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest = createHash3("sha1").update(key + GUID).digest("base64");
+        const digest = createHash4("sha1").update(key + GUID).digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
@@ -39267,7 +39267,7 @@ var require_websocket_server = __commonJS({
     var EventEmitter = __require("events");
     var http = __require("http");
     var { Duplex } = __require("stream");
-    var { createHash: createHash3 } = __require("crypto");
+    var { createHash: createHash4 } = __require("crypto");
     var extension = require_extension();
     var PerMessageDeflate = require_permessage_deflate();
     var subprotocol = require_subprotocol();
@@ -39562,7 +39562,7 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest = createHash3("sha1").update(key + GUID).digest("base64");
+        const digest = createHash4("sha1").update(key + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
@@ -41471,9 +41471,9 @@ var require_provider_ipcsocket = __commonJS({
       get socket() {
         return this.#socket;
       }
-      constructor(path2, network, options) {
+      constructor(path3, network, options) {
         super(network, options);
-        this.#socket = (0, net_1.connect)(path2);
+        this.#socket = (0, net_1.connect)(path3);
         this.socket.on("ready", async () => {
           try {
             await this._start();
@@ -42830,11 +42830,11 @@ var require_utils5 = __commonJS({
     function spelunk2(object3, _path) {
       const match = _path.match(/^([a-z0-9$_.-]*)(:([a-z]+))?(!)?$/i);
       (0, index_js_1.assertArgument)(match != null, "invalid path", "path", _path);
-      const path2 = match[1];
+      const path3 = match[1];
       const type = match[3];
       const reqd = match[4] === "!";
       let cur = object3;
-      for (const comp of path2.toLowerCase().split(".")) {
+      for (const comp of path3.toLowerCase().split(".")) {
         if (Array.isArray(cur)) {
           if (!comp.match(/^[0-9]+$/)) {
             break;
@@ -42856,7 +42856,7 @@ var require_utils5 = __commonJS({
           break;
         }
       }
-      (0, index_js_1.assertArgument)(!reqd || cur != null, "missing required value", "path", path2);
+      (0, index_js_1.assertArgument)(!reqd || cur != null, "missing required value", "path", path3);
       if (type && cur != null) {
         if (type === "int") {
           if (typeof cur === "string" && cur.match(/^-?[0-9]+$/)) {
@@ -42881,7 +42881,7 @@ var require_utils5 = __commonJS({
         if (type === typeof cur) {
           return cur;
         }
-        (0, index_js_1.assertArgument)(false, `wrong type found for ${type} `, "path", path2);
+        (0, index_js_1.assertArgument)(false, `wrong type found for ${type} `, "path", path3);
       }
       return cur;
     }
@@ -43080,7 +43080,7 @@ var require_json_keystore = __commonJS({
       };
       if (account.mnemonic) {
         const client = options.client != null ? options.client : `ethers/${_version_js_1.version}`;
-        const path2 = account.mnemonic.path || defaultPath3;
+        const path3 = account.mnemonic.path || defaultPath3;
         const locale = account.mnemonic.locale || "en";
         const mnemonicKey = key.slice(32, 64);
         const entropy = (0, index_js_4.getBytes)(account.mnemonic.entropy, "account.mnemonic.entropy");
@@ -43093,7 +43093,7 @@ var require_json_keystore = __commonJS({
         data["x-ethers"] = {
           client,
           gethFilename,
-          path: path2,
+          path: path3,
           locale,
           mnemonicCounter: (0, index_js_4.hexlify)(mnemonicIv).substring(2),
           mnemonicCiphertext: (0, index_js_4.hexlify)(mnemonicCiphertext).substring(2),
@@ -43179,11 +43179,11 @@ var require_hdwallet = __commonJS({
       const I = (0, index_js_4.getBytes)((0, index_js_1.computeHmac)("sha512", chainCode, data));
       return { IL: I.slice(0, 32), IR: I.slice(32) };
     }
-    function derivePath2(node, path2) {
-      const components = path2.split("/");
-      (0, index_js_4.assertArgument)(components.length > 0, "invalid path", "path", path2);
+    function derivePath2(node, path3) {
+      const components = path3.split("/");
+      (0, index_js_4.assertArgument)(components.length > 0, "invalid path", "path", path3);
       if (components[0] === "m") {
-        (0, index_js_4.assertArgument)(node.depth === 0, `cannot derive root path (i.e. path starting with "m/") for a node at non-zero depth ${node.depth}`, "path", path2);
+        (0, index_js_4.assertArgument)(node.depth === 0, `cannot derive root path (i.e. path starting with "m/") for a node at non-zero depth ${node.depth}`, "path", path3);
         components.shift();
       }
       let result = node;
@@ -43253,7 +43253,7 @@ var require_hdwallet = __commonJS({
       /**
        *  @private
        */
-      constructor(guard, signingKey, parentFingerprint, chainCode, path2, index, depth, mnemonic, provider) {
+      constructor(guard, signingKey, parentFingerprint, chainCode, path3, index, depth, mnemonic, provider) {
         super(signingKey, provider);
         (0, index_js_4.assertPrivate)(guard, _guard4, "HDNodeWallet");
         (0, index_js_4.defineProperties)(this, { publicKey: signingKey.compressedPublicKey });
@@ -43262,7 +43262,7 @@ var require_hdwallet = __commonJS({
           parentFingerprint,
           fingerprint,
           chainCode,
-          path: path2,
+          path: path3,
           index,
           depth
         });
@@ -43346,22 +43346,22 @@ var require_hdwallet = __commonJS({
       deriveChild(_index) {
         const index = (0, index_js_4.getNumber)(_index, "index");
         (0, index_js_4.assertArgument)(index <= 4294967295, "invalid index", "index", index);
-        let path2 = this.path;
-        if (path2) {
-          path2 += "/" + (index & ~HardenedBit2);
+        let path3 = this.path;
+        if (path3) {
+          path3 += "/" + (index & ~HardenedBit2);
           if (index & HardenedBit2) {
-            path2 += "'";
+            path3 += "'";
           }
         }
         const { IR, IL } = ser_I2(index, this.chainCode, this.publicKey, this.privateKey);
         const ki = new index_js_1.SigningKey((0, index_js_4.toBeHex)(((0, index_js_4.toBigInt)(IL) + BigInt(this.privateKey)) % N2, 32));
-        return new _HDNodeWallet(_guard4, ki, this.fingerprint, (0, index_js_4.hexlify)(IR), path2, index, this.depth + 1, this.mnemonic, this.provider);
+        return new _HDNodeWallet(_guard4, ki, this.fingerprint, (0, index_js_4.hexlify)(IR), path3, index, this.depth + 1, this.mnemonic, this.provider);
       }
       /**
        *  Return the HDNode for %%path%% from this node.
        */
-      derivePath(path2) {
-        return derivePath2(this, path2);
+      derivePath(path3) {
+        return derivePath2(this, path3);
       }
       static #fromSeed(_seed, mnemonic) {
         (0, index_js_4.assertArgument)((0, index_js_4.isBytesLike)(_seed), "invalid seed", "seed", "[REDACTED]");
@@ -43406,43 +43406,43 @@ var require_hdwallet = __commonJS({
       /**
        *  Creates a new random HDNode.
        */
-      static createRandom(password, path2, wordlist2) {
+      static createRandom(password, path3, wordlist2) {
         if (password == null) {
           password = "";
         }
-        if (path2 == null) {
-          path2 = exports.defaultPath;
+        if (path3 == null) {
+          path3 = exports.defaultPath;
         }
         if (wordlist2 == null) {
           wordlist2 = lang_en_js_1.LangEn.wordlist();
         }
         const mnemonic = mnemonic_js_1.Mnemonic.fromEntropy((0, index_js_1.randomBytes)(16), password, wordlist2);
-        return _HDNodeWallet.#fromSeed(mnemonic.computeSeed(), mnemonic).derivePath(path2);
+        return _HDNodeWallet.#fromSeed(mnemonic.computeSeed(), mnemonic).derivePath(path3);
       }
       /**
        *  Create an HD Node from %%mnemonic%%.
        */
-      static fromMnemonic(mnemonic, path2) {
-        if (!path2) {
-          path2 = exports.defaultPath;
+      static fromMnemonic(mnemonic, path3) {
+        if (!path3) {
+          path3 = exports.defaultPath;
         }
-        return _HDNodeWallet.#fromSeed(mnemonic.computeSeed(), mnemonic).derivePath(path2);
+        return _HDNodeWallet.#fromSeed(mnemonic.computeSeed(), mnemonic).derivePath(path3);
       }
       /**
        *  Creates an HD Node from a mnemonic %%phrase%%.
        */
-      static fromPhrase(phrase, password, path2, wordlist2) {
+      static fromPhrase(phrase, password, path3, wordlist2) {
         if (password == null) {
           password = "";
         }
-        if (path2 == null) {
-          path2 = exports.defaultPath;
+        if (path3 == null) {
+          path3 = exports.defaultPath;
         }
         if (wordlist2 == null) {
           wordlist2 = lang_en_js_1.LangEn.wordlist();
         }
         const mnemonic = mnemonic_js_1.Mnemonic.fromPhrase(phrase, password, wordlist2);
-        return _HDNodeWallet.#fromSeed(mnemonic.computeSeed(), mnemonic).derivePath(path2);
+        return _HDNodeWallet.#fromSeed(mnemonic.computeSeed(), mnemonic).derivePath(path3);
       }
       /**
        *  Creates an HD Node from a %%seed%%.
@@ -43495,7 +43495,7 @@ var require_hdwallet = __commonJS({
       /**
        *  @private
        */
-      constructor(guard, address, publicKey, parentFingerprint, chainCode, path2, index, depth, provider) {
+      constructor(guard, address, publicKey, parentFingerprint, chainCode, path3, index, depth, provider) {
         super(address, provider);
         (0, index_js_4.assertPrivate)(guard, _guard4, "HDNodeVoidWallet");
         (0, index_js_4.defineProperties)(this, { publicKey });
@@ -43505,7 +43505,7 @@ var require_hdwallet = __commonJS({
           fingerprint,
           parentFingerprint,
           chainCode,
-          path: path2,
+          path: path3,
           index,
           depth
         });
@@ -43543,23 +43543,23 @@ var require_hdwallet = __commonJS({
       deriveChild(_index) {
         const index = (0, index_js_4.getNumber)(_index, "index");
         (0, index_js_4.assertArgument)(index <= 4294967295, "invalid index", "index", index);
-        let path2 = this.path;
-        if (path2) {
-          path2 += "/" + (index & ~HardenedBit2);
+        let path3 = this.path;
+        if (path3) {
+          path3 += "/" + (index & ~HardenedBit2);
           if (index & HardenedBit2) {
-            path2 += "'";
+            path3 += "'";
           }
         }
         const { IR, IL } = ser_I2(index, this.chainCode, this.publicKey, null);
         const Ki = index_js_1.SigningKey.addPoints(IL, this.publicKey, true);
         const address = (0, index_js_3.computeAddress)(Ki);
-        return new _HDNodeVoidWallet(_guard4, address, Ki, this.fingerprint, (0, index_js_4.hexlify)(IR), path2, index, this.depth + 1, this.provider);
+        return new _HDNodeVoidWallet(_guard4, address, Ki, this.fingerprint, (0, index_js_4.hexlify)(IR), path3, index, this.depth + 1, this.provider);
       }
       /**
        *  Return the signer for %%path%% from this node.
        */
-      derivePath(path2) {
-        return derivePath2(this, path2);
+      derivePath(path3) {
+        return derivePath2(this, path3);
       }
     };
     exports.HDNodeVoidWallet = HDNodeVoidWallet2;
@@ -43878,11 +43878,11 @@ var require_decode_owla = __commonJS({
         const match = accent.match(/^([a-z]*)([0-9]+)([0-9])(.*)$/);
         (0, index_js_1.assertArgument)(match !== null, "internal error parsing accents", "accents", accents);
         let posOffset = 0;
-        const positions = (0, bit_reader_js_1.decodeBits)(parseInt(match[3]), match[4]);
+        const positions2 = (0, bit_reader_js_1.decodeBits)(parseInt(match[3]), match[4]);
         const charCode = parseInt(match[2]);
         const regex = new RegExp(`([${match[1]}])`, "g");
         words2 = words2.replace(regex, (all, letter) => {
-          const rem = --positions[posOffset];
+          const rem = --positions2[posOffset];
           if (rem === 0) {
             letter = String.fromCharCode(letter.charCodeAt(0), charCode);
             posOffset++;
@@ -54020,11 +54020,11 @@ var require_mime_types = __commonJS({
       }
       return exts[0];
     }
-    function lookup(path2) {
-      if (!path2 || typeof path2 !== "string") {
+    function lookup(path3) {
+      if (!path3 || typeof path3 !== "string") {
         return false;
       }
-      var extension2 = extname("x." + path2).toLowerCase().substr(1);
+      var extension2 = extname("x." + path3).toLowerCase().substr(1);
       if (!extension2) {
         return false;
       }
@@ -54605,7 +54605,7 @@ var require_implementation = __commonJS({
       }
       return str;
     };
-    module.exports = function bind(that) {
+    module.exports = function bind2(that) {
       var target = this;
       if (typeof target !== "function" || toStr2.apply(target) !== funcType) {
         throw new TypeError(ERROR_MESSAGE + target);
@@ -54688,11 +54688,11 @@ var require_actualApply = __commonJS({
   "node_modules/call-bind-apply-helpers/actualApply.js"(exports, module) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
-    var bind = require_function_bind();
+    var bind2 = require_function_bind();
     var $apply = require_functionApply();
     var $call = require_functionCall();
     var $reflectApply = require_reflectApply();
-    module.exports = $reflectApply || bind.call($call, $apply);
+    module.exports = $reflectApply || bind2.call($call, $apply);
   }
 });
 
@@ -54701,7 +54701,7 @@ var require_call_bind_apply_helpers = __commonJS({
   "node_modules/call-bind-apply-helpers/index.js"(exports, module) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
-    var bind = require_function_bind();
+    var bind2 = require_function_bind();
     var $TypeError = require_type();
     var $call = require_functionCall();
     var $actualApply = require_actualApply();
@@ -54709,7 +54709,7 @@ var require_call_bind_apply_helpers = __commonJS({
       if (args2.length < 1 || typeof args2[0] !== "function") {
         throw new $TypeError("a function is required");
       }
-      return $actualApply(bind, $call, args2);
+      return $actualApply(bind2, $call, args2);
     };
   }
 });
@@ -54774,8 +54774,8 @@ var require_hasown = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     var call = Function.prototype.call;
     var $hasOwn = Object.prototype.hasOwnProperty;
-    var bind = require_function_bind();
-    module.exports = bind.call(call, $hasOwn);
+    var bind2 = require_function_bind();
+    module.exports = bind2.call(call, $hasOwn);
   }
 });
 
@@ -55001,13 +55001,13 @@ var require_get_intrinsic = __commonJS({
       "%WeakMapPrototype%": ["WeakMap", "prototype"],
       "%WeakSetPrototype%": ["WeakSet", "prototype"]
     };
-    var bind = require_function_bind();
+    var bind2 = require_function_bind();
     var hasOwn = require_hasown();
-    var $concat = bind.call($call, Array.prototype.concat);
-    var $spliceApply = bind.call($apply, Array.prototype.splice);
-    var $replace = bind.call($call, String.prototype.replace);
-    var $strSlice = bind.call($call, String.prototype.slice);
-    var $exec = bind.call($call, RegExp.prototype.exec);
+    var $concat = bind2.call($call, Array.prototype.concat);
+    var $spliceApply = bind2.call($apply, Array.prototype.splice);
+    var $replace = bind2.call($call, String.prototype.replace);
+    var $strSlice = bind2.call($call, String.prototype.slice);
+    var $exec = bind2.call($call, RegExp.prototype.exec);
     var rePropName = /[^%.[\]]+|\[(?:(-?\d+(?:\.\d+)?)|(["'])((?:(?!\2)[^\\]|\\.)*?)\2)\]|(?=(?:\.|\[\])(?:\.|\[\]|%$))/g;
     var reEscapeChar = /\\(\\)?/g;
     var stringToPath = function stringToPath2(string3) {
@@ -55177,11 +55177,11 @@ var require_form_data = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     var CombinedStream = require_combined_stream();
     var util2 = __require("util");
-    var path2 = __require("path");
+    var path3 = __require("path");
     var http = __require("http");
     var https = __require("https");
     var parseUrl = __require("url").parse;
-    var fs2 = __require("fs");
+    var fs3 = __require("fs");
     var Stream = __require("stream").Stream;
     var crypto2 = __require("crypto");
     var mime = require_mime_types();
@@ -55248,7 +55248,7 @@ var require_form_data = __commonJS({
         if (value.end != void 0 && value.end != Infinity && value.start != void 0) {
           callback(null, value.end + 1 - (value.start ? value.start : 0));
         } else {
-          fs2.stat(value.path, function(err, stat2) {
+          fs3.stat(value.path, function(err, stat2) {
             if (err) {
               callback(err);
               return;
@@ -55305,11 +55305,11 @@ var require_form_data = __commonJS({
     FormData2.prototype._getContentDisposition = function(value, options) {
       var filename;
       if (typeof options.filepath === "string") {
-        filename = path2.normalize(options.filepath).replace(/\\/g, "/");
+        filename = path3.normalize(options.filepath).replace(/\\/g, "/");
       } else if (options.filename || value && (value.name || value.path)) {
-        filename = path2.basename(options.filename || value && (value.name || value.path));
+        filename = path3.basename(options.filename || value && (value.name || value.path));
       } else if (value && value.readable && hasOwn(value, "httpVersion")) {
-        filename = path2.basename(value.client._httpMessage.path || "");
+        filename = path3.basename(value.client._httpMessage.path || "");
       }
       if (filename) {
         return 'filename="' + filename + '"';
@@ -57261,12 +57261,12 @@ var require_axios = __commonJS({
     var https = __require("https");
     var http2 = __require("http2");
     var util2 = __require("util");
-    var path2 = __require("path");
+    var path3 = __require("path");
     var followRedirects = require_follow_redirects();
     var zlib = __require("zlib");
     var stream = __require("stream");
     var events = __require("events");
-    function bind(fn, thisArg) {
+    function bind2(fn, thisArg) {
       return function wrap() {
         return fn.apply(thisArg, arguments);
       };
@@ -57461,7 +57461,7 @@ var require_axios = __commonJS({
             // Null-proto descriptor so a polluted Object.prototype.get cannot
             // hijack defineProperty's accessor-vs-data resolution.
             __proto__: null,
-            value: bind(val, thisArg),
+            value: bind2(val, thisArg),
             writable: true,
             enumerable: true,
             configurable: true
@@ -58165,9 +58165,9 @@ var require_axios = __commonJS({
     function removeBrackets(key) {
       return utils$1.endsWith(key, "[]") ? key.slice(0, -2) : key;
     }
-    function renderKey(path3, key, dots) {
-      if (!path3) return key;
-      return path3.concat(key).map(function each(token, i) {
+    function renderKey(path4, key, dots) {
+      if (!path4) return key;
+      return path4.concat(key).map(function each(token, i) {
         token = removeBrackets(token);
         return !dots && i ? "[" + token + "]" : token;
       }).join(dots ? "." : "");
@@ -58216,13 +58216,13 @@ var require_axios = __commonJS({
         }
         return value;
       }
-      function defaultVisitor(value, key, path3) {
+      function defaultVisitor(value, key, path4) {
         let arr = value;
         if (utils$1.isReactNative(formData) && utils$1.isReactNativeBlob(value)) {
-          formData.append(renderKey(path3, key, dots), convertValue(value));
+          formData.append(renderKey(path4, key, dots), convertValue(value));
           return false;
         }
-        if (value && !path3 && typeof value === "object") {
+        if (value && !path4 && typeof value === "object") {
           if (utils$1.endsWith(key, "{}")) {
             key = metaTokens ? key : key.slice(0, -2);
             value = JSON.stringify(value);
@@ -58241,7 +58241,7 @@ var require_axios = __commonJS({
         if (isVisitable(value)) {
           return true;
         }
-        formData.append(renderKey(path3, key, dots), convertValue(value));
+        formData.append(renderKey(path4, key, dots), convertValue(value));
         return false;
       }
       const stack = [];
@@ -58250,19 +58250,19 @@ var require_axios = __commonJS({
         convertValue,
         isVisitable
       });
-      function build(value, path3, depth = 0) {
+      function build(value, path4, depth = 0) {
         if (utils$1.isUndefined(value)) return;
         if (depth > maxDepth) {
           throw new AxiosError("Object is too deeply nested (" + depth + " levels). Max depth: " + maxDepth, AxiosError.ERR_FORM_DATA_DEPTH_EXCEEDED);
         }
         if (stack.indexOf(value) !== -1) {
-          throw new Error("Circular reference detected in " + path3.join("."));
+          throw new Error("Circular reference detected in " + path4.join("."));
         }
         stack.push(value);
         utils$1.forEach(value, function each(el, key) {
-          const result = !(utils$1.isUndefined(el) || el === null) && visitor.call(formData, el, utils$1.isString(key) ? key.trim() : key, path3, exposedHelpers);
+          const result = !(utils$1.isUndefined(el) || el === null) && visitor.call(formData, el, utils$1.isString(key) ? key.trim() : key, path4, exposedHelpers);
           if (result === true) {
-            build(el, path3 ? path3.concat(key) : [key], depth + 1);
+            build(el, path4 ? path4.concat(key) : [key], depth + 1);
           }
         });
         stack.pop();
@@ -58451,7 +58451,7 @@ var require_axios = __commonJS({
     };
     function toURLEncodedForm(data, options) {
       return toFormData(data, new platform.classes.URLSearchParams(), {
-        visitor: function(value, key, path3, helpers) {
+        visitor: function(value, key, path4, helpers) {
           if (platform.isNode && utils$1.isBuffer(value)) {
             this.append(key, value.toString("base64"));
             return false;
@@ -58479,11 +58479,11 @@ var require_axios = __commonJS({
       return obj;
     }
     function formDataToJSON(formData) {
-      function buildPath(path3, value, target, index) {
-        let name = path3[index++];
+      function buildPath(path4, value, target, index) {
+        let name = path4[index++];
         if (name === "__proto__") return true;
         const isNumericKey = Number.isFinite(+name);
-        const isLast = index >= path3.length;
+        const isLast = index >= path4.length;
         name = !name && utils$1.isArray(target) ? target.length : name;
         if (isLast) {
           if (utils$1.hasOwnProp(target, name)) {
@@ -58496,7 +58496,7 @@ var require_axios = __commonJS({
         if (!utils$1.hasOwnProp(target, name) || !utils$1.isObject(target[name])) {
           target[name] = [];
         }
-        const result = buildPath(path3, value, target[name], index);
+        const result = buildPath(path4, value, target[name], index);
         if (result && utils$1.isArray(target[name])) {
           target[name] = arrayToObject(target[name]);
         }
@@ -59893,8 +59893,8 @@ var require_axios = __commonJS({
           const allowedSocketPaths = own2("allowedSocketPaths");
           if (allowedSocketPaths != null) {
             const allowed = Array.isArray(allowedSocketPaths) ? allowedSocketPaths : [allowedSocketPaths];
-            const resolvedSocket = path2.resolve(socketPath);
-            const isAllowed = allowed.some((entry) => typeof entry === "string" && path2.resolve(entry) === resolvedSocket);
+            const resolvedSocket = path3.resolve(socketPath);
+            const isAllowed = allowed.some((entry) => typeof entry === "string" && path3.resolve(entry) === resolvedSocket);
             if (!isAllowed) {
               return reject(new AxiosError(`socketPath "${socketPath}" is not permitted by allowedSocketPaths`, AxiosError.ERR_BAD_OPTION_VALUE, config2));
             }
@@ -60167,14 +60167,14 @@ var require_axios = __commonJS({
     var cookies = platform.hasStandardBrowserEnv ? (
       // Standard browser envs support document.cookie
       {
-        write(name, value, expires, path3, domain, secure, sameSite) {
+        write(name, value, expires, path4, domain, secure, sameSite) {
           if (typeof document === "undefined") return;
           const cookie = [`${name}=${encodeURIComponent(value)}`];
           if (utils$1.isNumber(expires)) {
             cookie.push(`expires=${new Date(expires).toUTCString()}`);
           }
-          if (utils$1.isString(path3)) {
-            cookie.push(`path=${path3}`);
+          if (utils$1.isString(path4)) {
+            cookie.push(`path=${path4}`);
           }
           if (utils$1.isString(domain)) {
             cookie.push(`domain=${domain}`);
@@ -61456,7 +61456,7 @@ var require_axios = __commonJS({
     });
     function createInstance(defaultConfig) {
       const context = new Axios(defaultConfig);
-      const instance = bind(Axios.prototype.request, context);
+      const instance = bind2(Axios.prototype.request, context);
       utils$1.extend(instance, Axios.prototype, context, {
         allOwnKeys: true
       });
@@ -61820,6 +61820,10 @@ var require_common2 = __commonJS({
       GdexErrorCode2["INVALID_ADDRESS"] = "INVALID_ADDRESS";
       GdexErrorCode2["SLIPPAGE_EXCEEDED"] = "SLIPPAGE_EXCEEDED";
       GdexErrorCode2["SUBMISSION_UNKNOWN"] = "SUBMISSION_UNKNOWN";
+      GdexErrorCode2["COPY_TRADE_NOT_FOUND"] = "COPY_TRADE_NOT_FOUND";
+      GdexErrorCode2["PAUSE_STATE_UNVERIFIED"] = "PAUSE_STATE_UNVERIFIED";
+      GdexErrorCode2["PAUSE_UNSUPPORTED"] = "PAUSE_UNSUPPORTED";
+      GdexErrorCode2["COPY_TRADE_CONFIG_INVALID"] = "COPY_TRADE_CONFIG_INVALID";
     })(GdexErrorCode || (exports.GdexErrorCode = GdexErrorCode = {}));
   }
 });
@@ -61965,14 +61969,14 @@ var require_errors4 = __commonJS({
       }
     };
     exports.GdexAuthError = GdexAuthError;
-    var GdexValidationError2 = class extends GdexError {
+    var GdexValidationError3 = class extends GdexError {
       constructor(message, field) {
         super(message, common_1.GdexErrorCode.VALIDATION_ERROR);
         this.name = "GdexValidationError";
         this.field = field;
       }
     };
-    exports.GdexValidationError = GdexValidationError2;
+    exports.GdexValidationError = GdexValidationError3;
     var GdexApiError = class extends GdexError {
       constructor(message, statusCode, responseBody) {
         const code = statusCode === 404 ? common_1.GdexErrorCode.NOT_FOUND : common_1.GdexErrorCode.API_ERROR;
@@ -62415,6 +62419,9 @@ var require_gdexManagedCrypto = __commonJS({
     exports.encodeLimitOrderData = encodeLimitOrderData;
     exports.signLimitOrderMessage = signLimitOrderMessage;
     exports.buildLimitOrderComputedData = buildLimitOrderComputedData;
+    exports.toAbiBool = toAbiBool;
+    exports.toAbiUint = toAbiUint;
+    exports.toAbiUintArray = toAbiUintArray;
     exports.encodeCopyTradeData = encodeCopyTradeData;
     exports.signCopyTradeMessage = signCopyTradeMessage;
     exports.buildCopyTradeComputedData = buildCopyTradeComputedData;
@@ -62574,42 +62581,42 @@ var require_gdexManagedCrypto = __commonJS({
           encoded = abi.encode(["string", "uint32", "bool", "string"], [params.coin, params.leverage, params.isCross, params.nonce]);
           break;
         case "hl_create":
-          encoded = abi.encode(["string", "string", "string", "string", "string", "string", "string", "string"], [
-            params.traderWallet,
-            params.copyTradeName,
-            params.copyMode,
-            params.fixedAmountCostPerOrder,
-            params.lossPercent,
-            params.profitPercent,
-            params.nonce,
-            params.oppositeCopy
+          encoded = abi.encode(["string", "string", "uint64", "string", "string", "string", "string", "bool"], [
+            String(params.traderWallet),
+            String(params.copyTradeName),
+            toAbiUint(params.copyMode, "copyMode"),
+            String(params.fixedAmountCostPerOrder),
+            String(params.lossPercent),
+            String(params.profitPercent),
+            String(params.nonce),
+            toAbiBool(params.oppositeCopy)
           ]);
           break;
         case "hl_update":
           encoded = abi.encode([
             "string",
             "string",
+            "uint64",
             "string",
             "string",
             "string",
             "string",
+            "bool",
+            "bool",
             "string",
-            "string",
-            "string",
-            "string",
-            "string"
+            "bool"
           ], [
-            params.traderWallet,
-            params.copyTradeName,
-            params.copyMode,
-            params.fixedAmountCostPerOrder,
-            params.lossPercent,
-            params.profitPercent,
-            params.nonce,
-            params.isDelete,
-            params.isChangeStatus,
-            params.copyTradeId,
-            params.oppositeCopy
+            String(params.traderWallet),
+            String(params.copyTradeName),
+            toAbiUint(params.copyMode, "copyMode"),
+            String(params.fixedAmountCostPerOrder),
+            String(params.lossPercent),
+            String(params.profitPercent),
+            String(params.nonce),
+            toAbiBool(params.isDelete),
+            toAbiBool(params.isChangeStatus),
+            String(params.copyTradeId),
+            toAbiBool(params.oppositeCopy)
           ]);
           break;
         case "hl_enable_trading":
@@ -62824,6 +62831,37 @@ var require_gdexManagedCrypto = __commonJS({
         signature
       });
     }
+    function toAbiBool(value) {
+      if (value === void 0 || value === null)
+        return false;
+      if (typeof value === "boolean")
+        return value;
+      if (typeof value === "number") {
+        if (value === 0 || value === 1)
+          return value === 1;
+      }
+      if (typeof value === "string") {
+        const v = value.trim().toLowerCase();
+        if (v === "" || v === "0" || v === "false")
+          return false;
+        if (v === "1" || v === "true")
+          return true;
+      }
+      throw new Error(`Invalid boolean value: ${JSON.stringify(value)}`);
+    }
+    function toAbiUint(value, field) {
+      const str = typeof value === "bigint" ? value.toString() : String(value ?? "").trim();
+      if (!/^\d+$/.test(str)) {
+        throw new Error(`Invalid ${field}: expected a non-negative integer, got ${JSON.stringify(value)}`);
+      }
+      return BigInt(str);
+    }
+    function toAbiUintArray(value, field) {
+      if (value === void 0 || value === null || value === "")
+        return [];
+      const items = Array.isArray(value) ? value : String(value).split(",");
+      return items.map((v) => typeof v === "string" ? v.trim() : v).filter((v) => v !== "").map((v) => toAbiUint(v, field));
+    }
     function encodeCopyTradeData(action, params) {
       const abi = ethers_1.AbiCoder.defaultAbiCoder();
       let encoded;
@@ -62832,66 +62870,64 @@ var require_gdexManagedCrypto = __commonJS({
           encoded = abi.encode([
             "string",
             "string",
-            "uint256",
+            "uint64",
+            "string",
+            "uint64",
+            "string",
+            "bool",
             "string",
             "string",
             "string",
-            "string",
-            "string",
-            "string",
-            "string",
-            "string",
-            "string"
+            "bool",
+            "uint64[]"
           ], [
-            params.traderWallet,
-            params.copyTradeName,
-            params.chainId,
-            params.gasPrice,
-            params.buyMode,
-            params.copyBuyAmount,
-            params.isBuyExistingToken,
-            params.lossPercent,
-            params.profitPercent,
-            params.nonce,
-            params.copySell,
-            params.excludedDexNumbers
+            String(params.traderWallet),
+            String(params.copyTradeName),
+            toAbiUint(params.chainId, "chainId"),
+            String(params.gasPrice ?? "0"),
+            toAbiUint(params.buyMode, "buyMode"),
+            String(params.copyBuyAmount),
+            toAbiBool(params.isBuyExistingToken),
+            String(params.lossPercent),
+            String(params.profitPercent),
+            String(params.nonce),
+            toAbiBool(params.copySell),
+            toAbiUintArray(params.excludedDexNumbers, "excludedDexNumbers")
           ]);
           break;
         case "update_copy_trade":
           encoded = abi.encode([
             "string",
             "string",
-            "uint256",
+            "uint64",
+            "string",
+            "uint64",
+            "string",
+            "bool",
             "string",
             "string",
             "string",
+            "bool",
+            "bool",
             "string",
-            "string",
-            "string",
-            "string",
-            "string",
-            "string",
-            "string",
-            "string",
-            "string",
-            "string"
+            "bool",
+            "uint64[]"
           ], [
-            params.traderWallet,
-            params.copyTradeName,
-            params.chainId,
-            params.gasPrice,
-            params.buyMode,
-            params.copyBuyAmount,
-            params.isBuyExistingToken,
-            params.lossPercent,
-            params.profitPercent,
-            params.nonce,
-            params.copySell,
-            params.excludedDexNumbers,
-            params.copyTradeId,
-            params.isDelete,
-            params.isChangeStatus,
-            params.excludedProgramIds
+            String(params.traderWallet),
+            String(params.copyTradeName),
+            toAbiUint(params.chainId, "chainId"),
+            String(params.gasPrice ?? "0"),
+            toAbiUint(params.buyMode, "buyMode"),
+            String(params.copyBuyAmount),
+            toAbiBool(params.isBuyExistingToken),
+            String(params.lossPercent),
+            String(params.profitPercent),
+            String(params.nonce),
+            toAbiBool(params.isDelete),
+            toAbiBool(params.isChangeStatus),
+            String(params.copyTradeId),
+            toAbiBool(params.copySell),
+            toAbiUintArray(params.excludedDexNumbers, "excludedDexNumbers")
           ]);
           break;
         default:
@@ -62932,7 +62968,7 @@ var require_chains = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.HYPERLIQUID_DEFAULT_ASSETS = exports.CHAIN_CONFIGS = void 0;
     exports.getChainConfig = getChainConfig;
-    exports.normalizeChain = normalizeChain;
+    exports.normalizeChain = normalizeChain2;
     exports.chainSupportsDex = chainSupportsDex;
     exports.getSupportedChains = getSupportedChains;
     var common_1 = require_common2();
@@ -63209,7 +63245,7 @@ var require_chains = __commonJS({
     }
     var CHAIN_ID_VALUES = new Set(Object.values(common_1.ChainId).filter((v) => typeof v === "number"));
     var CHAIN_IDS_BY_NAME = Object.fromEntries(Object.entries(common_1.ChainId).filter(([, v]) => typeof v === "number").map(([k, v]) => [k.toLowerCase(), v]));
-    function normalizeChain(chain) {
+    function normalizeChain2(chain) {
       let id2;
       if (typeof chain === "number") {
         id2 = CHAIN_ID_VALUES.has(chain) ? chain : void 0;
@@ -63274,7 +63310,7 @@ var require_validation4 = __commonJS({
     exports.validateAddress = validateAddress;
     exports.validateTokenAddress = validateTokenAddress;
     exports.validateAmount = validateAmount;
-    exports.parseAmountUnits = parseAmountUnits;
+    exports.parseAmountUnits = parseAmountUnits2;
     exports.validateChain = validateChain;
     exports.validateSlippage = validateSlippage;
     exports.validateLeverage = validateLeverage;
@@ -63368,7 +63404,7 @@ var require_validation4 = __commonJS({
         throw new errors_1.GdexValidationError(`${fieldName} must be a positive decimal number (e.g. "1.5"), got "${amount}"`, fieldName);
       }
     }
-    function parseAmountUnits(amount, decimals, fieldName = "amount") {
+    function parseAmountUnits2(amount, decimals, fieldName = "amount") {
       validateAmount(amount, fieldName);
       const fraction = amount.split(".")[1] ?? "";
       if (fraction.replace(/0+$/, "").length > decimals) {
@@ -63402,69 +63438,292 @@ var require_validation4 = __commonJS({
   }
 });
 
-// dist/utils/apiAliases.js
-var require_apiAliases = __commonJS({
-  "dist/utils/apiAliases.js"(exports) {
+// dist/actions/portfolio.js
+var require_portfolio2 = __commonJS({
+  "dist/actions/portfolio.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.toWireChain = toWireChain;
-    exports.buildChainAliases = buildChainAliases;
-    exports.buildTokenAliases = buildTokenAliases;
-    exports.buildWalletAliases = buildWalletAliases;
-    exports.pickRequestId = pickRequestId;
-    var common_1 = require_common2();
-    var chains_1 = require_chains();
-    var NON_EVM_CHAIN_IDS = {
-      solana: common_1.ChainId.SOLANA,
-      sui: common_1.ChainId.SUI
-    };
-    function toWireChain(chain) {
-      if (typeof chain === "number")
-        return chain;
-      const { id: id2, family } = (0, chains_1.normalizeChain)(chain);
-      return family === "evm" ? id2 : family;
-    }
-    function buildChainAliases(input) {
-      if (input === void 0)
-        return {};
-      const chain = toWireChain(input);
-      if (typeof chain === "number") {
-        return {
-          chain,
-          chainId: chain
-        };
+    var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
       }
-      return {
-        chain,
-        chainId: NON_EVM_CHAIN_IDS[chain]
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault2 = exports && exports.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar2 = exports && exports.__importStar || /* @__PURE__ */ (function() {
+      var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function(o2) {
+          var ar = [];
+          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
+          return ar;
+        };
+        return ownKeys(o);
       };
-    }
-    function buildTokenAliases(tokenAddress) {
-      return {
-        tokenAddress,
-        token: tokenAddress
+      return function(mod2) {
+        if (mod2 && mod2.__esModule) return mod2;
+        var result = {};
+        if (mod2 != null) {
+          for (var k = ownKeys(mod2), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding2(result, mod2, k[i]);
+        }
+        __setModuleDefault2(result, mod2);
+        return result;
       };
+    })();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.getManagedHoldings = exports.MANAGED_READ_CHAIN_IDS = void 0;
+    exports.managedChain = managedChain;
+    exports.managedReadAuth = managedReadAuth;
+    exports.normalizeHolding = normalizeHolding;
+    exports.getPortfolio = getPortfolio;
+    exports.getBalances = getBalances;
+    exports.getTradingFunds = getTradingFunds;
+    exports.getTradeHistory = getTradeHistory;
+    var ethers_1 = require_lib2();
+    var Endpoints = __importStar2(require_endpoints());
+    var validation_1 = require_validation4();
+    var errors_1 = require_errors4();
+    var chains_1 = require_chains();
+    var gdexManagedCrypto_1 = require_gdexManagedCrypto();
+    exports.MANAGED_READ_CHAIN_IDS = /* @__PURE__ */ new Set([
+      1,
+      10,
+      56,
+      146,
+      252,
+      4663,
+      6900,
+      8453,
+      42161,
+      80094,
+      622112261,
+      1313131213
+    ]);
+    function managedChain(chain, allowed = exports.MANAGED_READ_CHAIN_IDS, what = "managed reads") {
+      const c = (0, chains_1.normalizeChain)(chain);
+      if (!allowed.has(c.id)) {
+        throw new errors_1.GdexValidationError(`Chain ${c.id} is not supported by GDEX for ${what}`, "chain");
+      }
+      return c;
     }
-    function buildWalletAliases(walletAddress) {
-      if (!walletAddress)
-        return {};
-      return {
-        walletAddress,
-        wallet: walletAddress
-      };
+    function managedReadAuth(creds2) {
+      const userId = creds2.userId ?? creds2.walletAddress;
+      (0, validation_1.validateRequired)(userId, "walletAddress");
+      if (creds2.data)
+        return { userId, data: creds2.data };
+      if (creds2.sessionPrivateKey && creds2.apiKey) {
+        return { userId, data: (0, gdexManagedCrypto_1.buildGdexReadSessionData)(creds2.sessionPrivateKey, creds2.apiKey) };
+      }
+      throw new errors_1.GdexValidationError("Managed reads need the session: pass data, or sessionPrivateKey and apiKey (or accountRef). GDEX has no public address-only holdings read.", "sessionPrivateKey");
     }
-    function pickRequestId(payload) {
-      if (!payload || typeof payload !== "object")
-        return void 0;
-      const p = payload;
-      const requestId = p.requestId;
-      const jobId = p.jobId;
-      if (typeof requestId === "string" && requestId.length > 0)
-        return requestId;
-      if (typeof jobId === "string" && jobId.length > 0)
-        return jobId;
+    function malformed(endpoint, detail, body) {
+      throw new errors_1.GdexApiError(`Malformed ${endpoint} response: ${detail}. Treat the balance as unknown, not zero.`, 200, body && typeof body === "object" ? body : void 0);
+    }
+    var isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+    var optStr = (v) => typeof v === "string" && v !== "" ? v : typeof v === "number" && Number.isFinite(v) ? String(v) : void 0;
+    function formatRaw(raw, decimals) {
+      return (0, ethers_1.formatUnits)(raw, decimals).replace(/\.0$/, "");
+    }
+    function rawOfRow(amount, uiAmount, decimals) {
+      if (typeof amount === "string" && /^[0-9]+$/.test(amount))
+        return BigInt(amount);
+      if (typeof amount === "number" && Number.isSafeInteger(amount) && amount >= 0)
+        return BigInt(amount);
+      if (typeof uiAmount === "string" && /^[0-9]+(\.[0-9]+)?$/.test(uiAmount)) {
+        const frac = uiAmount.split(".")[1] ?? "";
+        if (frac.replace(/0+$/, "").length > decimals)
+          return void 0;
+        return (0, ethers_1.parseUnits)(frac.length > decimals ? uiAmount.slice(0, uiAmount.length - (frac.length - decimals)).replace(/\.$/, "") : uiAmount, decimals);
+      }
       return void 0;
+    }
+    function normalizeHolding(row, chain) {
+      if (!isObj(row) || !isObj(row.tokenInfo))
+        malformed(Endpoints.PORTFOLIO, "holding row without tokenInfo", row);
+      const t = row.tokenInfo;
+      const decimals = Number(t.decimals);
+      if (typeof t.address !== "string" || !t.address || !Number.isInteger(decimals) || decimals < 0 || decimals > 255) {
+        malformed(Endpoints.PORTFOLIO, "holding tokenInfo without address/decimals", row);
+      }
+      const raw = rawOfRow(row.amount, row.uiAmount, decimals);
+      if (raw === void 0)
+        malformed(Endpoints.PORTFOLIO, `holding ${t.address} has no exact amount`, row);
+      const balance = formatRaw(raw, decimals);
+      const priceUsd = optStr(t.priceUsd);
+      const out = {
+        tokenAddress: t.address,
+        symbol: optStr(t.symbol) ?? "",
+        name: optStr(t.name) ?? "",
+        decimals,
+        rawBalance: raw.toString(),
+        balance,
+        chain: chain.id,
+        chainId: chain.id
+      };
+      const logo = optStr(t.image) ?? optStr(t.imageUrl) ?? optStr(t.logo);
+      if (logo)
+        out.logoUrl = logo;
+      if (priceUsd) {
+        out.priceUsd = priceUsd;
+        const usd = Number(balance) * Number(priceUsd);
+        if (Number.isFinite(usd))
+          out.usdValue = String(usd);
+      }
+      const priceNative = optStr(t.priceNative);
+      if (priceNative)
+        out.priceNative = priceNative;
+      const valueNative = optStr(row.holding);
+      if (valueNative)
+        out.valueNative = valueNative;
+      const investedNative = optStr(row.invested);
+      if (investedNative)
+        out.investedNative = investedNative;
+      if (typeof row.pnlPercentage === "number" && Number.isFinite(row.pnlPercentage))
+        out.pnlPercentage = row.pnlPercentage;
+      return out;
+    }
+    function sumIfAll(values) {
+      if (values.some((v) => v === void 0))
+        return void 0;
+      return String(values.reduce((a, v) => a + Number(v), 0));
+    }
+    async function getPortfolio(client, params) {
+      if (params.chain === void 0)
+        throw new errors_1.GdexValidationError("chain is required: /v1/portfolio is per chain", "chain");
+      const chain = managedChain(params.chain);
+      const auth = managedReadAuth(params);
+      const res = await client.get(Endpoints.PORTFOLIO, { ...auth, chainId: chain.id });
+      if (!isObj(res) || !Array.isArray(res.holding)) {
+        malformed(Endpoints.PORTFOLIO, "expected { holding: [] }", res);
+      }
+      const holdings = res.holding.map((row) => normalizeHolding(row, chain));
+      const portfolio = {
+        status: "ok",
+        mode: "managed",
+        userId: auth.userId,
+        chainId: chain.id,
+        holdings,
+        balances: holdings
+      };
+      const totalNative = sumIfAll(holdings.map((h) => h.valueNative));
+      if (totalNative !== void 0)
+        portfolio.totalValueNative = totalNative;
+      const totalUsd = sumIfAll(holdings.map((h) => h.usdValue));
+      if (totalUsd !== void 0)
+        portfolio.totalValueUsd = totalUsd;
+      return portfolio;
+    }
+    exports.getManagedHoldings = getPortfolio;
+    async function getBalances(client, params) {
+      const portfolio = await getPortfolio(client, params);
+      if (!params.tokenAddress)
+        return portfolio.holdings;
+      const evm = (0, chains_1.normalizeChain)(params.chain).family === "evm";
+      const want = evm ? params.tokenAddress.toLowerCase() : params.tokenAddress;
+      return portfolio.holdings.filter((h) => (evm ? h.tokenAddress.toLowerCase() : h.tokenAddress) === want);
+    }
+    async function getTradingFunds(client, params) {
+      if (params.chain === void 0)
+        throw new errors_1.GdexValidationError("chain is required", "chain");
+      const chain = managedChain(params.chain);
+      const auth = managedReadAuth(params);
+      const res = await client.get(Endpoints.USER_PROFILE, { ...auth, chainId: chain.id });
+      if (!isObj(res) || typeof res.address !== "string" || !res.address) {
+        malformed(Endpoints.USER_PROFILE, "expected { address, balance }", res);
+      }
+      const bal = typeof res.balance === "number" ? res.balance : typeof res.balance === "string" ? Number(res.balance) : NaN;
+      if (!Number.isFinite(bal) || bal < 0)
+        malformed(Endpoints.USER_PROFILE, "missing numeric balance", res);
+      const funds = {
+        status: "ok",
+        mode: "managed",
+        userId: auth.userId,
+        chainId: chain.id,
+        address: res.address,
+        nativeBalance: String(bal),
+        nativeSymbol: chains_1.CHAIN_CONFIGS[String(chain.id)]?.nativeToken ?? "",
+        precision: "approximate"
+      };
+      if (isObj(res.walletsByChain)) {
+        const w = res.walletsByChain;
+        const s = (v) => typeof v === "string" ? v : null;
+        funds.walletsByChain = { evm: s(w.evm), solana: s(w.solana), sui: s(w.sui) };
+      }
+      return funds;
+    }
+    async function getTradeHistory(client, params) {
+      const userId = params.userId ?? params.walletAddress;
+      (0, validation_1.validateRequired)(userId, "walletAddress");
+      if (params.chain === void 0)
+        throw new errors_1.GdexValidationError("chain is required by /v1/user_history", "chain");
+      for (const f2 of ["page", "startTime", "endTime"]) {
+        if (params[f2] !== void 0) {
+          throw new errors_1.GdexValidationError(`${f2} is not supported by /v1/user_history; page with limit and cursor (nextCursor)`, f2);
+        }
+      }
+      const chain = managedChain(params.chain);
+      const query = { chainId: chain.id, user: userId };
+      if (params.limit !== void 0) {
+        if (!Number.isInteger(params.limit) || params.limit < 1 || params.limit > 50) {
+          throw new errors_1.GdexValidationError("limit must be an integer from 1 to 50", "limit");
+        }
+        query.limit = params.limit;
+      }
+      if (params.cursor !== void 0)
+        query.cursor = params.cursor;
+      const res = await client.get(Endpoints.USER_HISTORY, query);
+      if (!isObj(res) || !Array.isArray(res.tracks))
+        malformed(Endpoints.USER_HISTORY, "expected { tracks: [] }", res);
+      const tokenMap = isObj(res.tokenMap) ? res.tokenMap : {};
+      const native = chains_1.CHAIN_CONFIGS[String(chain.id)]?.nativeTokenAddress ?? "native";
+      const trades = res.tracks.map((t) => {
+        if (!isObj(t) || typeof t.token !== "string" || typeof t.isBuy !== "boolean") {
+          malformed(Endpoints.USER_HISTORY, "track without token/isBuy", t);
+        }
+        const tokenAmount = optStr(t.tokenAmount) ?? "0";
+        const nativeAmount = optStr(t.nativeAmount) ?? "0";
+        const info = isObj(tokenMap[t.token]) ? tokenMap[t.token] : void 0;
+        const txHash = optStr(t.txHash) ?? "";
+        const rec = {
+          id: txHash,
+          type: t.isBuy ? "buy" : "sell",
+          inputToken: t.isBuy ? native : t.token,
+          outputToken: t.isBuy ? t.token : native,
+          amountIn: t.isBuy ? nativeAmount : tokenAmount,
+          amountOut: t.isBuy ? tokenAmount : nativeAmount,
+          chain: chain.id,
+          txHash,
+          timestamp: Number(t.timestamp) || 0,
+          status: "completed",
+          tokenAddress: t.token,
+          tokenAmount,
+          nativeAmount
+        };
+        if (typeof t.walletAddress === "string")
+          rec.walletAddress = t.walletAddress;
+        const decimals = typeof t.tokenDecimals === "number" ? t.tokenDecimals : typeof info?.decimals === "number" ? info.decimals : void 0;
+        if (decimals !== void 0)
+          rec.tokenDecimals = decimals;
+        if (typeof info?.symbol === "string")
+          rec.tokenSymbol = info.symbol;
+        if (typeof t.nativePrice === "number")
+          rec.nativePrice = t.nativePrice;
+        if (typeof t.isConfirmed === "boolean")
+          rec.isConfirmed = t.isConfirmed;
+        return rec;
+      });
+      const next = Number(res.nextCursor);
+      return { status: "ok", userId, chainId: chain.id, trades, nextCursor: res.nextCursor != null && Number.isFinite(next) ? next : null };
     }
   }
 });
@@ -63512,73 +63771,260 @@ var require_spotTrade = __commonJS({
       };
     })();
     Object.defineProperty(exports, "__esModule", { value: true });
+    exports.MANAGED_SELL_CHAIN_IDS = exports.MANAGED_BUY_CHAIN_IDS = void 0;
     exports.buyToken = buyToken;
     exports.sellToken = sellToken;
+    exports.waitForTrade = waitForTrade;
+    var ethers_1 = require_lib2();
     var Endpoints = __importStar2(require_endpoints());
     var validation_1 = require_validation4();
     var chains_1 = require_chains();
-    var apiAliases_1 = require_apiAliases();
-    var slippage_1 = require_slippage();
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
-    async function submitManagedBuy(client, params, chain) {
-      const amountWei = (0, validation_1.parseAmountUnits)(params.amount, chain.nativeDecimals, "amount").toString();
+    var errors_1 = require_errors4();
+    var common_1 = require_common2();
+    var portfolio_1 = require_portfolio2();
+    exports.MANAGED_BUY_CHAIN_IDS = /* @__PURE__ */ new Set([
+      1,
+      10,
+      56,
+      146,
+      252,
+      4663,
+      8453,
+      42161,
+      622112261
+    ]);
+    exports.MANAGED_SELL_CHAIN_IDS = portfolio_1.MANAGED_READ_CHAIN_IDS;
+    var MAX_SLIPPAGE_PERCENT = 50;
+    var MAX_TIP_LAMPORTS = 5e7;
+    var LAMPORTS_PER_SOL = 1e9;
+    var PERCENT_DECIMALS = 6;
+    var HUNDRED_PERCENT = 100n * 10n ** BigInt(PERCENT_DECIMALS);
+    function requireManagedCreds(params) {
+      const missing = ["walletAddress", "sessionPrivateKey", "apiKey"].filter((f2) => !params[f2]);
+      if (missing.length > 0) {
+        throw new errors_1.GdexValidationError(`Spot trades are managed-custody only (purchase_v2/sell_v2 require a session-signed computedData). Missing: ${missing.join(", ")}. Pass them or an accountRef.`, missing[0]);
+      }
+      return params;
+    }
+    function isNativeToken(address, chain) {
+      const native = chains_1.CHAIN_CONFIGS[String(chain.id)]?.nativeTokenAddress;
+      if (address.toLowerCase() === "native")
+        return true;
+      if (!native)
+        return false;
+      return chain.family === "evm" ? address.toLowerCase() === native.toLowerCase() : address === native;
+    }
+    function managedOptions(params, chain, side) {
+      const endpoint = side === "buy" ? "purchase_v2" : "sell_v2";
+      if (params.dex !== void 0) {
+        throw new errors_1.GdexValidationError(`dex is not supported by ${endpoint}: the backend picks the route`, "dex");
+      }
+      if (params.referrer !== void 0) {
+        throw new errors_1.GdexValidationError(`referrer is not supported by ${endpoint}`, "referrer");
+      }
+      if (side === "buy") {
+        const input = params.inputToken;
+        if (input !== void 0 && !isNativeToken(input, chain)) {
+          throw new errors_1.GdexValidationError("purchase_v2 always spends the native token; use buyWithUsdc to pay with USDC", "inputToken");
+        }
+      } else {
+        const output2 = params.outputToken;
+        if (output2 !== void 0 && !isNativeToken(output2, chain)) {
+          throw new errors_1.GdexValidationError("sell_v2 always receives the native token; use sellToUsdc to receive USDC", "outputToken");
+        }
+      }
+      const out = {};
+      if (params.slippage !== void 0) {
+        if (chain.family === "evm") {
+          throw new errors_1.GdexValidationError("slippage is not applied to EVM managed trades: the backend uses the account's stored slippage. Omit it, or change the stored setting on gdex.pro.", "slippage");
+        }
+        (0, validation_1.validateSlippage)(params.slippage);
+        const bps = Math.round(params.slippage * 100);
+        if (bps <= 0 || params.slippage > MAX_SLIPPAGE_PERCENT || Math.abs(bps - params.slippage * 100) > 1e-9) {
+          throw new errors_1.GdexValidationError(`slippage must be above 0 and at most ${MAX_SLIPPAGE_PERCENT}% in whole basis points (the backend clamps higher values), got ${params.slippage}`, "slippage");
+        }
+        out.slippageBps = bps;
+      }
+      if (params.priorityFee !== void 0) {
+        if (chain.family !== "solana") {
+          throw new errors_1.GdexValidationError("priorityFee is Solana only", "priorityFee");
+        }
+        const fee = params.priorityFee;
+        if (!Number.isSafeInteger(fee) || fee <= 0 || fee > MAX_TIP_LAMPORTS) {
+          throw new errors_1.GdexValidationError(`priorityFee must be a positive integer number of lamports, at most ${MAX_TIP_LAMPORTS} (0.05 SOL, the backend cap), got ${fee}`, "priorityFee");
+        }
+        out.tipSol = fee / LAMPORTS_PER_SOL;
+      }
+      return out;
+    }
+    async function submitManagedTrade(client, side, creds2, chain, tokenAddress, amountRaw, amountDecimals, opts, heldRaw) {
+      if (amountRaw <= 0n)
+        throw new errors_1.GdexValidationError("amount resolves to zero raw units", "amount");
       const { computedData } = (0, gdexManagedCrypto_1.buildGdexManagedTradeComputedData)({
-        apiKey: params.apiKey,
-        action: "purchase",
-        userId: params.walletAddress,
-        tokenAddress: params.tokenAddress,
-        amount: amountWei,
+        apiKey: creds2.apiKey,
+        action: side === "buy" ? "purchase" : "sell",
+        userId: creds2.walletAddress,
+        tokenAddress,
+        amount: amountRaw,
         nonce: String((0, gdexManagedCrypto_1.generateGdexNonce)()),
-        sessionPrivateKey: params.sessionPrivateKey
+        sessionPrivateKey: creds2.sessionPrivateKey
       });
       const body = { computedData, chainId: chain.id };
-      if (params.slippage !== void 0)
-        body.slippage = (0, slippage_1.toBackendSlippage)(params.slippage);
-      return client.post(Endpoints.PURCHASE_V2, body);
+      if (opts.slippageBps !== void 0)
+        body.slippage = opts.slippageBps;
+      if (opts.tipSol !== void 0)
+        body.tip = opts.tipSol;
+      const endpoint = side === "buy" ? Endpoints.PURCHASE_V2 : Endpoints.SELL_V2;
+      const res = await client.post(endpoint, body);
+      if (!res || typeof res.requestId !== "string" || !res.requestId) {
+        throw new errors_1.GdexSubmissionUnknownError(`${endpoint} answered without a requestId; the trade may have been queued. Check trade history before trading again.`, "POST", endpoint);
+      }
+      const result = {
+        requestId: res.requestId,
+        status: typeof res.status === "string" ? res.status : "pending",
+        side,
+        chainId: chain.id,
+        tokenAddress,
+        amountRaw: amountRaw.toString(),
+        amountDecimals
+      };
+      if (typeof res.createdAt === "number")
+        result.createdAt = res.createdAt;
+      if (heldRaw !== void 0)
+        result.heldRaw = heldRaw.toString();
+      if (opts.slippageBps !== void 0)
+        result.slippageBps = opts.slippageBps;
+      if (opts.tipSol !== void 0)
+        result.tipSol = opts.tipSol;
+      return result;
     }
     async function buyToken(client, params) {
-      (0, validation_1.validateChain)(params.chain);
+      const chain = (0, portfolio_1.managedChain)(params.chain, exports.MANAGED_BUY_CHAIN_IDS, "managed buys (purchase_v2)");
       (0, validation_1.validateTokenAddress)(params.tokenAddress, params.chain, "tokenAddress");
       (0, validation_1.validateAmount)(params.amount, "amount");
-      if (params.slippage !== void 0)
-        (0, validation_1.validateSlippage)(params.slippage);
-      const chain = (0, chains_1.normalizeChain)(params.chain);
-      if (chain.family === "evm" && params.sessionPrivateKey && params.walletAddress && params.apiKey) {
-        return submitManagedBuy(client, params, chain);
+      const opts = managedOptions(params, chain, "buy");
+      const creds2 = requireManagedCreds(params);
+      const amountRaw = (0, validation_1.parseAmountUnits)(params.amount, chain.nativeDecimals, "amount");
+      return submitManagedTrade(client, "buy", creds2, chain, params.tokenAddress, amountRaw, chain.nativeDecimals, opts);
+    }
+    function parsePercent(amount) {
+      const m = /^(\d+(?:\.\d+)?)%$/.exec(amount.trim());
+      if (!m)
+        return void 0;
+      const frac = m[1].split(".")[1] ?? "";
+      if (frac.replace(/0+$/, "").length > PERCENT_DECIMALS) {
+        throw new errors_1.GdexValidationError(`percentage has more than ${PERCENT_DECIMALS} decimal places: ${amount}`, "amount");
       }
-      const payload = {
-        ...(0, apiAliases_1.buildChainAliases)(params.chain),
-        ...(0, apiAliases_1.buildTokenAliases)(params.tokenAddress),
-        amount: params.amount,
-        slippage: (0, slippage_1.toBackendSlippage)(params.slippage ?? 1),
-        dex: params.dex,
-        ...(0, apiAliases_1.buildWalletAliases)(params.walletAddress),
-        referrer: params.referrer,
-        priorityFee: params.priorityFee,
-        inputToken: params.inputToken
-      };
-      const response = await client.post(Endpoints.PURCHASE_V2, payload);
-      return response;
+      const scaled = (0, ethers_1.parseUnits)(m[1], PERCENT_DECIMALS);
+      if (scaled <= 0n || scaled > HUNDRED_PERCENT) {
+        throw new errors_1.GdexValidationError(`percentage must be above 0% and at most 100%, got ${amount}`, "amount");
+      }
+      return scaled;
     }
     async function sellToken(client, params) {
-      (0, validation_1.validateChain)(params.chain);
+      const chain = (0, portfolio_1.managedChain)(params.chain, exports.MANAGED_SELL_CHAIN_IDS, "managed sells (sell_v2)");
       (0, validation_1.validateTokenAddress)(params.tokenAddress, params.chain, "tokenAddress");
       (0, validation_1.validateAmount)(params.amount, "amount", true);
-      if (params.slippage !== void 0)
-        (0, validation_1.validateSlippage)(params.slippage);
-      const payload = {
-        ...(0, apiAliases_1.buildChainAliases)(params.chain),
-        ...(0, apiAliases_1.buildTokenAliases)(params.tokenAddress),
-        amount: params.amount,
-        slippage: (0, slippage_1.toBackendSlippage)(params.slippage ?? 1),
-        dex: params.dex,
-        ...(0, apiAliases_1.buildWalletAliases)(params.walletAddress),
-        referrer: params.referrer,
-        priorityFee: params.priorityFee,
-        outputToken: params.outputToken
-      };
-      const response = await client.post(Endpoints.SELL_V2, payload);
-      return response;
+      const opts = managedOptions(params, chain, "sell");
+      const creds2 = requireManagedCreds(params);
+      const pct = parsePercent(params.amount);
+      if (params.tokenDecimals !== void 0 && (!Number.isInteger(params.tokenDecimals) || params.tokenDecimals < 0 || params.tokenDecimals > 255)) {
+        throw new errors_1.GdexValidationError("tokenDecimals must be an integer from 0 to 255", "tokenDecimals");
+      }
+      const portfolio = await (0, portfolio_1.getPortfolio)(client, { ...creds2, chain: chain.id });
+      const same = (a) => chain.family === "evm" ? a.toLowerCase() === params.tokenAddress.toLowerCase() : a === params.tokenAddress;
+      const holding = portfolio.holdings.find((h) => same(h.tokenAddress));
+      const held = holding ? BigInt(holding.rawBalance) : void 0;
+      if (pct !== void 0) {
+        if (!holding || held === void 0 || held === 0n) {
+          throw new errors_1.GdexValidationError(`No ${params.tokenAddress} balance in the managed wallet on chain ${chain.id} to sell a percentage of`, "amount");
+        }
+        const amountRaw2 = pct === HUNDRED_PERCENT ? held : held * pct / HUNDRED_PERCENT;
+        if (amountRaw2 === 0n)
+          throw new errors_1.GdexValidationError(`${params.amount} of the balance rounds to zero raw units`, "amount");
+        return submitManagedTrade(client, "sell", creds2, chain, holding.tokenAddress, amountRaw2, holding.decimals, opts, held);
+      }
+      if (holding && params.tokenDecimals !== void 0 && params.tokenDecimals !== holding.decimals) {
+        throw new errors_1.GdexValidationError(`tokenDecimals ${params.tokenDecimals} does not match the token's ${holding.decimals}`, "tokenDecimals");
+      }
+      const decimals = holding?.decimals ?? params.tokenDecimals;
+      if (decimals === void 0) {
+        throw new errors_1.GdexValidationError(`${params.tokenAddress} is not in the managed portfolio on chain ${chain.id}; pass tokenDecimals to sell an absolute amount of it`, "tokenDecimals");
+      }
+      const amountRaw = (0, validation_1.parseAmountUnits)(params.amount, decimals, "amount");
+      if (held !== void 0 && amountRaw > held) {
+        throw new errors_1.GdexValidationError(`amount ${params.amount} exceeds the held balance ${holding?.balance}`, "amount");
+      }
+      return submitManagedTrade(client, "sell", creds2, chain, holding?.tokenAddress ?? params.tokenAddress, amountRaw, decimals, opts, held);
+    }
+    var TERMINAL = /* @__PURE__ */ new Set(["success", "error"]);
+    async function waitForTrade(client, params) {
+      (0, validation_1.validateRequired)(params.requestId, "requestId");
+      const intervalMs = params.intervalMs ?? 2e3;
+      const deadline = Date.now() + (params.timeoutMs ?? 12e4);
+      const path3 = Endpoints.tradeStatusPath(params.requestId);
+      let last;
+      let lastStatus = "";
+      let lastError;
+      for (; ; ) {
+        try {
+          const state = await client.get(path3);
+          lastError = void 0;
+          if (state && typeof state === "object") {
+            last = state;
+            const status = String(state.status ?? "").toLowerCase();
+            if (status !== lastStatus) {
+              lastStatus = status;
+              params.onUpdate?.(state);
+            }
+            if (TERMINAL.has(status)) {
+              const filled = status === "success" && state.isSuccess !== false;
+              return describe(params.requestId, filled ? "filled" : "failed", state);
+            }
+          }
+        } catch (err) {
+          if (err instanceof errors_1.GdexApiError && err.code === common_1.GdexErrorCode.NOT_FOUND) {
+            return { outcome: "not_found", requestId: params.requestId, error: "Trade request not found or expired" };
+          }
+          if (err instanceof errors_1.GdexValidationError)
+            throw err;
+          lastError = err instanceof Error ? err.message : String(err);
+        }
+        if (Date.now() + intervalMs > deadline) {
+          const out = describe(params.requestId, "pending", last);
+          if (lastError)
+            out.lastError = lastError;
+          return out;
+        }
+        await new Promise((r) => setTimeout(r, intervalMs));
+      }
+    }
+    function describe(requestId, outcome, state) {
+      const out = { outcome, requestId };
+      if (!state)
+        return out;
+      out.trade = state;
+      const str = (v) => typeof v === "string" && v ? v : typeof v === "number" ? String(v) : void 0;
+      const status = str(state.status);
+      if (status)
+        out.status = status;
+      const hash2 = str(state.hash);
+      if (hash2)
+        out.hash = hash2;
+      const tokenAmount = str(state.tokenAmount);
+      if (tokenAmount)
+        out.tokenAmount = tokenAmount;
+      const ethAmount = str(state.ethAmount);
+      if (ethAmount)
+        out.ethAmount = ethAmount;
+      const error2 = str(state.error);
+      if (error2)
+        out.error = error2;
+      const errorCode = str(state.errorCode);
+      if (errorCode)
+        out.errorCode = errorCode;
+      return out;
     }
   }
 });
@@ -63626,6 +64072,7 @@ var require_hlCopyTrade2 = __commonJS({
       };
     })();
     Object.defineProperty(exports, "__esModule", { value: true });
+    exports.HL_COPY_TRADE_PAUSE_NOTE = exports.HL_COPY_TRADE_DELETE_NOTE = void 0;
     exports.getHlTopTraders = getHlTopTraders;
     exports.getHlTopTradersByPnl = getHlTopTradersByPnl;
     exports.getHlUserStats = getHlUserStats;
@@ -63642,7 +64089,13 @@ var require_hlCopyTrade2 = __commonJS({
     exports.getHlCopyTradeTxList = getHlCopyTradeTxList;
     exports.createHlCopyTrade = createHlCopyTrade;
     exports.updateHlCopyTrade = updateHlCopyTrade;
+    exports.updateHlCopyTradeSettings = updateHlCopyTradeSettings;
+    exports.deleteHlCopyTrade = deleteHlCopyTrade;
+    exports.pauseHlCopyTrade = pauseHlCopyTrade;
+    exports.resumeHlCopyTrade = resumeHlCopyTrade;
     var Endpoints = __importStar2(require_endpoints());
+    var common_1 = require_common2();
+    var errors_1 = require_errors4();
     var validation_1 = require_validation4();
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
     function normalizeAddressArg(arg) {
@@ -63735,11 +64188,11 @@ var require_hlCopyTrade2 = __commonJS({
         actionParams: {
           traderWallet: params.traderWallet,
           copyTradeName: params.copyTradeName,
-          copyMode: String(params.copyMode),
+          copyMode: params.copyMode,
           fixedAmountCostPerOrder: params.fixedAmountCostPerOrder,
           lossPercent: params.lossPercent,
           profitPercent: params.profitPercent,
-          oppositeCopy: params.oppositeCopy ? "1" : ""
+          oppositeCopy: params.oppositeCopy === true
         }
       });
       return client.post(Endpoints.HL_COPY_CREATE, {
@@ -63749,6 +64202,9 @@ var require_hlCopyTrade2 = __commonJS({
     async function updateHlCopyTrade(client, params) {
       (0, validation_1.validateRequired)(params.copyTradeId, "copyTradeId");
       (0, validation_1.validateRequired)(params.traderWallet, "traderWallet");
+      if (params.isDelete === true && params.isChangeStatus === true) {
+        throw new errors_1.GdexValidationError("isDelete and isChangeStatus cannot both be set: isDelete removes the configuration, isChangeStatus toggles isActive", "isChangeStatus");
+      }
       const computedData = (0, gdexManagedCrypto_1.buildHlComputedData)({
         action: "hl_update",
         apiKey: params.apiKey,
@@ -63757,19 +64213,149 @@ var require_hlCopyTrade2 = __commonJS({
         actionParams: {
           traderWallet: params.traderWallet,
           copyTradeName: params.copyTradeName,
-          copyMode: String(params.copyMode),
+          copyMode: params.copyMode,
           fixedAmountCostPerOrder: params.fixedAmountCostPerOrder,
           lossPercent: params.lossPercent,
           profitPercent: params.profitPercent,
-          isDelete: params.isDelete ? "1" : "",
-          isChangeStatus: params.isChangeStatus ? "1" : "",
+          isDelete: params.isDelete === true,
+          isChangeStatus: params.isChangeStatus === true,
           copyTradeId: params.copyTradeId,
-          oppositeCopy: params.oppositeCopy ? "1" : ""
+          oppositeCopy: params.oppositeCopy === true
         }
       });
       return client.post(Endpoints.HL_COPY_UPDATE, {
         computedData
       });
+    }
+    exports.HL_COPY_TRADE_DELETE_NOTE = "Configuration deleted. Perp positions already opened by this copy trade were NOT closed and their TP/SL orders were NOT cancelled; close them with the perp tools if you want out. Deletion cannot be undone.";
+    exports.HL_COPY_TRADE_PAUSE_NOTE = "Copy trade paused (isActive=false). The copier stops mirroring BOTH opens and closes for this configuration, so copied positions stay open and will NOT follow the trader's exits while paused; their TP/SL orders stay in place. Resume to mirror again.";
+    var HL_COPY_TRADE_RESUME_NOTE = "Copy trade resumed (isActive=true). New fills by the followed trader are mirrored again; fills made while paused are not replayed.";
+    async function findHlCopyTradeConfig(client, params) {
+      (0, validation_1.validateRequired)(params.copyTradeId, "copyTradeId");
+      (0, validation_1.validateRequired)(params.userId, "userId");
+      (0, validation_1.validateRequired)(params.apiKey, "apiKey");
+      (0, validation_1.validateRequired)(params.sessionPrivateKey, "sessionPrivateKey");
+      const data = (0, gdexManagedCrypto_1.buildGdexReadSessionData)(params.sessionPrivateKey, params.apiKey);
+      const list = await getHlCopyTradeList(client, { userId: params.userId, data });
+      const configs = Array.isArray(list?.allCopyTrades) ? list.allCopyTrades : null;
+      if (!configs) {
+        throw new errors_1.GdexError("Could not read HL copy trade list to confirm the configuration; nothing was sent", common_1.GdexErrorCode.PAUSE_STATE_UNVERIFIED);
+      }
+      const config2 = configs.find((c) => c?.copyTradeId === params.copyTradeId);
+      if (!config2) {
+        throw new errors_1.GdexError(`No HL copy trade ${params.copyTradeId} for this user; nothing was sent`, common_1.GdexErrorCode.COPY_TRADE_NOT_FOUND);
+      }
+      return config2;
+    }
+    function storedCopyMode(config2) {
+      const mode = Number(config2.copyMode);
+      return mode === 1 || mode === 2 ? mode : void 0;
+    }
+    function hlConfigToUpdateFields(config2, overrides, operation) {
+      const copyMode = overrides.copyMode ?? storedCopyMode(config2);
+      if (copyMode !== 1 && copyMode !== 2) {
+        throw new errors_1.GdexError(`Stored copyMode ${JSON.stringify(config2.copyMode)} is not 1 or 2 (configurations written by SDK <= 4.12 hold an ABI offset such as 416/480). ` + (operation === "update_settings" ? "Pass copyMode, fixedAmountCostPerOrder and oppositeCopy explicitly." : "Call updateHlCopyTradeSettings with explicit copyMode, fixedAmountCostPerOrder and oppositeCopy first."), common_1.GdexErrorCode.COPY_TRADE_CONFIG_INVALID);
+      }
+      return {
+        copyTradeId: config2.copyTradeId,
+        traderWallet: overrides.traderWallet ?? config2.traderWallet,
+        copyTradeName: overrides.copyTradeName ?? config2.copyTradeName,
+        copyMode,
+        fixedAmountCostPerOrder: overrides.fixedAmountCostPerOrder ?? String(config2.fixedAmountCostPerOrder),
+        lossPercent: overrides.lossPercent ?? String(config2.lossPercent),
+        profitPercent: overrides.profitPercent ?? String(config2.profitPercent),
+        oppositeCopy: overrides.oppositeCopy ?? config2.oppositeCopy === true
+      };
+    }
+    async function updateHlCopyTradeSettings(client, params) {
+      const config2 = await findHlCopyTradeConfig(client, params);
+      const fields = hlConfigToUpdateFields(config2, params, "update_settings");
+      const response = await updateHlCopyTrade(client, {
+        apiKey: params.apiKey,
+        userId: params.userId,
+        sessionPrivateKey: params.sessionPrivateKey,
+        ...fields,
+        isDelete: false,
+        isChangeStatus: false
+      });
+      return {
+        operation: "update_settings",
+        copyTradeId: params.copyTradeId,
+        submitted: true,
+        previousIsActive: typeof config2.isActive === "boolean" ? config2.isActive : void 0,
+        expectedIsActive: typeof config2.isActive === "boolean" ? config2.isActive : void 0,
+        note: "Settings updated; active state unchanged. Open positions are not resized.",
+        response
+      };
+    }
+    async function deleteHlCopyTrade(client, params) {
+      const config2 = await findHlCopyTradeConfig(client, params);
+      const fields = hlConfigToUpdateFields(config2, storedCopyMode(config2) ? {} : { copyMode: 1 }, "delete");
+      const response = await updateHlCopyTrade(client, {
+        apiKey: params.apiKey,
+        userId: params.userId,
+        sessionPrivateKey: params.sessionPrivateKey,
+        ...fields,
+        isDelete: true,
+        isChangeStatus: false
+      });
+      return {
+        operation: "delete",
+        copyTradeId: params.copyTradeId,
+        submitted: true,
+        previousIsActive: typeof config2.isActive === "boolean" ? config2.isActive : void 0,
+        note: exports.HL_COPY_TRADE_DELETE_NOTE,
+        response
+      };
+    }
+    async function setHlCopyTradeActive(client, params, active) {
+      const operation = active ? "resume" : "pause";
+      const config2 = await findHlCopyTradeConfig(client, params);
+      if (typeof config2.isActive !== "boolean") {
+        throw new errors_1.GdexError(`HL copy trade ${params.copyTradeId} has no readable isActive; refusing to toggle blindly. Nothing was sent.`, common_1.GdexErrorCode.PAUSE_STATE_UNVERIFIED);
+      }
+      if (config2.isActive === active) {
+        return {
+          operation,
+          copyTradeId: params.copyTradeId,
+          submitted: false,
+          previousIsActive: config2.isActive,
+          expectedIsActive: config2.isActive,
+          note: `Already ${active ? "active" : "paused"}; nothing was sent.`
+        };
+      }
+      let fields;
+      try {
+        fields = hlConfigToUpdateFields(config2, {}, operation);
+      } catch (err) {
+        if (err instanceof errors_1.GdexError && err.code === common_1.GdexErrorCode.COPY_TRADE_CONFIG_INVALID) {
+          throw new errors_1.GdexError(`Cannot ${operation} HL copy trade ${params.copyTradeId}: ${err.message} The toggle rewrites every setting, so it is not sent with an invalid stored value. Alternative: deleteHlCopyTrade stops copying permanently, but positions it opened stay open and their TP/SL orders remain.`, common_1.GdexErrorCode.PAUSE_UNSUPPORTED);
+        }
+        throw err;
+      }
+      const response = await updateHlCopyTrade(client, {
+        apiKey: params.apiKey,
+        userId: params.userId,
+        sessionPrivateKey: params.sessionPrivateKey,
+        ...fields,
+        isDelete: false,
+        isChangeStatus: true
+      });
+      return {
+        operation,
+        copyTradeId: params.copyTradeId,
+        submitted: true,
+        previousIsActive: config2.isActive,
+        expectedIsActive: active,
+        note: active ? HL_COPY_TRADE_RESUME_NOTE : exports.HL_COPY_TRADE_PAUSE_NOTE,
+        response
+      };
+    }
+    async function pauseHlCopyTrade(client, params) {
+      return setHlCopyTradeActive(client, params, false);
+    }
+    async function resumeHlCopyTrade(client, params) {
+      return setHlCopyTradeActive(client, params, true);
     }
   }
 });
@@ -64291,11 +64877,11 @@ var require_dist4 = __commonJS({
       };
     }
     // @__NO_SIDE_EFFECTS__
-    function decimal(message$1) {
+    function decimal2(message$1) {
       return {
         kind: "validation",
         type: "decimal",
-        reference: decimal,
+        reference: decimal2,
         async: false,
         expects: null,
         requirement: DECIMAL_REGEX,
@@ -65562,10 +66148,10 @@ var require_dist4 = __commonJS({
     }
     // @__NO_SIDE_EFFECTS__
     function _isPartiallyTyped(dataset, paths) {
-      if (dataset.issues) for (const path2 of paths) for (const issue2 of dataset.issues) {
+      if (dataset.issues) for (const path3 of paths) for (const issue2 of dataset.issues) {
         let typed = false;
-        const bound = Math.min(path2.length, issue2.path?.length ?? 0);
-        for (let index = 0; index < bound; index++) if (path2[index] !== issue2.path[index].key && (path2[index] !== "$" || issue2.path[index].type !== "array")) {
+        const bound = Math.min(path3.length, issue2.path?.length ?? 0);
+        for (let index = 0; index < bound; index++) if (path3[index] !== issue2.path[index].key && (path3[index] !== "$" || issue2.path[index].type !== "array")) {
           typed = true;
           break;
         }
@@ -66440,7 +67026,7 @@ var require_dist4 = __commonJS({
       return flatErrors;
     }
     // @__NO_SIDE_EFFECTS__
-    function forward(action, path2) {
+    function forward(action, path3) {
       return {
         ...action,
         "~run"(dataset, config$1) {
@@ -66449,7 +67035,7 @@ var require_dist4 = __commonJS({
           if (dataset.issues) {
             for (const issue2 of dataset.issues) if (!prevIssues?.includes(issue2)) {
               let pathInput = dataset.value;
-              for (const key of path2) {
+              for (const key of path3) {
                 const pathValue = pathInput[key];
                 const pathItem = {
                   type: "unknown",
@@ -66470,7 +67056,7 @@ var require_dist4 = __commonJS({
       };
     }
     // @__NO_SIDE_EFFECTS__
-    function forwardAsync(action, path2) {
+    function forwardAsync(action, path3) {
       return {
         ...action,
         async: true,
@@ -66480,7 +67066,7 @@ var require_dist4 = __commonJS({
           if (dataset.issues) {
             for (const issue2 of dataset.issues) if (!prevIssues?.includes(issue2)) {
               let pathInput = dataset.value;
-              for (const key of path2) {
+              for (const key of path3) {
                 const pathValue = pathInput[key];
                 const pathItem = {
                   type: "unknown",
@@ -69647,7 +70233,7 @@ var require_dist4 = __commonJS({
     exports.custom = custom3;
     exports.customAsync = customAsync;
     exports.date = date3;
-    exports.decimal = decimal;
+    exports.decimal = decimal2;
     exports.deleteGlobalConfig = deleteGlobalConfig;
     exports.deleteGlobalMessage = deleteGlobalMessage;
     exports.deleteSchemaMessage = deleteSchemaMessage;
@@ -82138,7 +82724,7 @@ var require_perpsAtOpenInterestCap = __commonJS({
 });
 
 // node_modules/@nktkas/hyperliquid/script/api/info/_methods/portfolio.js
-var require_portfolio2 = __commonJS({
+var require_portfolio3 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/info/_methods/portfolio.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
@@ -84501,7 +85087,7 @@ var require_client3 = __commonJS({
     var perpDexs_js_1 = require_perpDexs();
     var perpDexStatus_js_1 = require_perpDexStatus();
     var perpsAtOpenInterestCap_js_1 = require_perpsAtOpenInterestCap();
-    var portfolio_js_1 = require_portfolio2();
+    var portfolio_js_1 = require_portfolio3();
     var predictedFundings_js_1 = require_predictedFundings();
     var preTransferCheck_js_1 = require_preTransferCheck();
     var recentTrades_js_1 = require_recentTrades();
@@ -93840,14 +94426,14 @@ var require_lib4 = __commonJS({
         }
         this.pubHash = hash160(this.pubKey);
       }
-      derive(path2) {
-        if (!/^[mM]'?/.test(path2)) {
+      derive(path3) {
+        if (!/^[mM]'?/.test(path3)) {
           throw new Error('Path must start with "m" or "M"');
         }
-        if (/^[mM]'?$/.test(path2)) {
+        if (/^[mM]'?$/.test(path3)) {
           return this;
         }
-        const parts = path2.replace(/^[mM]'?\//, "").split("/");
+        const parts = path3.replace(/^[mM]'?\//, "").split("/");
         let child = this;
         for (const c of parts) {
           const m = /^(\d+)('?)$/.exec(c);
@@ -94149,12 +94735,12 @@ var require_pad = __commonJS({
     exports.padHex = padHex;
     exports.padBytes = padBytes;
     var data_js_1 = require_data4();
-    function pad(hexOrBytes, { dir, size = 32 } = {}) {
+    function pad(hexOrBytes, { dir: dir2, size = 32 } = {}) {
       if (typeof hexOrBytes === "string")
-        return padHex(hexOrBytes, { dir, size });
-      return padBytes(hexOrBytes, { dir, size });
+        return padHex(hexOrBytes, { dir: dir2, size });
+      return padBytes(hexOrBytes, { dir: dir2, size });
     }
-    function padHex(hex_, { dir, size = 32 } = {}) {
+    function padHex(hex_, { dir: dir2, size = 32 } = {}) {
       if (size === null)
         return hex_;
       const hex = hex_.replace("0x", "");
@@ -94164,9 +94750,9 @@ var require_pad = __commonJS({
           targetSize: size,
           type: "hex"
         });
-      return `0x${hex[dir === "right" ? "padEnd" : "padStart"](size * 2, "0")}`;
+      return `0x${hex[dir2 === "right" ? "padEnd" : "padStart"](size * 2, "0")}`;
     }
-    function padBytes(bytes2, { dir, size = 32 } = {}) {
+    function padBytes(bytes2, { dir: dir2, size = 32 } = {}) {
       if (size === null)
         return bytes2;
       if (bytes2.length > size)
@@ -94177,7 +94763,7 @@ var require_pad = __commonJS({
         });
       const paddedBytes = new Uint8Array(size);
       for (let i = 0; i < size; i++) {
-        const padEnd = dir === "right";
+        const padEnd = dir2 === "right";
         paddedBytes[padEnd ? i : size - i - 1] = bytes2[padEnd ? i : bytes2.length - i - 1];
       }
       return paddedBytes;
@@ -94225,18 +94811,18 @@ var require_trim = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.trim = trim;
-    function trim(hexOrBytes, { dir = "left" } = {}) {
+    function trim(hexOrBytes, { dir: dir2 = "left" } = {}) {
       let data = typeof hexOrBytes === "string" ? hexOrBytes.replace("0x", "") : hexOrBytes;
       let sliceLength = 0;
       for (let i = 0; i < data.length - 1; i++) {
-        if (data[dir === "left" ? i : data.length - i - 1].toString() === "0")
+        if (data[dir2 === "left" ? i : data.length - i - 1].toString() === "0")
           sliceLength++;
         else
           break;
       }
-      data = dir === "left" ? data.slice(sliceLength) : data.slice(0, data.length - sliceLength);
+      data = dir2 === "left" ? data.slice(sliceLength) : data.slice(0, data.length - sliceLength);
       if (typeof hexOrBytes === "string") {
-        if (data.length === 1 && dir === "right")
+        if (data.length === 1 && dir2 === "right")
           data = `${data}0`;
         return `0x${data.length % 2 === 1 ? `0${data}` : data}`;
       }
@@ -100273,8 +100859,8 @@ var require_formatUnits = __commonJS({
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.formatUnits = formatUnits;
-    function formatUnits(value, decimals) {
+    exports.formatUnits = formatUnits2;
+    function formatUnits2(value, decimals) {
       let display = value.toString();
       const negative = display.startsWith("-");
       if (negative)
@@ -102646,8 +103232,8 @@ var require_hdKeyToAccount = __commonJS({
     exports.hdKeyToAccount = hdKeyToAccount;
     var toHex_js_1 = require_toHex();
     var privateKeyToAccount_js_1 = require_privateKeyToAccount();
-    function hdKeyToAccount(hdKey_, { accountIndex = 0, addressIndex = 0, changeIndex = 0, path: path2, ...options } = {}) {
-      const hdKey = hdKey_.derive(path2 || `m/44'/60'/${accountIndex}'/${changeIndex}/${addressIndex}`);
+    function hdKeyToAccount(hdKey_, { accountIndex = 0, addressIndex = 0, changeIndex = 0, path: path3, ...options } = {}) {
+      const hdKey = hdKey_.derive(path3 || `m/44'/60'/${accountIndex}'/${changeIndex}/${addressIndex}`);
       const account = (0, privateKeyToAccount_js_1.privateKeyToAccount)((0, toHex_js_1.toHex)(hdKey.privateKey), options);
       return {
         ...account,
@@ -124088,7 +124674,7 @@ var require_perpTrade = __commonJS({
           positions: []
         };
       }
-      const positions = state.assetPositions.map((ap) => {
+      const positions2 = state.assetPositions.map((ap) => {
         const p = ap.position;
         const sizeNum = parseFloat(p.szi);
         return {
@@ -124114,7 +124700,7 @@ var require_perpTrade = __commonJS({
         totalRawUsd: state.marginSummary.totalRawUsd,
         totalMarginUsed: state.marginSummary.totalMarginUsed,
         withdrawable,
-        positions
+        positions: positions2
       };
     }
     async function getPerpPositions(params) {
@@ -124659,6 +125245,7 @@ var require_copyTrade2 = __commonJS({
       };
     })();
     Object.defineProperty(exports, "__esModule", { value: true });
+    exports.COPY_TRADE_PAUSE_NOTE = exports.COPY_TRADE_DELETE_NOTE = void 0;
     exports.getCopyTradeWallets = getCopyTradeWallets;
     exports.getCopyTradeCustomWallets = getCopyTradeCustomWallets;
     exports.getCopyTradeGems = getCopyTradeGems;
@@ -124667,7 +125254,14 @@ var require_copyTrade2 = __commonJS({
     exports.getCopyTradeTxList = getCopyTradeTxList;
     exports.createCopyTrade = createCopyTrade;
     exports.updateCopyTrade = updateCopyTrade;
+    exports.resetCopyTradeToggleGuardForTests = resetCopyTradeToggleGuardForTests;
+    exports.updateCopyTradeSettings = updateCopyTradeSettings;
+    exports.deleteCopyTrade = deleteCopyTrade;
+    exports.pauseCopyTrade = pauseCopyTrade;
+    exports.resumeCopyTrade = resumeCopyTrade;
     var Endpoints = __importStar2(require_endpoints());
+    var common_1 = require_common2();
+    var errors_1 = require_errors4();
     var validation_1 = require_validation4();
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
     async function getCopyTradeWallets(client) {
@@ -124711,15 +125305,15 @@ var require_copyTrade2 = __commonJS({
         actionParams: {
           traderWallet: params.traderWallet,
           copyTradeName: params.copyTradeName,
-          chainId: String(params.chainId),
+          chainId: params.chainId,
           gasPrice: params.gasPrice ?? "0",
-          buyMode: String(params.buyMode),
+          buyMode: params.buyMode,
           copyBuyAmount: params.copyBuyAmount,
-          isBuyExistingToken: params.isBuyExistingToken ? "1" : "",
+          isBuyExistingToken: params.isBuyExistingToken === true,
           lossPercent: params.lossPercent,
           profitPercent: params.profitPercent,
-          copySell: params.copySell ? "1" : "",
-          excludedDexNumbers: (params.excludedDexNumbers ?? []).join(",")
+          copySell: params.copySell === true,
+          excludedDexNumbers: params.excludedDexNumbers ?? []
         }
       });
       return client.post(Endpoints.COPY_TRADE_CREATE, {
@@ -124729,6 +125323,9 @@ var require_copyTrade2 = __commonJS({
     async function updateCopyTrade(client, params) {
       (0, validation_1.validateRequired)(params.copyTradeId, "copyTradeId");
       (0, validation_1.validateRequired)(params.traderWallet, "traderWallet");
+      if (params.isDelete === true && params.isChangeStatus === true) {
+        throw new errors_1.GdexValidationError("isDelete and isChangeStatus cannot both be set: isDelete removes the configuration, isChangeStatus toggles isActive", "isChangeStatus");
+      }
       const computedData = (0, gdexManagedCrypto_1.buildCopyTradeComputedData)({
         action: "update_copy_trade",
         apiKey: params.apiKey,
@@ -124737,120 +125334,242 @@ var require_copyTrade2 = __commonJS({
         actionParams: {
           traderWallet: params.traderWallet,
           copyTradeName: params.copyTradeName,
-          chainId: String(params.chainId),
+          chainId: params.chainId,
           gasPrice: params.gasPrice ?? "0",
-          buyMode: String(params.buyMode),
+          buyMode: params.buyMode,
           copyBuyAmount: params.copyBuyAmount,
-          isBuyExistingToken: params.isBuyExistingToken ? "1" : "",
+          isBuyExistingToken: params.isBuyExistingToken === true,
           lossPercent: params.lossPercent,
           profitPercent: params.profitPercent,
-          copySell: params.copySell ? "1" : "",
-          excludedDexNumbers: (params.excludedDexNumbers ?? []).join(","),
+          isDelete: params.isDelete === true,
+          isChangeStatus: params.isChangeStatus === true,
           copyTradeId: params.copyTradeId,
-          isDelete: params.isDelete ? "1" : "",
-          isChangeStatus: params.isChangeStatus ? "1" : "",
-          excludedProgramIds: (params.excludedProgramIds ?? []).join(",")
+          copySell: params.copySell === true,
+          excludedDexNumbers: params.excludedDexNumbers ?? []
         }
       });
       return client.post(Endpoints.COPY_TRADE_UPDATE, {
         computedData
       });
     }
+    exports.COPY_TRADE_DELETE_NOTE = "Configuration deleted. Positions already opened by this copy trade were NOT sold, and their take-profit/stop-loss limit orders were NOT cancelled; manage them from the portfolio/limit-order tools. Deletion cannot be undone; create a new copy trade to follow this trader again.";
+    exports.COPY_TRADE_PAUSE_NOTE = "Copy trade paused (isActive=false). The copier stops mirroring BOTH buys and sells for this configuration; positions it already opened stay open and their TP/SL limit orders stay in place. Resume to mirror again. The list endpoint caches for ~20s, so it may show the old state briefly.";
+    var COPY_TRADE_RESUME_NOTE = "Copy trade resumed (isActive=true). New trades by the followed wallet are mirrored again; trades it made while paused are not replayed.";
+    var TOGGLE_GUARD_MS = 25e3;
+    var lastToggleAt = /* @__PURE__ */ new Map();
+    function resetCopyTradeToggleGuardForTests() {
+      lastToggleAt.clear();
+    }
+    async function findCopyTradeConfig(client, params) {
+      (0, validation_1.validateRequired)(params.copyTradeId, "copyTradeId");
+      (0, validation_1.validateRequired)(params.userId, "userId");
+      (0, validation_1.validateRequired)(params.apiKey, "apiKey");
+      (0, validation_1.validateRequired)(params.sessionPrivateKey, "sessionPrivateKey");
+      const data = (0, gdexManagedCrypto_1.buildGdexReadSessionData)(params.sessionPrivateKey, params.apiKey);
+      const list = await getCopyTradeList(client, { userId: params.userId, data });
+      const configs = Array.isArray(list?.allCopyTrades) ? list.allCopyTrades : null;
+      if (!configs) {
+        throw new errors_1.GdexError("Could not read copy trade list to confirm the configuration; nothing was sent", common_1.GdexErrorCode.PAUSE_STATE_UNVERIFIED);
+      }
+      const config2 = configs.find((c) => c?.copyTradeId === params.copyTradeId);
+      if (!config2) {
+        throw new errors_1.GdexError(`No copy trade ${params.copyTradeId} for this user; nothing was sent`, common_1.GdexErrorCode.COPY_TRADE_NOT_FOUND);
+      }
+      return config2;
+    }
+    function storedBuyMode(config2) {
+      const mode = Number(config2.buyMode);
+      return mode === 1 || mode === 2 ? mode : void 0;
+    }
+    function storedCopyBuyAmount(config2, buyMode) {
+      return buyMode === 1 ? String(config2.copyBuyFixedAmount ?? "") : String(config2.copyBuyPercent ?? "");
+    }
+    function configToUpdateFields(config2, overrides, operation) {
+      const buyMode = overrides.buyMode ?? storedBuyMode(config2);
+      if (buyMode !== 1 && buyMode !== 2) {
+        throw new errors_1.GdexError(`Stored buyMode ${JSON.stringify(config2.buyMode)} is not 1 or 2. ` + (operation === "update_settings" ? "Pass buyMode and copyBuyAmount explicitly." : "Call updateCopyTradeSettings with explicit buyMode and copyBuyAmount first."), common_1.GdexErrorCode.COPY_TRADE_CONFIG_INVALID);
+      }
+      const copyBuyAmount = overrides.copyBuyAmount ?? (overrides.buyMode !== void 0 && overrides.buyMode !== storedBuyMode(config2) ? void 0 : storedCopyBuyAmount(config2, buyMode));
+      if (copyBuyAmount === void 0 || copyBuyAmount === "") {
+        throw new errors_1.GdexValidationError("copyBuyAmount is required when buyMode changes", "copyBuyAmount");
+      }
+      return {
+        chainId: Number(config2.chainId),
+        copyTradeId: config2.copyTradeId,
+        traderWallet: overrides.traderWallet ?? config2.traderWallet,
+        copyTradeName: overrides.copyTradeName ?? config2.copyTradeName,
+        gasPrice: overrides.gasPrice ?? String(config2.gasPrice ?? "0"),
+        buyMode,
+        copyBuyAmount,
+        isBuyExistingToken: overrides.isBuyExistingToken ?? config2.isBuyExistingToken === true,
+        lossPercent: overrides.lossPercent ?? String(config2.lossPercent),
+        profitPercent: overrides.profitPercent ?? String(config2.profitPercent),
+        copySell: overrides.copySell ?? config2.copySell === true,
+        excludedDexNumbers: overrides.excludedDexNumbers ?? (Array.isArray(config2.excludedDexNumbers) ? config2.excludedDexNumbers.map(Number) : [])
+      };
+    }
+    async function updateCopyTradeSettings(client, params) {
+      const config2 = await findCopyTradeConfig(client, params);
+      const fields = configToUpdateFields(config2, params, "update_settings");
+      const response = await updateCopyTrade(client, {
+        apiKey: params.apiKey,
+        userId: params.userId,
+        sessionPrivateKey: params.sessionPrivateKey,
+        ...fields,
+        isDelete: false,
+        isChangeStatus: false
+      });
+      return {
+        operation: "update_settings",
+        copyTradeId: params.copyTradeId,
+        submitted: true,
+        previousIsActive: typeof config2.isActive === "boolean" ? config2.isActive : void 0,
+        expectedIsActive: typeof config2.isActive === "boolean" ? config2.isActive : void 0,
+        note: "Settings updated; active state unchanged. Positions already open are not resized.",
+        response
+      };
+    }
+    async function deleteCopyTrade(client, params) {
+      const config2 = await findCopyTradeConfig(client, params);
+      const fields = configToUpdateFields(config2, storedBuyMode(config2) ? {} : { buyMode: 1, copyBuyAmount: String(config2.copyBuyFixedAmount || "0") }, "delete");
+      const response = await updateCopyTrade(client, {
+        apiKey: params.apiKey,
+        userId: params.userId,
+        sessionPrivateKey: params.sessionPrivateKey,
+        ...fields,
+        isDelete: true,
+        isChangeStatus: false
+      });
+      return {
+        operation: "delete",
+        copyTradeId: params.copyTradeId,
+        submitted: true,
+        previousIsActive: typeof config2.isActive === "boolean" ? config2.isActive : void 0,
+        note: exports.COPY_TRADE_DELETE_NOTE,
+        response
+      };
+    }
+    async function setCopyTradeActive(client, params, active) {
+      const operation = active ? "resume" : "pause";
+      const config2 = await findCopyTradeConfig(client, params);
+      if (typeof config2.isActive !== "boolean") {
+        throw new errors_1.GdexError(`Copy trade ${params.copyTradeId} has no readable isActive; refusing to toggle blindly. Nothing was sent.`, common_1.GdexErrorCode.PAUSE_STATE_UNVERIFIED);
+      }
+      if (config2.isActive === active) {
+        return {
+          operation,
+          copyTradeId: params.copyTradeId,
+          submitted: false,
+          previousIsActive: config2.isActive,
+          expectedIsActive: config2.isActive,
+          note: `Already ${active ? "active" : "paused"}; nothing was sent.`
+        };
+      }
+      const guardKey = `${params.userId.toLowerCase()}:${params.copyTradeId}`;
+      const last = lastToggleAt.get(guardKey);
+      if (last !== void 0 && Date.now() - last < TOGGLE_GUARD_MS) {
+        throw new errors_1.GdexError(`Copy trade ${params.copyTradeId} was toggled less than ${TOGGLE_GUARD_MS / 1e3}s ago and the backend list is cached for 20s, so its current state cannot be confirmed. Nothing was sent; retry shortly.`, common_1.GdexErrorCode.PAUSE_STATE_UNVERIFIED);
+      }
+      let fields;
+      try {
+        fields = configToUpdateFields(config2, {}, operation);
+      } catch (err) {
+        if (err instanceof errors_1.GdexError && err.code === common_1.GdexErrorCode.COPY_TRADE_CONFIG_INVALID) {
+          throw new errors_1.GdexError(`Cannot ${operation} copy trade ${params.copyTradeId}: ${err.message} The toggle rewrites every setting, so it is not sent with an invalid stored value. Alternative: deleteCopyTrade stops copying permanently, but positions it opened stay open and their TP/SL orders remain.`, common_1.GdexErrorCode.PAUSE_UNSUPPORTED);
+        }
+        throw err;
+      }
+      const response = await updateCopyTrade(client, {
+        apiKey: params.apiKey,
+        userId: params.userId,
+        sessionPrivateKey: params.sessionPrivateKey,
+        ...fields,
+        isDelete: false,
+        isChangeStatus: true
+      });
+      lastToggleAt.set(guardKey, Date.now());
+      return {
+        operation,
+        copyTradeId: params.copyTradeId,
+        submitted: true,
+        previousIsActive: config2.isActive,
+        expectedIsActive: active,
+        note: active ? COPY_TRADE_RESUME_NOTE : exports.COPY_TRADE_PAUSE_NOTE,
+        response
+      };
+    }
+    async function pauseCopyTrade(client, params) {
+      return setCopyTradeActive(client, params, false);
+    }
+    async function resumeCopyTrade(client, params) {
+      return setCopyTradeActive(client, params, true);
+    }
   }
 });
 
-// dist/actions/portfolio.js
-var require_portfolio3 = __commonJS({
-  "dist/actions/portfolio.js"(exports) {
+// dist/utils/apiAliases.js
+var require_apiAliases = __commonJS({
+  "dist/utils/apiAliases.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
-    var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      var desc = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-        desc = { enumerable: true, get: function() {
-          return m[k];
-        } };
-      }
-      Object.defineProperty(o, k2, desc);
-    }) : (function(o, m, k, k2) {
-      if (k2 === void 0) k2 = k;
-      o[k2] = m[k];
-    }));
-    var __setModuleDefault2 = exports && exports.__setModuleDefault || (Object.create ? (function(o, v) {
-      Object.defineProperty(o, "default", { enumerable: true, value: v });
-    }) : function(o, v) {
-      o["default"] = v;
-    });
-    var __importStar2 = exports && exports.__importStar || /* @__PURE__ */ (function() {
-      var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function(o2) {
-          var ar = [];
-          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
-          return ar;
-        };
-        return ownKeys(o);
-      };
-      return function(mod2) {
-        if (mod2 && mod2.__esModule) return mod2;
-        var result = {};
-        if (mod2 != null) {
-          for (var k = ownKeys(mod2), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding2(result, mod2, k[i]);
-        }
-        __setModuleDefault2(result, mod2);
-        return result;
-      };
-    })();
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.getPortfolio = getPortfolio;
-    exports.getBalances = getBalances;
-    exports.getTradeHistory = getTradeHistory;
-    var Endpoints = __importStar2(require_endpoints());
-    var validation_1 = require_validation4();
-    var apiAliases_1 = require_apiAliases();
-    async function getPortfolio(client, params) {
-      (0, validation_1.validateRequired)(params.walletAddress, "walletAddress");
-      if (params.chain !== void 0)
-        (0, validation_1.validateChain)(params.chain);
-      const queryParams = {
-        ...(0, apiAliases_1.buildWalletAliases)(params.walletAddress)
-      };
-      Object.assign(queryParams, (0, apiAliases_1.buildChainAliases)(params.chain));
-      return client.get(Endpoints.PORTFOLIO, queryParams);
+    exports.toWireChain = toWireChain;
+    exports.buildChainAliases = buildChainAliases;
+    exports.buildTokenAliases = buildTokenAliases;
+    exports.buildWalletAliases = buildWalletAliases;
+    exports.pickRequestId = pickRequestId;
+    var common_1 = require_common2();
+    var chains_1 = require_chains();
+    var NON_EVM_CHAIN_IDS = {
+      solana: common_1.ChainId.SOLANA,
+      sui: common_1.ChainId.SUI
+    };
+    function toWireChain(chain) {
+      if (typeof chain === "number")
+        return chain;
+      const { id: id2, family } = (0, chains_1.normalizeChain)(chain);
+      return family === "evm" ? id2 : family;
     }
-    async function getBalances(client, params) {
-      (0, validation_1.validateRequired)(params.walletAddress, "walletAddress");
-      (0, validation_1.validateChain)(params.chain);
-      const queryParams = {
-        ...(0, apiAliases_1.buildWalletAliases)(params.walletAddress),
-        ...(0, apiAliases_1.buildChainAliases)(params.chain)
+    function buildChainAliases(input) {
+      if (input === void 0)
+        return {};
+      const chain = toWireChain(input);
+      if (typeof chain === "number") {
+        return {
+          chain,
+          chainId: chain
+        };
+      }
+      return {
+        chain,
+        chainId: NON_EVM_CHAIN_IDS[chain]
       };
-      if (params.tokenAddress)
-        Object.assign(queryParams, (0, apiAliases_1.buildTokenAliases)(params.tokenAddress));
-      const portfolio = await client.get(Endpoints.PORTFOLIO, queryParams);
-      return Array.isArray(portfolio?.balances) ? portfolio.balances : [];
     }
-    async function getTradeHistory(client, params) {
-      (0, validation_1.validateRequired)(params.walletAddress, "walletAddress");
-      if (params.chain !== void 0)
-        (0, validation_1.validateChain)(params.chain);
-      const queryParams = {
-        ...(0, apiAliases_1.buildWalletAliases)(params.walletAddress)
+    function buildTokenAliases(tokenAddress) {
+      return {
+        tokenAddress,
+        token: tokenAddress
       };
-      Object.assign(queryParams, (0, apiAliases_1.buildChainAliases)(params.chain));
-      if (params.page)
-        queryParams.page = params.page;
-      if (params.limit)
-        queryParams.limit = params.limit;
-      if (params.startTime)
-        queryParams.startTime = params.startTime;
-      if (params.endTime)
-        queryParams.endTime = params.endTime;
-      if (params.startTime)
-        queryParams.from = params.startTime;
-      if (params.endTime)
-        queryParams.to = params.endTime;
-      return client.get(Endpoints.USER_HISTORY, queryParams);
+    }
+    function buildWalletAliases(walletAddress) {
+      if (!walletAddress)
+        return {};
+      return {
+        walletAddress,
+        wallet: walletAddress
+      };
+    }
+    function pickRequestId(payload) {
+      if (!payload || typeof payload !== "object")
+        return void 0;
+      const p = payload;
+      const requestId = p.requestId;
+      const jobId = p.jobId;
+      if (typeof requestId === "string" && requestId.length > 0)
+        return requestId;
+      if (typeof jobId === "string" && jobId.length > 0)
+        return jobId;
+      return void 0;
     }
   }
 });
@@ -125337,8 +126056,8 @@ var require_usdc = __commonJS({
     })();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.DEFAULT_GAS_TOPUP_USD = void 0;
-    exports.deriveMaxSourceSpendRaw = deriveMaxSourceSpendRaw;
-    exports.buyGasHeadroomUsdc = buyGasHeadroomUsdc;
+    exports.deriveMaxSourceSpendRaw = deriveMaxSourceSpendRaw2;
+    exports.buyGasHeadroomUsdc = buyGasHeadroomUsdc2;
     exports.getUsdcBalances = getUsdcBalances;
     exports.getUsdcTradeQuote = getUsdcTradeQuote;
     exports.getUsdcFundingStatus = getUsdcFundingStatus;
@@ -125362,13 +126081,13 @@ var require_usdc = __commonJS({
     var validation_1 = require_validation4();
     var errors_1 = require_errors4();
     var SOLANA_CHAIN_ID2 = 622112261;
-    function readQuery(creds) {
-      (0, validation_1.validateRequired)(creds.apiKey, "apiKey");
-      (0, validation_1.validateRequired)(creds.walletAddress, "walletAddress");
-      (0, validation_1.validateRequired)(creds.sessionPrivateKey, "sessionPrivateKey");
+    function readQuery(creds2) {
+      (0, validation_1.validateRequired)(creds2.apiKey, "apiKey");
+      (0, validation_1.validateRequired)(creds2.walletAddress, "walletAddress");
+      (0, validation_1.validateRequired)(creds2.sessionPrivateKey, "sessionPrivateKey");
       return {
-        userId: creds.walletAddress,
-        data: (0, gdexManagedCrypto_1.buildGdexReadSessionData)(creds.sessionPrivateKey, creds.apiKey)
+        userId: creds2.walletAddress,
+        data: (0, gdexManagedCrypto_1.buildGdexReadSessionData)(creds2.sessionPrivateKey, creds2.apiKey)
       };
     }
     function isPositiveRaw(raw) {
@@ -125379,13 +126098,13 @@ var require_usdc = __commonJS({
         throw new errors_1.GdexValidationError(`${name} must be a positive integer amount in raw units`, name);
       return raw;
     }
-    function deriveMaxSourceSpendRaw(amountRaw, gasHeadroomRaw = "0") {
+    function deriveMaxSourceSpendRaw2(amountRaw, gasHeadroomRaw = "0") {
       return (((BigInt(amountRaw) + BigInt(gasHeadroomRaw)) * 6n + 4n) / 5n).toString();
     }
-    function buyGasHeadroomUsdc(chainId) {
+    function buyGasHeadroomUsdc2(chainId) {
       return chainId === SOLANA_CHAIN_ID2 ? 2 : 3;
     }
-    function usdcDecimals(chainId) {
+    function usdcDecimals2(chainId) {
       return chainId === 56 ? 18 : 6;
     }
     function signedBudget(amountRaw, autoBridge, explicit, gasHeadroomRaw = "0") {
@@ -125393,10 +126112,10 @@ var require_usdc = __commonJS({
         return "0";
       if (explicit !== void 0)
         return requireRaw(explicit, "maxSourceSpendRaw");
-      return deriveMaxSourceSpendRaw(amountRaw, gasHeadroomRaw);
+      return deriveMaxSourceSpendRaw2(amountRaw, gasHeadroomRaw);
     }
-    async function getUsdcBalances(client, creds) {
-      return client.get(Endpoints.USDC_BALANCES, readQuery(creds));
+    async function getUsdcBalances(client, creds2) {
+      return client.get(Endpoints.USDC_BALANCES, readQuery(creds2));
     }
     async function getUsdcTradeQuote(client, params) {
       (0, validation_1.validateRequired)(params.tokenAddress, "tokenAddress");
@@ -125446,8 +126165,8 @@ var require_usdc = __commonJS({
         ...params.refresh ? { refresh: "true" } : {}
       });
     }
-    async function getUsdcBridgeOrders(client, creds) {
-      return client.get(Endpoints.USDC_BRIDGE_ORDERS, readQuery(creds));
+    async function getUsdcBridgeOrders(client, creds2) {
+      return client.get(Endpoints.USDC_BRIDGE_ORDERS, readQuery(creds2));
     }
     async function buyWithUsdc(client, params) {
       (0, validation_1.validateRequired)(params.tokenAddress, "tokenAddress");
@@ -125462,7 +126181,7 @@ var require_usdc = __commonJS({
           amount,
           requireRaw(params.minTokenOutRaw, "minTokenOutRaw"),
           autoBridge,
-          signedBudget(amount, autoBridge, params.maxSourceSpendRaw, (BigInt(buyGasHeadroomUsdc(params.chainId)) * 10n ** BigInt(usdcDecimals(params.chainId))).toString())
+          signedBudget(amount, autoBridge, params.maxSourceSpendRaw, (BigInt(buyGasHeadroomUsdc2(params.chainId)) * 10n ** BigInt(usdcDecimals2(params.chainId))).toString())
         ]
       });
       return client.post(Endpoints.USDC_TRADE_PURCHASE, { computedData, chainId: params.chainId });
@@ -125990,6 +126709,689 @@ var require_tokenDiscovery = __commonJS({
   }
 });
 
+// dist/actions/hlOutcomeMarkets.js
+var require_hlOutcomeMarkets = __commonJS({
+  "dist/actions/hlOutcomeMarkets.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.OUTCOME_SETTLEMENT_SUPPORT = exports.OUTCOME_EXCHANGE_ASSET_ID_BASE = exports.OUTCOME_ORDER_RULES = void 0;
+    exports.parseOutcomeParams = parseOutcomeParams;
+    exports.parseOutcomeTime = parseOutcomeTime;
+    exports.humanizeOutcomeName = humanizeOutcomeName;
+    exports.renderOutcomeSideLabel = renderOutcomeSideLabel;
+    exports.outcomeSideAssetId = outcomeSideAssetId;
+    exports.normalizeOutcomeMarkets = normalizeOutcomeMarkets;
+    exports.findOutcomeMarket = findOutcomeMarket;
+    exports.parseOutcomeId = parseOutcomeId;
+    exports.resolveOutcomeSide = resolveOutcomeSide;
+    exports.parseOutcomeSize = parseOutcomeSize;
+    exports.parseOutcomePrice = parseOutcomePrice;
+    exports.validateOutcomeOrder = validateOutcomeOrder;
+    exports.validateOutcomeClose = validateOutcomeClose;
+    exports.normalizeOutcomeAccount = normalizeOutcomeAccount;
+    exports.normalizeOutcomeOrderResult = normalizeOutcomeOrderResult;
+    var errors_1 = require_errors4();
+    exports.OUTCOME_ORDER_RULES = {
+      /** Prices are probabilities strictly inside (0,1). */
+      priceMin: 1e-5,
+      priceMax: 0.99999,
+      /** Backend rounds prices with `toFixed(5)` (hyperLiquidOutcomes.ts:85-91); market-order slippage clamps to [0.00001, 0.99999] (:119-126). */
+      priceDecimals: 5,
+      priceTick: "0.00001",
+      /** "HIP-4 outcomes trade whole contracts" — OUTCOME_SIZE_DECIMALS = 0 (hyperLiquidOutcomes.ts:69,185-188). */
+      sizeDecimals: 0,
+      minSize: 1,
+      /**
+       * gdex.pro refuses outcome orders below 11 quote units of notional (size × price):
+       * MIN_OUTCOME_ORDER_USDC = 11 (gbotTradingDashboardUI@staging
+       * src/components/outcomes/HyperliquidOutcomeDetail.tsx:84,1150-1158). Hyperliquid's own
+       * floor is 10; 11 leaves headroom for rounding. The backend does not check it.
+       */
+      minOrderNotional: 11,
+      /** A sell of the whole position is exempt from the minimum (HyperliquidOutcomeDetail.tsx:1145-1152). */
+      fullPositionSellExempt: true,
+      /** Market orders take the top of book ±5% (hyperLiquidOutcomes.ts:119-126,154-168). */
+      marketSlippagePct: 5,
+      /** Limit orders rest as GTC, market orders go out as FrontendMarket (hyperLiquidOutcomes.ts:321). */
+      limitTif: "Gtc",
+      marketTif: "FrontendMarket",
+      /** The backend hard-codes `r: false` (hyperLiquidOutcomes.ts:330): reduceOnly is NOT honoured. */
+      reduceOnlyHonoured: false,
+      /** Close is always a sell of held side tokens, capped to available size (hyperLiquidOutcomes.ts:420-479). */
+      closeIsSellOfHeldTokens: true
+    };
+    exports.OUTCOME_EXCHANGE_ASSET_ID_BASE = 1e8;
+    exports.OUTCOME_SETTLEMENT_SUPPORT = {
+      mechanism: "hyperliquid_hip4",
+      /**
+       * The GDEX backend exposes exactly five outcome routes (src/api/hyperLiquid.ts:42-46):
+       * outcomes, outcome_account, outcome/create_order, outcome/cancel_order, outcome/close_order.
+       * There is no claim, redeem or settle route.
+       */
+      claimViaGdex: false,
+      summary: "Settlement is done on Hyperliquid by the market deployer (settleOutcome / settleQuestion permissions in outcomeMeta.deployers). GDEX has no claim or redeem endpoint, so there is nothing to call after resolution: read the managed wallet's Hyperliquid spot balances (get_hl_outcome_account / spotClearinghouseState) to see the result. Before resolution, exit by selling (hl_close_outcome_order)."
+    };
+    function parseOutcomeParams(description) {
+      const out = {};
+      for (const part of (description ?? "").split("|")) {
+        const idx = part.indexOf(":");
+        if (idx <= 0)
+          continue;
+        const key = part.slice(0, idx).trim();
+        const value = part.slice(idx + 1).trim();
+        if (key && value)
+          out[key] = value;
+      }
+      return out;
+    }
+    function parseOutcomeTime(value) {
+      const m = value?.match(/^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})$/);
+      if (!m)
+        return null;
+      const [, y, mo, d, h, mi] = m;
+      return Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi));
+    }
+    function humanizeOutcomeName(name) {
+      const bare = (name ?? "").replace(/^template:/, "").trim();
+      if (!bare)
+        return "";
+      return bare.replace(/([a-z])([A-Z0-9])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
+    }
+    function renderOutcomeSideLabel(rawName, params, sideIndex) {
+      const name = rawName ?? "";
+      const placeholder = name.match(/^template:\{(.+)\}$/)?.[1];
+      if (placeholder)
+        return params[placeholder] || humanizeOutcomeName(placeholder);
+      const label = name.startsWith("template:") ? name.slice("template:".length) : name;
+      return label.trim() || `Side ${sideIndex + 1}`;
+    }
+    var EXPIRY_KEYS = [
+      "expiry",
+      "time",
+      "scheduledDecision",
+      "decisionDeadline",
+      "resolutionDeadline",
+      "dateTime",
+      "listingDeadline"
+    ];
+    function pickExpiry(params) {
+      for (const k of EXPIRY_KEYS) {
+        const ms = parseOutcomeTime(params[k]);
+        if (ms !== null)
+          return ms;
+      }
+      return null;
+    }
+    function fmtTime(ms) {
+      return ms === null ? "unscheduled" : `${new Date(ms).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+    }
+    function fmtNum(v) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n.toLocaleString("en-US") : String(v);
+    }
+    function buildQuestionTitle(q, p) {
+      if (!q)
+        return null;
+      if (p.participantA && p.participantB) {
+        return `${p.participantA} vs ${p.participantB}${p.competition ? ` (${p.competition})` : ""}`;
+      }
+      if (p.class === "priceBucket" && p.underlying)
+        return `${p.underlying} price range at ${fmtTime(pickExpiry(p))}`;
+      if (p.award)
+        return `${p.award}${p.period ? ` ${p.period}` : ""} winner`;
+      return humanizeOutcomeName(q.name) || `Question #${q.question}`;
+    }
+    function buildTitle(o, p, q, isFallback, expiryMs) {
+      const qTitle = buildQuestionTitle(q, p);
+      const underlying = p.underlying ?? p.perp ?? p.shortName;
+      const target = p.targetPrice ?? p.threshold ?? p.target;
+      const cls = p.class ?? (p.threshold !== void 0 ? "priceBinary" : p.target !== void 0 ? "priceTouch" : void 0);
+      if (isFallback)
+        return qTitle ? `${qTitle}: none of the listed outcomes` : "None of the listed outcomes";
+      if (cls === "priceBinary" && underlying && target !== void 0) {
+        return `${underlying} above ${fmtNum(target)} at ${fmtTime(expiryMs)}?`;
+      }
+      if (cls === "priceTouch" && underlying && target !== void 0) {
+        return `${underlying} touches ${fmtNum(target)} by ${fmtTime(expiryMs)}?`;
+      }
+      if (cls === "priceBucket" && underlying && p.priceThresholds) {
+        const [lo, hi] = p.priceThresholds.split(",").map((s) => s.trim());
+        const idx = p.index !== void 0 ? Number(p.index) : q ? q.namedOutcomes.indexOf(o.outcome) : -1;
+        const when = fmtTime(expiryMs);
+        if (idx === 0)
+          return `${underlying} below ${fmtNum(lo)} at ${when}?`;
+        if (idx === 1)
+          return `${underlying} between ${fmtNum(lo)} and ${fmtNum(hi)} at ${when}?`;
+        if (idx === 2)
+          return `${underlying} above ${fmtNum(hi)} at ${when}?`;
+      }
+      const own = parseOutcomeParams(o.description);
+      const subject = own.participant ?? own.candidate ?? own.company ?? own.shortName;
+      if (/draw/i.test(o.name))
+        return qTitle ? `${qTitle}: draw` : "Draw";
+      if (qTitle && subject)
+        return `${qTitle}: ${subject}`;
+      if (!q && p.participantA && p.participantB) {
+        return `${p.participantA} vs ${p.participantB}${p.competition ? ` (${p.competition})` : ""}`;
+      }
+      if (qTitle)
+        return `${qTitle}: ${humanizeOutcomeName(o.name)}`;
+      const human = humanizeOutcomeName(o.name);
+      if (human && subject)
+        return `${human}: ${subject}`;
+      return human || `Outcome #${o.outcome}`;
+    }
+    function outcomeSideAssetId(outcomeId, sideIndex, token) {
+      const t = Number(token);
+      if (token !== void 0 && Number.isInteger(t) && t >= 0) {
+        return t >= exports.OUTCOME_EXCHANGE_ASSET_ID_BASE ? t - exports.OUTCOME_EXCHANGE_ASSET_ID_BASE : t;
+      }
+      return outcomeId * 10 + sideIndex;
+    }
+    function normalizeOutcomeMarkets(payload, options = {}) {
+      const env = payload;
+      const data = (env && typeof env === "object" && "data" in env ? env.data : env) ?? {};
+      const outcomes = data.meta?.outcomes ?? [];
+      const questions = data.meta?.questions ?? [];
+      const mids = data.mids ?? {};
+      const now = options.now ?? Date.now();
+      const qByOutcome = /* @__PURE__ */ new Map();
+      for (const q of questions) {
+        qByOutcome.set(q.fallbackOutcome, q);
+        for (const id2 of q.namedOutcomes ?? [])
+          qByOutcome.set(id2, q);
+      }
+      return outcomes.map((o) => {
+        const q = qByOutcome.get(o.outcome);
+        const params = { ...parseOutcomeParams(q?.description), ...parseOutcomeParams(o.description) };
+        const isFallback = q?.fallbackOutcome === o.outcome;
+        const expiryMs = pickExpiry(params);
+        const quoteToken = o.quoteToken || "USDC";
+        const sides = (o.sideSpecs ?? []).map((s, i) => {
+          const assetId = outcomeSideAssetId(o.outcome, i, s.token);
+          const coin = `#${assetId}`;
+          const mid = Number(mids[coin]);
+          return {
+            sideIndex: i,
+            label: renderOutcomeSideLabel(s.name, params, i),
+            rawName: s.name,
+            coin,
+            assetId,
+            balanceCoin: `+${assetId}`,
+            exchangeAssetId: exports.OUTCOME_EXCHANGE_ASSET_ID_BASE + assetId,
+            price: mids[coin] !== void 0 && Number.isFinite(mid) ? mid : null
+          };
+        });
+        const settled = Boolean(q?.settledNamedOutcomes?.includes(o.outcome));
+        const state = settled ? "settled" : expiryMs !== null && expiryMs <= now ? "expired" : sides.some((s) => s.price !== null) ? "active" : "pre_launch";
+        return {
+          kind: "hyperliquid_hip4_outcome",
+          outcomeId: o.outcome,
+          title: buildTitle(o, params, q, isFallback, expiryMs),
+          rawName: o.name,
+          rawDescription: o.description,
+          params,
+          questionId: q?.question ?? null,
+          questionTitle: buildQuestionTitle(q, params),
+          isFallback,
+          venue: o.venue ?? null,
+          quoteToken,
+          sides,
+          state,
+          tradable: state === "active",
+          expiry: expiryMs === null ? null : new Date(expiryMs).toISOString(),
+          expiryMs,
+          rules: {
+            priceMin: exports.OUTCOME_ORDER_RULES.priceMin,
+            priceMax: exports.OUTCOME_ORDER_RULES.priceMax,
+            priceTick: exports.OUTCOME_ORDER_RULES.priceTick,
+            priceDecimals: exports.OUTCOME_ORDER_RULES.priceDecimals,
+            sizeDecimals: exports.OUTCOME_ORDER_RULES.sizeDecimals,
+            minSize: exports.OUTCOME_ORDER_RULES.minSize,
+            minOrderNotional: exports.OUTCOME_ORDER_RULES.minOrderNotional,
+            minOrderNotionalCurrency: quoteToken,
+            fullPositionSellExempt: exports.OUTCOME_ORDER_RULES.fullPositionSellExempt,
+            marketSlippagePct: exports.OUTCOME_ORDER_RULES.marketSlippagePct,
+            reduceOnlyHonoured: exports.OUTCOME_ORDER_RULES.reduceOnlyHonoured
+          },
+          settlement: {
+            mechanism: exports.OUTCOME_SETTLEMENT_SUPPORT.mechanism,
+            claimViaGdex: exports.OUTCOME_SETTLEMENT_SUPPORT.claimViaGdex,
+            resolutionSource: params.officialSource ?? params.priceDescription ?? null,
+            resolutionDeadline: expiryMs === null ? null : new Date(expiryMs).toISOString(),
+            summary: state === "settled" ? `Resolved on Hyperliquid. ${exports.OUTCOME_SETTLEMENT_SUPPORT.summary}` : state === "expired" ? `Past its deadline and not yet marked settled by Hyperliquid; new orders are refused by the SDK. ${exports.OUTCOME_SETTLEMENT_SUPPORT.summary}` : exports.OUTCOME_SETTLEMENT_SUPPORT.summary
+          }
+        };
+      });
+    }
+    function findOutcomeMarket(markets, outcomeId) {
+      const id2 = parseOutcomeId(outcomeId);
+      const m = markets.find((x) => x.outcomeId === id2);
+      if (!m) {
+        throw new errors_1.GdexValidationError(`Unknown outcomeId ${id2}: not in the live Hyperliquid outcomeMeta (${markets.length} markets listed). Call hl_outcomes to discover ids.`, "outcomeId");
+      }
+      return m;
+    }
+    function parseOutcomeId(outcomeId) {
+      const s = String(outcomeId ?? "").trim();
+      if (!/^\d+$/.test(s))
+        throw new errors_1.GdexValidationError(`outcomeId must be a non-negative integer, got "${outcomeId}"`, "outcomeId");
+      return Number(s);
+    }
+    function resolveOutcomeSide(market, sel) {
+      const given = [sel.coin !== void 0 && sel.coin !== "", sel.sideIndex !== void 0, sel.sideLabel !== void 0 && sel.sideLabel !== ""];
+      if (given.filter(Boolean).length !== 1) {
+        throw new errors_1.GdexValidationError("Pick the side with exactly one of coin, sideIndex or sideLabel", "coin");
+      }
+      const labels = market.sides.map((s) => `${s.coin}="${s.label}"`).join(", ");
+      let side;
+      if (given[0]) {
+        if (!/^#\d+$/.test(String(sel.coin))) {
+          throw new errors_1.GdexValidationError(`Outcome coin must look like "#<assetId>", got "${sel.coin}". Sides: ${labels}`, "coin");
+        }
+        side = market.sides.find((s) => s.coin === sel.coin);
+        if (!side) {
+          throw new errors_1.GdexValidationError(`Coin ${sel.coin} does not belong to outcome ${market.outcomeId}. Its sides are ${labels}`, "coin");
+        }
+      } else if (given[1]) {
+        side = market.sides[Number(sel.sideIndex)];
+        if (!side || !Number.isInteger(sel.sideIndex)) {
+          throw new errors_1.GdexValidationError(`sideIndex ${sel.sideIndex} is out of range. Sides: ${labels}`, "sideIndex");
+        }
+      } else {
+        const want = String(sel.sideLabel).trim().toLowerCase();
+        const matches = market.sides.filter((s) => s.label.toLowerCase() === want);
+        if (matches.length !== 1) {
+          throw new errors_1.GdexValidationError(`sideLabel "${sel.sideLabel}" ${matches.length ? "is ambiguous" : "matches no side"}. Sides: ${labels}`, "sideLabel");
+        }
+        side = matches[0];
+      }
+      return side;
+    }
+    function parseOutcomeSize(size, field = "size") {
+      const s = String(size ?? "").trim();
+      if (!/^\d+$/.test(s) || Number(s) < exports.OUTCOME_ORDER_RULES.minSize) {
+        throw new errors_1.GdexValidationError(`${field} must be a positive whole number of contracts (outcomes trade whole contracts), got "${size}"`, field);
+      }
+      const n = Number(s);
+      if (!Number.isSafeInteger(n))
+        throw new errors_1.GdexValidationError(`${field} is too large`, field);
+      return n;
+    }
+    function parseOutcomePrice(price, field = "price") {
+      const s = String(price ?? "").trim();
+      if (!/^(0(\.\d+)?|\.\d+)$/.test(s)) {
+        throw new errors_1.GdexValidationError(`${field} must be a decimal probability like "0.42", got "${price}"`, field);
+      }
+      const decimals = s.includes(".") ? s.split(".")[1].length : 0;
+      if (decimals > exports.OUTCOME_ORDER_RULES.priceDecimals) {
+        throw new errors_1.GdexValidationError(`${field} "${s}" has ${decimals} decimals; the tick is ${exports.OUTCOME_ORDER_RULES.priceTick} (max 5 decimals)`, field);
+      }
+      const n = Number(s);
+      if (n < exports.OUTCOME_ORDER_RULES.priceMin || n > exports.OUTCOME_ORDER_RULES.priceMax) {
+        throw new errors_1.GdexValidationError(`${field} ${s} is outside [${exports.OUTCOME_ORDER_RULES.priceMin}, ${exports.OUTCOME_ORDER_RULES.priceMax}]`, field);
+      }
+      return n;
+    }
+    function assertTradable(market, action) {
+      if (market.state === "settled" || market.state === "expired") {
+        throw new errors_1.GdexValidationError(`Outcome ${market.outcomeId} is ${market.state}; ${action} is refused. ${market.settlement.summary}`, "outcomeId");
+      }
+    }
+    function validateOutcomeOrder(market, input, ctx = {}) {
+      if (typeof input.isBuy !== "boolean")
+        throw new errors_1.GdexValidationError("isBuy must be true (buy side tokens) or false (sell held tokens)", "isBuy");
+      assertTradable(market, "placing orders");
+      const side = resolveOutcomeSide(market, input);
+      const size = parseOutcomeSize(input.size);
+      const isMarket = input.isMarket === true;
+      const warnings = [];
+      if (input.reduceOnly) {
+        warnings.push("reduceOnly is ignored by the GDEX backend for outcome orders (it always sends r:false); a sell can only sell tokens you hold.");
+      }
+      let price;
+      let priceStr;
+      let notionalIsEstimate = false;
+      if (isMarket) {
+        if (input.price !== void 0 && input.price !== "" && Number(input.price) !== 0) {
+          throw new errors_1.GdexValidationError('Market orders take the live book price; omit price or pass "0"', "price");
+        }
+        if (side.price === null) {
+          throw new errors_1.GdexValidationError(`Side ${side.coin} ("${side.label}") has no book/mid price; use a limit order`, "isMarket");
+        }
+        const slip = exports.OUTCOME_ORDER_RULES.marketSlippagePct / 100;
+        price = input.isBuy ? Math.min(side.price * (1 + slip), exports.OUTCOME_ORDER_RULES.priceMax) : Math.max(side.price * (1 - slip), exports.OUTCOME_ORDER_RULES.priceMin);
+        priceStr = "0";
+        notionalIsEstimate = true;
+      } else {
+        if (market.state === "pre_launch")
+          warnings.push("No side of this market has a mid price yet; a limit order may rest without fills.");
+        price = parseOutcomePrice(input.price);
+        priceStr = String(input.price).trim();
+      }
+      const notional = size * price;
+      const sellingAll = !input.isBuy && ctx.availableSize !== void 0 && size >= Math.floor(ctx.availableSize);
+      if (!input.isBuy && ctx.availableSize !== void 0) {
+        if (ctx.availableSize <= 0)
+          throw new errors_1.GdexValidationError(`No sellable ${side.label} tokens (${side.coin}) in this wallet`, "size");
+        if (size > ctx.availableSize) {
+          throw new errors_1.GdexValidationError(`Sell size ${size} exceeds available ${side.label} tokens (${ctx.availableSize})`, "size");
+        }
+      }
+      if (notional < exports.OUTCOME_ORDER_RULES.minOrderNotional && !sellingAll) {
+        const need = Math.ceil(exports.OUTCOME_ORDER_RULES.minOrderNotional / price);
+        throw new errors_1.GdexValidationError(`Order notional ${notional.toFixed(4)} ${market.quoteToken} is below the ${exports.OUTCOME_ORDER_RULES.minOrderNotional} ${market.quoteToken} minimum (size \xD7 price${notionalIsEstimate ? ", estimated from the mid" : ""}). At this price use size >= ${need}` + (input.isBuy ? "." : ", or sell the whole position (pass the account context / use hl_close_outcome_order)."), "size");
+      }
+      return {
+        outcomeId: market.outcomeId,
+        side,
+        isBuy: input.isBuy,
+        isMarket,
+        price: priceStr,
+        size: String(size),
+        notional,
+        notionalIsEstimate,
+        quoteToken: market.quoteToken,
+        warnings
+      };
+    }
+    function validateOutcomeClose(market, input, ctx = {}) {
+      if (market.state === "settled") {
+        throw new errors_1.GdexValidationError(`Outcome ${market.outcomeId} is settled; there is no book to sell into. ${market.settlement.summary}`, "outcomeId");
+      }
+      const side = resolveOutcomeSide(market, input);
+      const isMarket = input.isMarket === true;
+      const warnings = [];
+      if (market.state === "expired")
+        warnings.push("Market is past its deadline; the close may fail if Hyperliquid has halted the book.");
+      let priceNum;
+      let priceStr;
+      if (isMarket) {
+        if (input.price !== void 0 && input.price !== "" && Number(input.price) !== 0) {
+          throw new errors_1.GdexValidationError('Market closes take the live book price; omit price or pass "0"', "price");
+        }
+        if (side.price === null)
+          throw new errors_1.GdexValidationError(`Side ${side.coin} has no book/mid price; close with a limit price`, "isMarket");
+        priceNum = side.price;
+        priceStr = "0";
+      } else {
+        priceNum = parseOutcomePrice(input.price);
+        priceStr = String(input.price).trim();
+      }
+      const sizeGiven = input.size !== void 0 && input.size !== "" && String(input.size) !== "0";
+      const size = sizeGiven ? parseOutcomeSize(input.size) : null;
+      if (ctx.availableSize !== void 0) {
+        const avail = Math.floor(ctx.availableSize);
+        if (avail <= 0)
+          throw new errors_1.GdexValidationError(`No ${side.label} position (${side.coin}) to close`, "coin");
+        if (size !== null && size > avail) {
+          throw new errors_1.GdexValidationError(`Close size ${size} exceeds the available position (${avail})`, "size");
+        }
+        if (size !== null && size < avail) {
+          const min = exports.OUTCOME_ORDER_RULES.minOrderNotional;
+          const mark = side.price ?? priceNum;
+          if (size * priceNum < min) {
+            throw new errors_1.GdexValidationError(`Partial close value ${(size * priceNum).toFixed(4)} is below ${min} ${market.quoteToken}; close more or the full position`, "size");
+          }
+          if ((avail - size) * mark < min) {
+            throw new errors_1.GdexValidationError(`The remaining position would be worth less than ${min} ${market.quoteToken}; close the full position instead`, "size");
+          }
+        }
+      } else if (size !== null) {
+        warnings.push("Partial-close minimums were not checked (no account context); the backend caps the size to what you hold.");
+      }
+      return {
+        outcomeId: market.outcomeId,
+        side,
+        isMarket,
+        price: priceStr,
+        size: size === null ? "" : String(size),
+        full: size === null || ctx.availableSize !== void 0 && size >= Math.floor(ctx.availableSize),
+        warnings
+      };
+    }
+    var num = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+    function normalizeOutcomeAccount(payload, market) {
+      const env = payload;
+      const d = (env && typeof env === "object" && "data" in env ? env.data : env) ?? {};
+      const coins = d.coins ?? [];
+      const sideByCoin = /* @__PURE__ */ new Map();
+      for (const c of coins)
+        sideByCoin.set(c.coin, { sideIndex: c.sideIndex, label: c.sideName, price: null, coin: c.coin });
+      for (const s of market?.sides ?? [])
+        sideByCoin.set(s.coin, { sideIndex: s.sideIndex, label: s.label, price: s.price, coin: s.coin });
+      const coinOfBalance = (b) => b.startsWith("+") ? `#${b.slice(1)}` : b;
+      const positions2 = (d.positions ?? []).map((b) => {
+        const balanceCoin = String(b.coin);
+        const coin = coinOfBalance(balanceCoin);
+        const side = sideByCoin.get(coin);
+        const size = num(b.total);
+        const hold = num(b.hold);
+        const entryNotional = b.entryNtl !== void 0 ? num(b.entryNtl) : null;
+        const mark = side?.price ?? null;
+        return {
+          outcomeId: num(d.outcomeId),
+          coin,
+          balanceCoin,
+          sideIndex: side?.sideIndex ?? null,
+          sideLabel: side?.label ?? null,
+          size,
+          hold,
+          available: Math.max(size - hold, 0),
+          entryNotional,
+          avgEntryPrice: entryNotional !== null && size > 0 ? entryNotional / size : null,
+          markPrice: mark,
+          value: mark !== null ? mark * size : null,
+          unrealizedPnl: mark !== null && entryNotional !== null ? mark * size - entryNotional : null
+        };
+      });
+      const openOrders = (d.openOrders ?? []).map((o) => {
+        const size = num(o.sz);
+        const orig = o.origSz !== void 0 ? num(o.origSz) : size;
+        return {
+          coin: String(o.coin),
+          sideLabel: sideByCoin.get(String(o.coin))?.label ?? null,
+          orderId: num(o.oid),
+          isBuy: o.side === "B",
+          price: num(o.limitPx),
+          size,
+          originalSize: orig,
+          filledSize: Math.max(orig - size, 0),
+          status: orig > size ? "partially_filled" : "resting",
+          orderType: o.orderType ?? null,
+          tif: o.tif ?? null,
+          timestamp: num(o.timestamp)
+        };
+      });
+      const fills = (d.fills ?? []).map((f2) => ({
+        coin: String(f2.coin),
+        sideLabel: sideByCoin.get(String(f2.coin))?.label ?? null,
+        orderId: num(f2.oid),
+        isBuy: f2.side === "B",
+        price: num(f2.px),
+        size: num(f2.sz),
+        fee: num(f2.fee),
+        feeToken: f2.feeToken ?? null,
+        closedPnl: num(f2.closedPnl),
+        time: num(f2.time),
+        hash: f2.hash ?? null
+      }));
+      const historicalOrders = (d.historicalOrders ?? []).map((h) => {
+        const o = h.order ?? {};
+        return {
+          coin: String(o.coin),
+          orderId: num(o.oid),
+          isBuy: o.side === "B",
+          price: num(o.limitPx),
+          originalSize: num(o.origSz),
+          remainingSize: num(o.sz),
+          status: String(h.status),
+          statusTimestamp: num(h.statusTimestamp)
+        };
+      });
+      return {
+        outcomeId: num(d.outcomeId),
+        market: market ?? null,
+        positions: positions2,
+        openOrders,
+        fills,
+        historicalOrders,
+        source: "GET /v1/hl/outcome_account (Hyperliquid spotClearinghouseState, frontendOpenOrders, userFills, historicalOrders)"
+      };
+    }
+    function normalizeOutcomeOrderResult(raw, kind, extra = {}) {
+      const r = raw ?? {};
+      const statuses = r.data?.response?.data?.statuses;
+      const st = Array.isArray(statuses) ? statuses[0] : void 0;
+      const base = { request: extra.request, warnings: extra.warnings ?? [], raw };
+      if (r.isSuccess === false || st && typeof st === "object" && "error" in st) {
+        const error2 = String(st?.error ?? r.error ?? "rejected");
+        return { ...base, isSuccess: false, status: "rejected", orderId: null, filledSize: null, avgPrice: null, error: error2, next: "Nothing rests on the book. Fix the cause and submit again." };
+      }
+      if (st && typeof st === "object" && "resting" in st) {
+        const oid = num(st.resting.oid);
+        return { ...base, isSuccess: true, status: "resting", orderId: oid, filledSize: 0, avgPrice: null, error: null, next: `Order ${oid} is resting. Poll hl_outcome_account (openOrders / fills) to track fills; cancel with hl_cancel_outcome_order orderId=${oid}.` };
+      }
+      if (st && typeof st === "object" && "filled" in st) {
+        const f2 = st.filled;
+        return { ...base, isSuccess: true, status: "filled", orderId: num(f2.oid), filledSize: num(f2.totalSz), avgPrice: num(f2.avgPx), error: null, next: kind === "create" ? "Filled. The side tokens are in the managed wallet's HL spot balance; check hl_outcome_account positions." : "Filled. Reconcile with hl_outcome_account." };
+      }
+      if (kind === "cancel" && (st === "success" || r.isSuccess === true)) {
+        return { ...base, isSuccess: true, status: "canceled", orderId: null, filledSize: null, avgPrice: null, error: null, next: "Cancel accepted. Confirm via hl_outcome_account (the order leaves openOrders; any partial fill stays in fills/positions)." };
+      }
+      return { ...base, isSuccess: r.isSuccess === true, status: "unknown", orderId: null, filledSize: null, avgPrice: null, error: null, next: "Unrecognised reply: check hl_outcome_account before acting again." };
+    }
+  }
+});
+
+// dist/actions/hlOutcomeVolume.js
+var require_hlOutcomeVolume = __commonJS({
+  "dist/actions/hlOutcomeVolume.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.outcomeSideCoin = outcomeSideCoin;
+    exports.fetchHlOutcomeVolumeReadings = fetchHlOutcomeVolumeReadings;
+    exports.fetchHlOutcomeVolumes = fetchHlOutcomeVolumes;
+    exports.computeOutcomeVolume = computeOutcomeVolume;
+    exports.attachOutcomeVolume = attachOutcomeVolume;
+    exports.outcomeSideCoins = outcomeSideCoins;
+    var ws_1 = require_ws();
+    var hlOutcomeMarkets_1 = require_hlOutcomeMarkets();
+    var HL_WS_URL = "wss://api.hyperliquid.xyz/ws";
+    function outcomeSideCoin(outcomeId, sideIndex, token) {
+      return `#${(0, hlOutcomeMarkets_1.outcomeSideAssetId)(Number(outcomeId), sideIndex, token)}`;
+    }
+    function fetchHlOutcomeVolumeReadings(coins, options = {}) {
+      const wanted = new Set(coins.filter((c) => typeof c === "string" && c.startsWith("#")));
+      const out = { volumes: {}, receivedAt: {} };
+      if (wanted.size === 0)
+        return Promise.resolve(out);
+      const wsUrl = options.wsUrl ?? HL_WS_URL;
+      const timeoutMs = options.timeoutMs ?? 6e3;
+      return new Promise((resolve2) => {
+        let ws;
+        let settled = false;
+        let timer;
+        const finish = () => {
+          if (settled)
+            return;
+          settled = true;
+          if (timer)
+            clearTimeout(timer);
+          try {
+            ws?.close();
+          } catch {
+          }
+          resolve2(out);
+        };
+        try {
+          ws = new ws_1.WebSocket(wsUrl);
+        } catch {
+          finish();
+          return;
+        }
+        timer = setTimeout(finish, timeoutMs);
+        ws.on("open", () => {
+          for (const coin of wanted) {
+            ws.send(JSON.stringify({ method: "subscribe", subscription: { type: "activeAssetCtx", coin } }));
+          }
+        });
+        ws.on("message", (raw) => {
+          let msg;
+          try {
+            msg = JSON.parse(raw.toString());
+          } catch {
+            return;
+          }
+          if (msg.channel !== "activeAssetCtx" && msg.channel !== "activeSpotAssetCtx")
+            return;
+          const coin = msg.data?.coin;
+          const rawVol = msg.data?.ctx?.dayNtlVlm;
+          const vol = rawVol === void 0 || rawVol === null || rawVol === "" ? NaN : Number(rawVol);
+          if (typeof coin === "string" && wanted.has(coin) && Number.isFinite(vol)) {
+            out.volumes[coin] = vol;
+            out.receivedAt[coin] = Date.now();
+            if (Object.keys(out.volumes).length >= wanted.size)
+              finish();
+          }
+        });
+        ws.on("error", finish);
+        ws.on("close", finish);
+      });
+    }
+    async function fetchHlOutcomeVolumes(coins, options = {}) {
+      return (await fetchHlOutcomeVolumeReadings(coins, options)).volumes;
+    }
+    function computeOutcomeVolume(sideCoins, coinVolumes, receivedAt = {}, fallbackAsOf = Date.now()) {
+      let total = 0;
+      let seen = 0;
+      let oldest = null;
+      const missingCoins = [];
+      for (const coin of sideCoins) {
+        const v = coinVolumes[coin];
+        if (typeof v === "number" && Number.isFinite(v)) {
+          total += v;
+          seen += 1;
+          const t = receivedAt[coin] ?? fallbackAsOf;
+          oldest = oldest === null ? t : Math.min(oldest, t);
+        } else {
+          missingCoins.push(coin);
+        }
+      }
+      const coverage = sideCoins.length > 0 && seen === sideCoins.length ? "complete" : seen > 0 ? "partial" : "unavailable";
+      return {
+        volume: seen > 0 ? total : null,
+        asOf: oldest === null ? null : new Date(oldest).toISOString(),
+        source: "hyperliquid_ws_activeAssetCtx.dayNtlVlm",
+        coverage,
+        missingCoins
+      };
+    }
+    function rawSideCoins(o) {
+      const sides = o.sideSpecs ?? [];
+      return sides.map((s, i) => outcomeSideCoin(o.outcome, i, s?.token));
+    }
+    function attachOutcomeVolume(outcomes, coinVolumes, receivedAt = {}) {
+      const now = Date.now();
+      return outcomes.map((o) => {
+        const volume24h = computeOutcomeVolume(rawSideCoins(o), coinVolumes, receivedAt, now);
+        return { ...o, volume24h, volume24hUsd: volume24h.volume };
+      });
+    }
+    function outcomeSideCoins(outcomes) {
+      const coins = [];
+      for (const o of outcomes)
+        coins.push(...rawSideCoins(o));
+      return coins;
+    }
+  }
+});
+
 // dist/actions/hlOutcomes.js
 var require_hlOutcomes = __commonJS({
   "dist/actions/hlOutcomes.js"(exports) {
@@ -126032,175 +127434,258 @@ var require_hlOutcomes = __commonJS({
         return result;
       };
     })();
+    var __importDefault2 = exports && exports.__importDefault || function(mod2) {
+      return mod2 && mod2.__esModule ? mod2 : { "default": mod2 };
+    };
     Object.defineProperty(exports, "__esModule", { value: true });
+    exports.resolveOutcomeWriteMode = resolveOutcomeWriteMode2;
     exports.getHlOutcomes = getHlOutcomes;
+    exports.getHlOutcomeMarkets = getHlOutcomeMarkets;
+    exports.getHlOutcomeMarket = getHlOutcomeMarket;
     exports.getHlOutcomeAccount = getHlOutcomeAccount;
+    exports.getHlOutcomeAccountState = getHlOutcomeAccountState;
+    exports.checkHlOutcomeCollateral = checkHlOutcomeCollateral;
     exports.createHlOutcomeOrder = createHlOutcomeOrder;
     exports.cancelHlOutcomeOrder = cancelHlOutcomeOrder;
     exports.closeHlOutcomeOrder = closeHlOutcomeOrder;
+    var axios_1 = __importDefault2(require_axios());
     var Endpoints = __importStar2(require_endpoints());
     var validation_1 = require_validation4();
+    var errors_1 = require_errors4();
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
-    async function getHlOutcomes(client, params = {}) {
-      const q = {};
-      if (params.dex)
-        q.dex = params.dex;
-      if (params.status)
-        q.status = params.status;
-      return client.get(Endpoints.HL_OUTCOMES, q);
+    var hlOutcomeMarkets_1 = require_hlOutcomeMarkets();
+    var hlOutcomeVolume_1 = require_hlOutcomeVolume();
+    var HL_INFO_URL = "https://api.hyperliquid.xyz/info";
+    var STRUCTURED_FIELDS = [
+      "apiKey",
+      "walletAddress",
+      "sessionPrivateKey",
+      "outcomeId",
+      "coin",
+      "sideIndex",
+      "sideLabel",
+      "isBuy",
+      "price",
+      "size",
+      "reduceOnly",
+      "isMarket",
+      "orderId",
+      "market",
+      "managedAddress"
+    ];
+    function resolveOutcomeWriteMode2(req, required2) {
+      const has = (k) => req[k] !== void 0 && req[k] !== null && req[k] !== "";
+      if (has("computedData")) {
+        const mixed = STRUCTURED_FIELDS.filter((k) => has(k));
+        if (typeof req.computedData !== "string")
+          throw new errors_1.GdexValidationError("computedData must be a string", "computedData");
+        if (mixed.length > 0) {
+          throw new errors_1.GdexValidationError(`Pass either computedData alone or the structured fields, not both (got computedData with ${mixed.join(", ")})`, "computedData");
+        }
+        return "prebuilt";
+      }
+      const missing = required2.filter((k) => !has(k));
+      if (missing.length > 0) {
+        throw new errors_1.GdexValidationError(`Missing ${missing.join(", ")}. Pass the structured fields (${required2.join(", ")}) or a pre-built computedData.`, missing[0]);
+      }
+      return "structured";
+    }
+    async function getHlOutcomes(client, _params = {}) {
+      return client.get(Endpoints.HL_OUTCOMES);
+    }
+    async function getHlOutcomeMarkets(client, params = {}) {
+      const raw = await client.get(Endpoints.HL_OUTCOMES);
+      const now = params.now ?? Date.now();
+      const all = (0, hlOutcomeMarkets_1.normalizeOutcomeMarkets)(raw, { now });
+      const states = params.state === void 0 ? null : new Set(Array.isArray(params.state) ? params.state : [params.state]);
+      const q = params.query?.trim().toLowerCase();
+      let markets = all.filter((m) => (!states || states.has(m.state)) && (!params.excludeFallback || !m.isFallback) && (!q || m.title.toLowerCase().includes(q) || m.sides.some((s) => s.label.toLowerCase().includes(q)) || m.rawDescription.toLowerCase().includes(q) || String(m.outcomeId) === q));
+      if (params.limit !== void 0 && params.limit >= 0)
+        markets = markets.slice(0, params.limit);
+      const notes = [
+        "Hyperliquid HIP-4 outcome markets. Collateral is each market's quoteToken in the managed wallet's HL spot balance.",
+        'Side order follows Hyperliquid sideSpecs; read sides[].label \u2014 the first side is not necessarily "Yes".'
+      ];
+      const result = {
+        markets,
+        count: markets.length,
+        total: all.length,
+        asOf: new Date(now).toISOString(),
+        source: "GET /v1/hl/outcomes (Hyperliquid outcomeMeta + allMids)",
+        notes
+      };
+      if (params.withVolume && markets.length > 0) {
+        const coins = markets.flatMap((m) => m.sides.map((s) => s.coin));
+        let readings = { volumes: {}, receivedAt: {} };
+        try {
+          readings = await (0, hlOutcomeVolume_1.fetchHlOutcomeVolumeReadings)(coins, {
+            timeoutMs: params.volumeTimeoutMs ?? 2500,
+            wsUrl: params.volumeWsUrl
+          });
+        } catch {
+          notes.push('Volume feed failed; volume24h.coverage is "unavailable".');
+        }
+        for (const m of markets) {
+          m.volume24h = (0, hlOutcomeVolume_1.computeOutcomeVolume)(m.sides.map((s) => s.coin), readings.volumes, readings.receivedAt);
+        }
+        const cov = markets.map((m) => m.volume24h.coverage);
+        result.volumeCoverage = cov.every((c) => c === "complete") ? "complete" : cov.every((c) => c === "unavailable") ? "unavailable" : "partial";
+      }
+      return result;
+    }
+    async function getHlOutcomeMarket(client, outcomeId, options = {}) {
+      const id2 = (0, hlOutcomeMarkets_1.parseOutcomeId)(outcomeId);
+      const { markets } = await getHlOutcomeMarkets(client, { now: options.now });
+      return (0, hlOutcomeMarkets_1.findOutcomeMarket)(markets, id2);
     }
     async function getHlOutcomeAccount(client, params) {
       (0, validation_1.validateRequired)(params.userAddress, "userAddress");
       (0, validation_1.validateRequired)(params.outcomeId, "outcomeId");
       return client.get(Endpoints.HL_OUTCOME_ACCOUNT, {
         address: params.userAddress,
-        outcomeId: String(params.outcomeId)
+        outcomeId: String((0, hlOutcomeMarkets_1.parseOutcomeId)(params.outcomeId))
       });
     }
-    function isPrebuilt(req) {
-      return typeof req.computedData === "string";
+    async function getHlOutcomeAccountState(client, params) {
+      const [raw, market] = await Promise.all([
+        getHlOutcomeAccount(client, params),
+        params.market ? Promise.resolve(params.market) : getHlOutcomeMarket(client, params.outcomeId).catch(() => null)
+      ]);
+      return (0, hlOutcomeMarkets_1.normalizeOutcomeAccount)(raw, market);
+    }
+    var defaultHlInfo = async (body) => (await axios_1.default.post(HL_INFO_URL, body, { timeout: 1e4, headers: { "Content-Type": "application/json" } })).data;
+    async function checkHlOutcomeCollateral(params, hlInfo = defaultHlInfo) {
+      (0, validation_1.validateRequired)(params.managedAddress, "managedAddress");
+      const token = params.quoteToken ?? "USDC";
+      const state = await hlInfo({ type: "spotClearinghouseState", user: params.managedAddress });
+      const bal = (state?.balances ?? []).find((b) => b.coin === token);
+      const total = Number(bal?.total ?? 0) || 0;
+      const hold = Number(bal?.hold ?? 0) || 0;
+      const available = Math.max(total - hold, 0);
+      const required2 = params.size !== void 0 && params.price !== void 0 && Number(params.price) > 0 ? Number(params.size) * Number(params.price) : null;
+      const sufficient = required2 === null ? null : available >= required2;
+      return {
+        quoteToken: token,
+        total,
+        hold,
+        available,
+        required: required2,
+        sufficient,
+        source: "hyperliquid info spotClearinghouseState",
+        next: sufficient === false ? `Fund the managed wallet's HL spot ${token} (e.g. move USDC perp\u2192spot or hl_swap_collateral into ${token}) before buying.` : "Collateral read from HL spot balance."
+      };
+    }
+    async function sellableSize(client, managedAddress, market, coin) {
+      if (!managedAddress)
+        return void 0;
+      const state = await getHlOutcomeAccountState(client, { userAddress: managedAddress, outcomeId: market.outcomeId, market });
+      return state.positions.find((p) => p.coin === coin)?.available ?? 0;
+    }
+    async function marketFor(client, req) {
+      const id2 = (0, hlOutcomeMarkets_1.parseOutcomeId)(req.outcomeId);
+      if (req.market) {
+        if (req.market.outcomeId !== id2)
+          throw new errors_1.GdexValidationError(`market is outcome ${req.market.outcomeId}, not ${id2}`, "market");
+        return req.market;
+      }
+      return getHlOutcomeMarket(client, id2);
     }
     async function createHlOutcomeOrder(client, req) {
-      if (isPrebuilt(req)) {
-        return client.post(Endpoints.HL_OUTCOME_CREATE_ORDER, req);
+      const r = req;
+      if (resolveOutcomeWriteMode2(r, ["apiKey", "walletAddress", "sessionPrivateKey", "outcomeId", "isBuy", "size"]) === "prebuilt") {
+        const raw2 = await client.post(Endpoints.HL_OUTCOME_CREATE_ORDER, { computedData: r.computedData });
+        return (0, hlOutcomeMarkets_1.normalizeOutcomeOrderResult)(raw2, "create", { warnings: ["Pre-built computedData: the SDK did not validate this order."] });
       }
-      (0, validation_1.validateRequired)(req.walletAddress, "walletAddress");
-      (0, validation_1.validateRequired)(req.coin, "coin");
+      const p = req;
+      const market = await marketFor(client, p);
+      const side = (0, hlOutcomeMarkets_1.resolveOutcomeSide)(market, p);
+      const availableSize = p.isBuy ? void 0 : await sellableSize(client, p.managedAddress, market, side.coin);
+      const v = (0, hlOutcomeMarkets_1.validateOutcomeOrder)(market, { ...p, coin: side.coin, sideIndex: void 0, sideLabel: void 0 }, { availableSize });
       const computedData = (0, gdexManagedCrypto_1.buildHlComputedData)({
         action: "hl_outcome_create_order",
-        apiKey: req.apiKey,
-        walletAddress: req.walletAddress,
-        sessionPrivateKey: req.sessionPrivateKey,
+        apiKey: p.apiKey,
+        walletAddress: p.walletAddress,
+        sessionPrivateKey: p.sessionPrivateKey,
         actionParams: {
-          outcomeId: String(req.outcomeId),
-          coin: req.coin,
-          isBuy: req.isBuy,
-          price: req.price,
-          size: req.size,
-          reduceOnly: req.reduceOnly ?? false,
-          isMarket: req.isMarket ?? false
+          outcomeId: String(v.outcomeId),
+          coin: v.side.coin,
+          isBuy: v.isBuy,
+          price: v.price,
+          size: v.size,
+          reduceOnly: p.reduceOnly ?? false,
+          isMarket: v.isMarket
         }
       });
-      return client.post(Endpoints.HL_OUTCOME_CREATE_ORDER, { computedData, dex: req.dex });
+      const raw = await client.post(Endpoints.HL_OUTCOME_CREATE_ORDER, { computedData });
+      return (0, hlOutcomeMarkets_1.normalizeOutcomeOrderResult)(raw, "create", {
+        warnings: v.warnings,
+        request: {
+          outcomeId: v.outcomeId,
+          coin: v.side.coin,
+          sideLabel: v.side.label,
+          isBuy: v.isBuy,
+          isMarket: v.isMarket,
+          price: v.price,
+          size: v.size,
+          notional: v.notional,
+          notionalIsEstimate: v.notionalIsEstimate,
+          quoteToken: v.quoteToken
+        }
+      });
     }
     async function cancelHlOutcomeOrder(client, req) {
-      if (isPrebuilt(req)) {
-        return client.post(Endpoints.HL_OUTCOME_CANCEL_ORDER, req);
+      const r = req;
+      if (resolveOutcomeWriteMode2(r, ["apiKey", "walletAddress", "sessionPrivateKey", "outcomeId", "coin", "orderId"]) === "prebuilt") {
+        const raw2 = await client.post(Endpoints.HL_OUTCOME_CANCEL_ORDER, { computedData: r.computedData });
+        return (0, hlOutcomeMarkets_1.normalizeOutcomeOrderResult)(raw2, "cancel");
       }
-      (0, validation_1.validateRequired)(req.walletAddress, "walletAddress");
-      (0, validation_1.validateRequired)(req.orderId, "orderId");
+      const p = req;
+      const orderId = String(p.orderId).trim();
+      if (!/^\d+$/.test(orderId))
+        throw new errors_1.GdexValidationError(`orderId must be the numeric Hyperliquid oid, got "${p.orderId}"`, "orderId");
+      const market = await marketFor(client, p);
+      const side = (0, hlOutcomeMarkets_1.resolveOutcomeSide)(market, { coin: p.coin });
       const computedData = (0, gdexManagedCrypto_1.buildHlComputedData)({
         action: "hl_outcome_cancel_order",
-        apiKey: req.apiKey,
-        walletAddress: req.walletAddress,
-        sessionPrivateKey: req.sessionPrivateKey,
-        actionParams: { outcomeId: String(req.outcomeId), coin: req.coin, orderId: req.orderId }
+        apiKey: p.apiKey,
+        walletAddress: p.walletAddress,
+        sessionPrivateKey: p.sessionPrivateKey,
+        actionParams: { outcomeId: String(market.outcomeId), coin: side.coin, orderId }
       });
-      return client.post(Endpoints.HL_OUTCOME_CANCEL_ORDER, { computedData, dex: req.dex });
+      const raw = await client.post(Endpoints.HL_OUTCOME_CANCEL_ORDER, { computedData });
+      return (0, hlOutcomeMarkets_1.normalizeOutcomeOrderResult)(raw, "cancel", {
+        request: { outcomeId: market.outcomeId, coin: side.coin, sideLabel: side.label, orderId }
+      });
     }
     async function closeHlOutcomeOrder(client, req) {
-      if (isPrebuilt(req)) {
-        return client.post(Endpoints.HL_OUTCOME_CLOSE_ORDER, req);
+      const r = req;
+      if (resolveOutcomeWriteMode2(r, ["apiKey", "walletAddress", "sessionPrivateKey", "outcomeId"]) === "prebuilt") {
+        const raw2 = await client.post(Endpoints.HL_OUTCOME_CLOSE_ORDER, { computedData: r.computedData });
+        return (0, hlOutcomeMarkets_1.normalizeOutcomeOrderResult)(raw2, "close", { warnings: ["Pre-built computedData: the SDK did not validate this close."] });
       }
-      (0, validation_1.validateRequired)(req.walletAddress, "walletAddress");
+      const p = req;
+      const market = await marketFor(client, p);
+      const side = (0, hlOutcomeMarkets_1.resolveOutcomeSide)(market, p);
+      const availableSize = await sellableSize(client, p.managedAddress, market, side.coin);
+      const v = (0, hlOutcomeMarkets_1.validateOutcomeClose)(market, { ...p, coin: side.coin, sideIndex: void 0, sideLabel: void 0 }, { availableSize });
       const computedData = (0, gdexManagedCrypto_1.buildHlComputedData)({
         action: "hl_outcome_close_order",
-        apiKey: req.apiKey,
-        walletAddress: req.walletAddress,
-        sessionPrivateKey: req.sessionPrivateKey,
+        apiKey: p.apiKey,
+        walletAddress: p.walletAddress,
+        sessionPrivateKey: p.sessionPrivateKey,
         actionParams: {
-          outcomeId: String(req.outcomeId),
-          coin: req.coin,
-          price: req.price,
-          size: req.size,
-          isMarket: req.isMarket ?? false
+          outcomeId: String(v.outcomeId),
+          coin: v.side.coin,
+          price: v.price,
+          size: v.size,
+          isMarket: v.isMarket
         }
       });
-      return client.post(Endpoints.HL_OUTCOME_CLOSE_ORDER, { computedData, dex: req.dex });
-    }
-  }
-});
-
-// dist/actions/hlOutcomeVolume.js
-var require_hlOutcomeVolume = __commonJS({
-  "dist/actions/hlOutcomeVolume.js"(exports) {
-    "use strict";
-    init_define_GDEX_SKILL_REGISTRY();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.outcomeSideCoin = outcomeSideCoin;
-    exports.fetchHlOutcomeVolumes = fetchHlOutcomeVolumes;
-    exports.attachOutcomeVolume = attachOutcomeVolume;
-    exports.outcomeSideCoins = outcomeSideCoins;
-    var ws_1 = require_ws();
-    var HL_WS_URL = "wss://api.hyperliquid.xyz/ws";
-    function outcomeSideCoin(outcomeId, sideIndex) {
-      return `#${outcomeId}${sideIndex}`;
-    }
-    function fetchHlOutcomeVolumes(coins, options = {}) {
-      const wanted = new Set(coins.filter((c) => typeof c === "string" && c.startsWith("#")));
-      const out = {};
-      if (wanted.size === 0)
-        return Promise.resolve(out);
-      const wsUrl = options.wsUrl ?? HL_WS_URL;
-      const timeoutMs = options.timeoutMs ?? 6e3;
-      return new Promise((resolve2) => {
-        const ws = new ws_1.WebSocket(wsUrl);
-        let settled = false;
-        const finish = () => {
-          if (settled)
-            return;
-          settled = true;
-          clearTimeout(timer);
-          try {
-            ws.close();
-          } catch {
-          }
-          resolve2(out);
-        };
-        const timer = setTimeout(finish, timeoutMs);
-        ws.on("open", () => {
-          for (const coin of wanted) {
-            ws.send(JSON.stringify({ method: "subscribe", subscription: { type: "activeAssetCtx", coin } }));
-          }
-        });
-        ws.on("message", (raw) => {
-          let msg;
-          try {
-            msg = JSON.parse(raw.toString());
-          } catch {
-            return;
-          }
-          if (msg.channel !== "activeAssetCtx" && msg.channel !== "activeSpotAssetCtx")
-            return;
-          const coin = msg.data?.coin;
-          const vol = Number(msg.data?.ctx?.dayNtlVlm);
-          if (typeof coin === "string" && wanted.has(coin) && Number.isFinite(vol)) {
-            out[coin] = vol;
-            if (Object.keys(out).length >= wanted.size)
-              finish();
-          }
-        });
-        ws.on("error", finish);
+      const raw = await client.post(Endpoints.HL_OUTCOME_CLOSE_ORDER, { computedData });
+      return (0, hlOutcomeMarkets_1.normalizeOutcomeOrderResult)(raw, "close", {
+        warnings: v.warnings,
+        request: { outcomeId: v.outcomeId, coin: v.side.coin, sideLabel: v.side.label, isMarket: v.isMarket, price: v.price, size: v.size || "all", full: v.full }
       });
-    }
-    function attachOutcomeVolume(outcomes, coinVolumes) {
-      return outcomes.map((o) => {
-        const sides = o.sideSpecs ?? [];
-        let vol = 0;
-        for (let i = 0; i < sides.length; i++) {
-          vol += coinVolumes[outcomeSideCoin(o.outcome, i)] ?? 0;
-        }
-        return { ...o, volume24hUsd: vol > 0 ? vol : null };
-      });
-    }
-    function outcomeSideCoins(outcomes) {
-      const coins = [];
-      for (const o of outcomes) {
-        const sides = o.sideSpecs ?? [];
-        for (let i = 0; i < sides.length; i++)
-          coins.push(outcomeSideCoin(o.outcome, i));
-      }
-      return coins;
     }
   }
 });
@@ -126665,8 +128150,8 @@ var require_formatting = __commonJS({
         const remainder = raw % divisor;
         const remainderStr = remainder.toString().padStart(decimals, "0");
         const trimmed = remainderStr.replace(/0+$/, "");
-        const decimal = trimmed.length > 0 ? `.${trimmed.slice(0, 6)}` : "";
-        return `${whole}${decimal} ${symbol}`;
+        const decimal2 = trimmed.length > 0 ? `.${trimmed.slice(0, 6)}` : "";
+        return `${whole}${decimal2} ${symbol}`;
       } catch {
         return `${amount} ${symbol}`;
       }
@@ -126745,8 +128230,9 @@ var require_dist5 = __commonJS({
       };
     })();
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.encodeGdexSignInData = exports.buildGdexSignInMessage = exports.generateGdexSessionKeyPair = exports.decryptGdexComputedData = exports.encryptGdexHexData = exports.encryptGdexComputedData = exports.deriveGdexAesMaterial = exports.validateCoin = exports.validateLeverage = exports.validateSlippage = exports.validateChain = exports.parseAmountUnits = exports.validateAmount = exports.validateTokenAddress = exports.validateAddress = exports.generateEvmWallet = exports.truncateDecimals = exports.formatTimestamp = exports.shortenAddress = exports.formatPercentChange = exports.formatUsd = exports.formatTokenAmount = exports.getNativeToken = exports.getChainName = exports.GDEX_API_KEY_SECONDARY = exports.GDEX_API_KEY_PRIMARY = exports.GDEX_API_KEYS = exports.HYPERLIQUID_DEFAULT_ASSETS = exports.CHAIN_CONFIGS = exports.normalizeChain = exports.chainSupportsDex = exports.getSupportedChains = exports.getChainConfig = exports.Endpoints = exports.GdexApiClient = exports.closePerpPosition = exports.resolvePerpClose = exports.GdexSubmissionUnknownError = exports.GdexRateLimitError = exports.GdexNetworkError = exports.GdexApiError = exports.GdexValidationError = exports.GdexAuthError = exports.GdexError = exports.outcomeSideCoins = exports.outcomeSideCoin = exports.attachOutcomeVolume = exports.fetchHlOutcomeVolumes = exports.GdexErrorCode = exports.ChainId = void 0;
-    exports.GdexSkill = exports.describeUsdcFundingStep = exports.watchUsdcTrade = exports.buyGasHeadroomUsdc = exports.DEFAULT_GAS_TOPUP_USD = exports.deriveMaxSourceSpendRaw = exports.executeUsdcBridge = exports.estimateUsdcBridge = exports.convertNativeToUsdc = exports.retryUsdcSell = exports.buyWithNative = exports.sellToUsdc = exports.buyWithUsdc = exports.getUsdcBridgeOrders = exports.getUsdcBridgeStatus = exports.getUsdcConvertQuote = exports.getUsdcPendingTrades = exports.getUsdcDeferredTrade = exports.getUsdcFundingStatus = exports.getUsdcTradeQuote = exports.getUsdcBalances = exports.USDC_ACTION_ABI = exports.buildGdexReadSessionData = exports.buildUsdcComputedData = exports.buildImportTokenComputedData = exports.buildWatchListComputedData = exports.buildLimitOrderComputedData = exports.signLimitOrderMessage = exports.encodeLimitOrderData = exports.buildHlComputedData = exports.signHlActionMessage = exports.encodeHlActionData = exports.generateGdexNonce = exports.buildGdexManagedTradeComputedData = exports.buildGdexSignInComputedData = exports.buildEncryptedGdexPayload = exports.buildGdexUserSessionData = exports.signGdexTradeMessageWithSessionKey = exports.buildGdexTradeSignatureMessage = exports.encodeGdexTradeData = void 0;
+    exports.formatTokenAmount = exports.getNativeToken = exports.getChainName = exports.GDEX_API_KEY_SECONDARY = exports.GDEX_API_KEY_PRIMARY = exports.GDEX_API_KEYS = exports.HYPERLIQUID_DEFAULT_ASSETS = exports.CHAIN_CONFIGS = exports.normalizeChain = exports.chainSupportsDex = exports.getSupportedChains = exports.getChainConfig = exports.Endpoints = exports.GdexApiClient = exports.closePerpPosition = exports.resolvePerpClose = exports.GdexSubmissionUnknownError = exports.GdexRateLimitError = exports.GdexNetworkError = exports.GdexApiError = exports.GdexValidationError = exports.GdexAuthError = exports.GdexError = exports.outcomeSideCoins = exports.outcomeSideCoin = exports.attachOutcomeVolume = exports.computeOutcomeVolume = exports.fetchHlOutcomeVolumeReadings = exports.fetchHlOutcomeVolumes = exports.parseOutcomeParams = exports.validateOutcomeClose = exports.validateOutcomeOrder = exports.resolveOutcomeSide = exports.findOutcomeMarket = exports.normalizeOutcomeOrderResult = exports.normalizeOutcomeAccount = exports.normalizeOutcomeMarkets = exports.OUTCOME_SETTLEMENT_SUPPORT = exports.OUTCOME_ORDER_RULES = exports.resolveOutcomeWriteMode = exports.HL_COPY_TRADE_PAUSE_NOTE = exports.HL_COPY_TRADE_DELETE_NOTE = exports.COPY_TRADE_PAUSE_NOTE = exports.COPY_TRADE_DELETE_NOTE = exports.normalizeHolding = exports.MANAGED_READ_CHAIN_IDS = exports.MANAGED_SELL_CHAIN_IDS = exports.MANAGED_BUY_CHAIN_IDS = exports.GdexErrorCode = exports.ChainId = void 0;
+    exports.sellToUsdc = exports.buyWithUsdc = exports.getUsdcBridgeOrders = exports.getUsdcBridgeStatus = exports.getUsdcConvertQuote = exports.getUsdcPendingTrades = exports.getUsdcDeferredTrade = exports.getUsdcFundingStatus = exports.getUsdcTradeQuote = exports.getUsdcBalances = exports.USDC_ACTION_ABI = exports.buildGdexReadSessionData = exports.buildUsdcComputedData = exports.buildImportTokenComputedData = exports.buildWatchListComputedData = exports.buildLimitOrderComputedData = exports.signLimitOrderMessage = exports.encodeLimitOrderData = exports.buildHlComputedData = exports.signHlActionMessage = exports.encodeHlActionData = exports.generateGdexNonce = exports.buildGdexManagedTradeComputedData = exports.buildGdexSignInComputedData = exports.buildEncryptedGdexPayload = exports.buildGdexUserSessionData = exports.signGdexTradeMessageWithSessionKey = exports.buildGdexTradeSignatureMessage = exports.encodeGdexTradeData = exports.encodeGdexSignInData = exports.buildGdexSignInMessage = exports.generateGdexSessionKeyPair = exports.decryptGdexComputedData = exports.encryptGdexHexData = exports.encryptGdexComputedData = exports.deriveGdexAesMaterial = exports.validateCoin = exports.validateLeverage = exports.validateSlippage = exports.validateChain = exports.parseAmountUnits = exports.validateAmount = exports.validateTokenAddress = exports.validateAddress = exports.generateEvmWallet = exports.truncateDecimals = exports.formatTimestamp = exports.shortenAddress = exports.formatPercentChange = exports.formatUsd = void 0;
+    exports.GdexSkill = exports.describeUsdcFundingStep = exports.watchUsdcTrade = exports.buyGasHeadroomUsdc = exports.DEFAULT_GAS_TOPUP_USD = exports.deriveMaxSourceSpendRaw = exports.executeUsdcBridge = exports.estimateUsdcBridge = exports.convertNativeToUsdc = exports.retryUsdcSell = exports.buyWithNative = void 0;
     var walletGeneration_1 = require_walletGeneration();
     var slippage_1 = require_slippage();
     var client_1 = require_client();
@@ -126757,7 +128243,7 @@ var require_dist5 = __commonJS({
     var limitOrders_1 = require_limitOrders();
     var copyTrade_1 = require_copyTrade2();
     var hlCopyTrade_1 = require_hlCopyTrade2();
-    var portfolio_1 = require_portfolio3();
+    var portfolio_1 = require_portfolio2();
     var tokenInfo_1 = require_tokenInfo();
     var topTraders_1 = require_topTraders();
     var bridge_1 = require_bridge2();
@@ -126781,9 +128267,78 @@ var require_dist5 = __commonJS({
     Object.defineProperty(exports, "GdexErrorCode", { enumerable: true, get: function() {
       return common_1.GdexErrorCode;
     } });
+    var spotTrade_2 = require_spotTrade();
+    Object.defineProperty(exports, "MANAGED_BUY_CHAIN_IDS", { enumerable: true, get: function() {
+      return spotTrade_2.MANAGED_BUY_CHAIN_IDS;
+    } });
+    Object.defineProperty(exports, "MANAGED_SELL_CHAIN_IDS", { enumerable: true, get: function() {
+      return spotTrade_2.MANAGED_SELL_CHAIN_IDS;
+    } });
+    var portfolio_2 = require_portfolio2();
+    Object.defineProperty(exports, "MANAGED_READ_CHAIN_IDS", { enumerable: true, get: function() {
+      return portfolio_2.MANAGED_READ_CHAIN_IDS;
+    } });
+    Object.defineProperty(exports, "normalizeHolding", { enumerable: true, get: function() {
+      return portfolio_2.normalizeHolding;
+    } });
+    var copyTrade_2 = require_copyTrade2();
+    Object.defineProperty(exports, "COPY_TRADE_DELETE_NOTE", { enumerable: true, get: function() {
+      return copyTrade_2.COPY_TRADE_DELETE_NOTE;
+    } });
+    Object.defineProperty(exports, "COPY_TRADE_PAUSE_NOTE", { enumerable: true, get: function() {
+      return copyTrade_2.COPY_TRADE_PAUSE_NOTE;
+    } });
+    var hlCopyTrade_2 = require_hlCopyTrade2();
+    Object.defineProperty(exports, "HL_COPY_TRADE_DELETE_NOTE", { enumerable: true, get: function() {
+      return hlCopyTrade_2.HL_COPY_TRADE_DELETE_NOTE;
+    } });
+    Object.defineProperty(exports, "HL_COPY_TRADE_PAUSE_NOTE", { enumerable: true, get: function() {
+      return hlCopyTrade_2.HL_COPY_TRADE_PAUSE_NOTE;
+    } });
+    var hlOutcomes_2 = require_hlOutcomes();
+    Object.defineProperty(exports, "resolveOutcomeWriteMode", { enumerable: true, get: function() {
+      return hlOutcomes_2.resolveOutcomeWriteMode;
+    } });
+    var hlOutcomeMarkets_1 = require_hlOutcomeMarkets();
+    Object.defineProperty(exports, "OUTCOME_ORDER_RULES", { enumerable: true, get: function() {
+      return hlOutcomeMarkets_1.OUTCOME_ORDER_RULES;
+    } });
+    Object.defineProperty(exports, "OUTCOME_SETTLEMENT_SUPPORT", { enumerable: true, get: function() {
+      return hlOutcomeMarkets_1.OUTCOME_SETTLEMENT_SUPPORT;
+    } });
+    Object.defineProperty(exports, "normalizeOutcomeMarkets", { enumerable: true, get: function() {
+      return hlOutcomeMarkets_1.normalizeOutcomeMarkets;
+    } });
+    Object.defineProperty(exports, "normalizeOutcomeAccount", { enumerable: true, get: function() {
+      return hlOutcomeMarkets_1.normalizeOutcomeAccount;
+    } });
+    Object.defineProperty(exports, "normalizeOutcomeOrderResult", { enumerable: true, get: function() {
+      return hlOutcomeMarkets_1.normalizeOutcomeOrderResult;
+    } });
+    Object.defineProperty(exports, "findOutcomeMarket", { enumerable: true, get: function() {
+      return hlOutcomeMarkets_1.findOutcomeMarket;
+    } });
+    Object.defineProperty(exports, "resolveOutcomeSide", { enumerable: true, get: function() {
+      return hlOutcomeMarkets_1.resolveOutcomeSide;
+    } });
+    Object.defineProperty(exports, "validateOutcomeOrder", { enumerable: true, get: function() {
+      return hlOutcomeMarkets_1.validateOutcomeOrder;
+    } });
+    Object.defineProperty(exports, "validateOutcomeClose", { enumerable: true, get: function() {
+      return hlOutcomeMarkets_1.validateOutcomeClose;
+    } });
+    Object.defineProperty(exports, "parseOutcomeParams", { enumerable: true, get: function() {
+      return hlOutcomeMarkets_1.parseOutcomeParams;
+    } });
     var hlOutcomeVolume_2 = require_hlOutcomeVolume();
     Object.defineProperty(exports, "fetchHlOutcomeVolumes", { enumerable: true, get: function() {
       return hlOutcomeVolume_2.fetchHlOutcomeVolumes;
+    } });
+    Object.defineProperty(exports, "fetchHlOutcomeVolumeReadings", { enumerable: true, get: function() {
+      return hlOutcomeVolume_2.fetchHlOutcomeVolumeReadings;
+    } });
+    Object.defineProperty(exports, "computeOutcomeVolume", { enumerable: true, get: function() {
+      return hlOutcomeVolume_2.computeOutcomeVolume;
     } });
     Object.defineProperty(exports, "attachOutcomeVolume", { enumerable: true, get: function() {
       return hlOutcomeVolume_2.attachOutcomeVolume;
@@ -127178,46 +128733,51 @@ var require_dist5 = __commonJS({
       }
       // ── Spot Trading ──────────────────────────────────────────────────────────
       /**
-       * Buy a token on any supported chain.
-       *
-       * Submits a market buy order to the backend trade queue.
-       * Supports Solana (Raydium/Orca), Sui (Cetus/Bluefin), and 12+ EVM chains.
-       *
-       * @param params - Buy parameters
-       * @returns Trade result with transaction hash and execution details
+       * Buy a token with the chain's native token through the managed account
+       * (session-signed `purchase_v2`). Returns the `requestId`; follow it with
+       * {@link waitForTrade}. Options the backend cannot honour are rejected
+       * before signing.
        *
        * @example
        * ```typescript
-       * const result = await skill.buyToken({
+       * const { requestId } = await skill.buyToken({
        *   chain: 'solana',
-       *   tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+       *   tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
        *   amount: '0.5', // 0.5 SOL
-       *   slippage: 1, // 1% slippage
+       *   slippage: 1, // Solana/Sui only
+       *   walletAddress, sessionPrivateKey, apiKey,
        * });
-       * console.log('Tx:', result.txHash);
+       * const done = await skill.waitForTrade({ requestId });
        * ```
        */
       async buyToken(params) {
         return (0, spotTrade_1.buyToken)(this.client, params);
       }
       /**
-       * Sell a token on any supported chain.
-       *
-       * @param params - Sell parameters (amount can be absolute or percentage like "50%")
-       * @returns Trade result with transaction hash and execution details
+       * Sell a token for the chain's native token through the managed account
+       * (session-signed `sell_v2`). `amount` is a token amount or a percentage of
+       * the held balance ("50%"), resolved from the managed holdings read.
        *
        * @example
        * ```typescript
-       * // Sell 50% of holdings
-       * const result = await skill.sellToken({
+       * const { requestId } = await skill.sellToken({
        *   chain: ChainId.BASE,
-       *   tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base
+       *   tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
        *   amount: '50%',
+       *   walletAddress, sessionPrivateKey, apiKey,
        * });
        * ```
        */
       async sellToken(params) {
         return (0, spotTrade_1.sellToken)(this.client, params);
+      }
+      /**
+       * Poll `/v1/trade-status/:requestId` until a managed spot trade is
+       * terminal. `outcome: 'pending'` after the timeout means it may still
+       * settle: never resubmit.
+       */
+      async waitForTrade(params) {
+        return (0, spotTrade_1.waitForTrade)(this.client, params);
       }
       // ── Perpetual Trading (HyperLiquid) ────────────────────────────────────────
       /**
@@ -127442,9 +129002,28 @@ var require_dist5 = __commonJS({
       async createCopyTrade(params) {
         return (0, copyTrade_1.createCopyTrade)(this.client, params);
       }
-      /** Update, toggle, or delete an existing copy trade (computedData auth). */
+      /**
+       * Low-level copy trade update (legacy). isDelete deletes the config (positions
+       * stay open); isChangeStatus TOGGLES isActive. Prefer the explicit methods below.
+       */
       async updateCopyTrade(params) {
         return (0, copyTrade_1.updateCopyTrade)(this.client, params);
+      }
+      /** Change copy trade settings; never deletes, never changes isActive. */
+      async updateCopyTradeSettings(params) {
+        return (0, copyTrade_1.updateCopyTradeSettings)(this.client, params);
+      }
+      /** Permanently delete a copy trade config. Does NOT sell positions or cancel their TP/SL orders. */
+      async deleteCopyTrade(params) {
+        return (0, copyTrade_1.deleteCopyTrade)(this.client, params);
+      }
+      /** Pause (isActive=false) without deleting; no-op when already paused. */
+      async pauseCopyTrade(params) {
+        return (0, copyTrade_1.pauseCopyTrade)(this.client, params);
+      }
+      /** Resume a paused copy trade; no-op when already active. */
+      async resumeCopyTrade(params) {
+        return (0, copyTrade_1.resumeCopyTrade)(this.client, params);
       }
       // ── HL Perp Copy Trading ──────────────────────────────────────────────────
       /** Top HL traders by volume/tradeCount/deposit (no auth, cached 15 min). */
@@ -127513,36 +129092,56 @@ var require_dist5 = __commonJS({
       async createHlCopyTrade(params) {
         return (0, hlCopyTrade_1.createHlCopyTrade)(this.client, params);
       }
-      /** Update, toggle, or delete an HL perp copy trade (computedData auth). */
+      /**
+       * Low-level HL copy trade update (legacy). isDelete deletes the config (positions
+       * stay open); isChangeStatus TOGGLES isActive. Prefer the explicit methods below.
+       */
       async updateHlCopyTrade(params) {
         return (0, hlCopyTrade_1.updateHlCopyTrade)(this.client, params);
       }
+      /** Change HL copy trade settings; never deletes, never changes isActive. */
+      async updateHlCopyTradeSettings(params) {
+        return (0, hlCopyTrade_1.updateHlCopyTradeSettings)(this.client, params);
+      }
+      /** Permanently delete an HL copy trade config. Does NOT close positions or cancel their TP/SL. */
+      async deleteHlCopyTrade(params) {
+        return (0, hlCopyTrade_1.deleteHlCopyTrade)(this.client, params);
+      }
+      /** Pause an HL copy trade (isActive=false) without deleting; no-op when already paused. */
+      async pauseHlCopyTrade(params) {
+        return (0, hlCopyTrade_1.pauseHlCopyTrade)(this.client, params);
+      }
+      /** Resume a paused HL copy trade; no-op when already active. */
+      async resumeHlCopyTrade(params) {
+        return (0, hlCopyTrade_1.resumeHlCopyTrade)(this.client, params);
+      }
       // ── Portfolio ──────────────────────────────────────────────────────────────
       /**
-       * Get the full cross-chain portfolio for a wallet.
+       * Token holdings of a managed account on one chain (`GET /v1/portfolio`),
+       * authenticated with the control wallet and session. Throws on a refused or
+       * malformed response instead of returning an empty portfolio.
        *
-       * Returns all token balances with USD values across all supported chains.
-       *
-       * @param params - Portfolio query parameters
-       * @returns Portfolio with balances and positions
+       * @param params - Control wallet, session (`data`, or `sessionPrivateKey` + `apiKey`) and chain
        */
       async getPortfolio(params) {
         return (0, portfolio_1.getPortfolio)(this.client, params);
       }
       /**
-       * Get token balances for a wallet on a specific chain.
-       *
-       * @param params - Balance query parameters
-       * @returns List of token balances
+       * Token balances of a managed account on one chain, optionally filtered to
+       * one token. `[]` means the backend reported no holdings; failures throw.
        */
       async getBalances(params) {
         return (0, portfolio_1.getBalances)(this.client, params);
       }
       /**
-       * Get trade history for a wallet.
-       *
-       * @param params - Trade history query parameters
-       * @returns List of historical trades
+       * Native funds the managed wallet can trade with on one chain (`GET /v1/user`).
+       */
+      async getTradingFunds(params) {
+        return (0, portfolio_1.getTradingFunds)(this.client, params);
+      }
+      /**
+       * One page of a managed account's successful trades on a chain
+       * (`GET /v1/user_history`, keyed by the control wallet).
        */
       async getTradeHistory(params) {
         return (0, portfolio_1.getTradeHistory)(this.client, params);
@@ -127672,8 +129271,8 @@ var require_dist5 = __commonJS({
       }
       // ── Unified USDC wallet ───────────────────────────────────────────────────
       /** Cross-chain USDC + native balances (one unified USDC balance). */
-      async getUsdcBalances(creds) {
-        return (0, usdc_1.getUsdcBalances)(this.client, creds);
+      async getUsdcBalances(creds2) {
+        return (0, usdc_1.getUsdcBalances)(this.client, creds2);
       }
       /** Executable buy/sell quote for a USDC- or native-paid trade. */
       async getUsdcTradeQuote(params) {
@@ -127732,8 +129331,8 @@ var require_dist5 = __commonJS({
         return (0, usdc_1.watchUsdcTrade)(this.client, params);
       }
       /** USDC bridge history. */
-      async getUsdcBridgeOrders(creds) {
-        return (0, usdc_1.getUsdcBridgeOrders)(this.client, creds);
+      async getUsdcBridgeOrders(creds2) {
+        return (0, usdc_1.getUsdcBridgeOrders)(this.client, creds2);
       }
       // ── Social / Watchlist ────────────────────────────────────────────────────
       /** Post a comment on a token. */
@@ -127814,13 +129413,26 @@ var require_dist5 = __commonJS({
       async getTokenImage(params) {
         return (0, tokenDiscovery_1.getTokenImage)(this.client, params);
       }
-      // ── HyperLiquid Outcomes (HIP-3 event markets) ────────────────────────────
+      // ── Hyperliquid HIP-4 outcome markets ─────────────────────────────────────
+      /** Raw `GET /v1/hl/outcomes` payload (`{ meta: outcomeMeta, mids: allMids }`). Prefer {@link getHlOutcomeMarkets}. */
       async getHlOutcomes(params = {}) {
         return (0, hlOutcomes_1.getHlOutcomes)(this.client, params);
       }
       /**
+       * Live HIP-4 outcome markets, normalised: id, title, side labels and coins,
+       * quote token, trading state, order rules, settlement support, optional 24h volume.
+       */
+      async getHlOutcomeMarkets(params = {}) {
+        return (0, hlOutcomes_1.getHlOutcomeMarkets)(this.client, params);
+      }
+      /** One live outcome market (throws GdexValidationError if the id is unknown). */
+      async getHlOutcomeMarket(outcomeId) {
+        return (0, hlOutcomes_1.getHlOutcomeMarket)(this.client, outcomeId);
+      }
+      /**
        * 24h notional volume (USD) per outcome coin, from the HyperLiquid WS `activeAssetCtx`
-       * feed — the only source that publishes `dayNtlVlm` for `#<outcomeId><sideIndex>` coins.
+       * feed — the only source that publishes `dayNtlVlm` for outcome side coins. Coins that
+       * did not report are absent (never zero-filled).
        *
        * @param coins - Outcome coin names (e.g. `["#1010", "#1011"]`).
        */
@@ -127828,30 +129440,47 @@ var require_dist5 = __commonJS({
         return (0, hlOutcomeVolume_1.fetchHlOutcomeVolumes)(coins, options);
       }
       /**
-       * Outcome markets enriched with `volume24hUsd` per market (sum of its side coins'
-       * 24h volume from the HL WS feed). Same shape as {@link getHlOutcomes} with each
-       * `meta.outcomes[]` gaining `volume24hUsd`, plus a `coinVolumes` map.
+       * Raw outcome payload with each `meta.outcomes[]` gaining
+       * `volume24h: { volume, asOf, source, coverage, missingCoins }` (and the legacy
+       * `volume24hUsd`), plus a `coinVolumes` map. The WS wait is bounded by
+       * `options.timeoutMs` (default 2500 ms here) so it never stalls discovery.
        */
       async getHlOutcomesWithVolume(params = {}, options) {
         const res = await this.getHlOutcomes(params);
         const data = res.data ?? res;
         const outcomes = data?.meta?.outcomes ?? [];
-        const coinVolumes = await (0, hlOutcomeVolume_1.fetchHlOutcomeVolumes)((0, hlOutcomeVolume_1.outcomeSideCoins)(outcomes), options);
-        const enriched = (0, hlOutcomeVolume_1.attachOutcomeVolume)(outcomes, coinVolumes);
+        let readings = { volumes: {}, receivedAt: {} };
+        try {
+          readings = await (0, hlOutcomeVolume_1.fetchHlOutcomeVolumeReadings)((0, hlOutcomeVolume_1.outcomeSideCoins)(outcomes), { timeoutMs: 2500, ...options });
+        } catch {
+        }
+        const enriched = (0, hlOutcomeVolume_1.attachOutcomeVolume)(outcomes, readings.volumes, readings.receivedAt);
         return {
           ...res,
-          data: { ...data, meta: { ...data.meta, outcomes: enriched }, coinVolumes }
+          data: { ...data, meta: { ...data.meta, outcomes: enriched }, coinVolumes: readings.volumes }
         };
       }
+      /** Raw account payload for one market. Prefer {@link getHlOutcomeAccountState}. */
       async getHlOutcomeAccount(params) {
         return (0, hlOutcomes_1.getHlOutcomeAccount)(this.client, params);
       }
+      /** Normalised positions, resting orders, fills and order history for one market (managed address). */
+      async getHlOutcomeAccountState(params) {
+        return (0, hlOutcomes_1.getHlOutcomeAccountState)(this.client, params);
+      }
+      /** Managed wallet's HL spot balance of the market's quote token vs an intended buy. */
+      async checkHlOutcomeCollateral(params) {
+        return (0, hlOutcomes_1.checkHlOutcomeCollateral)(params);
+      }
+      /** Place an outcome order (validated against the live market unless computedData is pre-built). */
       async createHlOutcomeOrder(req) {
         return (0, hlOutcomes_1.createHlOutcomeOrder)(this.client, req);
       }
+      /** Cancel a resting outcome order by its Hyperliquid oid. */
       async cancelHlOutcomeOrder(req) {
         return (0, hlOutcomes_1.cancelHlOutcomeOrder)(this.client, req);
       }
+      /** Exit (sell) all or part of an outcome position. */
       async closeHlOutcomeOrder(req) {
         return (0, hlOutcomes_1.closeHlOutcomeOrder)(this.client, req);
       }
@@ -128505,8 +130134,8 @@ function getErrorMap() {
 // node_modules/zod/v3/helpers/parseUtil.js
 init_define_GDEX_SKILL_REGISTRY();
 var makeIssue = (params) => {
-  const { data, path: path2, errorMaps, issueData } = params;
-  const fullPath = [...path2, ...issueData.path || []];
+  const { data, path: path3, errorMaps, issueData } = params;
+  const fullPath = [...path3, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -128626,11 +130255,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path2, key) {
+  constructor(parent, value, path3, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path2;
+    this._path = path3;
     this._key = key;
   }
   get path() {
@@ -132282,10 +133911,10 @@ function assignProp(target, prop, value) {
     configurable: true
   });
 }
-function getElementAtPath(obj, path2) {
-  if (!path2)
+function getElementAtPath(obj, path3) {
+  if (!path3)
     return obj;
-  return path2.reduce((acc, key) => acc?.[key], obj);
+  return path3.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -132605,11 +134234,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path2, issues) {
+function prefixIssues(path3, issues) {
   return issues.map((iss) => {
     var _a;
     (_a = iss).path ?? (_a.path = []);
-    iss.path.unshift(path2);
+    iss.path.unshift(path3);
     return iss;
   });
 }
@@ -142424,30 +144053,30 @@ function parseSections(body) {
   }
   return sections;
 }
-async function readCompanionFiles(dir, prefix = "") {
+async function readCompanionFiles(dir2, prefix = "") {
   const files = /* @__PURE__ */ new Map();
-  const entries = await readdir(dir, { withFileTypes: true });
+  const entries = await readdir(dir2, { withFileTypes: true });
   for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
     const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
       if (entry.name === "__pycache__" || entry.name === "node_modules") continue;
-      for (const [k, v] of await readCompanionFiles(join(dir, entry.name), rel)) files.set(k, v);
+      for (const [k, v] of await readCompanionFiles(join(dir2, entry.name), rel)) files.set(k, v);
     } else if (entry.isFile() && rel !== "SKILL.md" && !/\.(pyc|pyo|png|jpe?g|gif|webp|ico|zip|gz|tgz)$/i.test(rel)) {
-      files.set(rel, await readFile(join(dir, entry.name), "utf-8"));
+      files.set(rel, await readFile(join(dir2, entry.name), "utf-8"));
     }
   }
   return files;
 }
-async function findSkillDirs(dir) {
+async function findSkillDirs(dir2) {
   const dirs = [];
   try {
-    const entries = await readdir(dir, { withFileTypes: true });
+    const entries = await readdir(dir2, { withFileTypes: true });
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const skillPath = join(dir, entry.name, "SKILL.md");
+        const skillPath = join(dir2, entry.name, "SKILL.md");
         try {
           await readFile(skillPath, "utf-8");
-          dirs.push(join(dir, entry.name));
+          dirs.push(join(dir2, entry.name));
         } catch {
         }
       }
@@ -142472,8 +144101,8 @@ function fromRegistry(registry2) {
 async function fromFilesystem(skillsDir, rootSkillPath) {
   const skills2 = /* @__PURE__ */ new Map();
   const skillDirs = await findSkillDirs(skillsDir);
-  for (const dir of skillDirs) {
-    const content = await readFile(join(dir, "SKILL.md"), "utf-8");
+  for (const dir2 of skillDirs) {
+    const content = await readFile(join(dir2, "SKILL.md"), "utf-8");
     const { name, description, body } = parseFrontmatter(content);
     if (name) {
       skills2.set(name, {
@@ -142481,7 +144110,7 @@ async function fromFilesystem(skillsDir, rootSkillPath) {
         description,
         content: body,
         sections: parseSections(body),
-        files: await readCompanionFiles(dir)
+        files: await readCompanionFiles(dir2)
       });
     }
   }
@@ -142550,10 +144179,10 @@ function getSkillContent(skills2, skillName) {
   const skill = skills2.get(skillName);
   return skill ? skill.content : null;
 }
-function getSkillFile(skills2, skillName, path2) {
+function getSkillFile(skills2, skillName, path3) {
   const skill = skills2.get(skillName);
   if (!skill) return null;
-  return skill.files.get(path2.replace(/^\.\//, "")) ?? null;
+  return skill.files.get(path3.replace(/^\.\//, "")) ?? null;
 }
 function listSkills(skills2) {
   return Array.from(skills2.values()).filter((s) => s.name !== "gdex-root").map((s) => ({ name: s.name, description: s.description }));
@@ -143087,17 +144716,17 @@ function parseToml(t) {
       const start = i;
       const array2 = t[i + 1] === "[";
       i += array2 ? 2 : 1;
-      const path2 = dottedKey();
+      const path3 = dottedKey();
       if (array2 ? !t.startsWith("]]", i) : t[i] !== "]") fail("unterminated table header");
       i += array2 ? 2 : 1;
       endOfLine();
       let cur = data;
-      for (const [n, part] of path2.entries()) {
-        const isLast = n === path2.length - 1;
+      for (const [n, part] of path3.entries()) {
+        const isLast = n === path3.length - 1;
         if (isLast && array2) {
           if (!(part in cur)) cur[part] = [];
           const arr = cur[part];
-          if (!Array.isArray(arr)) fail(`"${path2.join(".")}" is not an array of tables`);
+          if (!Array.isArray(arr)) fail(`"${path3.join(".")}" is not an array of tables`);
           const tbl = {};
           arr.push(tbl);
           cur = tbl;
@@ -143106,17 +144735,17 @@ function parseToml(t) {
         if (!(part in cur)) cur[part] = {};
         let next = cur[part];
         if (Array.isArray(next)) next = next[next.length - 1];
-        if (!isTable(next)) fail(`"${path2.join(".")}" collides with a value`);
+        if (!isTable(next)) fail(`"${path3.join(".")}" collides with a value`);
         cur = next;
       }
       if (!array2) {
-        const id2 = JSON.stringify(path2);
-        if (definedTables.has(id2)) fail(`table [${path2.join(".")}] defined twice`);
+        const id2 = JSON.stringify(path3);
+        if (definedTables.has(id2)) fail(`table [${path3.join(".")}] defined twice`);
         definedTables.add(id2);
       }
-      headers.push({ path: path2, array: array2, start });
+      headers.push({ path: path3, array: array2, start });
       current = cur;
-      currentPath = path2;
+      currentPath = path3;
       continue;
     }
     const key = dottedKey();
@@ -143129,7 +144758,7 @@ function parseToml(t) {
   }
   return { data, headers, statements };
 }
-function renderTomlTable(path2, entry, eol) {
+function renderTomlTable(path3, entry, eol) {
   const key = (k) => /^[A-Za-z0-9_-]+$/.test(k) ? k : JSON.stringify(k);
   const val = (v) => {
     if (typeof v === "string") return JSON.stringify(v);
@@ -143138,7 +144767,7 @@ function renderTomlTable(path2, entry, eol) {
     if (isTable(v)) return `{ ${Object.entries(v).map(([k, x]) => `${key(k)} = ${val(x)}`).join(", ")} }`;
     throw new Error(`cannot render ${typeof v} as TOML`);
   };
-  const lines = [`[${path2.map(key).join(".")}]`, ...Object.entries(entry).map(([k, v]) => `${key(k)} = ${val(v)}`)];
+  const lines = [`[${path3.map(key).join(".")}]`, ...Object.entries(entry).map(([k, v]) => `${key(k)} = ${val(v)}`)];
   return lines.join(eol) + eol;
 }
 
@@ -143155,11 +144784,11 @@ function mcpEntry() {
   };
 }
 function openCodeTarget(cwd) {
-  const path2 = cwd && existsSync(join2(cwd, "opencode.jsonc")) && !existsSync(join2(cwd, "opencode.json")) ? "opencode.jsonc" : "opencode.json";
+  const path3 = cwd && existsSync(join2(cwd, "opencode.jsonc")) && !existsSync(join2(cwd, "opencode.json")) ? "opencode.jsonc" : "opencode.json";
   const { command, args: args2, env } = mcpEntry();
   return {
     format: "json",
-    path: path2,
+    path: path3,
     containerKey: "mcp",
     comments: true,
     // OpenCode parses its config as JSONC
@@ -143264,20 +144893,20 @@ function planJson(target, original) {
     }
   };
 }
-function tomlEntry(doc, path2) {
+function tomlEntry(doc, path3) {
   let cur = doc.data;
-  for (const part of path2) {
+  for (const part of path3) {
     if (!isPlainObject3(cur) || !(part in cur)) return void 0;
     cur = cur[part];
   }
   return cur;
 }
-function tomlWithout(data, path2) {
+function tomlWithout(data, path3) {
   const copy = structuredClone(data);
-  const parent = copy[path2[0]];
+  const parent = copy[path3[0]];
   if (isPlainObject3(parent)) {
-    delete parent[path2[1]];
-    if (Object.keys(parent).length === 0) delete copy[path2[0]];
+    delete parent[path3[1]];
+    if (Object.keys(parent).length === 0) delete copy[path3[0]];
   }
   return copy;
 }
@@ -143526,46 +145155,60 @@ init_define_GDEX_SKILL_REGISTRY();
 init_sdk();
 var DECIMAL_AMOUNT = /^\d+(\.\d+)?$/;
 var DECIMAL_OR_PERCENT_AMOUNT = /^\d+(\.\d+)?%?$/;
+var tradeCredentials = {
+  walletAddress: external_exports.string().describe("Control wallet address (the GDEX userId)"),
+  sessionPrivateKey: external_exports.string().describe("Session private key from sign-in"),
+  apiKey: external_exports.string().describe("GDEX API key used to encrypt the signed trade")
+};
+var tradeOptions = {
+  slippage: external_exports.number().optional().describe("Slippage percent, Solana and Sui only (sent as bps, max 50). Rejected on EVM, where the account's stored slippage applies. Omit to use the stored setting."),
+  priorityFee: external_exports.number().int().optional().describe("Solana priority fee in lamports (integer, max 50000000 = 0.05 SOL). Solana only."),
+  dex: external_exports.string().optional().describe("Not supported: the backend picks the route. Rejected when set."),
+  referrer: external_exports.string().optional().describe("Not supported by purchase_v2/sell_v2. Rejected when set.")
+};
+var NEXT = "Call wait_for_trade with this requestId for the result. Never resubmit a trade that returned a requestId.";
 function registerSpotTradeTools(server2) {
   server2.tool(
     "buy_token",
-    "Buy a token on any supported chain (Solana, Sui, Ethereum, Base, Arbitrum, BSC, etc.) using the best DEX route.",
+    "Buy a token with the chain's native token from the managed GDEX wallet (session-signed purchase_v2). Chains: Ethereum 1, Optimism 10, BSC 56, Sonic 146, Fraxtal 252, Robinhood 4663, Base 8453, Arbitrum 42161, Solana. Returns a requestId; follow it with wait_for_trade. To pay with USDC use usdc_buy.",
     {
-      chain: external_exports.union([external_exports.string(), external_exports.number()]).describe("Chain: 'solana', 'sui', or ChainId number (1=ETH, 8453=Base, 42161=Arbitrum)"),
-      tokenAddress: external_exports.string().describe("Contract address of the token to buy"),
-      amount: external_exports.string().regex(DECIMAL_AMOUNT, 'amount must be a plain decimal like "0.1"').describe("Amount of native token to spend, e.g. '0.1' for 0.1 SOL"),
-      slippage: external_exports.number().optional().default(1).describe("Max slippage tolerance in percent. Default: 1"),
-      dex: external_exports.string().optional().describe("Preferred DEX (raydium, orca, uniswap-v3, cetus, odos, etc.)"),
-      walletAddress: external_exports.string().optional().describe("Wallet address to trade from"),
-      referrer: external_exports.string().optional().describe("Referral address"),
-      priorityFee: external_exports.number().optional().describe("Solana priority fee in lamports (integer, Solana only)"),
-      inputToken: external_exports.string().optional().describe("Override input token address (default: native)"),
-      sessionPrivateKey: external_exports.string().optional().describe("Managed-custody session private key (from sign-in). Required for EVM managed swaps \u2014 routes through the session-signed purchase_v2 flow."),
-      apiKey: external_exports.string().optional().describe("GDEX API key for managed-custody buys (with sessionPrivateKey).")
+      chain: external_exports.union([external_exports.string(), external_exports.number()]).describe("Chain: 'solana', 'base', or a chain id (8453=Base, 42161=Arbitrum)"),
+      tokenAddress: external_exports.string().describe("Contract address (mint on Solana) of the token to buy"),
+      amount: external_exports.string().regex(DECIMAL_AMOUNT, 'amount must be a plain decimal like "0.1"').describe("Native token to spend, e.g. '0.1' for 0.1 SOL; converted exactly to native decimals"),
+      inputToken: external_exports.string().optional().describe("Omit, or the chain's native token. Anything else is rejected (use usdc_buy for USDC)."),
+      ...tradeOptions,
+      ...tradeCredentials
     },
     async (params) => handleToolCall(async () => {
-      const sdk = getSdk();
-      return sdk.buyToken(params);
+      const result = await getSdk().buyToken(params);
+      return { ...result, next: NEXT };
     })
   );
   server2.tool(
     "sell_token",
-    "Sell a token on any supported chain. Amount can be absolute ('100') or percentage ('50%').",
+    "Sell a token for the chain's native token from the managed GDEX wallet (session-signed sell_v2). Amount is a token amount ('100') or a percentage of the held balance ('50%', '100%'), resolved from the managed holdings. Returns a requestId; follow it with wait_for_trade. To receive USDC use usdc_sell.",
     {
       chain: external_exports.union([external_exports.string(), external_exports.number()]).describe("Chain identifier"),
       tokenAddress: external_exports.string().describe("Contract address of the token to sell"),
       amount: external_exports.string().regex(DECIMAL_OR_PERCENT_AMOUNT, 'amount must be a plain decimal like "100" or a percentage like "50%"').describe("Amount to sell, e.g. '100' or '50%'"),
-      slippage: external_exports.number().optional().default(1).describe("Max slippage tolerance in percent"),
-      dex: external_exports.string().optional().describe("Preferred DEX"),
-      walletAddress: external_exports.string().optional().describe("Wallet address to trade from"),
-      referrer: external_exports.string().optional().describe("Referral address"),
-      priorityFee: external_exports.number().optional().describe("Solana priority fee in lamports (integer, Solana only)"),
-      outputToken: external_exports.string().optional().describe("Override output token address")
+      outputToken: external_exports.string().optional().describe("Omit, or the chain's native token. Anything else is rejected (use usdc_sell for USDC)."),
+      tokenDecimals: external_exports.number().int().optional().describe("Only for an absolute amount of a token missing from the managed holdings"),
+      ...tradeOptions,
+      ...tradeCredentials
     },
     async (params) => handleToolCall(async () => {
-      const sdk = getSdk();
-      return sdk.sellToken(params);
+      const result = await getSdk().sellToken(params);
+      return { ...result, next: NEXT };
     })
+  );
+  server2.tool(
+    "wait_for_trade",
+    "Follow a buy_token / sell_token requestId to its result by polling /v1/trade-status. outcome: filled, failed, not_found (expired id) or pending (still running at the timeout: never resubmit).",
+    {
+      requestId: external_exports.string().describe("requestId returned by buy_token or sell_token"),
+      timeoutSec: external_exports.number().optional().describe("Max seconds to wait, default 120")
+    },
+    async ({ requestId, timeoutSec }) => handleToolCall(async () => getSdk().waitForTrade({ requestId, timeoutMs: timeoutSec !== void 0 ? timeoutSec * 1e3 : void 0 }))
   );
 }
 
@@ -144117,27 +145760,72 @@ function registerCopyTradeTools(server2) {
   );
   server2.tool(
     "update_copy_trade",
-    "Update or delete a Solana copy trade. WARNING: Both isDelete and isChangeStatus permanently delete.",
+    "Low-level Solana copy trade update (prefer update_copy_trade_settings / pause_copy_trade / resume_copy_trade / delete_copy_trade). Every field is rewritten from this payload, so pass the full current config. isDelete=true permanently deletes the configuration; positions it opened are NOT sold and their TP/SL limit orders are NOT cancelled. isChangeStatus=true TOGGLES active/paused relative to the stored state (sending it twice resumes). isDelete and isChangeStatus cannot both be true.",
     {
       apiKey: external_exports.string().describe("API key"),
       userId: external_exports.string().describe("Control wallet address"),
       sessionPrivateKey: external_exports.string().describe("Session private key"),
       copyTradeId: external_exports.string().describe("Copy trade ID to modify"),
       traderWallet: external_exports.string().describe("Trader wallet address"),
-      copyTradeName: external_exports.string().optional().describe("Updated label"),
+      copyTradeName: external_exports.string().optional().describe("Label"),
       chainId: external_exports.number().describe("Must be 622112261 (Solana)"),
-      buyMode: external_exports.number().describe("1 = fixed, 2 = percentage"),
-      copyBuyAmount: external_exports.string().describe("Amount or percentage"),
-      lossPercent: external_exports.string().describe("Stop-loss %"),
-      profitPercent: external_exports.string().describe("Take-profit %"),
-      isDelete: external_exports.boolean().optional().default(false).describe("Permanently delete the copy trade"),
-      isChangeStatus: external_exports.boolean().optional().default(false).describe("WARNING: Also permanently deletes"),
-      excludedProgramIds: external_exports.array(external_exports.string()).optional().describe("Program IDs to exclude")
+      gasPrice: external_exports.string().optional().describe('Priority fee setting (default "0")'),
+      buyMode: external_exports.number().describe("1 = fixed SOL amount, 2 = percentage of trader amount"),
+      copyBuyAmount: external_exports.string().describe("SOL amount (mode 1) or percentage 0-100 (mode 2)"),
+      lossPercent: external_exports.string().describe("Stop-loss % (> 0, < 100)"),
+      profitPercent: external_exports.string().describe("Take-profit % (> 0)"),
+      copySell: external_exports.boolean().optional().default(false).describe("Also copy sells"),
+      isBuyExistingToken: external_exports.boolean().optional().default(false).describe("Buy tokens the trader already holds"),
+      excludedDexNumbers: external_exports.array(external_exports.number()).optional().describe("DEX numbers to exclude"),
+      isDelete: external_exports.boolean().optional().default(false).describe("Permanently delete the configuration (positions stay open)"),
+      isChangeStatus: external_exports.boolean().optional().default(false).describe("Toggle active/paused relative to the stored state")
     },
     async (params) => handleToolCall(async () => {
       const sdk = getSdk();
       return sdk.updateCopyTrade(params);
     })
+  );
+  const controlShape = {
+    apiKey: external_exports.string().describe("API key"),
+    userId: external_exports.string().describe("Control wallet address"),
+    sessionPrivateKey: external_exports.string().describe("Session private key"),
+    copyTradeId: external_exports.string().describe("Copy trade ID (from get_copy_trade_list)")
+  };
+  server2.tool(
+    "update_copy_trade_settings",
+    "Change settings of an existing Solana copy trade. Never deletes and never pauses/resumes. Reads the current config first; omitted fields keep their current values. Open positions are not resized.",
+    {
+      ...controlShape,
+      traderWallet: external_exports.string().optional().describe("New trader wallet to follow"),
+      copyTradeName: external_exports.string().optional().describe("New label"),
+      gasPrice: external_exports.string().optional().describe("Priority fee setting"),
+      buyMode: external_exports.union([external_exports.literal(1), external_exports.literal(2)]).optional().describe("1 = fixed SOL amount, 2 = percentage"),
+      copyBuyAmount: external_exports.string().optional().describe("Required when buyMode changes"),
+      lossPercent: external_exports.string().optional().describe("Stop-loss % (> 0, < 100)"),
+      profitPercent: external_exports.string().optional().describe("Take-profit % (> 0)"),
+      copySell: external_exports.boolean().optional().describe("Also copy sells"),
+      isBuyExistingToken: external_exports.boolean().optional().describe("Buy tokens the trader already holds"),
+      excludedDexNumbers: external_exports.array(external_exports.number()).optional().describe("DEX numbers to exclude")
+    },
+    async (params) => handleToolCall(async () => getSdk().updateCopyTradeSettings(params))
+  );
+  server2.tool(
+    "pause_copy_trade",
+    "Pause a Solana copy trade (isActive=false) WITHOUT deleting it. Reads the current state first and is a no-op if already paused. While paused the copier mirrors neither buys nor sells; positions it opened stay open and their TP/SL orders stay in place. Errors: PAUSE_STATE_UNVERIFIED (state could not be confirmed, nothing sent), PAUSE_UNSUPPORTED (stored config invalid; explains the alternative), COPY_TRADE_NOT_FOUND.",
+    controlShape,
+    async (params) => handleToolCall(async () => getSdk().pauseCopyTrade(params))
+  );
+  server2.tool(
+    "resume_copy_trade",
+    "Resume a paused Solana copy trade (isActive=true). No-op if already active. Trades made while paused are not replayed.",
+    controlShape,
+    async (params) => handleToolCall(async () => getSdk().resumeCopyTrade(params))
+  );
+  server2.tool(
+    "delete_copy_trade",
+    "PERMANENTLY delete a Solana copy trade configuration. Does NOT sell the positions it opened and does NOT cancel their TP/SL limit orders; manage those separately. Cannot be undone. To stop copying temporarily use pause_copy_trade instead.",
+    controlShape,
+    async (params) => handleToolCall(async () => getSdk().deleteCopyTrade(params))
   );
 }
 
@@ -144272,7 +145960,7 @@ function registerHlCopyTradeTools(server2) {
   );
   server2.tool(
     "update_hl_copy_trade",
-    "Update or delete an HL perp copy trade. WARNING: Both isDelete and isChangeStatus permanently delete.",
+    "Low-level HL perp copy trade update (prefer update_hl_copy_trade_settings / pause_hl_copy_trade / resume_hl_copy_trade / delete_hl_copy_trade). Every field is rewritten from this payload, so pass the full current config. isDelete=true permanently deletes the configuration; perp positions it opened are NOT closed and their TP/SL orders are NOT cancelled. isChangeStatus=true TOGGLES active/paused relative to the stored state. isDelete and isChangeStatus cannot both be true.",
     {
       apiKey: external_exports.string().describe("API key"),
       userId: external_exports.string().describe("Control wallet address"),
@@ -144280,64 +145968,111 @@ function registerHlCopyTradeTools(server2) {
       copyTradeId: external_exports.string().describe("Copy trade ID to modify"),
       traderWallet: external_exports.string().describe("Trader wallet address"),
       copyTradeName: external_exports.string().describe("Label"),
-      copyMode: external_exports.number().describe("1 = fixed, 2 = proportion"),
-      fixedAmountCostPerOrder: external_exports.string().describe("Amount or ratio"),
-      lossPercent: external_exports.string().describe("Stop-loss %"),
-      profitPercent: external_exports.string().describe("Take-profit %"),
-      oppositeCopy: external_exports.boolean().optional().default(false),
-      isDelete: external_exports.boolean().optional().default(false).describe("Permanently delete"),
-      isChangeStatus: external_exports.boolean().optional().default(false).describe("WARNING: Also permanently deletes")
+      copyMode: external_exports.number().describe("1 = fixed USD per order, 2 = proportion"),
+      fixedAmountCostPerOrder: external_exports.string().describe("USD amount (mode 1) or ratio (mode 2)"),
+      lossPercent: external_exports.string().describe("Stop-loss % (> 0, < 100)"),
+      profitPercent: external_exports.string().describe("Take-profit % (> 0)"),
+      oppositeCopy: external_exports.boolean().optional().default(false).describe("Trade opposite to the trader"),
+      isDelete: external_exports.boolean().optional().default(false).describe("Permanently delete the configuration (positions stay open)"),
+      isChangeStatus: external_exports.boolean().optional().default(false).describe("Toggle active/paused relative to the stored state")
     },
     async (params) => handleToolCall(async () => {
       const sdk = getSdk();
       return sdk.updateHlCopyTrade(params);
     })
   );
+  const controlShape = {
+    apiKey: external_exports.string().describe("API key"),
+    userId: external_exports.string().describe("Control wallet address"),
+    sessionPrivateKey: external_exports.string().describe("Session private key"),
+    copyTradeId: external_exports.string().describe("Copy trade ID (from get_hl_copy_trade_list)")
+  };
+  server2.tool(
+    "update_hl_copy_trade_settings",
+    "Change settings of an existing HL perp copy trade. Never deletes and never pauses/resumes. Reads the current config first; omitted fields keep their current values. Configs created by SDK <= 4.12 may hold an invalid copyMode (e.g. 416/480) and oppositeCopy=true; pass copyMode, fixedAmountCostPerOrder and oppositeCopy explicitly to repair them.",
+    {
+      ...controlShape,
+      traderWallet: external_exports.string().optional().describe("New trader wallet to follow"),
+      copyTradeName: external_exports.string().optional().describe("New label"),
+      copyMode: external_exports.union([external_exports.literal(1), external_exports.literal(2)]).optional().describe("1 = fixed USD per order, 2 = proportion"),
+      fixedAmountCostPerOrder: external_exports.string().optional().describe("USD amount (mode 1) or ratio (mode 2)"),
+      lossPercent: external_exports.string().optional().describe("Stop-loss % (> 0, < 100)"),
+      profitPercent: external_exports.string().optional().describe("Take-profit % (> 0)"),
+      oppositeCopy: external_exports.boolean().optional().describe("Trade opposite to the trader")
+    },
+    async (params) => handleToolCall(async () => getSdk().updateHlCopyTradeSettings(params))
+  );
+  server2.tool(
+    "pause_hl_copy_trade",
+    "Pause an HL perp copy trade (isActive=false) WITHOUT deleting it. Reads the current state first and is a no-op if already paused. While paused the copier mirrors neither opens nor closes, so copied positions stay open and will NOT follow the trader's exits; their TP/SL orders stay in place. Errors: PAUSE_STATE_UNVERIFIED (nothing sent), PAUSE_UNSUPPORTED (stored config invalid; explains the alternative), COPY_TRADE_NOT_FOUND.",
+    controlShape,
+    async (params) => handleToolCall(async () => getSdk().pauseHlCopyTrade(params))
+  );
+  server2.tool(
+    "resume_hl_copy_trade",
+    "Resume a paused HL perp copy trade (isActive=true). No-op if already active. Fills made while paused are not replayed.",
+    controlShape,
+    async (params) => handleToolCall(async () => getSdk().resumeHlCopyTrade(params))
+  );
+  server2.tool(
+    "delete_hl_copy_trade",
+    "PERMANENTLY delete an HL perp copy trade configuration. Does NOT close the perp positions it opened and does NOT cancel their TP/SL orders; close them with the perp tools if wanted. Cannot be undone. To stop copying temporarily use pause_hl_copy_trade instead.",
+    controlShape,
+    async (params) => handleToolCall(async () => getSdk().deleteHlCopyTrade(params))
+  );
 }
 
 // mcp-server/src/tools/portfolio.ts
 init_define_GDEX_SKILL_REGISTRY();
 init_sdk();
+var managedRead = {
+  walletAddress: external_exports.string().describe("Control wallet address (the GDEX userId), not the managed trading wallet"),
+  sessionPrivateKey: external_exports.string().optional().describe("Session private key from sign-in (with apiKey)"),
+  apiKey: external_exports.string().optional().describe("GDEX API key (with sessionPrivateKey)"),
+  data: external_exports.string().optional().describe("Encrypted session data, instead of sessionPrivateKey + apiKey")
+};
 function registerPortfolioTools(server2) {
   server2.tool(
     "get_portfolio",
-    "Fetch the full cross-chain portfolio for a wallet \u2014 all token balances with USD values and perp positions.",
+    "Token holdings of the managed GDEX wallet on one chain (/v1/portfolio): exact raw and decimal balances, price, native value and P&L per token. Needs the session (accountRef). Errors instead of returning an empty portfolio when the read fails.",
     {
-      walletAddress: external_exports.string().describe("Wallet address to query"),
-      chain: external_exports.union([external_exports.string(), external_exports.number()]).optional().describe("Optional chain filter")
+      ...managedRead,
+      chain: external_exports.union([external_exports.string(), external_exports.number()]).describe("Chain to read (holdings are per chain)")
     },
-    async (params) => handleToolCall(async () => {
-      const sdk = getSdk();
-      return sdk.getPortfolio(params);
-    })
+    async (params) => handleToolCall(async () => getSdk().getPortfolio(params))
   );
   server2.tool(
     "get_balances",
-    "Get token balances for a wallet on a specific chain.",
+    "Token balances of the managed GDEX wallet on one chain, optionally one token. [] means the backend reported no holdings; a failed read errors. Native balance: get_trading_funds.",
     {
-      walletAddress: external_exports.string().describe("Wallet address"),
+      ...managedRead,
       chain: external_exports.union([external_exports.string(), external_exports.number()]).describe("Chain identifier"),
       tokenAddress: external_exports.string().optional().describe("Optional token filter")
     },
-    async (params) => handleToolCall(async () => {
-      const sdk = getSdk();
-      return sdk.getBalances(params);
-    })
+    async (params) => handleToolCall(async () => getSdk().getBalances(params))
+  );
+  server2.tool(
+    "get_trading_funds",
+    "Native balance the managed GDEX wallet can trade with on one chain (/v1/user), plus the managed wallet address per chain family. The value is approximate (backend float). Cross-chain USDC: usdc_get_balances.",
+    {
+      ...managedRead,
+      chain: external_exports.union([external_exports.string(), external_exports.number()]).describe("Chain identifier")
+    },
+    async (params) => handleToolCall(async () => getSdk().getTradingFunds(params))
   );
   server2.tool(
     "get_trade_history",
-    "Get historical trades for a wallet with pagination and time filters.",
+    "Successful spot trades of a GDEX account on one chain, newest first (/v1/user_history, keyed by the control wallet). Page with limit (max 50) and cursor = nextCursor of the previous page.",
     {
-      walletAddress: external_exports.string().describe("Wallet address"),
-      chain: external_exports.union([external_exports.string(), external_exports.number()]).optional().describe("Optional chain filter"),
-      page: external_exports.number().optional().default(1),
-      limit: external_exports.number().optional().default(20),
-      startTime: external_exports.number().optional().describe("Start Unix timestamp"),
-      endTime: external_exports.number().optional().describe("End Unix timestamp")
+      walletAddress: external_exports.string().describe("Control wallet address (the GDEX userId)"),
+      chain: external_exports.union([external_exports.string(), external_exports.number()]).describe("Chain identifier"),
+      limit: external_exports.number().int().optional().describe("Trades per page, 1-50 (default 50)"),
+      cursor: external_exports.number().optional().describe("nextCursor from the previous page"),
+      sessionPrivateKey: external_exports.string().optional().describe("Not needed (history is keyed by the control wallet); present so accountRef can fill walletAddress")
     },
     async (params) => handleToolCall(async () => {
-      const sdk = getSdk();
-      return sdk.getTradeHistory(params);
+      const { sessionPrivateKey: _unused, ...rest } = params;
+      return getSdk().getTradeHistory(rest);
     })
   );
   server2.tool(
@@ -144542,6 +146277,7 @@ function registerManagedTools(server2) {
 
 // mcp-server/src/tools/v110.ts
 init_define_GDEX_SKILL_REGISTRY();
+var import_gdex_skill2 = __toESM(require_dist5(), 1);
 init_sdk();
 function registerV110Tools(server2) {
   server2.tool(
@@ -144734,86 +146470,124 @@ function registerV110Tools(server2) {
     },
     async (params) => handleToolCall(async () => getSdk().getTokenImage(params))
   );
+  const outcomeStateEnum = external_exports.enum(["active", "pre_launch", "expired", "settled"]);
+  const outcomeCreds = {
+    apiKey: external_exports.string().optional().describe("Structured mode: API key"),
+    walletAddress: external_exports.string().optional().describe("Structured mode: CONTROL wallet address from sign-in (not the managed address)"),
+    sessionPrivateKey: external_exports.string().optional().describe("Structured mode: session private key")
+  };
+  const sideSelector = {
+    coin: external_exports.string().optional().describe('Side coin "#<assetId>" from hl_outcomes sides[].coin. Give exactly one of coin / sideIndex / sideLabel.'),
+    sideIndex: external_exports.number().int().optional().describe("Side index in sides[] (sides are NOT always Yes/No; read the labels)"),
+    sideLabel: external_exports.string().optional().describe('Exact side label from sides[].label, e.g. "No" or a team name')
+  };
+  const prebuilt = {
+    computedData: external_exports.string().optional().describe("Pre-built mode ONLY: encrypted payload. Must be sent alone (no structured fields).")
+  };
   server2.tool(
     "hl_outcomes",
-    "List available HyperLiquid outcome / event markets. Set withVolume=true to enrich each market with volume24hUsd (24h notional, from the HL WS feed) \u2014 adds a few seconds.",
+    'Discover Hyperliquid HIP-4 outcome markets (GDEX has no Polymarket/Kalshi). Returns normalised markets: outcomeId, title, sides[] (label, coin "#<assetId>", balanceCoin "+<assetId>", mid price), quoteToken (collateral, held in the HL spot balance), state (active | pre_launch | expired | settled), rules (price 0.00001-0.99999 tick 0.00001, whole-contract size, min order notional 11 quote), settlement (no claim via GDEX). withVolume=true adds volume24h {volume, asOf, source, coverage} with a bounded wait. raw=true returns the backend payload unchanged.',
     {
-      dex: external_exports.string().optional(),
-      status: external_exports.string().optional(),
-      withVolume: external_exports.boolean().optional().describe("Include 24h volume per market (slower)")
+      state: external_exports.union([outcomeStateEnum, external_exports.array(outcomeStateEnum)]).optional().describe('Filter by trading state, e.g. "active"'),
+      query: external_exports.string().optional().describe("Case-insensitive text match on title / side labels / params, or an exact outcomeId"),
+      excludeFallback: external_exports.boolean().optional().describe('Hide "none of the listed outcomes" legs'),
+      limit: external_exports.number().int().min(0).optional(),
+      withVolume: external_exports.boolean().optional().describe("Attach 24h volume (bounded by volumeTimeoutMs, default 2500)"),
+      volumeTimeoutMs: external_exports.number().int().min(100).max(1e4).optional(),
+      raw: external_exports.boolean().optional().describe("Return the raw backend payload instead")
     },
     async (params) => handleToolCall(async () => {
-      const { withVolume, ...rest } = params ?? {};
-      return withVolume ? getSdk().getHlOutcomesWithVolume(rest) : getSdk().getHlOutcomes(rest);
+      const { raw, withVolume, volumeTimeoutMs, ...rest } = params ?? {};
+      if (raw) {
+        return withVolume ? getSdk().getHlOutcomesWithVolume({}, volumeTimeoutMs ? { timeoutMs: volumeTimeoutMs } : void 0) : getSdk().getHlOutcomes({});
+      }
+      return getSdk().getHlOutcomeMarkets({ ...rest, withVolume, volumeTimeoutMs });
     })
   );
   server2.tool(
     "get_hl_outcome_volumes",
-    `Get 24h notional volume (USD) per outcome coin from the HyperLiquid WS feed. Pass coins like ["#1010","#1011"]; returns a { coin: volumeUsd } map. Sum a market's side coins for its total 24h volume.`,
+    'Get 24h notional volume per outcome side coin from the Hyperliquid WS feed. Pass coins from hl_outcomes sides[].coin, e.g. ["#143150","#143151"]. Returns { coin: volume } for coins that reported; a missing coin means no reading (not zero). Prefer hl_outcomes withVolume=true, which reports coverage per market.',
     {
-      coins: external_exports.array(external_exports.string()).describe('Outcome coin names, e.g. ["#1010","#1011"]')
+      coins: external_exports.array(external_exports.string()).describe('Outcome side coins, e.g. ["#143150","#143151"]')
     },
     async (params) => handleToolCall(async () => getSdk().getHlOutcomeVolumes(params.coins))
   );
   server2.tool(
     "hl_outcome_account",
-    "Get HyperLiquid outcomes account state for a wallet on a specific outcome market (coins, positions, open orders).",
+    "Normalised state of a MANAGED wallet on one HIP-4 outcome market: positions (per side: size, hold, available, avgEntryPrice, markPrice, value, unrealizedPnl), openOrders (resting / partially_filled with orderId, price, size, filledSize), fills, historicalOrders (Hyperliquid status). Use it to reconcile after create/cancel/close. raw=true returns the backend payload.",
     {
-      userAddress: external_exports.string(),
-      outcomeId: external_exports.union([external_exports.string(), external_exports.number()]).describe("Outcome market id, e.g. 101")
+      userAddress: external_exports.string().describe("MANAGED wallet address (outcome balances live there)"),
+      outcomeId: external_exports.union([external_exports.string(), external_exports.number()]).describe("Outcome market id from hl_outcomes"),
+      raw: external_exports.boolean().optional()
     },
-    async (params) => handleToolCall(async () => getSdk().getHlOutcomeAccount(params))
+    async (params) => handleToolCall(async () => {
+      const { raw, ...rest } = params ?? {};
+      return raw ? getSdk().getHlOutcomeAccount(rest) : getSdk().getHlOutcomeAccountState(rest);
+    })
+  );
+  server2.tool(
+    "hl_outcome_check_collateral",
+    "Check the managed wallet's Hyperliquid SPOT balance of a market's quoteToken (outcome buys draw on spot collateral, not the perp account) against size \xD7 price.",
+    {
+      managedAddress: external_exports.string().describe("MANAGED wallet address"),
+      quoteToken: external_exports.string().optional().describe("Market quoteToken from hl_outcomes (default USDC)"),
+      size: external_exports.string().optional().describe("Intended contracts"),
+      price: external_exports.string().optional().describe("Intended limit price")
+    },
+    async (params) => handleToolCall(async () => getSdk().checkHlOutcomeCollateral(params))
   );
   server2.tool(
     "hl_create_outcome_order",
-    'Create an order on a HyperLiquid outcome (HIP-3) market. Pass structured params (apiKey, walletAddress=control address, sessionPrivateKey, outcomeId, coin like "#1010", isBuy, price 0-1, size) and the SDK builds the encrypted payload. A pre-built computedData is also accepted.',
+    "Place an order on a Hyperliquid HIP-4 outcome market. Structured mode (apiKey, walletAddress=control address, sessionPrivateKey, outcomeId, one of coin/sideIndex/sideLabel, isBuy, size, and price unless isMarket) is validated against the live market first: side must belong to outcomeId, size is whole contracts, price in [0.00001, 0.99999] with max 5 decimals, size\xD7price >= 11 quote (a full-position sell is exempt when managedAddress is given), market must not be expired/settled. isBuy=false sells side tokens you hold. reduceOnly is ignored by the backend. Returns status resting (with orderId) | filled | rejected. Pre-built mode: computedData alone.",
     {
-      apiKey: external_exports.string().optional(),
-      walletAddress: external_exports.string().optional().describe("CONTROL wallet address from sign-in"),
-      sessionPrivateKey: external_exports.string().optional(),
-      outcomeId: external_exports.union([external_exports.string(), external_exports.number()]).optional(),
-      coin: external_exports.string().optional().describe('Outcome asset id, e.g. "#1010" (outcome 101 Yes)'),
-      isBuy: external_exports.boolean().optional(),
-      price: external_exports.string().optional().describe('Limit price in [0,1]; pass "0" for market'),
-      size: external_exports.string().optional().describe("Order size in contracts"),
-      reduceOnly: external_exports.boolean().optional(),
-      isMarket: external_exports.boolean().optional(),
-      computedData: external_exports.string().optional(),
-      dex: external_exports.string().optional()
+      ...outcomeCreds,
+      outcomeId: external_exports.union([external_exports.string(), external_exports.number()]).optional().describe("Structured mode: outcome market id"),
+      ...sideSelector,
+      isBuy: external_exports.boolean().optional().describe("Structured mode: true buys side tokens; false sells held tokens"),
+      price: external_exports.string().optional().describe('Limit price, e.g. "0.42" (omit for isMarket)'),
+      size: external_exports.string().optional().describe('Whole contracts, e.g. "30"'),
+      isMarket: external_exports.boolean().optional().describe("Take the book at \xB15% of top of book"),
+      reduceOnly: external_exports.boolean().optional().describe("Ignored by the backend"),
+      managedAddress: external_exports.string().optional().describe("Managed wallet; enables position-aware sell checks"),
+      ...prebuilt
     },
-    async (params) => handleToolCall(async () => getSdk().createHlOutcomeOrder(params))
+    async (params) => handleToolCall(async () => {
+      (0, import_gdex_skill2.resolveOutcomeWriteMode)(params ?? {}, ["apiKey", "walletAddress", "sessionPrivateKey", "outcomeId", "isBuy", "size"]);
+      return getSdk().createHlOutcomeOrder(params);
+    })
   );
   server2.tool(
     "hl_cancel_outcome_order",
-    "Cancel a HyperLiquid outcome-market order. Pass structured params (apiKey, walletAddress, sessionPrivateKey, outcomeId, coin, orderId) or a pre-built computedData.",
+    "Cancel a resting HIP-4 outcome order. Structured mode: apiKey, walletAddress (control), sessionPrivateKey, outcomeId, coin (must belong to outcomeId), orderId (numeric Hyperliquid oid from hl_create_outcome_order or hl_outcome_account openOrders). Partial fills before the cancel stay in the position. Pre-built mode: computedData alone.",
     {
-      apiKey: external_exports.string().optional(),
-      walletAddress: external_exports.string().optional(),
-      sessionPrivateKey: external_exports.string().optional(),
+      ...outcomeCreds,
       outcomeId: external_exports.union([external_exports.string(), external_exports.number()]).optional(),
-      coin: external_exports.string().optional(),
-      orderId: external_exports.string().optional(),
-      computedData: external_exports.string().optional(),
-      dex: external_exports.string().optional()
+      coin: external_exports.string().optional().describe('Side coin "#<assetId>" of the order'),
+      orderId: external_exports.string().optional().describe("Numeric Hyperliquid oid"),
+      ...prebuilt
     },
-    async (params) => handleToolCall(async () => getSdk().cancelHlOutcomeOrder(params))
+    async (params) => handleToolCall(async () => {
+      (0, import_gdex_skill2.resolveOutcomeWriteMode)(params ?? {}, ["apiKey", "walletAddress", "sessionPrivateKey", "outcomeId", "coin", "orderId"]);
+      return getSdk().cancelHlOutcomeOrder(params);
+    })
   );
   server2.tool(
     "hl_close_outcome_order",
-    "Close a HyperLiquid outcome-market position. Pass structured params (apiKey, walletAddress, sessionPrivateKey, outcomeId, coin, price, size, isMarket) or a pre-built computedData.",
+    "Exit a HIP-4 outcome position by SELLING held side tokens (the backend always sells; it cannot short). Structured mode: apiKey, walletAddress (control), sessionPrivateKey, outcomeId, one of coin/sideIndex/sideLabel, price (limit) or isMarket=true, optional size (whole contracts; omit for a full exit \u2014 the backend caps size to what you hold). With managedAddress, partial exits must leave both the sold part and the remainder >= 11 quote. Settled markets have no book: GDEX has no claim endpoint, check the HL spot balance instead. Pre-built mode: computedData alone.",
     {
-      apiKey: external_exports.string().optional(),
-      walletAddress: external_exports.string().optional(),
-      sessionPrivateKey: external_exports.string().optional(),
+      ...outcomeCreds,
       outcomeId: external_exports.union([external_exports.string(), external_exports.number()]).optional(),
-      coin: external_exports.string().optional(),
-      price: external_exports.string().optional(),
-      size: external_exports.string().optional(),
+      ...sideSelector,
+      price: external_exports.string().optional().describe("Limit price (omit for isMarket)"),
+      size: external_exports.string().optional().describe("Contracts to sell; omit for the full position"),
       isMarket: external_exports.boolean().optional(),
-      computedData: external_exports.string().optional(),
-      dex: external_exports.string().optional()
+      managedAddress: external_exports.string().optional().describe("Managed wallet; enables position-aware partial-exit checks"),
+      ...prebuilt
     },
-    async (params) => handleToolCall(async () => getSdk().closeHlOutcomeOrder(params))
+    async (params) => handleToolCall(async () => {
+      (0, import_gdex_skill2.resolveOutcomeWriteMode)(params ?? {}, ["apiKey", "walletAddress", "sessionPrivateKey", "outcomeId"]);
+      return getSdk().closeHlOutcomeOrder(params);
+    })
   );
   server2.tool(
     "hl_ref_info",
@@ -144950,7 +146724,7 @@ function registerV110Tools(server2) {
 
 // mcp-server/src/tools/usdc.ts
 init_define_GDEX_SKILL_REGISTRY();
-var import_gdex_skill2 = __toESM(require_dist5(), 1);
+var import_gdex_skill3 = __toESM(require_dist5(), 1);
 init_sdk();
 var usdcCredentials = {
   apiKey: external_exports.string().describe("GDEX API key for AES encryption"),
@@ -145004,7 +146778,7 @@ function registerUsdcTools(server2) {
         timeoutMs: (timeoutSec ?? 120) * 1e3,
         onUpdate: (funding, steps) => {
           const t = Math.round((Date.now() - started) / 1e3);
-          timeline.push(`+${t}s ${funding.status}: ${steps.map((st) => (0, import_gdex_skill2.describeUsdcFundingStep)(st)).join("; ") || "no steps yet"}`);
+          timeline.push(`+${t}s ${funding.status}: ${steps.map((st) => (0, import_gdex_skill3.describeUsdcFundingStep)(st)).join("; ") || "no steps yet"}`);
         }
       });
       return {
@@ -145012,7 +146786,7 @@ function registerUsdcTools(server2) {
         ...result.retry ? { retry: result.retry } : {},
         hash: result.hash,
         errorCode: result.errorCode,
-        steps: result.steps.map((st) => (0, import_gdex_skill2.describeUsdcFundingStep)(st)),
+        steps: result.steps.map((st) => (0, import_gdex_skill3.describeUsdcFundingStep)(st)),
         timeline,
         trade: result.trade
       };
@@ -152024,11 +153798,11 @@ function getPassword(password) {
 function spelunk(object3, _path) {
   const match = _path.match(/^([a-z0-9$_.-]*)(:([a-z]+))?(!)?$/i);
   assertArgument(match != null, "invalid path", "path", _path);
-  const path2 = match[1];
+  const path3 = match[1];
   const type = match[3];
   const reqd = match[4] === "!";
   let cur = object3;
-  for (const comp of path2.toLowerCase().split(".")) {
+  for (const comp of path3.toLowerCase().split(".")) {
     if (Array.isArray(cur)) {
       if (!comp.match(/^[0-9]+$/)) {
         break;
@@ -152050,7 +153824,7 @@ function spelunk(object3, _path) {
       break;
     }
   }
-  assertArgument(!reqd || cur != null, "missing required value", "path", path2);
+  assertArgument(!reqd || cur != null, "missing required value", "path", path3);
   if (type && cur != null) {
     if (type === "int") {
       if (typeof cur === "string" && cur.match(/^-?[0-9]+$/)) {
@@ -152075,7 +153849,7 @@ function spelunk(object3, _path) {
     if (type === typeof cur) {
       return cur;
     }
-    assertArgument(false, `wrong type found for ${type} `, "path", path2);
+    assertArgument(false, `wrong type found for ${type} `, "path", path3);
   }
   return cur;
 }
@@ -152255,7 +154029,7 @@ function _encryptKeystore(key, kdf, account, options) {
   };
   if (account.mnemonic) {
     const client = options.client != null ? options.client : `ethers/${version2}`;
-    const path2 = account.mnemonic.path || defaultPath;
+    const path3 = account.mnemonic.path || defaultPath;
     const locale = account.mnemonic.locale || "en";
     const mnemonicKey = key.slice(32, 64);
     const entropy = getBytes(account.mnemonic.entropy, "account.mnemonic.entropy");
@@ -152268,7 +154042,7 @@ function _encryptKeystore(key, kdf, account, options) {
     data["x-ethers"] = {
       client,
       gethFilename,
-      path: path2,
+      path: path3,
       locale,
       mnemonicCounter: hexlify(mnemonicIv).substring(2),
       mnemonicCiphertext: hexlify(mnemonicCiphertext).substring(2),
@@ -152336,11 +154110,11 @@ function ser_I(index, chainCode, publicKey, privateKey) {
   const I = getBytes(computeHmac("sha512", chainCode, data));
   return { IL: I.slice(0, 32), IR: I.slice(32) };
 }
-function derivePath(node, path2) {
-  const components = path2.split("/");
-  assertArgument(components.length > 0, "invalid path", "path", path2);
+function derivePath(node, path3) {
+  const components = path3.split("/");
+  assertArgument(components.length > 0, "invalid path", "path", path3);
   if (components[0] === "m") {
-    assertArgument(node.depth === 0, `cannot derive root path (i.e. path starting with "m/") for a node at non-zero depth ${node.depth}`, "path", path2);
+    assertArgument(node.depth === 0, `cannot derive root path (i.e. path starting with "m/") for a node at non-zero depth ${node.depth}`, "path", path3);
     components.shift();
   }
   let result = node;
@@ -152410,7 +154184,7 @@ var HDNodeWallet = class _HDNodeWallet extends BaseWallet {
   /**
    *  @private
    */
-  constructor(guard, signingKey, parentFingerprint, chainCode, path2, index, depth, mnemonic, provider) {
+  constructor(guard, signingKey, parentFingerprint, chainCode, path3, index, depth, mnemonic, provider) {
     super(signingKey, provider);
     assertPrivate(guard, _guard3, "HDNodeWallet");
     defineProperties(this, { publicKey: signingKey.compressedPublicKey });
@@ -152419,7 +154193,7 @@ var HDNodeWallet = class _HDNodeWallet extends BaseWallet {
       parentFingerprint,
       fingerprint,
       chainCode,
-      path: path2,
+      path: path3,
       index,
       depth
     });
@@ -152503,22 +154277,22 @@ var HDNodeWallet = class _HDNodeWallet extends BaseWallet {
   deriveChild(_index) {
     const index = getNumber(_index, "index");
     assertArgument(index <= 4294967295, "invalid index", "index", index);
-    let path2 = this.path;
-    if (path2) {
-      path2 += "/" + (index & ~HardenedBit);
+    let path3 = this.path;
+    if (path3) {
+      path3 += "/" + (index & ~HardenedBit);
       if (index & HardenedBit) {
-        path2 += "'";
+        path3 += "'";
       }
     }
     const { IR, IL } = ser_I(index, this.chainCode, this.publicKey, this.privateKey);
     const ki = new SigningKey(toBeHex((toBigInt(IL) + BigInt(this.privateKey)) % N, 32));
-    return new _HDNodeWallet(_guard3, ki, this.fingerprint, hexlify(IR), path2, index, this.depth + 1, this.mnemonic, this.provider);
+    return new _HDNodeWallet(_guard3, ki, this.fingerprint, hexlify(IR), path3, index, this.depth + 1, this.mnemonic, this.provider);
   }
   /**
    *  Return the HDNode for %%path%% from this node.
    */
-  derivePath(path2) {
-    return derivePath(this, path2);
+  derivePath(path3) {
+    return derivePath(this, path3);
   }
   static #fromSeed(_seed, mnemonic) {
     assertArgument(isBytesLike(_seed), "invalid seed", "seed", "[REDACTED]");
@@ -152563,43 +154337,43 @@ var HDNodeWallet = class _HDNodeWallet extends BaseWallet {
   /**
    *  Creates a new random HDNode.
    */
-  static createRandom(password, path2, wordlist2) {
+  static createRandom(password, path3, wordlist2) {
     if (password == null) {
       password = "";
     }
-    if (path2 == null) {
-      path2 = defaultPath2;
+    if (path3 == null) {
+      path3 = defaultPath2;
     }
     if (wordlist2 == null) {
       wordlist2 = LangEn.wordlist();
     }
     const mnemonic = Mnemonic.fromEntropy(randomBytes5(16), password, wordlist2);
-    return _HDNodeWallet.#fromSeed(mnemonic.computeSeed(), mnemonic).derivePath(path2);
+    return _HDNodeWallet.#fromSeed(mnemonic.computeSeed(), mnemonic).derivePath(path3);
   }
   /**
    *  Create an HD Node from %%mnemonic%%.
    */
-  static fromMnemonic(mnemonic, path2) {
-    if (!path2) {
-      path2 = defaultPath2;
+  static fromMnemonic(mnemonic, path3) {
+    if (!path3) {
+      path3 = defaultPath2;
     }
-    return _HDNodeWallet.#fromSeed(mnemonic.computeSeed(), mnemonic).derivePath(path2);
+    return _HDNodeWallet.#fromSeed(mnemonic.computeSeed(), mnemonic).derivePath(path3);
   }
   /**
    *  Creates an HD Node from a mnemonic %%phrase%%.
    */
-  static fromPhrase(phrase, password, path2, wordlist2) {
+  static fromPhrase(phrase, password, path3, wordlist2) {
     if (password == null) {
       password = "";
     }
-    if (path2 == null) {
-      path2 = defaultPath2;
+    if (path3 == null) {
+      path3 = defaultPath2;
     }
     if (wordlist2 == null) {
       wordlist2 = LangEn.wordlist();
     }
     const mnemonic = Mnemonic.fromPhrase(phrase, password, wordlist2);
-    return _HDNodeWallet.#fromSeed(mnemonic.computeSeed(), mnemonic).derivePath(path2);
+    return _HDNodeWallet.#fromSeed(mnemonic.computeSeed(), mnemonic).derivePath(path3);
   }
   /**
    *  Creates an HD Node from a %%seed%%.
@@ -152651,7 +154425,7 @@ var HDNodeVoidWallet = class _HDNodeVoidWallet extends VoidSigner {
   /**
    *  @private
    */
-  constructor(guard, address, publicKey, parentFingerprint, chainCode, path2, index, depth, provider) {
+  constructor(guard, address, publicKey, parentFingerprint, chainCode, path3, index, depth, provider) {
     super(address, provider);
     assertPrivate(guard, _guard3, "HDNodeVoidWallet");
     defineProperties(this, { publicKey });
@@ -152661,7 +154435,7 @@ var HDNodeVoidWallet = class _HDNodeVoidWallet extends VoidSigner {
       fingerprint,
       parentFingerprint,
       chainCode,
-      path: path2,
+      path: path3,
       index,
       depth
     });
@@ -152699,23 +154473,23 @@ var HDNodeVoidWallet = class _HDNodeVoidWallet extends VoidSigner {
   deriveChild(_index) {
     const index = getNumber(_index, "index");
     assertArgument(index <= 4294967295, "invalid index", "index", index);
-    let path2 = this.path;
-    if (path2) {
-      path2 += "/" + (index & ~HardenedBit);
+    let path3 = this.path;
+    if (path3) {
+      path3 += "/" + (index & ~HardenedBit);
       if (index & HardenedBit) {
-        path2 += "'";
+        path3 += "'";
       }
     }
     const { IR, IL } = ser_I(index, this.chainCode, this.publicKey, null);
     const Ki = SigningKey.addPoints(IL, this.publicKey, true);
     const address = computeAddress(Ki);
-    return new _HDNodeVoidWallet(_guard3, address, Ki, this.fingerprint, hexlify(IR), path2, index, this.depth + 1, this.provider);
+    return new _HDNodeVoidWallet(_guard3, address, Ki, this.fingerprint, hexlify(IR), path3, index, this.depth + 1, this.provider);
   }
   /**
    *  Return the signer for %%path%% from this node.
    */
-  derivePath(path2) {
-    return derivePath(this, path2);
+  derivePath(path3) {
+    return derivePath(this, path3);
   }
 };
 
@@ -152880,7 +154654,7 @@ var Wallet = class _Wallet extends BaseWallet {
 };
 
 // mcp-server/src/credentials.ts
-var import_gdex_skill3 = __toESM(require_dist5(), 1);
+var import_gdex_skill4 = __toESM(require_dist5(), 1);
 init_sdk();
 var SOLANA_CHAIN_ID = 622112261;
 function gdexHome() {
@@ -152893,7 +154667,7 @@ function refFor(address) {
   return "acct_" + createHash2("sha256").update(address.toLowerCase()).digest("hex").slice(0, 12);
 }
 function assertRef(ref) {
-  if (!/^acct_[0-9a-f]{12}$/.test(ref)) throw new import_gdex_skill3.GdexValidationError(`Invalid accountRef: ${ref}`, "accountRef");
+  if (!/^acct_[0-9a-f]{12}$/.test(ref)) throw new import_gdex_skill4.GdexValidationError(`Invalid accountRef: ${ref}`, "accountRef");
 }
 function summarize(a) {
   return {
@@ -152917,7 +154691,7 @@ async function loadAccount(ref) {
   try {
     return JSON.parse(await fs.readFile(path.join(accountsDir(), `${ref}.json`), "utf8"));
   } catch {
-    throw new import_gdex_skill3.GdexValidationError(`Unknown accountRef ${ref}: connect it with gdex_connect first`, "accountRef");
+    throw new import_gdex_skill4.GdexValidationError(`Unknown accountRef ${ref}: connect it with gdex_connect first`, "accountRef");
   }
 }
 async function listAccounts() {
@@ -152941,18 +154715,18 @@ async function readKeyFile(file) {
     key = j.control?.privateKey ?? j.privateKey;
   }
   if (typeof key !== "string" || !/^(0x)?[0-9a-fA-F]{64}$/.test(key)) {
-    throw new import_gdex_skill3.GdexValidationError(`No EVM private key found in ${resolved}`, "keyFile");
+    throw new import_gdex_skill4.GdexValidationError(`No EVM private key found in ${resolved}`, "keyFile");
   }
   return key.startsWith("0x") ? key : `0x${key}`;
 }
 async function connectAccount(input) {
   const wallet = new Wallet(input.controlPrivateKey);
-  const apiKey = input.apiKey ?? readEnv("GDEX_API_KEY") ?? import_gdex_skill3.GDEX_API_KEY_PRIMARY;
+  const apiKey = input.apiKey ?? readEnv("GDEX_API_KEY") ?? import_gdex_skill4.GDEX_API_KEY_PRIMARY;
   const sdk = getSdk();
-  const kp = (0, import_gdex_skill3.generateGdexSessionKeyPair)();
-  const nonce = (0, import_gdex_skill3.generateGdexNonce)().toString();
-  const signature = await wallet.signMessage((0, import_gdex_skill3.buildGdexSignInMessage)(wallet.address, nonce, kp.sessionKey));
-  const payload = (0, import_gdex_skill3.buildGdexSignInComputedData)({
+  const kp = (0, import_gdex_skill4.generateGdexSessionKeyPair)();
+  const nonce = (0, import_gdex_skill4.generateGdexNonce)().toString();
+  const signature = await wallet.signMessage((0, import_gdex_skill4.buildGdexSignInMessage)(wallet.address, nonce, kp.sessionKey));
+  const payload = (0, import_gdex_skill4.buildGdexSignInComputedData)({
     apiKey,
     userId: wallet.address,
     sessionKey: kp.sessionKey,
@@ -152960,7 +154734,7 @@ async function connectAccount(input) {
     signature: signature.replace(/^0x/, "")
   });
   await sdk.signInWithComputedData({ computedData: payload.computedData, chainId: SOLANA_CHAIN_ID });
-  const data = (0, import_gdex_skill3.buildGdexUserSessionData)(kp.sessionKey, apiKey);
+  const data = (0, import_gdex_skill4.buildGdexUserSessionData)(kp.sessionKey, apiKey);
   const managed = {};
   for (const [k, chainId] of [["evm", 42161], ["solana", SOLANA_CHAIN_ID]]) {
     const u = await sdk.getManagedUser({ userId: wallet.address, data, chainId }).catch(() => void 0);
@@ -152997,7 +154771,7 @@ async function applyAccountRef(params, shape) {
   if (typeof ref !== "string" || !ref) {
     for (const [f2, t] of Object.entries(shape)) {
       if (rest[f2] === void 0 && !isOptional(t)) {
-        throw new import_gdex_skill3.GdexValidationError(`${f2} or accountRef is required`, f2);
+        throw new import_gdex_skill4.GdexValidationError(`${f2} or accountRef is required`, f2);
       }
     }
     return rest;
@@ -153009,7 +154783,7 @@ async function applyAccountRef(params, shape) {
     walletAddress: a.walletAddress,
     userId: a.walletAddress,
     apiKey: a.apiKey,
-    data: (0, import_gdex_skill3.buildGdexUserSessionData)(a.sessionKey, a.apiKey),
+    data: (0, import_gdex_skill4.buildGdexUserSessionData)(a.sessionKey, a.apiKey),
     // Hyperliquid positions live on the managed EVM wallet, not the control wallet.
     positionAddress: a.managed?.evm
   };
@@ -153100,6 +154874,560 @@ function registerAccountTools(server2) {
   );
 }
 
+// mcp-server/src/tools/intent.ts
+init_define_GDEX_SKILL_REGISTRY();
+init_sdk();
+
+// mcp-server/src/intent.ts
+init_define_GDEX_SKILL_REGISTRY();
+var import_gdex_skill5 = __toESM(require_dist5(), 1);
+import { createHash as createHash3, randomUUID } from "crypto";
+import { promises as fs2 } from "fs";
+import path2 from "path";
+var PREVIEW_TTL_MS = 6e4;
+var HL_MIN_ORDER_USD = 11;
+var CUSTODY = "GDEX managed custody: GDEX holds the trading wallets; this machine holds the session key that authorizes trades.";
+function dir(name) {
+  return path2.join(gdexHome(), name);
+}
+async function writeJson(sub, id2, value) {
+  await fs2.mkdir(dir(sub), { recursive: true, mode: 448 });
+  const file = path2.join(dir(sub), `${id2}.json`);
+  const tmp = `${file}.${process.pid}.tmp`;
+  await fs2.writeFile(tmp, JSON.stringify(value, null, 2), { mode: 384 });
+  await fs2.rename(tmp, file);
+}
+async function readJson(sub, id2) {
+  if (!/^[A-Za-z0-9_-]+$/.test(id2)) throw new import_gdex_skill5.GdexValidationError(`Invalid id: ${id2}`, "id");
+  return fs2.readFile(path2.join(dir(sub), `${id2}.json`), "utf8").then((t) => JSON.parse(t), () => void 0);
+}
+async function listOperations(accountRef) {
+  const names = await fs2.readdir(dir("operations")).catch(() => []);
+  const ops = [];
+  for (const n of names.filter((f2) => f2.endsWith(".json"))) {
+    const op = await readJson("operations", n.slice(0, -5));
+    if (op && (!accountRef || op.accountRef === accountRef)) ops.push(op);
+  }
+  return ops.sort((a, b) => b.createdAt - a.createdAt);
+}
+async function saveOp(op, state, patch = {}, note, now = Date.now()) {
+  const next = { ...op, ...patch, state, updatedAt: now, history: [...op.history, { at: now, state, ...note ? { note } : {} }] };
+  await writeJson("operations", op.opId, next);
+  return next;
+}
+async function loadPolicy(accountRef) {
+  return readJson("policies", accountRef);
+}
+function bind(accountRef, kind, terms) {
+  return createHash3("sha256").update(JSON.stringify([accountRef, kind, terms])).digest("hex");
+}
+function creds(a) {
+  return { apiKey: a.apiKey, walletAddress: a.walletAddress, sessionPrivateKey: a.sessionPrivateKey };
+}
+function slipFloor(raw, slippagePct) {
+  const bps = BigInt(Math.round(slippagePct * 100));
+  return (BigInt(raw) * (10000n - bps) / 10000n).toString();
+}
+function formatUnits(raw, decimals) {
+  const s = raw.padStart(decimals + 1, "0");
+  const whole = s.slice(0, s.length - decimals);
+  const frac = s.slice(s.length - decimals).replace(/0+$/, "");
+  return frac ? `${whole}.${frac}` : whole;
+}
+function floorToDecimals(value, decimals) {
+  const f2 = 10 ** decimals;
+  return (Math.floor(value * f2) / f2).toFixed(decimals);
+}
+function usdcDecimals(chainId) {
+  return chainId === 56 ? 18 : 6;
+}
+async function perpMarket(deps, coin) {
+  const [dexPart, namePart] = coin.includes(":") ? coin.split(":") : ["", coin];
+  const meta = await deps.hlInfo(dexPart ? { type: "metaAndAssetCtxs", dex: dexPart } : { type: "metaAndAssetCtxs" });
+  if (!Array.isArray(meta) || !meta[0]?.universe) throw new Error("Hyperliquid market data unavailable");
+  const want = dexPart ? `${dexPart}:${namePart}` : namePart;
+  const idx = meta[0].universe.findIndex((u2) => u2.name.toUpperCase() === want.toUpperCase());
+  if (idx < 0) throw new import_gdex_skill5.GdexValidationError(`Unknown perp market ${coin}${dexPart ? "" : " (builder-DEX markets use dex:COIN, e.g. xyz:TSLA)"}`, "coin");
+  const u = meta[0].universe[idx];
+  if (u.isDelisted) throw new import_gdex_skill5.GdexValidationError(`${coin} is delisted`, "coin");
+  const markPx = Number(meta[1]?.[idx]?.markPx);
+  if (!Number.isFinite(markPx) || markPx <= 0) throw new Error(`No mark price for ${coin}; not executable right now`);
+  return { coin: u.name, dex: dexPart, szDecimals: u.szDecimals, maxLeverage: u.maxLeverage, markPx, source: "hyperliquid metaAndAssetCtxs", asOf: deps.now() };
+}
+async function previewTrade(deps, accountRef, intent) {
+  const account = await loadAccount(accountRef);
+  const sdk = deps.sdk();
+  const now = deps.now();
+  let kind = intent.kind;
+  let terms;
+  let notionalUsd;
+  let summary;
+  let exit;
+  const warnings = [];
+  if (intent.kind === "spot") {
+    const chain = (0, import_gdex_skill5.normalizeChain)(intent.chain);
+    if (chain.id === 4663 || chain.id === 252) {
+      throw new import_gdex_skill5.GdexValidationError("No USDC on this chain; the USDC wallet trades on Ethereum, Optimism, BSC, Sonic, Base, Arbitrum and Solana", "chain");
+    }
+    const slippagePct = intent.slippagePct ?? 1;
+    if (!(slippagePct > 0 && slippagePct <= 5)) throw new import_gdex_skill5.GdexValidationError("slippagePct must be in (0, 5]", "slippagePct");
+    const uDec = usdcDecimals(chain.id);
+    if (intent.side === "buy") {
+      const amountRaw = (0, import_gdex_skill5.parseAmountUnits)(intent.amount, uDec, "amount").toString();
+      const q = await sdk.getUsdcTradeQuote({ ...creds(account), chainId: chain.id, tokenAddress: intent.tokenAddress, payAsset: "usdc", amountInRaw: amountRaw, side: "buy" });
+      const outRaw = String(q.amountOutRaw ?? "");
+      if (!/^\d+$/.test(outRaw) || outRaw === "0") throw new Error("No executable quote for this buy right now");
+      const tokenDecimals = Number(q.tokenDecimals ?? 0);
+      const autoFunding = intent.autoFunding ?? true;
+      const headroom = (BigInt((0, import_gdex_skill5.buyGasHeadroomUsdc)(chain.id)) * 10n ** BigInt(uDec)).toString();
+      const maxSourceSpendRaw = autoFunding ? (0, import_gdex_skill5.deriveMaxSourceSpendRaw)(amountRaw, headroom) : "0";
+      const minOutRaw = slipFloor(outRaw, slippagePct);
+      notionalUsd = Number(intent.amount);
+      terms = {
+        chainId: chain.id,
+        tokenAddress: intent.tokenAddress,
+        side: "buy",
+        payAsset: "usdc",
+        spendUsdc: intent.amount,
+        spendRaw: amountRaw,
+        expectedOutRaw: outRaw,
+        minOutRaw,
+        tokenDecimals,
+        expectedOut: formatUnits(outRaw, tokenDecimals),
+        minOut: formatUnits(minOutRaw, tokenDecimals),
+        slippagePct,
+        quoteSource: q.source,
+        quotedAt: q.quotedAt ?? now,
+        fees: q.feeIncluded ? "GDEX fee included in quote" : "see quote",
+        autoFunding,
+        maxSourceSpendRaw,
+        maxSourceSpendUsdc: formatUnits(maxSourceSpendRaw, uDec)
+      };
+      summary = `Buy ${formatUnits(outRaw, tokenDecimals)} (min ${formatUnits(minOutRaw, tokenDecimals)}) of ${intent.tokenAddress} for ${intent.amount} USDC on chain ${chain.id}`;
+      if (autoFunding) warnings.push(`Automatic funding may bridge USDC and gas from your other chains, never more than ${formatUnits(maxSourceSpendRaw, uDec)} USDC in total (signed cap, not a fee quote).`);
+      exit = "Sell back with a spot preview (side: sell) on the same chain; proceeds settle in USDC.";
+    } else {
+      const details = await sdk.getTokenDetails({ tokenAddress: intent.tokenAddress, chain: chain.id });
+      const decimals = Number(details?.decimals);
+      if (!Number.isInteger(decimals)) throw new Error("Token decimals unavailable; cannot size the sell exactly");
+      const amountRaw = (0, import_gdex_skill5.parseAmountUnits)(intent.amount, decimals, "amount").toString();
+      const q = await sdk.getUsdcTradeQuote({ ...creds(account), chainId: chain.id, tokenAddress: intent.tokenAddress, payAsset: "usdc", amountInRaw: amountRaw, side: "sell" });
+      const outRaw = String(q.amountOutRaw ?? "");
+      if (!/^\d+$/.test(outRaw) || outRaw === "0") throw new Error("No executable quote for this sell right now");
+      const minOutRaw = slipFloor(outRaw, slippagePct);
+      notionalUsd = Number(formatUnits(outRaw, uDec));
+      terms = {
+        chainId: chain.id,
+        tokenAddress: intent.tokenAddress,
+        side: "sell",
+        receiveAsset: "usdc",
+        sellAmount: intent.amount,
+        sellRaw: amountRaw,
+        tokenDecimals: decimals,
+        expectedUsdcRaw: outRaw,
+        minUsdcRaw: minOutRaw,
+        expectedUsdc: formatUnits(outRaw, uDec),
+        minUsdc: formatUnits(minOutRaw, uDec),
+        slippagePct,
+        quoteSource: q.source,
+        quotedAt: q.quotedAt ?? now,
+        autoFunding: false
+      };
+      summary = `Sell ${intent.amount} of ${intent.tokenAddress} for ~${formatUnits(outRaw, uDec)} USDC (min ${formatUnits(minOutRaw, uDec)}) on chain ${chain.id}`;
+      exit = "Proceeds land in the unified USDC wallet on this chain.";
+    }
+  } else if (intent.kind === "perp_open") {
+    const m = await perpMarket(deps, intent.coin);
+    if (intent.notionalUsd === void 0 === (intent.marginUsd === void 0)) {
+      throw new import_gdex_skill5.GdexValidationError('Give exactly one of notionalUsd (position size) or marginUsd (collateral); "$100 at 2x" is ambiguous', "notionalUsd");
+    }
+    if (!Number.isInteger(intent.leverage) || intent.leverage < 1) throw new import_gdex_skill5.GdexValidationError("leverage must be a positive integer", "leverage");
+    if (intent.leverage > m.maxLeverage) throw new import_gdex_skill5.GdexValidationError(`${m.coin} allows at most ${m.maxLeverage}x`, "leverage");
+    const orderType = intent.orderType ?? "market";
+    if (orderType === "limit" && !intent.limitPrice) throw new import_gdex_skill5.GdexValidationError("limitPrice is required for a limit order", "limitPrice");
+    const price = orderType === "limit" ? Number(intent.limitPrice) : m.markPx;
+    if (!Number.isFinite(price) || price <= 0) throw new import_gdex_skill5.GdexValidationError("limitPrice must be a positive number", "limitPrice");
+    const notional = intent.notionalUsd !== void 0 ? Number(intent.notionalUsd) : Number(intent.marginUsd) * intent.leverage;
+    if (!Number.isFinite(notional) || notional <= 0) throw new import_gdex_skill5.GdexValidationError("Amount must be a positive number", "notionalUsd");
+    const size = floorToDecimals(notional / price, m.szDecimals);
+    const sizedNotional = Number(size) * price;
+    if (Number(size) <= 0 || sizedNotional < HL_MIN_ORDER_USD) {
+      throw new import_gdex_skill5.GdexValidationError(`Order too small: ${size} ${m.coin} \u2248 $${sizedNotional.toFixed(2)}; GDEX requires at least $${HL_MIN_ORDER_USD}`, "notionalUsd");
+    }
+    notionalUsd = sizedNotional;
+    terms = {
+      coin: m.coin,
+      dex: m.dex,
+      side: intent.side,
+      isLong: intent.side === "long",
+      orderType,
+      price: String(price),
+      markPx: String(m.markPx),
+      size,
+      szDecimals: m.szDecimals,
+      notionalUsd: sizedNotional.toFixed(2),
+      marginUsd: (sizedNotional / intent.leverage).toFixed(2),
+      leverage: intent.leverage,
+      marginMode: "isolated",
+      maxLeverage: m.maxLeverage,
+      tpPrice: intent.tpPrice ?? "",
+      slPrice: intent.slPrice ?? "",
+      priceSource: m.source,
+      priceAsOf: m.asOf
+    };
+    summary = `${orderType === "market" ? "Market" : `Limit @ ${price}`} ${intent.side} ${size} ${m.coin} (~$${sizedNotional.toFixed(2)} notional, ~$${(sizedNotional / intent.leverage).toFixed(2)} margin at ${intent.leverage}x isolated)`;
+    if (orderType === "market") warnings.push("Market order: fills near the mark price within the backend slippage band; the fill price is confirmed after execution.");
+    if (!intent.tpPrice && !intent.slPrice) warnings.push("No TP/SL attached.");
+    exit = `Close or reduce with gdex_manage_position { action: "close", coin: "${m.coin}" }.`;
+  } else {
+    const plan = await sdk.resolvePerpClose({ ...creds(account), coin: intent.coin, ...intent.size ? { size: intent.size } : {}, ...intent.dex ? { dex: intent.dex } : {}, positionAddress: account.managed?.evm ?? account.walletAddress });
+    const m = await perpMarket(deps, plan.dex && !plan.coin.includes(":") ? `${plan.dex}:${plan.coin}` : plan.coin).catch(() => void 0);
+    notionalUsd = m ? Number(plan.size) * m.markPx : 0;
+    terms = { ...plan, markPx: m ? String(m.markPx) : void 0, priceSource: m?.source, reduceOnly: true };
+    summary = `Close ${plan.size} of ${plan.positionSide} ${plan.coin} (position ${plan.positionSize}) with a reduce-only market ${plan.closeSide}`;
+    exit = "Reduce-only: cannot flip the position.";
+    kind = "perp_close";
+  }
+  const preview = {
+    previewId: `pv_${randomUUID().replace(/-/g, "").slice(0, 16)}`,
+    accountRef,
+    custody: CUSTODY,
+    kind,
+    createdAt: now,
+    expiresAt: now + PREVIEW_TTL_MS,
+    notionalUsd,
+    summary,
+    terms,
+    binding: bind(accountRef, kind, terms),
+    warnings,
+    exit
+  };
+  await writeJson("previews", preview.previewId, preview);
+  return preview;
+}
+async function checkAuthority(deps, p, userApproved) {
+  if (userApproved) return { ok: true, via: "user_approved", reasons: [] };
+  const policy = await loadPolicy(p.accountRef);
+  if (!policy) return { ok: false, reasons: ["No delegated policy for this account: ask the user to approve this exact preview (userApproved: true)."] };
+  const reasons = [];
+  const t = p.terms;
+  if (!(Date.parse(policy.expiresAt) > deps.now())) reasons.push("Policy expired");
+  if (policy.allowedKinds && !policy.allowedKinds.includes(p.kind)) reasons.push(`Policy does not allow ${p.kind}`);
+  if (policy.allowedChainIds && typeof t.chainId === "number" && !policy.allowedChainIds.includes(t.chainId)) reasons.push(`Policy does not allow chain ${t.chainId}`);
+  if (p.notionalUsd > policy.maxTradeUsd) reasons.push(`Trade $${p.notionalUsd.toFixed(2)} exceeds policy maxTradeUsd $${policy.maxTradeUsd}`);
+  if (policy.maxLeverage !== void 0 && typeof t.leverage === "number" && t.leverage > policy.maxLeverage) reasons.push(`Leverage ${t.leverage}x exceeds policy ${policy.maxLeverage}x`);
+  if (policy.maxSlippagePct !== void 0 && typeof t.slippagePct === "number" && t.slippagePct > policy.maxSlippagePct) reasons.push(`Slippage ${t.slippagePct}% exceeds policy ${policy.maxSlippagePct}%`);
+  if (policy.allowBridging === false && t.autoFunding === true) reasons.push("Policy forbids bridging; preview with autoFunding: false");
+  if (policy.maxDailyUsd !== void 0) {
+    const dayAgo = deps.now() - 864e5;
+    const spent = (await listOperations(p.accountRef)).filter((o) => o.createdAt > dayAgo && o.state !== "failed" && o.kind !== "perp_close").reduce((a, o) => a + o.notionalUsd, 0);
+    if (p.kind !== "perp_close" && spent + p.notionalUsd > policy.maxDailyUsd) reasons.push(`Daily total $${(spent + p.notionalUsd).toFixed(2)} (incl. pending) exceeds policy maxDailyUsd $${policy.maxDailyUsd}`);
+  }
+  return reasons.length ? { ok: false, reasons } : { ok: true, via: "policy", reasons: [] };
+}
+function isUnknown(err) {
+  return err?.name === "GdexSubmissionUnknownError";
+}
+async function executeTrade(deps, previewId, userApproved) {
+  const p = await readJson("previews", previewId);
+  if (!p) throw new import_gdex_skill5.GdexValidationError(`Unknown previewId ${previewId}`, "previewId");
+  if (bind(p.accountRef, p.kind, p.terms) !== p.binding) throw new import_gdex_skill5.GdexValidationError("Preview was modified; create a new one", "previewId");
+  const used = (await listOperations(p.accountRef)).find((o) => o.previewId === previewId);
+  if (used) throw new import_gdex_skill5.GdexValidationError(`Preview already executed as ${used.opId} (${used.state}); use gdex_operation`, "previewId");
+  const authority = await checkAuthority(deps, p, userApproved);
+  if (!authority.ok) return { status: "denied", reasons: authority.reasons };
+  const account = await loadAccount(p.accountRef);
+  const sdk = deps.sdk();
+  const t = p.terms;
+  const intentOf = () => p.kind === "spot" ? { kind: "spot", chain: t.chainId, tokenAddress: t.tokenAddress, side: t.side, amount: t.side === "buy" ? t.spendUsdc : t.sellAmount, slippagePct: t.slippagePct, autoFunding: t.autoFunding } : p.kind === "perp_open" ? { kind: "perp_open", coin: t.dex ? `${t.dex}:${String(t.coin).replace(/^.*:/, "")}` : t.coin, side: t.side, notionalUsd: t.notionalUsd, leverage: t.leverage, orderType: t.orderType, ...t.orderType === "limit" ? { limitPrice: t.price } : {}, tpPrice: t.tpPrice || void 0, slPrice: t.slPrice || void 0 } : { kind: "perp_close", coin: t.coin, size: t.size, dex: t.dex || void 0 };
+  if (deps.now() > p.expiresAt) {
+    return { status: "revised", reason: "Preview expired; review the fresh terms", preview: await previewTrade(deps, p.accountRef, intentOf()) };
+  }
+  if (p.kind === "spot") {
+    const fresh = await sdk.getUsdcTradeQuote({ ...creds(account), chainId: t.chainId, tokenAddress: t.tokenAddress, payAsset: "usdc", amountInRaw: t.side === "buy" ? t.spendRaw : t.sellRaw, side: t.side });
+    const floor = BigInt(t.side === "buy" ? t.minOutRaw : t.minUsdcRaw);
+    if (!/^\d+$/.test(String(fresh.amountOutRaw ?? "")) || BigInt(String(fresh.amountOutRaw)) < floor) {
+      return { status: "revised", reason: "Price moved below the approved minimum", preview: await previewTrade(deps, p.accountRef, intentOf()) };
+    }
+  }
+  const now = deps.now();
+  let op = {
+    opId: `op_${randomUUID().replace(/-/g, "").slice(0, 16)}`,
+    previewId,
+    accountRef: p.accountRef,
+    kind: p.kind,
+    state: "submitting",
+    notionalUsd: p.notionalUsd,
+    createdAt: now,
+    updatedAt: now,
+    history: [{ at: now, state: "submitting", note: `authorized via ${authority.via}` }]
+  };
+  await writeJson("operations", op.opId, op);
+  try {
+    let res;
+    if (p.kind === "spot" && t.side === "buy") {
+      res = await sdk.buyWithUsdc({ ...creds(account), chainId: t.chainId, tokenAddress: t.tokenAddress, usdcAmountRaw: t.spendRaw, minTokenOutRaw: t.minOutRaw, autoBridge: t.autoFunding, maxSourceSpendRaw: t.autoFunding ? t.maxSourceSpendRaw : void 0 });
+    } else if (p.kind === "spot") {
+      res = await sdk.sellToUsdc({ ...creds(account), chainId: t.chainId, tokenAddress: t.tokenAddress, tokenAmountRaw: t.sellRaw, minUsdcOutRaw: t.minUsdcRaw });
+    } else if (p.kind === "perp_open") {
+      res = await sdk.hlCreateOrder({ ...creds(account), coin: t.dex ? `${t.dex}:${String(t.coin).replace(/^.*:/, "")}` : t.coin, isLong: t.isLong, price: t.price, size: t.size, reduceOnly: false, tpPrice: t.tpPrice, slPrice: t.slPrice, isMarket: t.orderType === "market", marginMode: "isolated", leverage: t.leverage });
+    } else {
+      res = await sdk.closePerpPosition({ ...creds(account), coin: t.coin, size: t.size, ...t.dex ? { dex: t.dex } : {}, positionAddress: account.managed?.evm ?? account.walletAddress });
+    }
+    const status = String(res.status ?? "").toLowerCase();
+    const requestId = typeof res.requestId === "string" ? res.requestId : void 0;
+    const hash2 = typeof res.hash === "string" ? res.hash : void 0;
+    const state = status === "success" ? "filled" : status === "failed" || res.isSuccess === false ? "failed" : requestId ? "accepted" : "pending";
+    op = await saveOp(op, state, { requestId, hash: hash2, detail: res }, void 0, deps.now());
+  } catch (err) {
+    op = isUnknown(err) ? await saveOp(op, "submission_unknown", { errorCode: "SUBMISSION_UNKNOWN" }, err.message, deps.now()) : await saveOp(op, "failed", { errorCode: err.code ?? "ERROR" }, err.message, deps.now());
+    if (!isUnknown(err)) throw err;
+  }
+  return { status: "submitted", operation: op };
+}
+async function reconcileOperation(deps, opId, waitMs = 6e4) {
+  let op = await readJson("operations", opId);
+  if (!op) throw new import_gdex_skill5.GdexValidationError(`Unknown opId ${opId}`, "opId");
+  if (op.state === "filled" || op.state === "failed") return op;
+  const account = await loadAccount(op.accountRef);
+  const sdk = deps.sdk();
+  const p = await readJson("previews", op.previewId);
+  const t = p?.terms ?? {};
+  if (op.kind === "spot") {
+    if (!op.requestId) {
+      const pend = await sdk.getUsdcPendingTrades({ ...creds(account), chainId: t.chainId });
+      const match = (pend.pending ?? []).find((x) => String(x.tokenAddress).toLowerCase() === String(t.tokenAddress).toLowerCase() && x.side === t.side);
+      if (!match) return saveOp(op, op.state, {}, "Not found among pending trades; check the wallet balance before deciding. Do not resubmit blindly.", deps.now());
+      op = await saveOp(op, "accepted", { requestId: String(match.requestId) }, "Found pending trade", deps.now());
+    }
+    const w = await sdk.watchUsdcTrade({ ...creds(account), requestId: op.requestId, timeoutMs: waitMs });
+    const state2 = w.outcome === "success" ? "filled" : w.outcome === "failed" ? "failed" : w.outcome === "needs_retry" ? "needs_retry" : "funding";
+    return saveOp(op, state2, { hash: w.hash ?? op.hash, errorCode: w.errorCode, detail: { steps: w.steps, retry: w.retry } }, void 0, deps.now());
+  }
+  const coin = String(t.coin ?? "");
+  const state = await sdk.getHlClearinghouseState({ userAddress: account.managed?.evm ?? account.walletAddress, ...t.dex ? { dex: String(t.dex) } : {} });
+  const pos = state?.state?.assetPositions?.find((a) => a.position.coin.toUpperCase() === coin.toUpperCase())?.position;
+  return saveOp(op, op.state, { detail: { ...op.detail, livePosition: pos ?? null } }, pos ? `Live position ${pos.szi} ${coin}` : `No open ${coin} position`, deps.now());
+}
+async function positions(deps, accountRef) {
+  const account = await loadAccount(accountRef);
+  const sdk = deps.sdk();
+  const section = async (fn) => {
+    try {
+      return { status: "ok", asOf: deps.now(), data: await fn() };
+    } catch (e) {
+      return { status: "unavailable", error: e.message };
+    }
+  };
+  const [usdc, perps, openOrders] = await Promise.all([
+    section(() => sdk.getUsdcBalances(creds(account))),
+    section(() => sdk.getHlClearinghouseStateAll(account.managed?.evm ?? account.walletAddress)),
+    section(() => sdk.getHlOpenOrdersAllForCopy(account.managed?.evm ?? account.walletAddress))
+  ]);
+  const ops = (await listOperations(accountRef)).filter((o) => !["filled", "failed"].includes(o.state));
+  return {
+    accountRef,
+    walletAddress: account.walletAddress,
+    managedWallets: account.managed,
+    usdcWallet: usdc,
+    perps,
+    openOrders,
+    pendingOperations: ops.map((o) => ({ opId: o.opId, kind: o.kind, state: o.state, notionalUsd: o.notionalUsd, createdAt: o.createdAt })),
+    note: 'A section with status "unavailable" is unknown, not empty.'
+  };
+}
+
+// mcp-server/src/tools/intent.ts
+var decimal = (what) => external_exports.string().regex(/^\d+(\.\d+)?$/).describe(what);
+function defaultIntentDeps() {
+  return {
+    sdk: getSdk,
+    hlInfo: async (body) => {
+      const res = await fetch("https://api.hyperliquid.xyz/info", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error(`Hyperliquid info ${res.status}`);
+      return res.json();
+    },
+    now: Date.now
+  };
+}
+var READ = { readOnlyHint: true, openWorldHint: true };
+function registerIntentTools(server2, deps = defaultIntentDeps()) {
+  server2.tool(
+    "gdex_status",
+    "Start here. Reports version, connected accounts (no secrets), API reachability, delegated trading policy per account, pending operations, supported trade kinds, and the next setup step.",
+    {},
+    READ,
+    async () => handleToolCall(async () => {
+      const accounts = await listAccounts();
+      const reach = await getSdk().client.get("/v1/status").then(() => "ok", (e) => `unreachable: ${e.message}`);
+      const withPolicy = await Promise.all(accounts.map(async (a) => {
+        const p = await loadPolicy(a.accountRef);
+        return { ...a, policy: p ? { ...p, active: Date.parse(p.expiresAt) > Date.now() } : null };
+      }));
+      const pending = (await listOperations()).filter((o) => !["filled", "failed"].includes(o.state));
+      const next = !accounts.length ? "Connect an account: gdex_connect { keyFile } (or { create: true }). Research tools work without one." : "Ready: gdex_preview_trade, then gdex_execute_trade. Fund the managed wallets to trade.";
+      return {
+        api: reach,
+        accounts: withPolicy,
+        pendingOperations: pending.map((o) => ({ opId: o.opId, accountRef: o.accountRef, kind: o.kind, state: o.state })),
+        capabilities: {
+          spot: "Unified-USDC wallet: buy with USDC / sell to USDC on Ethereum, Optimism, BSC, Sonic, Base, Arbitrum, Solana",
+          perp: "Hyperliquid perps incl. builder DEXes (dex:COIN): open market/limit with isolated leverage, close/reduce",
+          outcomes: "Use the hl_outcome_* tools (not yet in the preview/execute flow)"
+        },
+        policyFile: `${gdexHome()}/policies/<accountRef>.json (edited by the user, never by the agent)`,
+        next
+      };
+    })
+  );
+  server2.tool(
+    "gdex_preview_trade",
+    "Turn an explicit trade intent into exact executable terms without trading: market, side, human and raw amounts, quote source and time, minimum received or limit price, funding plan, expiry (60s). Returns a previewId for gdex_execute_trade. kind=spot (USDC wallet), perp_open, perp_close. For perps give notionalUsd (position size) or marginUsd (collateral), never guess which.",
+    {
+      accountRef: external_exports.string().describe("From gdex_connect"),
+      kind: external_exports.enum(["spot", "perp_open", "perp_close"]),
+      chain: external_exports.union([external_exports.string(), external_exports.number()]).optional().describe("spot: chain name or id"),
+      tokenAddress: external_exports.string().optional().describe("spot: token contract / mint"),
+      side: external_exports.enum(["buy", "sell", "long", "short"]).optional().describe("spot: buy|sell; perp_open: long|short"),
+      amount: decimal("spot: USDC to spend (buy) or token amount (sell)").optional(),
+      slippagePct: external_exports.number().optional().describe("spot: max slippage %, default 1, max 5"),
+      autoFunding: external_exports.boolean().optional().describe("spot buy: bridge USDC/gas from other chains (default true)"),
+      coin: external_exports.string().optional().describe("perp: e.g. BTC, or xyz:TSLA for builder DEXes"),
+      notionalUsd: decimal("perp_open: position size in USD").optional(),
+      marginUsd: decimal("perp_open: collateral in USD").optional(),
+      leverage: external_exports.number().int().optional().describe("perp_open: isolated leverage"),
+      orderType: external_exports.enum(["market", "limit"]).optional(),
+      limitPrice: decimal("perp_open limit price").optional(),
+      tpPrice: decimal("perp_open take-profit").optional(),
+      slPrice: decimal("perp_open stop-loss").optional(),
+      size: decimal("perp_close: contracts to close (omit = full)").optional(),
+      dex: external_exports.string().optional().describe("perp_close: builder DEX for a bare coin")
+    },
+    READ,
+    async (p) => handleToolCall(async () => {
+      const need = (k) => {
+        if (p[k] === void 0) throw new Error(`${String(k)} is required for kind ${p.kind}`);
+        return p[k];
+      };
+      let intent;
+      if (p.kind === "spot") {
+        const side = need("side");
+        if (side !== "buy" && side !== "sell") throw new Error("spot side must be buy or sell");
+        intent = { kind: "spot", chain: need("chain"), tokenAddress: need("tokenAddress"), side, amount: need("amount"), slippagePct: p.slippagePct, autoFunding: p.autoFunding };
+      } else if (p.kind === "perp_open") {
+        const side = need("side");
+        if (side !== "long" && side !== "short") throw new Error("perp_open side must be long or short");
+        intent = { kind: "perp_open", coin: need("coin"), side, notionalUsd: p.notionalUsd, marginUsd: p.marginUsd, leverage: need("leverage"), orderType: p.orderType, limitPrice: p.limitPrice, tpPrice: p.tpPrice, slPrice: p.slPrice };
+      } else {
+        intent = { kind: "perp_close", coin: need("coin"), size: p.size, dex: p.dex };
+      }
+      return previewTrade(deps, p.accountRef, intent);
+    })
+  );
+  server2.tool(
+    "gdex_execute_trade",
+    "Execute a preview within the user's authority: userApproved=true only after the user approved THIS preview's terms; otherwise the account's delegated policy must allow it (else status denied). Re-quotes first: moved or expired terms return status revised with a new preview instead of trading. Returns an operation; follow it with gdex_operation. Never call again for the same intent after submission_unknown.",
+    {
+      previewId: external_exports.string(),
+      userApproved: external_exports.boolean().optional().describe("True only if the user explicitly approved this exact preview")
+    },
+    { destructiveHint: true, openWorldHint: true },
+    async ({ previewId, userApproved }) => handleToolCall(async () => executeTrade(deps, previewId, userApproved === true))
+  );
+  server2.tool(
+    "gdex_operation",
+    "Follow or recover an operation by opId: waits for funding/fill (spot streams funding steps; perps check the live position), resolves submission_unknown by looking for the trade instead of resending, and reports needs_retry when the backend offers an in-place sell retry (usdc_retry_sell). Without opId, lists recent operations.",
+    {
+      opId: external_exports.string().optional(),
+      accountRef: external_exports.string().optional().describe("List filter when no opId"),
+      waitSec: external_exports.number().optional().describe("Max seconds to wait, default 60")
+    },
+    READ,
+    async ({ opId, accountRef, waitSec }) => handleToolCall(async () => opId ? reconcileOperation(deps, opId, (waitSec ?? 60) * 1e3) : { operations: (await listOperations(accountRef)).slice(0, 20) })
+  );
+  server2.tool(
+    "gdex_positions",
+    "What the account owns and has pending: unified USDC + gas balances per chain, Hyperliquid positions on every DEX, open orders, and unfinished operations. Each section says ok or unavailable; unavailable means unknown, not empty.",
+    { accountRef: external_exports.string() },
+    READ,
+    async ({ accountRef }) => handleToolCall(async () => positions(deps, accountRef))
+  );
+  server2.tool(
+    "gdex_manage_position",
+    "Preview an exit for an existing position, against its live state: close/reduce a perp (reduce-only, correct side for longs and shorts) or sell a spot token back to USDC. Returns a preview; execute it with gdex_execute_trade.",
+    {
+      accountRef: external_exports.string(),
+      action: external_exports.enum(["close", "reduce", "sell"]),
+      coin: external_exports.string().optional().describe("perp coin for close/reduce"),
+      size: decimal("reduce: contracts to close").optional(),
+      dex: external_exports.string().optional(),
+      chain: external_exports.union([external_exports.string(), external_exports.number()]).optional().describe("sell: chain"),
+      tokenAddress: external_exports.string().optional().describe("sell: token"),
+      amount: decimal("sell: token amount").optional(),
+      slippagePct: external_exports.number().optional()
+    },
+    READ,
+    async (p) => handleToolCall(async () => {
+      if (p.action === "sell") {
+        if (p.chain === void 0 || !p.tokenAddress || !p.amount) throw new Error("sell needs chain, tokenAddress and amount");
+        return previewTrade(deps, p.accountRef, { kind: "spot", chain: p.chain, tokenAddress: p.tokenAddress, side: "sell", amount: p.amount, slippagePct: p.slippagePct });
+      }
+      if (!p.coin) throw new Error(`${p.action} needs coin`);
+      if (p.action === "reduce" && !p.size) throw new Error("reduce needs size (use close for a full exit)");
+      return previewTrade(deps, p.accountRef, { kind: "perp_close", coin: p.coin, size: p.action === "reduce" ? p.size : void 0, dex: p.dex });
+    })
+  );
+}
+
+// mcp-server/src/annotations.ts
+init_define_GDEX_SKILL_REGISTRY();
+var LOCAL_DOCS = /* @__PURE__ */ new Set([
+  "search_gdex_docs",
+  "explain_workflow",
+  "get_sdk_pattern",
+  "get_api_info",
+  "get_chain_info",
+  "get_trading_guide",
+  "get_skill_file",
+  "get_component_guide",
+  "get_copy_trade_guide"
+]);
+var LOCAL_READS = /* @__PURE__ */ new Set(["generate_evm_wallet", "generate_session_keypair", "build_sign_in_payload", "build_trade_payload", "gdex_accounts"]);
+var READ_PATTERN = /^(get_|usdc_get_|hl_outcomes$|hl_outcome_account$|hl_outcome_check_collateral$|hl_ref_info$|hl_builder_referral$|hl_tx_list$|hl_list_user_copy_pnl$|trending_list$|trending_options$|trending_booking_status$|managed_trade_status$|wait_for_trade$|usdc_wait_for_trade$|estimate_bridge$|usdc_estimate_bridge$|gdex_status$|gdex_positions$|gdex_preview_trade$|gdex_operation$|gdex_manage_position$|generate_pnl$)/;
+var NON_FINANCIAL_WRITES = /* @__PURE__ */ new Set([
+  "auth_login",
+  "oauth_login",
+  "managed_sign_in",
+  "gdex_connect",
+  "associate_email",
+  "hl_enable_trading",
+  "add_comment",
+  "vote_sentiment",
+  "change_watchlist",
+  "import_token"
+]);
+function annotationsFor(name) {
+  if (LOCAL_DOCS.has(name) || LOCAL_READS.has(name)) return { readOnlyHint: true, openWorldHint: false };
+  if (READ_PATTERN.test(name)) return { readOnlyHint: true, openWorldHint: true };
+  if (NON_FINANCIAL_WRITES.has(name)) return { readOnlyHint: false, destructiveHint: false, openWorldHint: name !== "auth_login" };
+  if (name === "gdex_disconnect") return { readOnlyHint: false, destructiveHint: true, openWorldHint: false };
+  return { readOnlyHint: false, destructiveHint: true, openWorldHint: true };
+}
+function enableAnnotations(server2) {
+  const original = server2.tool.bind(server2);
+  server2.tool = (...args2) => {
+    const name = args2[0];
+    if (args2.length === 4 && typeof args2[1] === "string" && typeof args2[3] === "function") {
+      return original(args2[0], args2[1], args2[2], annotationsFor(name), args2[3]);
+    }
+    return original(...args2);
+  };
+}
+
 // mcp-server/src/index.ts
 var rawArgs = process.argv.slice(2);
 var args = rawArgs[0] === "gdex-mcp-server" ? rawArgs.slice(1) : rawArgs;
@@ -153119,6 +155447,7 @@ var server = new McpServer(
   { capabilities: { tools: {} } }
 );
 enableAccountRefs(server);
+enableAnnotations(server);
 var skills = await loadSkills();
 server.tool(
   "search_gdex_docs",
@@ -153152,16 +155481,16 @@ server.tool(
     skill: external_exports.string().describe('Skill name, e.g. "gdex-hl-anomaly"'),
     path: external_exports.string().optional().describe('File path relative to the skill directory, e.g. "scripts/hl_anomaly.py"')
   },
-  async ({ skill, path: path2 }) => {
+  async ({ skill, path: path3 }) => {
     const entry = skills.get(skill);
     if (!entry) {
       return { content: [{ type: "text", text: `Unknown skill "${skill}". Available skills:
 ${listSkills(skills).map((s) => `- ${s.name}`).join("\n")}` }] };
     }
-    const file = path2 ? getSkillFile(skills, skill, path2) : null;
+    const file = path3 ? getSkillFile(skills, skill, path3) : null;
     if (file !== null) return { content: [{ type: "text", text: file }] };
     const list = [...entry.files.keys()];
-    const prefix = path2 ? `No file "${path2}" in ${skill}. ` : "";
+    const prefix = path3 ? `No file "${path3}" in ${skill}. ` : "";
     return { content: [{ type: "text", text: `${prefix}${list.length ? `Files in ${skill}:
 ${list.map((f2) => `- ${f2}`).join("\n")}` : `${skill} ships no companion files.`}` }] };
   }
@@ -153387,6 +155716,7 @@ registerManagedTools(server);
 registerV110Tools(server);
 registerUsdcTools(server);
 registerAccountTools(server);
+registerIntentTools(server);
 var transport = new StdioServerTransport();
 await server.connect(transport);
 /*! Bundled license information:

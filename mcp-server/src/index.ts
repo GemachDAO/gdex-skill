@@ -23,6 +23,7 @@ import { registerUsdcTools } from './tools/usdc.js';
 import { registerAccountTools } from './tools/account.js';
 import { registerIntentTools } from './tools/intent.js';
 import { enableAccountRefs } from './credentials.js';
+import { enableAnnotations } from './annotations.js';
 
 // Handle init command before starting server.
 // `npx -y github:GemachDAO/gdex-skill gdex-mcp-server init --client <c>` auto-selects
@@ -52,6 +53,8 @@ const server = new McpServer(
 );
 // Every tool taking sessionPrivateKey/privateKey/data also accepts accountRef (local secrets).
 enableAccountRefs(server);
+// Every tool gets read/write annotations (explicit ones on a registration win).
+enableAnnotations(server);
 
 const skills = await loadSkills();
 

@@ -87,6 +87,7 @@ GDEX uses a **multi-skill architecture** — agents load only the skills they ne
 
 | Skill | Description |
 |-------|-------------|
+| `gdex-agent-trading` | **Start here for agents:** status → connect → preview → execute within your authority → follow → exit |
 | `gdex-onboarding` | Platform overview, architecture, supported chains, quickstart |
 | `gdex-retailer-onboarding` | Retailer partner integrations — branded onboarding partners on the GDEX stack |
 | `gdex-authentication` | Managed-custody auth, encryption, session keys, API key login |
@@ -146,7 +147,7 @@ cite figures that skill scripts printed. Every script run is logged with a sha25
 
 ## 🔌 MCP Server
 
-The GDEX MCP server exposes **137 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
+The GDEX MCP server exposes **154 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
 
 **Source code:** the server is implemented in this repository, in [`mcp-server/`](mcp-server). The entry point is [`mcp-server/src/index.ts`](mcp-server/src/index.ts) and the tool handlers are in [`mcp-server/src/tools/`](mcp-server/src/tools). The npm package `@gemachdao/gdex-mcp-server` is built from that directory by the release workflow. See [`mcp-server/README.md`](mcp-server/README.md) to run it from source or with the repo's `Dockerfile`.
 
@@ -171,6 +172,10 @@ npx @gemachdao/gdex-mcp-server init --client opencode  # → opencode.json ("mcp
 ```
 
 Installs every GDEX skill plus the MCP server (`npx -y @gemachdao/gdex-mcp-server`). The optional GDEX API key is kept in your system credential store.
+
+### Agent trading flow
+
+Agents should start with `gdex_status`, connect once with `gdex_connect`, then `gdex_preview_trade` → `gdex_execute_trade` (user-approved, or within the delegated policy in `~/.gdex/policies/<accountRef>.json`) → `gdex_operation`, and manage exits with `gdex_positions` / `gdex_manage_position`. Every tool carries read/write annotations. See the `gdex-agent-trading` skill.
 
 ### Connect an account (no secrets in chat)
 
@@ -216,10 +221,11 @@ Add to your client's MCP config:
 | `GDEX_API_KEY` | GDEX API key — auto-authenticates on startup | Optional |
 | `GDEX_API_URL` | Override API base URL (default: `https://trade-api.gemach.io/v1`) | Optional |
 
-### MCP Execution Tools (128 tools)
+### MCP Execution Tools (145 tools)
 
 | Category | Tools | Description |
 |----------|-------|-------------|
+| **Agent flow** | `gdex_status`, `gdex_preview_trade`, `gdex_execute_trade`, `gdex_operation`, `gdex_positions`, `gdex_manage_position` | Readiness, exact previews, execution within user approval or a delegated policy, operation tracking and recovery, positions and exits |
 | **Auth** | `gdex_connect`, `gdex_accounts`, `gdex_disconnect`, `auth_login`, `generate_session_keypair`, `managed_sign_in`, `build_sign_in_payload` | API key login, session keys, managed custody sign-in |
 | **Spot Trading** | `buy_token`, `sell_token` | Buy/sell on Solana, Sui and 10 EVM chains (Ethereum, Base, Arbitrum, BSC and more) |
 | **Perp Trading** | `open_perp_position`, `place_perp_order`, `close_perp_position`, `close_all_positions`, `cancel_perp_order`, `cancel_all_perp_orders`, `set_leverage`, `perp_deposit`, `perp_withdraw` | Full HyperLiquid perpetual futures — long/short, TP/SL; leverage up to each market's cap (40x on core BTC) |
@@ -943,8 +949,8 @@ await skill.deleteHlCopyTrade(ids);  // permanent; does NOT close positions or c
 ### Portfolio
 
 ```typescript
-// Full cross-chain portfolio
-const portfolio = await skill.getPortfolio({ walletAddress: '0x...' });
+// Portfolio on one chain (managed-account read: also pass the session, see gdex-portfolio)
+const portfolio = await skill.getPortfolio({ walletAddress: '0x...', chain: ChainId.BASE });
 // { totalValueUsd, balances, perpPositions?, realizedPnl, unrealizedPnl }
 
 // Chain-specific balances
@@ -952,7 +958,7 @@ const balances = await skill.getBalances({ walletAddress: '0x...', chain: ChainI
 
 // Paginated trade history
 const history = await skill.getTradeHistory({
-  walletAddress: '0x...', page: 1, limit: 20,
+  walletAddress: '0x...', chain: ChainId.BASE, page: 1, limit: 20,
   startTime: 1700000000, endTime: 1700086400,
 });
 ```

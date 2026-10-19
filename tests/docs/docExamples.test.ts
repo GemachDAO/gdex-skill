@@ -269,7 +269,8 @@ describe('documentation examples', () => {
     const tools = registeredTools();
     expect(tools.size).toBeGreaterThan(100);
     // Backend ABI/action names that share a line with tool names but are not tools.
-    const notTools = new Set(['hl_create', 'hl_update']);
+    // Backticked snake_case words that are values, not tool names (operation states, trade kinds).
+    const notTools = new Set(['hl_create', 'hl_update', 'submission_unknown', 'needs_retry', 'perp_open', 'perp_close', 'user_approved']);
     const unknown: string[] = [];
     for (const doc of docs) {
       doc.text.split('\n').forEach((line, i) => {
