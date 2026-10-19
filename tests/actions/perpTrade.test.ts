@@ -313,6 +313,23 @@ describe('perpTrade', () => {
         perpDeposit(client, { ...TEST_CREDS, walletAddress: '', tokenAddress: '0xUSDC', amount: '10', chainId: 42161 })
       ).rejects.toThrow(GdexValidationError);
     });
+
+    it('converts to 6-decimal units exactly (no float rounding)', async () => {
+      client.post = jest.fn().mockResolvedValue({ isSuccess: true });
+      await perpDeposit(client, { ...TEST_CREDS, tokenAddress: '0xUSDC', amount: '4.35', chainId: 42161 });
+      await perpDeposit(client, { ...TEST_CREDS, tokenAddress: '0xUSDC', amount: '10.000001', chainId: 42161 });
+      const calls = (crypto.buildHlComputedData as jest.Mock).mock.calls;
+      expect(calls[calls.length - 2][0].actionParams.amount).toBe('4350000');
+      expect(calls[calls.length - 1][0].actionParams.amount).toBe('10000001');
+    });
+
+    it.each(['10.0000001', '1e3', '10abc', 'Infinity'])('should reject amount %p', async (amount) => {
+      client.post = jest.fn();
+      await expect(
+        perpDeposit(client, { ...TEST_CREDS, tokenAddress: '0xUSDC', amount, chainId: 42161 })
+      ).rejects.toThrow(GdexValidationError);
+      expect(client.post).not.toHaveBeenCalled();
+    });
   });
 
   describe('perpWithdraw', () => {
@@ -333,6 +350,14 @@ describe('perpTrade', () => {
       await expect(
         perpWithdraw(client, { ...TEST_CREDS, amount: '0' })
       ).rejects.toThrow(GdexValidationError);
+    });
+
+    it('accepts one decimal place (backend precision) and rejects finer precision', async () => {
+      client.post = jest.fn().mockResolvedValue({ isSuccess: true });
+      await perpWithdraw(client, { ...TEST_CREDS, amount: '2.5' });
+      expect(client.post).toHaveBeenCalledTimes(1);
+      await expect(perpWithdraw(client, { ...TEST_CREDS, amount: '5.25' })).rejects.toThrow(/more than 1 decimal/);
+      expect(client.post).toHaveBeenCalledTimes(1);
     });
   });
 

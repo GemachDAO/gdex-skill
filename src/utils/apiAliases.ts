@@ -1,12 +1,27 @@
 import { SupportedChain, ChainId, NonEvmChain } from '../types/common';
+import { normalizeChain } from '../config/chains';
 
 const NON_EVM_CHAIN_IDS: Record<NonEvmChain, number> = {
   solana: ChainId.SOLANA,
   sui: ChainId.SUI,
 };
 
-export function buildChainAliases(chain?: SupportedChain): Record<string, unknown> {
-  if (chain === undefined) return {};
+/**
+ * Canonical wire form of a chain: the numeric ChainId, except that string
+ * Solana/Sui names stay as the legacy 'solana' / 'sui' strings the backend
+ * already accepts. Names like 'base' or '8453' become 8453.
+ *
+ * @throws {GdexValidationError} if the chain is unknown
+ */
+export function toWireChain(chain: SupportedChain): SupportedChain {
+  if (typeof chain === 'number') return chain;
+  const { id, family } = normalizeChain(chain);
+  return family === 'evm' ? id : family;
+}
+
+export function buildChainAliases(input?: SupportedChain): Record<string, unknown> {
+  if (input === undefined) return {};
+  const chain = toWireChain(input);
   if (typeof chain === 'number') {
     return {
       chain,

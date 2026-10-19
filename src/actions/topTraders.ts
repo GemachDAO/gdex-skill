@@ -5,6 +5,7 @@ import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';
 import { TopTrader, TopTradersParams } from '../types';
 import { validateChain } from '../utils/validation';
+import { toWireChain } from '../utils/apiAliases';
 
 /**
  * Get top performing traders across chains.
@@ -21,8 +22,8 @@ export async function getTopTraders(
   const queryParams: Record<string, unknown> = {};
 
   if (params.chain !== undefined) {
-    queryParams.chain = params.chain;
-    queryParams.chainId = params.chain;
+    queryParams.chain = toWireChain(params.chain);
+    queryParams.chainId = queryParams.chain;
   }
   if (params.period) queryParams.period = params.period;
   if (params.limit) queryParams.limit = params.limit;

@@ -421,7 +421,8 @@ export type { AuthCredentials, AuthSession } from './client/auth';
 export * as Endpoints from './client/endpoints';
 
 // Config utilities
-export { getChainConfig, getSupportedChains, chainSupportsDex, CHAIN_CONFIGS, HYPERLIQUID_DEFAULT_ASSETS } from './config/chains';
+export { getChainConfig, getSupportedChains, chainSupportsDex, normalizeChain, CHAIN_CONFIGS, HYPERLIQUID_DEFAULT_ASSETS } from './config/chains';
+export type { ChainFamily, NormalizedChain } from './config/chains';
 export type { ChainConfig } from './config/chains';
 export { GDEX_API_KEYS, GDEX_API_KEY_PRIMARY, GDEX_API_KEY_SECONDARY } from './config/apiKeys';
 
@@ -433,7 +434,7 @@ export { generateEvmWallet } from './utils/walletGeneration';
 export type { GeneratedEvmWallet } from './utils/walletGeneration';
 
 // Validation utilities
-export { validateAddress, validateAmount, validateChain, validateSlippage, validateLeverage, validateCoin } from './utils/validation';
+export { validateAddress, validateTokenAddress, validateAmount, parseAmountUnits, validateChain, validateSlippage, validateLeverage, validateCoin } from './utils/validation';
 export {
   deriveGdexAesMaterial,
   encryptGdexComputedData,
