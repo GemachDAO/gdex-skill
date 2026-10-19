@@ -530,6 +530,68 @@ export function buildTransferComputedData(params: {
   });
 }
 
+// ── Unified USDC wallet helpers ──────────────────────────────────────────────
+
+/**
+ * ABI layouts for the unified-USDC signed actions, mirroring the backend's
+ * `decodeInputData` (src/shared/parser/evm/decoder.ts) and gdex.pro's
+ * `encodeInputData`. The nonce is always the last field. The v2 trade actions
+ * use the extended 7-field layout with the signed `maxSourceSpendRaw` budget.
+ */
+export const USDC_ACTION_ABI = {
+  usdc_bridge_estimate: ['uint64', 'uint64', 'uint256', 'bool', 'string'],
+  usdc_bridge_execute_v2: ['uint64', 'uint64', 'uint256', 'bool', 'uint256', 'uint256', 'string'],
+  purchase_usdc_v2: ['uint64', 'string', 'uint256', 'uint256', 'bool', 'uint256', 'string'],
+  sell_usdc_v2: ['uint64', 'string', 'string', 'uint256', 'bool', 'uint256', 'string'],
+  purchase_native_v2: ['uint64', 'string', 'uint256', 'uint256', 'bool', 'uint256', 'string'],
+  convert_native_usdc_v2: ['uint64', 'uint256', 'uint256', 'string'],
+  retry_sell_usdc: ['uint64', 'string', 'string', 'string', 'string', 'uint256', 'uint64', 'string'],
+} as const;
+
+export type UsdcActionType = keyof typeof USDC_ACTION_ABI;
+
+/**
+ * Build encrypted computedData for a unified-USDC signed action.
+ *
+ * `values` are the action's fields in ABI order WITHOUT the trailing nonce,
+ * which is appended here. Signature message: `${action}-${userId}-${data}`,
+ * verified by the backend's `beginSignedAction`.
+ */
+export function buildUsdcComputedData(params: {
+  action: UsdcActionType;
+  apiKey: string;
+  walletAddress: string;
+  sessionPrivateKey: string;
+  values: ReadonlyArray<string | number | boolean>;
+  nonce?: string;
+}): string {
+  const types = USDC_ACTION_ABI[params.action];
+  if (params.values.length !== types.length - 1) {
+    throw new Error(`${params.action} expects ${types.length - 1} fields before the nonce, got ${params.values.length}`);
+  }
+  const nonce = params.nonce ?? generateGdexNonce().toString();
+  const encoded = AbiCoder.defaultAbiCoder().encode([...types], [...params.values, nonce]);
+  const data = encoded.startsWith('0x') ? encoded.slice(2) : encoded;
+
+  const userId = params.walletAddress.startsWith('0x')
+    ? params.walletAddress.toLowerCase()
+    : params.walletAddress;
+  const msg = `${params.action}-${userId}-${data}`;
+  const sig = new SigningKey(params.sessionPrivateKey).sign(keccak256(toUtf8Bytes(msg)));
+  const signature = `${sig.r.replace(/^0x/, '')}${sig.s.replace(/^0x/, '')}${sig.yParity.toString(16).padStart(2, '0')}`;
+
+  return buildEncryptedGdexPayload({ apiKey: params.apiKey, userId, data, signature });
+}
+
+/**
+ * Encrypted read-session `data` for the authenticated GET routes, derived from
+ * the session private key (the backend compares it to the stored compressed
+ * session public key).
+ */
+export function buildGdexReadSessionData(sessionPrivateKey: string, apiKey: string): string {
+  return buildGdexUserSessionData(SigningKey.computePublicKey(sessionPrivateKey, true), apiKey);
+}
+
 // ── Social write managed-custody helpers ─────────────────────────────────────
 
 /**

@@ -1,6 +1,6 @@
 # GDEX MCP Server
 
-The official [Model Context Protocol](https://modelcontextprotocol.io) server for [GDEX](https://gdex.pro), Gemach DAO's multi-chain trading terminal. It gives AI agents **117 tools**: 109 that execute trades and read account state, plus 8 documentation tools.
+The official [Model Context Protocol](https://modelcontextprotocol.io) server for [GDEX](https://gdex.pro), Gemach DAO's multi-chain trading terminal. It gives AI agents **132 tools**: 124 that execute trades and read account state, plus 8 documentation tools.
 
 - Spot swaps on Solana, Sui and 10 EVM chains (`buy_token`, `sell_token`, `limit_buy`, `limit_sell`)
 - Hyperliquid perpetuals, including tokenized equities, FX and commodities (`open_perp_position`, `place_perp_order`, `close_perp_position`, `get_perp_positions`)
@@ -13,7 +13,7 @@ The official [Model Context Protocol](https://modelcontextprotocol.io) server fo
 | Path | What it is |
 |---|---|
 | [`src/index.ts`](src/index.ts) | Entry point: creates the `McpServer`, registers every tool, serves over stdio |
-| [`src/tools/`](src/tools) | Tool handlers by area: `spotTrade`, `perpTrade`, `perpRead`, `limitOrders`, `copyTrade`, `hlCopyTrade`, `bridge`, `portfolio`, `managed`, `directExec`, `auth`, `v110` |
+| [`src/tools/`](src/tools) | Tool handlers by area: `spotTrade`, `perpTrade`, `perpRead`, `limitOrders`, `copyTrade`, `hlCopyTrade`, `bridge`, `portfolio`, `managed`, `directExec`, `auth`, `v110`, `usdc` |
 | [`src/knowledge.ts`](src/knowledge.ts) | Documentation tools: search and read the bundled GDEX skills |
 | [`src/init.ts`](src/init.ts) | `init --client <name>`: writes MCP config for Claude, Cursor, VS Code, Codex, OpenCode |
 | [`src/sdk.ts`](src/sdk.ts) | Shared GDEX SDK client (the SDK lives in [`../src`](../src)) |

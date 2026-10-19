@@ -103,6 +103,29 @@ export const tradingViewHistoryPath = (provider: string): string =>
 export const tradingViewMarksPath = (provider: string): string =>
   `${TRADING_VIEW_BASE}/${provider}/marks`;
 
+/**
+ * Unified USDC wallet endpoints (backend feat-unified-usdc, PR #329).
+ * One USDC balance across chains; buys/sells settle in USDC and the backend
+ * auto-bridges USDC from other chains when the target chain is short.
+ * Write routes are the v2 signed actions (chain bound in the signature); the
+ * v1 write routes return `V2_REQUIRED`.
+ */
+export const USDC_BALANCES = '/v1/usdc/balances';
+export const USDC_TRADE_QUOTE = '/v1/usdc/trade/quote';
+export const USDC_TRADE_PURCHASE = '/v1/usdc/trade/purchase_v2';
+export const USDC_TRADE_SELL = '/v1/usdc/trade/sell_v2';
+export const USDC_TRADE_PURCHASE_NATIVE = '/v1/usdc/trade/purchase-native_v2';
+export const USDC_TRADE_RETRY_SELL = '/v1/usdc/trade/retry_sell';
+export const USDC_TRADE_PENDING = '/v1/usdc/trade/pending';
+export const USDC_TRADE_DEFERRED = '/v1/usdc/trade/deferred';
+export const USDC_FUNDING_STATUS = '/v1/usdc/funding/status';
+export const USDC_CONVERT_QUOTE = '/v1/usdc/convert/quote';
+export const USDC_CONVERT = '/v1/usdc/convert_v2';
+export const USDC_BRIDGE_ESTIMATE = '/v1/usdc/bridge/estimate';
+export const USDC_BRIDGE_EXECUTE = '/v1/usdc/bridge/execute-v2';
+export const USDC_BRIDGE_STATUS = '/v1/usdc/bridge/status';
+export const USDC_BRIDGE_ORDERS = '/v1/usdc/bridge/orders';
+
 /** Bridge endpoints */
 export const BRIDGE_ESTIMATE = '/v1/bridge/estimate_bridge';
 export const BRIDGE_REQUEST = '/v1/bridge/request_bridge';

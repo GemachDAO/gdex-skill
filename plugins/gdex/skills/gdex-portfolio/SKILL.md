@@ -7,6 +7,8 @@ description: Cross-chain portfolio overview, chain-specific token balances, and 
 
 Query cross-chain portfolio summaries, chain-specific balances, and trade history.
 
+> **USDC across chains:** `getUsdcBalances` returns the user's USDC and gas balance on every USDC chain plus the total. See **gdex-usdc-wallet**.
+
 ## When to Use
 
 - Getting a user's total portfolio value across all chains
