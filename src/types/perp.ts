@@ -147,6 +147,60 @@ export interface HlPlaceOrderParams extends HlManagedCredentials {
 }
 
 /**
+ * Parameters for closing (fully or partially) one perp position.
+ * Side and size are resolved from the live HyperLiquid position — the caller
+ * never supplies a direction.
+ */
+export interface ClosePerpPositionParams extends HlManagedCredentials {
+  /** Asset coin symbol. Builder-DEX assets use the `dex:ASSET` form (e.g. "xyz:TSLA"). */
+  coin: string;
+  /** Builder DEX name for a bare `coin` (e.g. "xyz"). Must match the prefix if `coin` has one. */
+  dex?: string;
+  /** Size to close, as a decimal string. Omit for a full close. Must not exceed the position. */
+  size?: string;
+  /** Close price; omit or '0' to use the current mark price (market close). */
+  price?: string;
+  /**
+   * Address whose HyperLiquid account holds the position — normally the
+   * MANAGED wallet from sign-in. Defaults to `walletAddress`.
+   */
+  positionAddress?: string;
+  /** Market size decimals (HL meta `szDecimals`); when set, a partial `size` with more decimals is rejected. */
+  szDecimals?: number;
+}
+
+/**
+ * The close order resolved from the live position (no order submitted yet).
+ */
+export interface PerpClosePlan {
+  /** Coin as submitted (dex-prefixed for builder DEXes) */
+  coin: string;
+  /** Builder DEX the position lives on ('' for the default dex) */
+  dex: string;
+  /** Side of the open position */
+  positionSide: PerpSide;
+  /** Side of the close order: 'sell' closes a long, 'buy' closes a short */
+  closeSide: 'buy' | 'sell';
+  /** Order direction sent to the backend (true = buy) */
+  isLong: boolean;
+  /** Absolute position size before the close (exact HL string) */
+  positionSize: string;
+  /** Size being closed */
+  size: string;
+  /** Size left open after a full fill */
+  remainingSize: string;
+  /** True when the whole position is being closed */
+  isFullClose: boolean;
+}
+
+/**
+ * Result of closePerpPosition: the resolved plan plus the backend response.
+ */
+export interface ClosePerpPositionResult extends PerpClosePlan {
+  order: HlOrderResult;
+}
+
+/**
  * Parameters for closing all open positions on HyperLiquid.
  */
 export type HlCloseAllParams = HlManagedCredentials;

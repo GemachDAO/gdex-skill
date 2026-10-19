@@ -46,6 +46,8 @@ import {
   perpWithdraw,
   hlCreateOrder,
   hlPlaceOrder,
+  resolvePerpClose,
+  closePerpPosition,
   hlCloseAll,
   hlCancelOrder,
   hlCancelAllOrders,
@@ -268,6 +270,9 @@ export type {
   PerpWithdrawParams,
   HlCreateOrderParams,
   HlPlaceOrderParams,
+  ClosePerpPositionParams,
+  PerpClosePlan,
+  ClosePerpPositionResult,
   HlCloseAllParams,
   HlCancelOrderParams,
   HlCancelAllOrdersParams,
@@ -415,6 +420,9 @@ export {
   GdexRateLimitError,
 } from './utils/errors';
 
+// Perp close helpers (side/size resolved from the live HL position)
+export { resolvePerpClose, closePerpPosition } from './actions/perpTrade';
+
 // Client and auth utilities
 export { GdexApiClient } from './client';
 export type { AuthCredentials, AuthSession } from './client/auth';
@@ -497,6 +505,9 @@ import type {
   PerpWithdrawParams,
   HlCreateOrderParams,
   HlPlaceOrderParams,
+  ClosePerpPositionParams,
+  PerpClosePlan,
+  ClosePerpPositionResult,
   HlCloseAllParams,
   HlCancelOrderParams,
   HlCancelAllOrdersParams,
@@ -864,7 +875,24 @@ export class GdexSkill {
   }
 
   /**
+   * Resolve the reduce-only order that would close a perp position (side and
+   * size read from the live HL position) without submitting it.
+   */
+  async resolvePerpClose(params: ClosePerpPositionParams): Promise<PerpClosePlan> {
+    return resolvePerpClose(this.client, params);
+  }
+
+  /**
+   * Close (fully or partially) one perp position. A long is closed with a
+   * sell, a short with a buy — the direction comes from the live position.
+   */
+  async closePerpPosition(params: ClosePerpPositionParams): Promise<ClosePerpPositionResult> {
+    return closePerpPosition(this.client, params);
+  }
+
+  /**
    * Close all open positions on HyperLiquid.
+   * Note: the backend endpoint is unreliable (TIMEOUT / 400); prefer closePerpPosition per coin.
    */
   async hlCloseAll(params: HlCloseAllParams): Promise<HlResponse> {
     return hlCloseAll(this.client, params);
