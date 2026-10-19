@@ -101,12 +101,12 @@ import type { TransferRequest, TransferResponse } from './actions/transfers';
 import {
   getUsdcBalances, getUsdcTradeQuote, getUsdcFundingStatus, getUsdcDeferredTrade, getUsdcPendingTrades,
   getUsdcConvertQuote, getUsdcBridgeStatus, getUsdcBridgeOrders, buyWithUsdc, sellToUsdc, buyWithNative,
-  retryUsdcSell, convertNativeToUsdc, estimateUsdcBridge, executeUsdcBridge,
+  retryUsdcSell, convertNativeToUsdc, estimateUsdcBridge, executeUsdcBridge, watchUsdcTrade,
 } from './actions/usdc';
 import type {
   UsdcCredentials, UsdcResponse, UsdcBalancesResponse, UsdcTradeResult, UsdcTradeQuoteParams, UsdcBuyParams,
   UsdcSellParams, UsdcNativeBuyParams, UsdcRetrySellParams, UsdcConvertParams, UsdcBridgeParams,
-  UsdcBridgeExecuteParams,
+  UsdcBridgeExecuteParams, UsdcTradeWatchParams, UsdcTradeWatchResult,
 } from './actions/usdc';
 import {
   addComment,
@@ -466,12 +466,12 @@ export {
   getUsdcBalances, getUsdcTradeQuote, getUsdcFundingStatus, getUsdcDeferredTrade, getUsdcPendingTrades,
   getUsdcConvertQuote, getUsdcBridgeStatus, getUsdcBridgeOrders, buyWithUsdc, sellToUsdc, buyWithNative,
   retryUsdcSell, convertNativeToUsdc, estimateUsdcBridge, executeUsdcBridge, deriveMaxSourceSpendRaw,
-  DEFAULT_GAS_TOPUP_USD,
+  DEFAULT_GAS_TOPUP_USD, buyGasHeadroomUsdc, watchUsdcTrade, describeUsdcFundingStep,
 } from './actions/usdc';
 export type {
   UsdcCredentials, UsdcResponse, UsdcChainBalance, UsdcBalancesResponse, UsdcTradeResult, UsdcTradeQuoteParams,
   UsdcBuyParams, UsdcSellParams, UsdcNativeBuyParams, UsdcRetrySellParams, UsdcConvertParams, UsdcBridgeParams,
-  UsdcBridgeExecuteParams,
+  UsdcBridgeExecuteParams, UsdcFundingStep, UsdcTradeWatchResult, UsdcTradeWatchParams,
 } from './actions/usdc';
 
 // Import parameter types for the GdexSkill class methods
@@ -1414,6 +1414,11 @@ export class GdexSkill {
   /** Status of a USDC bridge. */
   async getUsdcBridgeStatus(params: UsdcCredentials & { bridgeId: string; refresh?: boolean }): Promise<UsdcResponse> {
     return getUsdcBridgeStatus(this.client, params);
+  }
+
+  /** Follow a pending USDC trade's funding steps to its result (gdex.pro's progress note). */
+  async watchUsdcTrade(params: UsdcTradeWatchParams): Promise<UsdcTradeWatchResult> {
+    return watchUsdcTrade(this.client, params);
   }
 
   /** USDC bridge history. */

@@ -29,8 +29,9 @@ the source budget the user signed. Sells settle back to USDC.
 ## Automatic Funding and Gas (On by Default)
 
 Like gdex.pro's **"Automatic funding — bridge USDC & top up gas"** checkbox, which is ticked by default,
-the SDK turns it on for every trade (`autoBridge: true` on USDC buys, native-paid buys, **and** sells; gdex.pro's
-Native tab has the same "Auto-bridge from other chains" default). If the trade's chain is
+the SDK turns it on for every **buy** (`autoBridge: true`, paying with USDC or native; gdex.pro's Native tab
+has the same "Auto-bridge from other chains" option). **Sells** settle on their own chain and never auto-fund,
+exactly as gdex.pro does. If a buy's chain is
 short of USDC or of native gas, GDEX bridges USDC and tops up gas from the user's other chains. It
 never spends more than the signed `maxSourceSpendRaw`. Bridges to EVM chains also add a **$1 destination
 gas top-up** by default (`gasTopUp`, off for Solana destinations, where Relay can't top up gas). Its cost
@@ -54,7 +55,7 @@ strings** (`'5000000'` = 5 USDC on a 6-decimal chain); decimals are rejected, no
 ## Balances
 
 ```typescript
-import { GdexSkill } from '@gemachdao/gdex-skill';
+import { GdexSkill, describeUsdcFundingStep } from '@gemachdao/gdex-skill';
 
 const skill = new GdexSkill();
 const creds = { apiKey, walletAddress, sessionPrivateKey };
@@ -88,13 +89,25 @@ const res = await skill.buyWithUsdc({
 ```
 
 A direct fill returns `status` and `hash`. When funding or confirmation is still running the response is
-`{ status: 'pending', requestId }`: poll `getUsdcFundingStatus({ ...creds, requestId })` until it is final.
+`{ status: 'pending', requestId }`. Follow it the way gdex.pro's live progress note does:
+
+```typescript
+const r = await skill.watchUsdcTrade({
+  ...creds, requestId: res.requestId as string,
+  onUpdate: (funding, steps) => console.log(funding.status, steps.map(describeUsdcFundingStep)),
+});
+// planning [] -> bridging ['bridge USDC Arbitrum -> Base: active'] -> done ['bridge USDC Arbitrum -> Base: done', 'swap: done']
+// r.outcome: 'success' | 'failed' (r.errorCode) | 'pending' (timed out: still settling, never resubmit)
+```
+
+It polls `/v1/usdc/funding/status` every 3 s and, once funding succeeds, reads the trade result from
+`/v1/trade-status/:requestId`. Step keys: `balance_check`, `bridge`, `native_topup` (gas), `approve`, `swap`.
 
 ### The Signed Source Budget
 
 With `autoBridge`, the user signs `maxSourceSpendRaw`: the most the backend may spend across all funding
-legs, in the target chain's units. The SDK defaults it to `ceil(amount × 1.2)` (gdex.pro's rule: 20% headroom
-for bridge and gas fees). If funding would cost more, the trade fails with `EXCEEDS_SIGNED_MAX` instead of
+legs, in the target chain's units. The SDK defaults it to gdex.pro's rule: `ceil((amount + gas headroom) × 1.2)`, where the gas headroom is
+3 USDC on EVM chains and 2 USDC on Solana (for a buy with ~0 native gas) and the 20% covers bridge fees. If funding would cost more, the trade fails with `EXCEEDS_SIGNED_MAX` instead of
 overspending. With `autoBridge: false` the budget is `0` and only the target chain's USDC is used.
 
 ## Sell to USDC
@@ -159,7 +172,7 @@ submit it again. Check `getUsdcPendingTrades({ ...creds, chainId })` and `getUsd
 ## MCP Tools
 
 `usdc_get_balances`, `usdc_get_trade_quote`, `usdc_buy`, `usdc_sell`, `usdc_buy_with_native`,
-`usdc_retry_sell`, `usdc_get_funding_status`, `usdc_get_deferred_trade`, `usdc_get_pending_trades`,
+`usdc_retry_sell`, `usdc_get_funding_status`, `usdc_wait_for_trade`, `usdc_get_deferred_trade`, `usdc_get_pending_trades`,
 `usdc_get_convert_quote`, `usdc_convert_native`, `usdc_estimate_bridge`, `usdc_execute_bridge`,
 `usdc_get_bridge_status`, `usdc_get_bridge_orders`.
 

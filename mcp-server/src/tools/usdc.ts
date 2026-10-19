@@ -1,5 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { describeUsdcFundingStep } from '@gemachdao/gdex-skill';
 import { getSdk, handleToolCall } from '../sdk.js';
 
 const usdcCredentials = {
@@ -47,6 +48,37 @@ export function registerUsdcTools(server: McpServer): void {
   );
 
   server.tool(
+    'usdc_wait_for_trade',
+    'Follow a pending USDC trade (requestId from usdc_buy, usdc_buy_with_native or usdc_sell) to its result, like gdex.pro\'s live progress note: polls every 3s and returns each step as it happened (bridge legs, gas top-up, approve, swap), the outcome and the tx hash. outcome "pending" after the timeout means still settling: never resubmit.',
+    {
+      ...usdcCredentials,
+      requestId: z.string().describe('requestId returned by the trade'),
+      timeoutSec: z.number().optional().describe('Max seconds to wait, default 120'),
+    },
+    async (params) => handleToolCall(async () => {
+      const { timeoutSec, ...rest } = params as any;
+      const timeline: string[] = [];
+      const started = Date.now();
+      const result = await getSdk().watchUsdcTrade({
+        ...rest,
+        timeoutMs: (timeoutSec ?? 120) * 1000,
+        onUpdate: (funding: any, steps: any[]) => {
+          const t = Math.round((Date.now() - started) / 1000);
+          timeline.push(`+${t}s ${funding.status}: ${steps.map((st: any) => describeUsdcFundingStep(st)).join('; ') || 'no steps yet'}`);
+        },
+      });
+      return {
+        outcome: result.outcome,
+        hash: result.hash,
+        errorCode: result.errorCode,
+        steps: result.steps.map((st: any) => describeUsdcFundingStep(st)),
+        timeline,
+        trade: result.trade,
+      };
+    }),
+  );
+
+  server.tool(
     'usdc_get_deferred_trade',
     'Status and funding steps of a deferred (auto-bridged) USDC trade, by tradeId.',
     { ...usdcCredentials, tradeId: z.string().describe('Deferred trade id') },
@@ -85,7 +117,7 @@ export function registerUsdcTools(server: McpServer): void {
 
   server.tool(
     'usdc_buy',
-    'Buy a token paying with USDC. Automatic funding is on by default: GDEX bridges USDC and tops up gas from the user\'s other chains when this chain is short, capped by the signed maxSourceSpendRaw. A pending result returns a requestId for usdc_get_funding_status.',
+    'Buy a token paying with USDC. Automatic funding is on by default: GDEX bridges USDC and tops up gas from the user\'s other chains when this chain is short, capped by the signed maxSourceSpendRaw. A pending result returns a requestId: follow it with usdc_wait_for_trade.',
     {
       ...usdcCredentials,
       chainId: usdcChainId,
@@ -100,14 +132,14 @@ export function registerUsdcTools(server: McpServer): void {
 
   server.tool(
     'usdc_sell',
-    'Sell a token and receive USDC into the unified USDC wallet.',
+    'Sell a token and receive USDC into the unified USDC wallet. Settles on its own chain (no auto-funding, as on gdex.pro).',
     {
       ...usdcCredentials,
       chainId: usdcChainId,
       tokenAddress: z.string().describe('Token to sell'),
       tokenAmountRaw: usdcRaw('Token amount to sell'),
       minUsdcOutRaw: usdcRaw('Minimum USDC out (from usdc_get_trade_quote minus slippage)'),
-      autoBridge: usdcAutoBridge,
+      autoBridge: z.boolean().optional().describe('Default false: sells settle on their own chain and never auto-fund, as on gdex.pro'),
       maxSourceSpendRaw: usdcMaxSourceSpend,
     },
     async (params) => handleToolCall(async () => getSdk().sellToUsdc(params as any)),

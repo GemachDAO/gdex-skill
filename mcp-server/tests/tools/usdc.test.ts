@@ -32,6 +32,7 @@ const TOOL_TO_SDK: Record<string, string> = {
   usdc_get_convert_quote: 'getUsdcConvertQuote',
   usdc_get_bridge_status: 'getUsdcBridgeStatus',
   usdc_get_bridge_orders: 'getUsdcBridgeOrders',
+  usdc_wait_for_trade: 'watchUsdcTrade',
   usdc_buy: 'buyWithUsdc',
   usdc_sell: 'sellToUsdc',
   usdc_buy_with_native: 'buyWithNative',
@@ -52,10 +53,10 @@ describe('Unified USDC Tools', () => {
     jest.clearAllMocks();
   });
 
-  it('registers all 15 USDC tools', () => {
+  it('registers all 16 USDC tools', () => {
     const tools = getTools();
     for (const name of Object.keys(TOOL_TO_SDK)) expect(tools.has(name)).toBe(true);
-    expect(tools.size).toBe(15);
+    expect(tools.size).toBe(16);
   });
 
   it('usdc_get_balances returns the unified balance', async () => {
@@ -81,7 +82,20 @@ describe('Unified USDC Tools', () => {
     }, 'EXCEEDS_SIGNED_MAX');
   });
 
-  it.each(Object.entries(TOOL_TO_SDK))('%s calls sdk.%s', async (tool, method) => {
+  it('usdc_wait_for_trade returns a step timeline', async () => {
+    mockSdk.watchUsdcTrade.mockImplementation(async (p: any) => {
+      p.onUpdate({ status: 'planning' }, []);
+      p.onUpdate({ status: 'bridging' }, [{ key: 'bridge', status: 'active', fromChainId: 42161, toChainId: 8453, asset: 'usdc' }]);
+      return { outcome: 'success', hash: '0xh', steps: [{ key: 'bridge', status: 'done', fromChainId: 42161, toChainId: 8453, asset: 'usdc' }, { key: 'swap', status: 'done' }] };
+    });
+    const result = await expectMcpSuccess(getTools().get('usdc_wait_for_trade')!.handler, { ...creds, requestId: 'r1', timeoutSec: 5 });
+    expect(result.outcome).toBe('success');
+    expect(result.steps).toEqual(['bridge USDC Arbitrum -> Base: done', 'swap: done']);
+    expect(result.timeline[1]).toMatch(/bridging: bridge USDC Arbitrum -> Base: active/);
+    expect(mockSdk.watchUsdcTrade.mock.calls[0][0]).toMatchObject({ requestId: 'r1', timeoutMs: 5000 });
+  });
+
+  it.each(Object.entries(TOOL_TO_SDK).filter(([t]) => t !== 'usdc_wait_for_trade'))('%s calls sdk.%s', async (tool, method) => {
     (mockSdk as any)[method].mockResolvedValue({ ok: true });
     await expectMcpSuccess(getTools().get(tool)!.handler, { ...creds });
     expect((mockSdk as any)[method]).toHaveBeenCalledTimes(1);

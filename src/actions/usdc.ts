@@ -15,16 +15,20 @@
  * (18); native is 18 on EVM and 9 on Solana. Robinhood Chain (USDG) and
  * Fraxtal have no USDC.
  *
- * Gas is handled by default: trades run with `autoBridge` on, so the backend
- * funds missing USDC and native gas from the user's other chains within the
- * signed source budget, and bridges to EVM chains add a destination gas top-up
- * included in the estimate. Pass `autoBridge: false` / `gasTopUp: false` to opt out.
+ * Gas is handled by default: buys (USDC or native) run with `autoBridge` on,
+ * so the backend funds missing USDC and native gas from the user's other
+ * chains within the signed source budget; bridges to EVM chains add a
+ * destination gas top-up included in the estimate. Sells settle on their own
+ * chain and never auto-fund, as on gdex.pro. `watchUsdcTrade` follows a
+ * pending trade's funding steps the way gdex.pro's progress note does.
  */
 import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';
 import { buildGdexReadSessionData, buildUsdcComputedData } from '../utils/gdexManagedCrypto';
 import { validateRequired } from '../utils/validation';
 import type { HlManagedCredentials } from '../types/perp';
+
+const SOLANA_CHAIN_ID = 622112261;
 
 /** Managed-custody credentials (same shape as the HyperLiquid actions). */
 export type UsdcCredentials = HlManagedCredentials;
@@ -83,18 +87,33 @@ function requireRaw(raw: string | undefined, name: string): string {
 }
 
 /**
- * The source budget signed for automatic funding, as gdex.pro derives it:
- * `ceil(amountRaw * 1.2)` (20% headroom for bridge and gas fees), in the
- * target chain's units. With auto-bridge off the signed budget is `0`.
+ * The source budget signed for automatic funding, as gdex.pro derives it
+ * (`deriveMaxSourceSpendRaw` in its usdcAmounts.ts):
+ * `ceil((amountRaw + gasHeadroomRaw) * 1.2)`, in the target chain's units.
+ * The 20% covers per-leg bridge fees; the headroom covers a gas/carrier leg.
  */
-export function deriveMaxSourceSpendRaw(amountRaw: string): string {
-  return ((BigInt(amountRaw) * 6n + 4n) / 5n).toString();
+export function deriveMaxSourceSpendRaw(amountRaw: string, gasHeadroomRaw = '0'): string {
+  return (((BigInt(amountRaw) + BigInt(gasHeadroomRaw)) * 6n + 4n) / 5n).toString();
 }
 
-function signedBudget(amountRaw: string, autoBridge: boolean, explicit?: string): string {
+/**
+ * Whole-USDC gas/carrier headroom gdex.pro adds to a USDC buy's budget so a
+ * chain with ~0 native gas can still fund its gas leg: 2 USDC on Solana (native
+ * SOL carrier), 3 USDC on EVM chains (Relay gas top-up).
+ */
+export function buyGasHeadroomUsdc(chainId: number): number {
+  return chainId === SOLANA_CHAIN_ID ? 2 : 3;
+}
+
+/** USDC decimals per chain (18 on BSC, 6 elsewhere). */
+function usdcDecimals(chainId: number): number {
+  return chainId === 56 ? 18 : 6;
+}
+
+function signedBudget(amountRaw: string, autoBridge: boolean, explicit?: string, gasHeadroomRaw = '0'): string {
   if (!autoBridge) return '0';
   if (explicit !== undefined) return requireRaw(explicit, 'maxSourceSpendRaw');
-  return deriveMaxSourceSpendRaw(amountRaw);
+  return deriveMaxSourceSpendRaw(amountRaw, gasHeadroomRaw);
 }
 
 // ── Reads ─────────────────────────────────────────────────────────────────
@@ -219,7 +238,7 @@ export interface UsdcBuyParams extends UsdcCredentials {
   minTokenOutRaw: string;
   /** Let the backend fund missing USDC and native gas from other chains (default true). */
   autoBridge?: boolean;
-  /** Signed cap on total source spend for funding; default `ceil(amount * 1.2)`. */
+  /** Signed cap on total source spend for funding; default `ceil((amount + gas headroom) * 1.2)`, as gdex.pro. */
   maxSourceSpendRaw?: string;
 }
 
@@ -240,7 +259,12 @@ export async function buyWithUsdc(
       amount,
       requireRaw(params.minTokenOutRaw, 'minTokenOutRaw'),
       autoBridge,
-      signedBudget(amount, autoBridge, params.maxSourceSpendRaw),
+      signedBudget(
+        amount,
+        autoBridge,
+        params.maxSourceSpendRaw,
+        (BigInt(buyGasHeadroomUsdc(params.chainId)) * 10n ** BigInt(usdcDecimals(params.chainId))).toString(),
+      ),
     ],
   });
   return client.post<UsdcTradeResult>(Endpoints.USDC_TRADE_PURCHASE, { computedData, chainId: params.chainId });
@@ -253,7 +277,10 @@ export interface UsdcSellParams extends UsdcCredentials {
   tokenAmountRaw: string;
   /** Minimum USDC out (raw, target chain USDC decimals). */
   minUsdcOutRaw: string;
-  /** Let the backend fund missing native gas from other chains (default true). */
+  /**
+   * Default false: a sell settles on its own chain and, as on gdex.pro, never
+   * authorises automatic funding (signed budget 0).
+   */
   autoBridge?: boolean;
   maxSourceSpendRaw?: string;
 }
@@ -265,7 +292,7 @@ export async function sellToUsdc(
 ): Promise<UsdcTradeResult> {
   validateRequired(params.tokenAddress, 'tokenAddress');
   const amount = requireRaw(params.tokenAmountRaw, 'tokenAmountRaw');
-  const autoBridge = params.autoBridge ?? true;
+  const autoBridge = params.autoBridge ?? false;
   const computedData = buildUsdcComputedData({
     action: 'sell_usdc_v2',
     ...params,
@@ -397,7 +424,6 @@ export interface UsdcBridgeParams extends UsdcCredentials {
 /** USD of destination gas added to a bridge when the caller doesn't set an amount. */
 export const DEFAULT_GAS_TOPUP_USD = 1;
 
-const SOLANA_CHAIN_ID = 622112261;
 
 /**
  * Resolve the gas top-up a bridge signs: on by default for EVM destinations,
@@ -458,4 +484,98 @@ export async function executeUsdcBridge(
     ],
   });
   return client.post<UsdcResponse>(Endpoints.USDC_BRIDGE_EXECUTE, { computedData });
+}
+
+// ── Progress ──────────────────────────────────────────────────────────────
+
+/** One funding step as the backend reports it (bridge leg, gas top-up, approve, swap). */
+export interface UsdcFundingStep extends Record<string, unknown> {
+  key: string;
+  status: string;
+  fromChainId?: number;
+  toChainId?: number;
+  asset?: string;
+  amountRaw?: string;
+  errorCode?: string;
+}
+
+/** Final outcome of `watchUsdcTrade`. */
+export interface UsdcTradeWatchResult {
+  /** `success`, `failed`, or `pending` if `timeoutMs` ran out first. */
+  outcome: 'success' | 'failed' | 'pending';
+  status?: string;
+  errorCode?: string;
+  hash?: string;
+  steps: UsdcFundingStep[];
+  /** Last funding-status payload. */
+  funding?: UsdcResponse;
+  /** `/v1/trade-status/:requestId` result, read once funding reports success. */
+  trade?: UsdcResponse;
+}
+
+const FUNDING_SUCCESS = ['success', 'done', 'completed', 'swapped'];
+const FUNDING_FAILURE = ['failed', 'error'];
+
+export interface UsdcTradeWatchParams extends UsdcCredentials {
+  requestId: string;
+  /** Called whenever the status or a step changes. */
+  onUpdate?: (funding: UsdcResponse, steps: UsdcFundingStep[]) => void;
+  /** Poll interval, default 3000 ms (gdex.pro's cadence). */
+  intervalMs?: number;
+  /** Give up after this long and return `outcome: 'pending'`; default 120000 ms. */
+  timeoutMs?: number;
+}
+
+/**
+ * Follow a pending USDC trade to its result, as gdex.pro does: poll
+ * `/v1/usdc/funding/status` and surface its `steps` (bridge legs, gas top-up,
+ * swap) as they change; once funding succeeds, read the trade result from
+ * `/v1/trade-status/:requestId`. A timeout is not a failure: the trade may
+ * still settle, so never resubmit it.
+ */
+export async function watchUsdcTrade(
+  client: GdexApiClient,
+  params: UsdcTradeWatchParams,
+): Promise<UsdcTradeWatchResult> {
+  validateRequired(params.requestId, 'requestId');
+  const intervalMs = params.intervalMs ?? 3000;
+  const deadline = Date.now() + (params.timeoutMs ?? 120000);
+  let last = '';
+  let funding: UsdcResponse | undefined;
+  let steps: UsdcFundingStep[] = [];
+  for (;;) {
+    funding = await getUsdcFundingStatus(client, params);
+    steps = Array.isArray(funding.steps) ? (funding.steps as UsdcFundingStep[]) : steps;
+    const status = String(funding.status ?? '').toLowerCase();
+    const snapshot = JSON.stringify([status, steps.map((s) => [s.key, s.status, s.errorCode])]);
+    if (snapshot !== last) {
+      last = snapshot;
+      params.onUpdate?.(funding, steps);
+    }
+    const base = { status, steps, funding, errorCode: funding.errorCode as string | undefined, hash: funding.hash as string | undefined };
+    if (FUNDING_FAILURE.includes(status)) return { outcome: 'failed', ...base };
+    if (FUNDING_SUCCESS.includes(status)) {
+      const trade = funding.requestType === 'direct'
+        ? undefined
+        : await client.get<UsdcResponse>(Endpoints.tradeStatusPath(params.requestId)).catch(() => undefined);
+      return { outcome: 'success', ...base, trade, hash: base.hash ?? (trade?.hash as string | undefined) ?? (trade?.txHash as string | undefined) };
+    }
+    if (Date.now() + intervalMs > deadline) return { outcome: 'pending', ...base };
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+}
+
+const CHAIN_NAMES: Record<number, string> = {
+  1: 'Ethereum', 10: 'Optimism', 56: 'BSC', 146: 'Sonic', 8453: 'Base', 42161: 'Arbitrum', 622112261: 'Solana',
+};
+
+/** One-line, human description of a funding step, e.g. `bridge USDC Arbitrum -> Base: done`. */
+export function describeUsdcFundingStep(step: UsdcFundingStep): string {
+  const name = (id?: number) => (id === undefined ? '' : CHAIN_NAMES[id] ?? String(id));
+  const route = step.fromChainId !== undefined || step.toChainId !== undefined
+    ? ` ${name(step.fromChainId)} -> ${name(step.toChainId)}`.replace(/ -> $/, '')
+    : '';
+  const label = step.key === 'native_topup' ? 'gas top-up' : step.key.replace(/_/g, ' ');
+  const asset = step.asset ? ` ${step.asset === 'usdc' ? 'USDC' : step.asset}` : '';
+  return `${label}${asset}${route}: ${step.status}${step.errorCode ? ` (${step.errorCode})` : ''}`;
 }

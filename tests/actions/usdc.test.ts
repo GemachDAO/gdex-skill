@@ -20,6 +20,8 @@ import {
   getUsdcFundingStatus,
   getUsdcConvertQuote,
   deriveMaxSourceSpendRaw,
+  watchUsdcTrade,
+  describeUsdcFundingStep,
 } from '../../src/actions/usdc';
 import {
   decryptGdexComputedData,
@@ -63,8 +65,9 @@ describe('unified USDC actions', () => {
     client.get = jest.fn().mockResolvedValue({ ok: true });
   });
 
-  it('derives the signed source budget like gdex.pro: ceil(amount * 1.2)', () => {
+  it('derives the signed source budget like gdex.pro: ceil((amount + headroom) * 1.2)', () => {
     expect(deriveMaxSourceSpendRaw('1000000')).toBe('1200000');
+    expect(deriveMaxSourceSpendRaw('5000000', '3000000')).toBe('9600000');
     expect(deriveMaxSourceSpendRaw('1')).toBe('2');
     expect(deriveMaxSourceSpendRaw('5')).toBe('6');
   });
@@ -75,7 +78,7 @@ describe('unified USDC actions', () => {
     expect(path).toBe('/v1/usdc/trade/purchase_v2');
     expect(body.chainId).toBe(8453);
     const d = decodeSigned('purchase_usdc_v2', body, ['uint64', 'string', 'uint256', 'uint256', 'bool', 'uint256', 'string']);
-    expect(d.slice(0, 6)).toEqual(['8453', TOKEN, '5000000', '42', 'true', '6000000']);
+    expect(d.slice(0, 6)).toEqual(['8453', TOKEN, '5000000', '42', 'true', '9600000']); // + $3 EVM gas headroom
   });
 
   it('signs a zero budget when auto-bridge is off', async () => {
@@ -90,7 +93,7 @@ describe('unified USDC actions', () => {
     const [path, body] = (client.post as jest.Mock).mock.calls[0];
     expect(path).toBe('/v1/usdc/trade/sell_v2');
     const d = decodeSigned('sell_usdc_v2', body, ['uint64', 'string', 'string', 'uint256', 'bool', 'uint256', 'string']);
-    expect(d.slice(0, 6)).toEqual(['42161', TOKEN, '1000', '990000', 'true', '1200']);
+    expect(d.slice(0, 6)).toEqual(['42161', TOKEN, '1000', '990000', 'false', '0']); // sells never auto-fund
   });
 
   it('buyWithNative signs purchase_native_v2', async () => {
@@ -194,5 +197,30 @@ describe('unified USDC actions', () => {
     expect((client.get as jest.Mock).mock.calls[0]).toEqual(['/v1/usdc/funding/status', expect.objectContaining({ id: 'r1' })]);
     await getUsdcConvertQuote(client, { ...creds, chainId: 8453, amount: 'max' });
     expect((client.get as jest.Mock).mock.calls[1]).toEqual(['/v1/usdc/convert/quote', expect.objectContaining({ chainId: '8453', amount: 'max' })]);
+  });
+
+  it('watchUsdcTrade reports step changes and reads the trade result on success', async () => {
+    const statuses = [
+      { status: 'planning', steps: [] },
+      { status: 'bridging', steps: [{ key: 'bridge', status: 'active', fromChainId: 42161, toChainId: 8453, asset: 'usdc' }] },
+      { status: 'done', steps: [{ key: 'bridge', status: 'done', fromChainId: 42161, toChainId: 8453, asset: 'usdc' }, { key: 'swap', status: 'done' }] },
+    ];
+    client.get = jest.fn().mockImplementation(async (path: string) =>
+      path.startsWith('/v1/trade-status/') ? { isSuccess: true, hash: '0xabc' } : statuses.shift());
+    const updates: string[] = [];
+    const r = await watchUsdcTrade(client, { ...creds, requestId: 'r1', intervalMs: 1, onUpdate: (f) => updates.push(String(f.status)) });
+    expect(updates).toEqual(['planning', 'bridging', 'done']);
+    expect(r.outcome).toBe('success');
+    expect(r.hash).toBe('0xabc');
+    expect((client.get as jest.Mock).mock.calls.at(-1)[0]).toBe('/v1/trade-status/r1');
+    expect(r.steps.map(describeUsdcFundingStep)).toEqual(['bridge USDC Arbitrum -> Base: done', 'swap: done']);
+  });
+
+  it('watchUsdcTrade returns failed with the error code, and pending on timeout', async () => {
+    client.get = jest.fn().mockResolvedValue({ status: 'failed', errorCode: 'INSUFFICIENT_FUNDS', steps: [] });
+    expect((await watchUsdcTrade(client, { ...creds, requestId: 'r1' })).outcome).toBe('failed');
+    client.get = jest.fn().mockResolvedValue({ status: 'bridging', steps: [] });
+    const r = await watchUsdcTrade(client, { ...creds, requestId: 'r1', intervalMs: 5, timeoutMs: 20 });
+    expect(r.outcome).toBe('pending');
   });
 });
