@@ -90,7 +90,7 @@ describe('unified USDC actions', () => {
     const [path, body] = (client.post as jest.Mock).mock.calls[0];
     expect(path).toBe('/v1/usdc/trade/sell_v2');
     const d = decodeSigned('sell_usdc_v2', body, ['uint64', 'string', 'string', 'uint256', 'bool', 'uint256', 'string']);
-    expect(d.slice(0, 6)).toEqual(['42161', TOKEN, '1000', '990000', 'false', '0']);
+    expect(d.slice(0, 6)).toEqual(['42161', TOKEN, '1000', '990000', 'true', '1200']);
   });
 
   it('buyWithNative signs purchase_native_v2', async () => {
@@ -126,6 +126,24 @@ describe('unified USDC actions', () => {
     expect(Object.keys(body)).toEqual(['computedData']);
     const d = decodeSigned('usdc_bridge_execute_v2', body, ['uint64', 'uint64', 'uint256', 'bool', 'uint256', 'uint256', 'string']);
     expect(d.slice(0, 6)).toEqual(['8453', '42161', '10000000', 'true', '2000000', '10200000']);
+  });
+
+  it('bridges to EVM add a $1 gas top-up by default; Solana destinations do not', async () => {
+    await executeUsdcBridge(client, { ...creds, fromChainId: 8453, toChainId: 42161, amountRaw: '1000000', maxFromAmountRaw: '1100000' });
+    let d = decodeSigned('usdc_bridge_execute_v2', (client.post as jest.Mock).mock.calls[0][1], ['uint64', 'uint64', 'uint256', 'bool', 'uint256', 'uint256', 'string']);
+    expect(d.slice(3, 5)).toEqual(['true', '1000000']);
+    await estimateUsdcBridge(client, { ...creds, fromChainId: 8453, toChainId: 42161, amountRaw: '1000000' });
+    expect((client.post as jest.Mock).mock.calls[1][1].gasTopUpAmountUsd).toBe(1);
+    await executeUsdcBridge(client, { ...creds, fromChainId: 8453, toChainId: 622112261, amountRaw: '1000000', maxFromAmountRaw: '1100000' });
+    d = decodeSigned('usdc_bridge_execute_v2', (client.post as jest.Mock).mock.calls[2][1], ['uint64', 'uint64', 'uint256', 'bool', 'uint256', 'uint256', 'string']);
+    expect(d.slice(3, 5)).toEqual(['false', '0']);
+  });
+
+  it('gasTopUp: false opts out', async () => {
+    await estimateUsdcBridge(client, { ...creds, fromChainId: 8453, toChainId: 42161, amountRaw: '1000000', gasTopUp: false });
+    const body = (client.post as jest.Mock).mock.calls[0][1];
+    expect(body.gasTopUpAmountUsd).toBeUndefined();
+    expect(decodeSigned('usdc_bridge_estimate', body, ['uint64', 'uint64', 'uint256', 'bool', 'string'])[3]).toBe('false');
   });
 
   it('executeUsdcBridge refuses a missing or zero spend cap', async () => {

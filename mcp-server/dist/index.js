@@ -123177,6 +123177,7 @@ var require_usdc = __commonJS({
       };
     })();
     Object.defineProperty(exports, "__esModule", { value: true });
+    exports.DEFAULT_GAS_TOPUP_USD = void 0;
     exports.deriveMaxSourceSpendRaw = deriveMaxSourceSpendRaw;
     exports.getUsdcBalances = getUsdcBalances;
     exports.getUsdcTradeQuote = getUsdcTradeQuote;
@@ -123298,7 +123299,7 @@ var require_usdc = __commonJS({
     async function sellToUsdc(client, params) {
       (0, validation_1.validateRequired)(params.tokenAddress, "tokenAddress");
       const amount = requireRaw(params.tokenAmountRaw, "tokenAmountRaw");
-      const autoBridge = params.autoBridge ?? false;
+      const autoBridge = params.autoBridge ?? true;
       const computedData = (0, gdexManagedCrypto_1.buildUsdcComputedData)({
         action: "sell_usdc_v2",
         ...params,
@@ -123361,29 +123362,32 @@ var require_usdc = __commonJS({
       });
       return client.post(Endpoints.USDC_CONVERT, { computedData, chainId: params.chainId });
     }
-    function gasTopUpMicroUsd(params) {
-      if (!params.gasTopUp || params.gasTopUpAmountUsd === void 0)
-        return "0";
-      const usd = params.gasTopUpAmountUsd;
+    exports.DEFAULT_GAS_TOPUP_USD = 1;
+    var SOLANA_CHAIN_ID = 622112261;
+    function resolveGasTopUp(params) {
+      const gasTopUp = params.gasTopUp ?? params.toChainId !== SOLANA_CHAIN_ID;
+      if (!gasTopUp)
+        return { gasTopUp, microUsd: "0" };
+      const usd = params.gasTopUpAmountUsd ?? exports.DEFAULT_GAS_TOPUP_USD;
       if (!Number.isFinite(usd) || usd <= 0 || usd > 50)
         throw new Error("gasTopUpAmountUsd must be in (0, 50]");
-      return String(Math.round(usd * 1e6));
+      return { gasTopUp, usd, microUsd: String(Math.round(usd * 1e6)) };
     }
     async function estimateUsdcBridge(client, params) {
-      const gasTopUp = Boolean(params.gasTopUp);
-      gasTopUpMicroUsd(params);
+      const gas = resolveGasTopUp(params);
       const computedData = (0, gdexManagedCrypto_1.buildUsdcComputedData)({
         action: "usdc_bridge_estimate",
         ...params,
-        values: [params.fromChainId, params.toChainId, requireRaw(params.amountRaw, "amountRaw"), gasTopUp]
+        values: [params.fromChainId, params.toChainId, requireRaw(params.amountRaw, "amountRaw"), gas.gasTopUp]
       });
       return client.post(Endpoints.USDC_BRIDGE_ESTIMATE, {
         computedData,
         chainId: params.fromChainId,
-        ...gasTopUp && params.gasTopUpAmountUsd !== void 0 ? { gasTopUpAmountUsd: params.gasTopUpAmountUsd } : {}
+        ...gas.usd !== void 0 ? { gasTopUpAmountUsd: gas.usd } : {}
       });
     }
     async function executeUsdcBridge(client, params) {
+      const gas = resolveGasTopUp(params);
       const computedData = (0, gdexManagedCrypto_1.buildUsdcComputedData)({
         action: "usdc_bridge_execute_v2",
         ...params,
@@ -123391,8 +123395,8 @@ var require_usdc = __commonJS({
           params.fromChainId,
           params.toChainId,
           requireRaw(params.amountRaw, "amountRaw"),
-          Boolean(params.gasTopUp),
-          gasTopUpMicroUsd(params),
+          gas.gasTopUp,
+          gas.microUsd,
           requireRaw(params.maxFromAmountRaw, "maxFromAmountRaw")
         ]
       });
@@ -124807,7 +124811,7 @@ var require_dist5 = __commonJS({
     })();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.buildGdexSignInComputedData = exports.buildEncryptedGdexPayload = exports.buildGdexUserSessionData = exports.signGdexTradeMessageWithSessionKey = exports.buildGdexTradeSignatureMessage = exports.encodeGdexTradeData = exports.encodeGdexSignInData = exports.buildGdexSignInMessage = exports.generateGdexSessionKeyPair = exports.decryptGdexComputedData = exports.encryptGdexHexData = exports.encryptGdexComputedData = exports.deriveGdexAesMaterial = exports.validateCoin = exports.validateLeverage = exports.validateSlippage = exports.validateChain = exports.validateAmount = exports.validateAddress = exports.generateEvmWallet = exports.truncateDecimals = exports.formatTimestamp = exports.shortenAddress = exports.formatPercentChange = exports.formatUsd = exports.formatTokenAmount = exports.getNativeToken = exports.getChainName = exports.GDEX_API_KEY_SECONDARY = exports.GDEX_API_KEY_PRIMARY = exports.GDEX_API_KEYS = exports.HYPERLIQUID_DEFAULT_ASSETS = exports.CHAIN_CONFIGS = exports.chainSupportsDex = exports.getSupportedChains = exports.getChainConfig = exports.Endpoints = exports.GdexApiClient = exports.GdexRateLimitError = exports.GdexNetworkError = exports.GdexApiError = exports.GdexValidationError = exports.GdexAuthError = exports.GdexError = exports.outcomeSideCoins = exports.outcomeSideCoin = exports.attachOutcomeVolume = exports.fetchHlOutcomeVolumes = exports.GdexErrorCode = exports.ChainId = void 0;
-    exports.GdexSkill = exports.deriveMaxSourceSpendRaw = exports.executeUsdcBridge = exports.estimateUsdcBridge = exports.convertNativeToUsdc = exports.retryUsdcSell = exports.buyWithNative = exports.sellToUsdc = exports.buyWithUsdc = exports.getUsdcBridgeOrders = exports.getUsdcBridgeStatus = exports.getUsdcConvertQuote = exports.getUsdcPendingTrades = exports.getUsdcDeferredTrade = exports.getUsdcFundingStatus = exports.getUsdcTradeQuote = exports.getUsdcBalances = exports.USDC_ACTION_ABI = exports.buildGdexReadSessionData = exports.buildUsdcComputedData = exports.buildImportTokenComputedData = exports.buildWatchListComputedData = exports.buildLimitOrderComputedData = exports.signLimitOrderMessage = exports.encodeLimitOrderData = exports.buildHlComputedData = exports.signHlActionMessage = exports.encodeHlActionData = exports.generateGdexNonce = exports.buildGdexManagedTradeComputedData = void 0;
+    exports.GdexSkill = exports.DEFAULT_GAS_TOPUP_USD = exports.deriveMaxSourceSpendRaw = exports.executeUsdcBridge = exports.estimateUsdcBridge = exports.convertNativeToUsdc = exports.retryUsdcSell = exports.buyWithNative = exports.sellToUsdc = exports.buyWithUsdc = exports.getUsdcBridgeOrders = exports.getUsdcBridgeStatus = exports.getUsdcConvertQuote = exports.getUsdcPendingTrades = exports.getUsdcDeferredTrade = exports.getUsdcFundingStatus = exports.getUsdcTradeQuote = exports.getUsdcBalances = exports.USDC_ACTION_ABI = exports.buildGdexReadSessionData = exports.buildUsdcComputedData = exports.buildImportTokenComputedData = exports.buildWatchListComputedData = exports.buildLimitOrderComputedData = exports.signLimitOrderMessage = exports.encodeLimitOrderData = exports.buildHlComputedData = exports.signHlActionMessage = exports.encodeHlActionData = exports.generateGdexNonce = exports.buildGdexManagedTradeComputedData = void 0;
     var walletGeneration_1 = require_walletGeneration();
     var slippage_1 = require_slippage();
     var client_1 = require_client();
@@ -125081,6 +125085,9 @@ var require_dist5 = __commonJS({
     } });
     Object.defineProperty(exports, "deriveMaxSourceSpendRaw", { enumerable: true, get: function() {
       return usdc_2.deriveMaxSourceSpendRaw;
+    } });
+    Object.defineProperty(exports, "DEFAULT_GAS_TOPUP_USD", { enumerable: true, get: function() {
+      return usdc_2.DEFAULT_GAS_TOPUP_USD;
     } });
     var GdexSkill2 = class {
       /**
@@ -141884,7 +141891,7 @@ var usdcCredentials = {
 };
 var usdcRaw = (what) => external_exports.string().regex(/^[0-9]+$/).describe(`${what}, raw integer units`);
 var usdcChainId = external_exports.number().describe("Chain ID: 1, 10, 56, 146, 8453, 42161 or 622112261 (Solana). No USDC on Robinhood 4663 or Fraxtal 252");
-var usdcAutoBridge = external_exports.boolean().optional().describe("Let GDEX bridge USDC in from the user's other chains if this chain is short");
+var usdcAutoBridge = external_exports.boolean().optional().describe("Automatic funding (default true, as on gdex.pro): bridge USDC and top up native gas from the user's other chains, within maxSourceSpendRaw");
 var usdcMaxSourceSpend = usdcRaw("Signed cap on total source spend for auto-funding (default ceil(amount x 1.2))").optional();
 function registerUsdcTools(server2) {
   server2.tool(
@@ -141944,7 +141951,7 @@ function registerUsdcTools(server2) {
   );
   server2.tool(
     "usdc_buy",
-    "Buy a token paying with USDC. With autoBridge (default on) GDEX pulls USDC from the user's other chains when this chain is short, capped by the signed maxSourceSpendRaw. A pending result returns a requestId for usdc_get_funding_status.",
+    "Buy a token paying with USDC. Automatic funding is on by default: GDEX bridges USDC and tops up gas from the user's other chains when this chain is short, capped by the signed maxSourceSpendRaw. A pending result returns a requestId for usdc_get_funding_status.",
     {
       ...usdcCredentials,
       chainId: usdcChainId,
@@ -141965,14 +141972,14 @@ function registerUsdcTools(server2) {
       tokenAddress: external_exports.string().describe("Token to sell"),
       tokenAmountRaw: usdcRaw("Token amount to sell"),
       minUsdcOutRaw: usdcRaw("Minimum USDC out (from usdc_get_trade_quote minus slippage)"),
-      autoBridge: usdcAutoBridge.describe("Fund gas from other chains if needed (default off)"),
+      autoBridge: usdcAutoBridge,
       maxSourceSpendRaw: usdcMaxSourceSpend
     },
     async (params) => handleToolCall(async () => getSdk().sellToUsdc(params))
   );
   server2.tool(
     "usdc_buy_with_native",
-    "Buy a token paying with the chain's native token (ETH, BNB, SOL...), with optional auto-funding from other chains.",
+    "Buy a token paying with the chain's native token (ETH, BNB, SOL...). Auto-bridge from other chains is on by default, as on gdex.pro.",
     {
       ...usdcCredentials,
       chainId: usdcChainId,
@@ -142018,8 +142025,8 @@ function registerUsdcTools(server2) {
       fromChainId: usdcChainId.describe("Source chain ID"),
       toChainId: usdcChainId.describe("Destination chain ID"),
       amountRaw: usdcRaw("USDC to deliver on the destination"),
-      gasTopUp: external_exports.boolean().optional().describe("Also deliver destination gas"),
-      gasTopUpAmountUsd: external_exports.number().optional().describe("Gas top-up in USD, up to 50")
+      gasTopUp: external_exports.boolean().optional().describe("Destination gas top-up; default on for EVM destinations, off for Solana. Its cost is in the estimate"),
+      gasTopUpAmountUsd: external_exports.number().optional().describe("Gas top-up in USD, up to 50 (default 1)")
     },
     async (params) => handleToolCall(async () => getSdk().estimateUsdcBridge(params))
   );
@@ -142032,8 +142039,8 @@ function registerUsdcTools(server2) {
       toChainId: usdcChainId.describe("Destination chain ID"),
       amountRaw: usdcRaw("USDC to deliver on the destination"),
       maxFromAmountRaw: usdcRaw("Signed maximum source spend"),
-      gasTopUp: external_exports.boolean().optional().describe("Also deliver destination gas"),
-      gasTopUpAmountUsd: external_exports.number().optional().describe("Gas top-up in USD, up to 50")
+      gasTopUp: external_exports.boolean().optional().describe("Destination gas top-up; default on for EVM destinations, off for Solana. Its cost is in the estimate"),
+      gasTopUpAmountUsd: external_exports.number().optional().describe("Gas top-up in USD, up to 50 (default 1)")
     },
     async (params) => handleToolCall(async () => getSdk().executeUsdcBridge(params))
   );

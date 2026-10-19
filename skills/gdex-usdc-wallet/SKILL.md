@@ -26,6 +26,16 @@ the source budget the user signed. Sells settle back to USDC.
   `{ apiKey, walletAddress, sessionPrivateKey }`, where `walletAddress` is the **control wallet**
   used at sign-in (not the managed address).
 
+## Automatic Funding and Gas (On by Default)
+
+Like gdex.pro's **"Automatic funding — bridge USDC & top up gas"** checkbox, which is ticked by default,
+the SDK turns it on for every trade (`autoBridge: true` on USDC buys, native-paid buys, **and** sells; gdex.pro's
+Native tab has the same "Auto-bridge from other chains" default). If the trade's chain is
+short of USDC or of native gas, GDEX bridges USDC and tops up gas from the user's other chains. It
+never spends more than the signed `maxSourceSpendRaw`. Bridges to EVM chains also add a **$1 destination
+gas top-up** by default (`gasTopUp`, off for Solana destinations, where Relay can't top up gas). Its cost
+is already in the estimate. Pass `autoBridge: false` or `gasTopUp: false` only when the user asks to opt out.
+
 ## Supported Chains
 
 | Chain | chainId | USDC decimals | Native decimals |
@@ -72,7 +82,7 @@ const res = await skill.buyWithUsdc({
   tokenAddress,
   usdcAmountRaw: '5000000',   // 5 USDC
   minTokenOutRaw,
-  autoBridge: true,           // default: pull USDC from other chains if Base is short
+  // autoBridge defaults to true: USDC and gas are pulled from other chains if Base is short
   // maxSourceSpendRaw: '6000000', // optional; default ceil(amount × 1.2)
 });
 ```
@@ -131,12 +141,11 @@ spend (plus a little headroom) as the cap:
 ```typescript
 const est = await skill.estimateUsdcBridge({
   ...creds, fromChainId: 8453, toChainId: 42161, amountRaw: '10000000',
-  gasTopUp: true, gasTopUpAmountUsd: 2,          // optional destination gas, up to $50
+  // gas top-up defaults to $1 for EVM destinations; gasTopUpAmountUsd sets up to $50
 });
 const maxFromAmountRaw = (BigInt(est.fromAmountRaw as string) * 101n / 100n).toString();
 const br = await skill.executeUsdcBridge({
-  ...creds, fromChainId: 8453, toChainId: 42161, amountRaw: '10000000',
-  gasTopUp: true, gasTopUpAmountUsd: 2, maxFromAmountRaw,
+  ...creds, fromChainId: 8453, toChainId: 42161, amountRaw: '10000000', maxFromAmountRaw,
 });
 await skill.getUsdcBridgeStatus({ ...creds, bridgeId: br.bridgeId as string, refresh: true });
 await skill.getUsdcBridgeOrders(creds);

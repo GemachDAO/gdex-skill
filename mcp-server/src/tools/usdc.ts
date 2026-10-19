@@ -11,7 +11,7 @@ const usdcCredentials = {
 const usdcRaw = (what: string) => z.string().regex(/^[0-9]+$/).describe(`${what}, raw integer units`);
 const usdcChainId = z.number().describe('Chain ID: 1, 10, 56, 146, 8453, 42161 or 622112261 (Solana). No USDC on Robinhood 4663 or Fraxtal 252');
 const usdcAutoBridge = z.boolean().optional()
-  .describe('Let GDEX bridge USDC in from the user\'s other chains if this chain is short');
+  .describe('Automatic funding (default true, as on gdex.pro): bridge USDC and top up native gas from the user\'s other chains, within maxSourceSpendRaw');
 const usdcMaxSourceSpend = usdcRaw('Signed cap on total source spend for auto-funding (default ceil(amount x 1.2))').optional();
 
 export function registerUsdcTools(server: McpServer): void {
@@ -85,7 +85,7 @@ export function registerUsdcTools(server: McpServer): void {
 
   server.tool(
     'usdc_buy',
-    'Buy a token paying with USDC. With autoBridge (default on) GDEX pulls USDC from the user\'s other chains when this chain is short, capped by the signed maxSourceSpendRaw. A pending result returns a requestId for usdc_get_funding_status.',
+    'Buy a token paying with USDC. Automatic funding is on by default: GDEX bridges USDC and tops up gas from the user\'s other chains when this chain is short, capped by the signed maxSourceSpendRaw. A pending result returns a requestId for usdc_get_funding_status.',
     {
       ...usdcCredentials,
       chainId: usdcChainId,
@@ -107,7 +107,7 @@ export function registerUsdcTools(server: McpServer): void {
       tokenAddress: z.string().describe('Token to sell'),
       tokenAmountRaw: usdcRaw('Token amount to sell'),
       minUsdcOutRaw: usdcRaw('Minimum USDC out (from usdc_get_trade_quote minus slippage)'),
-      autoBridge: usdcAutoBridge.describe('Fund gas from other chains if needed (default off)'),
+      autoBridge: usdcAutoBridge,
       maxSourceSpendRaw: usdcMaxSourceSpend,
     },
     async (params) => handleToolCall(async () => getSdk().sellToUsdc(params as any)),
@@ -115,7 +115,7 @@ export function registerUsdcTools(server: McpServer): void {
 
   server.tool(
     'usdc_buy_with_native',
-    'Buy a token paying with the chain\'s native token (ETH, BNB, SOL...), with optional auto-funding from other chains.',
+    'Buy a token paying with the chain\'s native token (ETH, BNB, SOL...). Auto-bridge from other chains is on by default, as on gdex.pro.',
     {
       ...usdcCredentials,
       chainId: usdcChainId,
@@ -164,8 +164,8 @@ export function registerUsdcTools(server: McpServer): void {
       fromChainId: usdcChainId.describe('Source chain ID'),
       toChainId: usdcChainId.describe('Destination chain ID'),
       amountRaw: usdcRaw('USDC to deliver on the destination'),
-      gasTopUp: z.boolean().optional().describe('Also deliver destination gas'),
-      gasTopUpAmountUsd: z.number().optional().describe('Gas top-up in USD, up to 50'),
+      gasTopUp: z.boolean().optional().describe('Destination gas top-up; default on for EVM destinations, off for Solana. Its cost is in the estimate'),
+      gasTopUpAmountUsd: z.number().optional().describe('Gas top-up in USD, up to 50 (default 1)'),
     },
     async (params) => handleToolCall(async () => getSdk().estimateUsdcBridge(params as any)),
   );
@@ -179,8 +179,8 @@ export function registerUsdcTools(server: McpServer): void {
       toChainId: usdcChainId.describe('Destination chain ID'),
       amountRaw: usdcRaw('USDC to deliver on the destination'),
       maxFromAmountRaw: usdcRaw('Signed maximum source spend'),
-      gasTopUp: z.boolean().optional().describe('Also deliver destination gas'),
-      gasTopUpAmountUsd: z.number().optional().describe('Gas top-up in USD, up to 50'),
+      gasTopUp: z.boolean().optional().describe('Destination gas top-up; default on for EVM destinations, off for Solana. Its cost is in the estimate'),
+      gasTopUpAmountUsd: z.number().optional().describe('Gas top-up in USD, up to 50 (default 1)'),
     },
     async (params) => handleToolCall(async () => getSdk().executeUsdcBridge(params as any)),
   );

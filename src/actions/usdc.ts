@@ -14,6 +14,11 @@
  * Amounts are RAW integer strings: USDC is 6 decimals everywhere except BSC
  * (18); native is 18 on EVM and 9 on Solana. Robinhood Chain (USDG) and
  * Fraxtal have no USDC.
+ *
+ * Gas is handled by default: trades run with `autoBridge` on, so the backend
+ * funds missing USDC and native gas from the user's other chains within the
+ * signed source budget, and bridges to EVM chains add a destination gas top-up
+ * included in the estimate. Pass `autoBridge: false` / `gasTopUp: false` to opt out.
  */
 import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';
@@ -212,7 +217,7 @@ export interface UsdcBuyParams extends UsdcCredentials {
   usdcAmountRaw: string;
   /** Minimum token out (raw). Derive from `getUsdcTradeQuote` minus slippage. */
   minTokenOutRaw: string;
-  /** Let the backend bridge USDC from other chains if this chain is short (default true). */
+  /** Let the backend fund missing USDC and native gas from other chains (default true). */
   autoBridge?: boolean;
   /** Signed cap on total source spend for funding; default `ceil(amount * 1.2)`. */
   maxSourceSpendRaw?: string;
@@ -248,6 +253,7 @@ export interface UsdcSellParams extends UsdcCredentials {
   tokenAmountRaw: string;
   /** Minimum USDC out (raw, target chain USDC decimals). */
   minUsdcOutRaw: string;
+  /** Let the backend fund missing native gas from other chains (default true). */
   autoBridge?: boolean;
   maxSourceSpendRaw?: string;
 }
@@ -259,7 +265,7 @@ export async function sellToUsdc(
 ): Promise<UsdcTradeResult> {
   validateRequired(params.tokenAddress, 'tokenAddress');
   const amount = requireRaw(params.tokenAmountRaw, 'tokenAmountRaw');
-  const autoBridge = params.autoBridge ?? false;
+  const autoBridge = params.autoBridge ?? true;
   const computedData = buildUsdcComputedData({
     action: 'sell_usdc_v2',
     ...params,
@@ -379,17 +385,31 @@ export interface UsdcBridgeParams extends UsdcCredentials {
   toChainId: number;
   /** Raw USDC to DELIVER on `toChainId`, in destination USDC decimals. */
   amountRaw: string;
-  /** Also deliver some destination gas. */
+  /**
+   * Also deliver destination gas (Relay top-up). Default: on for EVM
+   * destinations, off for Solana, where Relay cannot top up gas.
+   */
   gasTopUp?: boolean;
-  /** Gas top-up in USD, (0, 50]. Only with `gasTopUp`. */
+  /** Gas top-up in USD, (0, 50]. Default `DEFAULT_GAS_TOPUP_USD` when the top-up is on. */
   gasTopUpAmountUsd?: number;
 }
 
-function gasTopUpMicroUsd(params: UsdcBridgeParams): string {
-  if (!params.gasTopUp || params.gasTopUpAmountUsd === undefined) return '0';
-  const usd = params.gasTopUpAmountUsd;
+/** USD of destination gas added to a bridge when the caller doesn't set an amount. */
+export const DEFAULT_GAS_TOPUP_USD = 1;
+
+const SOLANA_CHAIN_ID = 622112261;
+
+/**
+ * Resolve the gas top-up a bridge signs: on by default for EVM destinations,
+ * always with a positive amount (the backend forwards a signed `0` to Relay as
+ * a zero top-up). Its cost is part of the estimate's `fromAmountRaw`.
+ */
+function resolveGasTopUp(params: UsdcBridgeParams): { gasTopUp: boolean; usd?: number; microUsd: string } {
+  const gasTopUp = params.gasTopUp ?? params.toChainId !== SOLANA_CHAIN_ID;
+  if (!gasTopUp) return { gasTopUp, microUsd: '0' };
+  const usd = params.gasTopUpAmountUsd ?? DEFAULT_GAS_TOPUP_USD;
   if (!Number.isFinite(usd) || usd <= 0 || usd > 50) throw new Error('gasTopUpAmountUsd must be in (0, 50]');
-  return String(Math.round(usd * 1_000_000));
+  return { gasTopUp, usd, microUsd: String(Math.round(usd * 1_000_000)) };
 }
 
 /** Quote a USDC bridge (Relay). The response's `fromAmountRaw` is the source spend. */
@@ -397,17 +417,16 @@ export async function estimateUsdcBridge(
   client: GdexApiClient,
   params: UsdcBridgeParams,
 ): Promise<UsdcResponse> {
-  const gasTopUp = Boolean(params.gasTopUp);
-  gasTopUpMicroUsd(params);
+  const gas = resolveGasTopUp(params);
   const computedData = buildUsdcComputedData({
     action: 'usdc_bridge_estimate',
     ...params,
-    values: [params.fromChainId, params.toChainId, requireRaw(params.amountRaw, 'amountRaw'), gasTopUp],
+    values: [params.fromChainId, params.toChainId, requireRaw(params.amountRaw, 'amountRaw'), gas.gasTopUp],
   });
   return client.post<UsdcResponse>(Endpoints.USDC_BRIDGE_ESTIMATE, {
     computedData,
     chainId: params.fromChainId,
-    ...(gasTopUp && params.gasTopUpAmountUsd !== undefined ? { gasTopUpAmountUsd: params.gasTopUpAmountUsd } : {}),
+    ...(gas.usd !== undefined ? { gasTopUpAmountUsd: gas.usd } : {}),
   });
 }
 
@@ -425,6 +444,7 @@ export async function executeUsdcBridge(
   client: GdexApiClient,
   params: UsdcBridgeExecuteParams,
 ): Promise<UsdcResponse> {
+  const gas = resolveGasTopUp(params);
   const computedData = buildUsdcComputedData({
     action: 'usdc_bridge_execute_v2',
     ...params,
@@ -432,8 +452,8 @@ export async function executeUsdcBridge(
       params.fromChainId,
       params.toChainId,
       requireRaw(params.amountRaw, 'amountRaw'),
-      Boolean(params.gasTopUp),
-      gasTopUpMicroUsd(params),
+      gas.gasTopUp,
+      gas.microUsd,
       requireRaw(params.maxFromAmountRaw, 'maxFromAmountRaw'),
     ],
   });

@@ -466,6 +466,7 @@ export {
   getUsdcBalances, getUsdcTradeQuote, getUsdcFundingStatus, getUsdcDeferredTrade, getUsdcPendingTrades,
   getUsdcConvertQuote, getUsdcBridgeStatus, getUsdcBridgeOrders, buyWithUsdc, sellToUsdc, buyWithNative,
   retryUsdcSell, convertNativeToUsdc, estimateUsdcBridge, executeUsdcBridge, deriveMaxSourceSpendRaw,
+  DEFAULT_GAS_TOPUP_USD,
 } from './actions/usdc';
 export type {
   UsdcCredentials, UsdcResponse, UsdcChainBalance, UsdcBalancesResponse, UsdcTradeResult, UsdcTradeQuoteParams,
