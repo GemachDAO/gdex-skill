@@ -53,7 +53,7 @@ export interface HlCopyTradeConfig {
   traderWallet: string;
   lossPercent: number;
   profitPercent: number;
-  /** USD amount per order (mode 1) or ratio (mode 2) */
+  /** Mode 1: raw USDC per order, 6 decimals ("50000000" = $50); mode 2: percentage */
   fixedAmountCostPerOrder: string;
   /**
    * Copy in the opposite direction. Configurations written by SDK versions up to
@@ -141,7 +141,7 @@ export interface CreateHlCopyTradeParams {
   copyTradeName: string;
   /** 1 = Fixed USD Amount per order, 2 = Proportion of trader's size */
   copyMode: 1 | 2;
-  /** USD amount per order (mode 1) or ratio (mode 2) */
+  /** Mode 1: raw USDC per order, 6 decimals ("50000000" = $50); mode 2: percentage */
   fixedAmountCostPerOrder: string;
   /** Stop-loss percentage (must be > 0 and < 100) */
   lossPercent: string;

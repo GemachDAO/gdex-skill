@@ -38,7 +38,7 @@ no Polymarket or Kalshi integration.**
 const { markets } = await skill.getHlOutcomeMarkets({ state: 'active', query: 'BTC' });
 ```
 
-MCP: `hl_outcomes` (`state`, `query`, `excludeFallback`, `limit`, `withVolume`).
+MCP: `hl_outcomes` (`state`, `query`, `excludeFallback`, `limit` (default 20), `offset`, `sortBy: "volume" | "expiry"`, `detail`, `withVolume`). It returns compact pages; ask for `detail: true` only for the markets you will trade.
 Each market is normalised:
 
 | Field | Meaning | Source |

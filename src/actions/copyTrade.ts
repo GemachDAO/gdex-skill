@@ -44,7 +44,7 @@ import {
 } from '../types/copyTrade';
 import { GdexErrorCode } from '../types/common';
 import { GdexError, GdexValidationError } from '../utils/errors';
-import { validateRequired } from '../utils/validation';
+import { validateRequired, validateAmount, parseAmountUnits } from '../utils/validation';
 import { buildCopyTradeComputedData, buildGdexReadSessionData } from '../utils/gdexManagedCrypto';
 
 // ── Discovery (no auth) ─────────────────────────────────────────────────────
@@ -129,6 +129,32 @@ export async function getCopyTradeTxList(
 // ── Write (computedData auth, Solana only) ──────────────────────────────────
 
 /**
+ * Check the numeric copy-trade fields before signing, against the backend's
+ * reading of them (gbotTradingDashboardBackend ServiceCopyTrade.ts create
+ * :466-479, :507-509; update applies the same checks):
+ * - buyMode 1: copyBuyAmount is SOL per copied buy in whole units (stored as
+ *   copyBuyFixedAmount and spent by copyTradeSolana.ts:419-421), so at most 9 decimals.
+ * - buyMode 2: copyBuyAmount is a percentage in (0, 100].
+ * - lossPercent in (0, 100); profitPercent > 0. Plain decimals only.
+ */
+function checkCopyTradeNumbers(p: { buyMode?: number; copyBuyAmount?: string; lossPercent?: string; profitPercent?: string }): void {
+  if (p.buyMode !== 1 && p.buyMode !== 2) {
+    throw new GdexValidationError(`buyMode must be 1 (fixed SOL) or 2 (percentage), got ${JSON.stringify(p.buyMode)}`, 'buyMode');
+  }
+  const amount = String(p.copyBuyAmount ?? '');
+  if (p.buyMode === 1) {
+    parseAmountUnits(amount, 9, 'copyBuyAmount');
+  } else {
+    validateAmount(amount, 'copyBuyAmount');
+    if (Number(amount) > 100) throw new GdexValidationError(`copyBuyAmount is a percentage in buyMode 2 and must be at most 100, got "${amount}"`, 'copyBuyAmount');
+  }
+  const loss = String(p.lossPercent ?? '');
+  validateAmount(loss, 'lossPercent');
+  if (Number(loss) >= 100) throw new GdexValidationError(`lossPercent must be below 100, got "${loss}"`, 'lossPercent');
+  validateAmount(String(p.profitPercent ?? ''), 'profitPercent');
+}
+
+/**
  * Create a new copy trade configuration.
  *
  * ABI (create_copy_trade, 12 fields, typed as the backend decodes it):
@@ -145,6 +171,7 @@ export async function createCopyTrade(
   validateRequired(params.copyTradeName, 'copyTradeName');
   validateRequired(params.lossPercent, 'lossPercent');
   validateRequired(params.profitPercent, 'profitPercent');
+  checkCopyTradeNumbers(params);
 
   const computedData = buildCopyTradeComputedData({
     action: 'create_copy_trade',
@@ -196,6 +223,9 @@ export async function updateCopyTrade(
       'isChangeStatus',
     );
   }
+  // A settings change is checked like a create; delete / pause / resume re-send
+  // the stored values unchanged and are not re-judged here.
+  if (params.isDelete !== true && params.isChangeStatus !== true) checkCopyTradeNumbers(params);
 
   const computedData = buildCopyTradeComputedData({
     action: 'update_copy_trade',

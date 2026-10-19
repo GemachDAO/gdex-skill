@@ -158,10 +158,24 @@ describe('tokenInfo', () => {
       }));
       expect(data).toEqual({
         tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-        chain: 'solana',
+        chain: 622112261,
         resolution: '60',
         candles: mockCandles,
       });
+    });
+
+    it('echoes the normalized chain id, not the caller spelling', async () => {
+      client.get = jest.fn().mockResolvedValue({ data: [] });
+      const data = await getOHLCV(client, { tokenAddress: '0x' + 'a'.repeat(40), chain: 'Base' as never, resolution: '60' });
+      expect(data.chain).toBe(8453);
+    });
+
+    it('rejects an unknown chain before any request', async () => {
+      client.get = jest.fn();
+      await expect(
+        getOHLCV(client, { tokenAddress: '0x' + 'a'.repeat(40), chain: 'nochain' as never, resolution: '60' })
+      ).rejects.toThrow(GdexValidationError);
+      expect(client.get).not.toHaveBeenCalled();
     });
 
     it('should throw GdexValidationError for missing tokenAddress', async () => {

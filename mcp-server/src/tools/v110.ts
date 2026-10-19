@@ -16,6 +16,44 @@ import { z } from 'zod';
 import { resolveOutcomeWriteMode } from '@gemachdao/gdex-skill';
 import { getSdk, handleToolCall } from '../sdk.js';
 
+
+/**
+ * Agent-sized page of hl_outcomes results. The full list is ~300 markets of
+ * nested records, too large to read in one tool result; default to 20 compact rows.
+ */
+export function pageOutcomeMarkets(
+  result: { markets?: any[] } & Record<string, unknown>,
+  opts: { limit?: number; offset?: number; sortBy?: 'volume' | 'expiry'; detail?: boolean },
+): Record<string, unknown> {
+  const all = Array.isArray(result?.markets) ? [...result.markets] : [];
+  const vol = (m: any) => (typeof m?.volume24h?.volume === 'number' ? m.volume24h.volume : -1);
+  if (opts.sortBy === 'volume') all.sort((a, b) => vol(b) - vol(a));
+  if (opts.sortBy === 'expiry') all.sort((a, b) => (a?.expiryMs ?? Infinity) - (b?.expiryMs ?? Infinity));
+  const offset = opts.offset ?? 0;
+  const limit = opts.limit ?? 20;
+  const page = all.slice(offset, offset + limit);
+  const compact = (m: any) => ({
+    outcomeId: m.outcomeId,
+    title: m.title,
+    state: m.state,
+    expiry: m.expiry ?? null,
+    quoteToken: m.quoteToken,
+    sides: (m.sides ?? []).map((x: any) => ({ label: x.label, price: x.price ?? null, coin: x.coin })),
+    ...(m.volume24h ? { volume24h: { volume: m.volume24h.volume ?? null, coverage: m.volume24h.coverage } } : {}),
+  });
+  const { markets: _drop, ...meta } = result ?? {};
+  const unmeasured = opts.sortBy === 'volume' ? all.filter((m) => vol(m) < 0).length : undefined;
+  return {
+    ...meta,
+    total: all.length,
+    offset,
+    returned: page.length,
+    nextOffset: offset + page.length < all.length ? offset + page.length : null,
+    markets: opts.detail ? page : page.map(compact),
+    ...(unmeasured ? { note: `${unmeasured} markets had no volume reading and sort last; their volume is unknown, not zero.` } : {}),
+  };
+}
+
 export function registerV110Tools(server: McpServer): void {
   // ── Transfers ────────────────────────────────────────────────────────────
   server.tool(
@@ -260,20 +298,25 @@ export function registerV110Tools(server: McpServer): void {
       state: z.union([outcomeStateEnum, z.array(outcomeStateEnum)]).optional().describe('Filter by trading state, e.g. "active"'),
       query: z.string().optional().describe('Case-insensitive text match on title / side labels / params, or an exact outcomeId'),
       excludeFallback: z.boolean().optional().describe('Hide "none of the listed outcomes" legs'),
-      limit: z.number().int().min(0).optional(),
+      limit: z.number().int().min(1).max(100).optional().describe('Markets per page, default 20'),
+      offset: z.number().int().min(0).optional().describe('Pagination offset (use nextOffset)'),
+      sortBy: z.enum(['volume', 'expiry']).optional().describe('volume: highest 24h volume first (implies withVolume); expiry: soonest first'),
+      detail: z.boolean().optional().describe('Full market records (rules, params, settlement). Default: compact rows'),
       withVolume: z.boolean().optional().describe('Attach 24h volume (bounded by volumeTimeoutMs, default 2500)'),
       volumeTimeoutMs: z.number().int().min(100).max(10000).optional(),
       raw: z.boolean().optional().describe('Return the raw backend payload instead'),
     },
     async (params: any) =>
       handleToolCall(async () => {
-        const { raw, withVolume, volumeTimeoutMs, ...rest } = params ?? {};
+        const { raw, withVolume, volumeTimeoutMs, limit, offset, sortBy, detail, ...rest } = params ?? {};
         if (raw) {
           return withVolume
             ? getSdk().getHlOutcomesWithVolume({}, volumeTimeoutMs ? { timeoutMs: volumeTimeoutMs } : undefined)
             : getSdk().getHlOutcomes({});
         }
-        return getSdk().getHlOutcomeMarkets({ ...rest, withVolume, volumeTimeoutMs });
+        // Ranking by volume needs fuller coverage than a quick list: allow a longer (still bounded) volume wait.
+        const result: any = await getSdk().getHlOutcomeMarkets({ ...rest, withVolume: withVolume || sortBy === 'volume', volumeTimeoutMs: volumeTimeoutMs ?? (sortBy === 'volume' ? 6000 : undefined) });
+        return pageOutcomeMarkets(result, { limit, offset, sortBy, detail });
       }),
   );
 

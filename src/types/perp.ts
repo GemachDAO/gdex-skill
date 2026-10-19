@@ -112,16 +112,22 @@ export interface HlCreateOrderParams extends HlManagedCredentials {
   coin: string;
   /** True for long, false for short */
   isLong: boolean;
-  /** Order price (use mark price for market orders when isMarket=true) */
+  /** Order price, a positive decimal string. For a market order, '0' fetches the mark price. */
   price: string;
-  /** Position size in contracts (e.g., "0.001" for 0.001 BTC) */
+  /** Position size in contracts, a positive decimal string (e.g., "0.001" for 0.001 BTC) */
   size: string;
   /** Whether this order only reduces an existing position */
   reduceOnly?: boolean;
-  /** Take-profit price (empty string "" to skip) */
+  /** Take-profit price; omit or "" for none. Must be set together with slPrice. */
   tpPrice?: string;
-  /** Stop-loss price (empty string "" to skip) */
+  /** Stop-loss price; omit or "" for none. Must be set together with tpPrice. */
   slPrice?: string;
+  /**
+   * Market size decimals (HL meta `szDecimals`). When set, the size, limit
+   * price and TP/SL are also checked against Hyperliquid's precision rules
+   * instead of being rounded by the backend.
+   */
+  szDecimals?: number;
   /** True for market order, false for limit order */
   isMarket?: boolean;
   /** Margin mode. Use 'isolated' to set per-position leverage. */
@@ -138,12 +144,14 @@ export interface HlPlaceOrderParams extends HlManagedCredentials {
   coin: string;
   /** True for long, false for short */
   isLong: boolean;
-  /** Order price */
+  /** Limit price, a positive decimal string */
   price: string;
-  /** Position size in contracts */
+  /** Position size in contracts, a positive decimal string */
   size: string;
   /** Whether this order only reduces an existing position */
   reduceOnly?: boolean;
+  /** Market size decimals (HL meta `szDecimals`); when set, size and price precision are checked too. */
+  szDecimals?: number;
 }
 
 /**
@@ -165,7 +173,7 @@ export interface ClosePerpPositionParams extends HlManagedCredentials {
    * MANAGED wallet from sign-in. Defaults to `walletAddress`.
    */
   positionAddress?: string;
-  /** Market size decimals (HL meta `szDecimals`); when set, a partial `size` with more decimals is rejected. */
+  /** Market size decimals (HL meta `szDecimals`); when set, a `size` with more decimals is rejected. */
   szDecimals?: number;
 }
 

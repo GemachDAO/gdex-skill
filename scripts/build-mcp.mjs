@@ -24,7 +24,7 @@ await build({
   bundle: true,
   platform: 'node',
   format: 'esm',
-  target: 'node18',
+  target: 'node22',
   outfile: OUT,
   alias: { '@gemachdao/gdex-skill': './dist/index.js' },
   define: { __GDEX_SKILL_REGISTRY__: JSON.stringify(registry) },

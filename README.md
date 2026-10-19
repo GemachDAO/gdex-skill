@@ -173,7 +173,13 @@ npx @gemachdao/gdex-mcp-server init --client opencode  # → opencode.json ("mcp
 
 Installs every GDEX skill plus the MCP server (`npx -y @gemachdao/gdex-mcp-server`). The optional GDEX API key is kept in your system credential store.
 
+### Requirements
+
+Node.js **22 or newer**. The Hyperliquid client libraries need Node 22's built-in WebSocket; on Node 20 the perp tools fail.
+
 ### Agent trading flow
+
+What is verified live versus offline, per chain and venue, is in [docs/AGENT-READINESS.md](docs/AGENT-READINESS.md).
 
 Agents should start with `gdex_status`, connect once with `gdex_connect`, then `gdex_preview_trade` → `gdex_execute_trade` (user-approved, or within the delegated policy in `~/.gdex/policies/<accountRef>.json`) → `gdex_operation`, and manage exits with `gdex_positions` / `gdex_manage_position`. Every tool carries read/write annotations. See the `gdex-agent-trading` skill.
 
@@ -913,7 +919,7 @@ await skill.createHlCopyTrade({
   traderWallet: '0xTraderEvmAddress',
   copyTradeName: 'BTC Whale',
   copyMode: 1,                    // 1 = fixed USD, 2 = proportion
-  fixedAmountCostPerOrder: '50',  // $50 per copied trade
+  fixedAmountCostPerOrder: '50000000', // copyMode 1: raw USDC, 6 decimals ($50 per copied trade)
   lossPercent: '25',              // mandatory, > 0 and < 100
   profitPercent: '100',           // mandatory, > 0
   oppositeCopy: false,            // true = copy opposite direction
@@ -1043,7 +1049,8 @@ console.log(result.isSuccess, result.hash);
 ### Wallet Info
 
 ```typescript
-const info = await skill.getWalletInfo({ walletAddress: '...', chain: 'solana' });
+// Managed-account read: control walletAddress plus the session (sessionPrivateKey + apiKey, or data)
+const info = await skill.getWalletInfo({ walletAddress: controlWalletAddress, sessionPrivateKey, apiKey, chain: 'solana' });
 // { address, nativeBalance, nativeSymbol, totalValueUsd, tokenCount }
 ```
 

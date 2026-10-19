@@ -27,7 +27,15 @@ import {
   PerpPosition,
   PerpWithdrawParams,
 } from '../types/perp';
-import { validateAmount, validateCoin, validateRequired, parseAmountUnits } from '../utils/validation';
+import {
+  validateAmount,
+  validateCoin,
+  validateRequired,
+  parseAmountUnits,
+  validateHlPrice,
+  validateHlSize,
+  validateLeverage,
+} from '../utils/validation';
 import { GdexValidationError } from '../utils/errors';
 import { buildHlComputedData } from '../utils/gdexManagedCrypto';
 import { getHlClearinghouseState, getHlClearinghouseStateAll } from './hlCopyTrade';
@@ -216,6 +224,13 @@ export async function getHlSpotState(walletAddress: string) {
 
 // ── Direct execution (private key trading via @gdexsdk/hyper-liquid-trader) ──
 
+/** TP/SL leg of a direct order: both prices must be positive decimals. */
+function checkTriggerLeg(leg: { price: string; triggerPrice: string } | undefined, field: string): void {
+  if (leg === undefined) return;
+  validateHlPrice(leg.price, `${field}.price`);
+  validateHlPrice(leg.triggerPrice, `${field}.triggerPrice`);
+}
+
 /**
  * Execute a cross-margin perpetual trade directly on HyperLiquid.
  * This bypasses the GDEX managed custody flow and requires a private key.
@@ -240,8 +255,10 @@ export async function hlExecuteCrossPerp(
   isMarket = true,
 ): Promise<unknown> {
   validateCoin(params.coin);
-  validateRequired(params.price, 'price');
-  validateRequired(params.positionSize, 'positionSize');
+  validateHlPrice(params.price, 'price');
+  validateHlSize(params.positionSize, 'positionSize');
+  checkTriggerLeg(params.takeProfit, 'takeProfit');
+  checkTriggerLeg(params.stopLoss, 'stopLoss');
   validateRequired(privateKey, 'privateKey');
 
   const trader = await getHlTrader();
@@ -275,8 +292,10 @@ export async function hlExecuteIsolatedPerp(
   isMarket = true,
 ): Promise<unknown> {
   validateCoin(params.coin);
-  validateRequired(params.price, 'price');
-  validateRequired(params.positionSize, 'positionSize');
+  validateHlPrice(params.price, 'price');
+  validateHlSize(params.positionSize, 'positionSize');
+  checkTriggerLeg(params.takeProfit, 'takeProfit');
+  checkTriggerLeg(params.stopLoss, 'stopLoss');
   validateRequired(privateKey, 'privateKey');
 
   const trader = await getHlTrader();
@@ -305,8 +324,8 @@ export async function hlExecuteSpot(
   isMarket = true,
 ): Promise<unknown> {
   validateCoin(params.coin);
-  validateRequired(params.price, 'price');
-  validateRequired(params.size, 'size');
+  validateHlPrice(params.price, 'price');
+  validateHlSize(params.size, 'size');
   validateRequired(privateKey, 'privateKey');
 
   const trader = await getHlTrader();
@@ -398,31 +417,82 @@ export async function perpWithdraw(client: GdexApiClient, params: PerpWithdrawPa
   return client.post<HlResponse>(Endpoints.HL_WITHDRAW, { computedData });
 }
 
-/**
- * Place a market or limit order with optional TP/SL on HyperLiquid.
- * This is the primary way to open/close positions.
- */
+/** True for a market order's "use the mark price" placeholder ('0', '0.0', ...). */
+function isZeroPrice(price: string): boolean {
+  return /^0+(\.0+)?$/.test(price);
+}
+
 /**
  * Resolve the price to send for an order. Market orders must carry the current
  * mark price (not '0'): the backend multiplies the supplied price by a slippage
  * factor and enforces a min-notional check (price * size >= $11), so price '0'
- * fails with "Min order size value is 11$". For market orders with a missing or
- * '0' price, fetch the current mark price.
+ * fails with "Min order size value is 11$". For a market order with price '0',
+ * fetch the current mark price.
  */
 async function resolveMarketPrice(coin: string, price: string, isMarket: boolean): Promise<string> {
-  if (!isMarket) return price;
-  if (price && price !== '0' && Number(price) > 0) return price;
+  if (!isMarket || !isZeroPrice(price)) return price;
   const mark = await getHlMarkPrice(coin);
+  if (!Number.isFinite(mark) || mark <= 0) {
+    throw new GdexValidationError(`No mark price for ${coin}; pass an explicit price`, 'price');
+  }
   return String(mark);
 }
 
+/**
+ * Check order numbers before anything is fetched or signed.
+ *
+ * Always: price (unless a market order's '0' placeholder), size and any TP/SL
+ * are positive plain decimals — no sign, exponent or trailing characters.
+ * With `szDecimals` (HL meta for the market) Hyperliquid's precision rules
+ * apply too, since the backend rounds instead of rejecting
+ * (hyperLiquid.ts:109-131 toFormattedPrice/toFormattedSize): size up to
+ * szDecimals decimals; limit and TP/SL prices up to 5 significant figures and
+ * 6 - szDecimals decimals (integers always allowed). A market order's price is
+ * only a slippage reference, so its precision is not checked.
+ */
+function checkOrderNumbers(p: {
+  price: string;
+  size: string;
+  isMarket: boolean;
+  szDecimals?: number;
+  tpPrice?: string;
+  slPrice?: string;
+}): { tpPrice: string; slPrice: string } {
+  validateRequired(p.price, 'price');
+  if (!(p.isMarket && isZeroPrice(p.price))) {
+    validateHlPrice(p.price, 'price', p.isMarket ? undefined : p.szDecimals);
+  }
+  validateHlSize(p.size, 'size', p.szDecimals);
+  // '' (or omitted) means no TP/SL; anything else must be a valid price.
+  const tpPrice = p.tpPrice ?? '';
+  const slPrice = p.slPrice ?? '';
+  if (tpPrice !== '') validateHlPrice(tpPrice, 'tpPrice', p.szDecimals);
+  if (slPrice !== '') validateHlPrice(slPrice, 'slPrice', p.szDecimals);
+  // The backend attaches TP/SL only when both are set and silently drops a lone
+  // one (hyperLiquidWorker.ts:425-431), so refuse half a pair.
+  if ((tpPrice === '') !== (slPrice === '')) {
+    throw new GdexValidationError(
+      'tpPrice and slPrice must be set together: GDEX ignores a take-profit without a stop-loss (and vice versa)',
+      tpPrice === '' ? 'tpPrice' : 'slPrice',
+    );
+  }
+  return { tpPrice, slPrice };
+}
+
+/**
+ * Place a market or limit order with optional TP/SL on HyperLiquid.
+ * This is the primary way to open/close positions.
+ *
+ * @throws {GdexValidationError} on a malformed or over-precise price, size or
+ *   TP/SL (before any mark-price fetch or signing)
+ */
 export async function hlCreateOrder(client: GdexApiClient, params: HlCreateOrderParams): Promise<HlOrderResult> {
   validateCoin(params.coin);
-  validateRequired(params.price, 'price');
-  validateRequired(params.size, 'size');
   validateRequired(params.walletAddress, 'walletAddress');
-
   const isMarket = params.isMarket ?? true;
+  const { tpPrice, slPrice } = checkOrderNumbers({ ...params, isMarket });
+  if (params.leverage != null) validateLeverage(params.leverage);
+
   const price = await resolveMarketPrice(params.coin, params.price, isMarket);
 
   const computedData = buildHlComputedData({
@@ -436,8 +506,8 @@ export async function hlCreateOrder(client: GdexApiClient, params: HlCreateOrder
       price,
       size: params.size,
       reduceOnly: params.reduceOnly ?? false,
-      tpPrice: params.tpPrice ?? '',
-      slPrice: params.slPrice ?? '',
+      tpPrice,
+      slPrice,
       isMarket,
     },
   });
@@ -451,7 +521,9 @@ export async function hlCreateOrder(client: GdexApiClient, params: HlCreateOrder
 }
 
 /**
- * Place a simple order (no TP/SL) on HyperLiquid.
+ * Place a simple limit order (no TP/SL) on HyperLiquid.
+ *
+ * @throws {GdexValidationError} on a malformed or over-precise price or size (nothing is signed)
  */
 export async function hlPlaceOrder(client: GdexApiClient, params: HlPlaceOrderParams): Promise<HlOrderResult> {
   // hl_place_order's ABI has no isMarket field, so a market flag would be
@@ -463,9 +535,8 @@ export async function hlPlaceOrder(client: GdexApiClient, params: HlPlaceOrderPa
     );
   }
   validateCoin(params.coin);
-  validateRequired(params.price, 'price');
-  validateRequired(params.size, 'size');
   validateRequired(params.walletAddress, 'walletAddress');
+  checkOrderNumbers({ price: params.price, size: params.size, isMarket: false, szDecimals: params.szDecimals });
 
   const computedData = buildHlComputedData({
     action: 'hl_place_order',
@@ -673,6 +744,8 @@ export async function closePerpPosition(
   client: GdexApiClient,
   params: ClosePerpPositionParams,
 ): Promise<ClosePerpPositionResult> {
+  // Check the caller's price before reading the position.
+  if (params.price && !isZeroPrice(params.price)) validateHlPrice(params.price, 'price');
   const plan = await resolvePerpClose(client, params);
   const order = await hlCreateOrder(client, {
     apiKey: params.apiKey,
@@ -686,6 +759,7 @@ export async function closePerpPosition(
     isMarket: true,
     tpPrice: '',
     slPrice: '',
+    szDecimals: params.szDecimals,
   });
   return { ...plan, order };
 }

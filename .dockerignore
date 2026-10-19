@@ -2,3 +2,11 @@ node_modules
 mcp-server/node_modules
 .git
 coverage
+dist
+mcp-server/dist
+.env
+.env.*
+!.env.example
+*.tgz
+*wallet*.json
+harness

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (agent-trading work order, phase 3)
+
+- **Standalone MCP perp tools were broken in 5.0.0.** `get_mark_price`, `get_account_state`, `get_perp_positions` and the other Hyperliquid reads failed in every `npx` install and the Docker image (`ERR_MODULE_NOT_FOUND`). The Hyperliquid libraries are now real dependencies of `@gemachdao/gdex-mcp-server` and are installed in the image. Verified from a clean `npm install` of the packed package on Node 22.
+- **Node 22 is now required** (`engines` was `>=18`). On Node 20 the Hyperliquid client has no WebSocket.
+- **`update_order` deleted the limit order** instead of updating it: `isDelete` was ABI-encoded as a string. It is now encoded as `bool`, with TP/SL as `uint64`. An update now requires amount, price and TP/SL together.
+- **Token transfers sent the wrong amount:** the amount was encoded as a string, which the backend decoded as a fixed small number. Structured `transferToken` used the native layout. Both are fixed, and `chainId` is now required.
+- **Stricter validation:**
+  - bridge and limit-order amounts are raw integers;
+  - perp price, size and TP/SL are strict decimals, and TP and SL must be set together;
+  - market orders refuse a zero mark price;
+  - copy-trade and collateral-swap amounts are checked.
+- **`getWalletInfo`** is an authenticated managed read; `get_wallet_info` accepts `accountRef`.
+- **Agent flow:**
+  - session rejections refresh once and retry (reads and pre-execution submits); ambiguous failures are never retried;
+  - operations are restart-safe;
+  - `hl_outcomes` returns compact pages (`limit`, `offset`, `sortBy`, `detail`).
+- **Release checks:** CI packs and installs the root SDK into a clean project, starts its bin over stdio, and runs a release secret scan. It also builds and runs the Docker image, validates every plugin manifest and version pin, and `skill.json` now follows the release version.
+- `docs/AGENT-READINESS.md`: capability matrix with live / live-read / offline evidence, and Claude Code playthrough results.
+
 ### Added / Fixed (agent-trading work order, pass 2)
 
 - **Agent flow tools:** `gdex_status`, `gdex_preview_trade`, `gdex_execute_trade`, `gdex_operation`, `gdex_positions`, `gdex_manage_position`.

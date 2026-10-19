@@ -10,7 +10,7 @@ export interface BridgeEstimateParams {
   fromChainId: number;
   /** Destination chain ID (numeric) */
   toChainId: number;
-  /** Amount in raw token units (wei-like, before decimals) */
+  /** Source-chain native amount in raw base units (wei, lamports, MIST), a positive integer string */
   amount: string;
 }
 
@@ -22,7 +22,7 @@ export interface BridgeRequestParams {
   fromChainId: number;
   /** Destination chain ID (numeric) */
   toChainId: number;
-  /** Amount in raw token units */
+  /** Source-chain native amount in raw base units, a positive integer string */
   amount: string;
   /** User ID (control wallet address) */
   userId: string;

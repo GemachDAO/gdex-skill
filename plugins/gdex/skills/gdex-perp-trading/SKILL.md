@@ -309,4 +309,5 @@ for (const pos of positions) {
 2. Use **control** wallet address (not managed) for all write operations
 3. Generate a fresh nonce for every order
 4. For market orders: set `isMarket: true` and pass the mark price (`'0'` is resolved to the mark price by the SDK)
-5. Pass `''` for `tpPrice` / `slPrice` to skip TP/SL
+5. Pass `''` for `tpPrice` / `slPrice` to skip TP/SL. Set both or neither: the backend drops a lone TP or SL
+6. Prices and sizes are plain positive decimals (no exponent). Pass `szDecimals` (HL meta) to also check Hyperliquid precision before signing: size up to `szDecimals` decimals; limit/TP/SL prices up to 5 significant figures and `6 - szDecimals` decimals. Without it the backend rounds instead of rejecting

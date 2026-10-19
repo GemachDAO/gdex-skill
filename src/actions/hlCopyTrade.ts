@@ -47,7 +47,7 @@ import type {
 import type { CopyTradeControlParams, CopyTradeControlResult } from '../types/copyTrade';
 import { GdexErrorCode } from '../types/common';
 import { GdexError, GdexValidationError } from '../utils/errors';
-import { validateRequired } from '../utils/validation';
+import { validateRequired, validateAmount, parseRawAmount } from '../utils/validation';
 import { buildHlComputedData, buildGdexReadSessionData } from '../utils/gdexManagedCrypto';
 
 /** Normalise a string-or-object address argument used by HL read endpoints. */
@@ -251,6 +251,26 @@ export async function getHlCopyTradeTxList(
 // ── Write (computedData auth) ───────────────────────────────────────────────
 
 /**
+ * Check the numeric HL copy-trade fields before signing. Backend
+ * (gbotTradingDashboardBackend ServiceHyperLiquid.ts:322-331 hl_create, same in
+ * hl_update): copyMode 1 reads fixedAmountCostPerOrder as raw USDC with 6
+ * decimals (copyTradeHyperLiquid.ts:372-375; gdex.pro sends
+ * `toBigNumber(usd, 6)`, UI perp/page.tsx:409-412), so it must be a positive
+ * integer ("50000000" = $50); copyMode 2 sends a percentage. lossPercent and
+ * profitPercent must be non-zero decimals.
+ */
+function checkHlCopyTradeNumbers(p: { copyMode?: number; fixedAmountCostPerOrder?: string; lossPercent?: string; profitPercent?: string }): void {
+  if (p.copyMode !== 1 && p.copyMode !== 2) {
+    throw new GdexValidationError(`copyMode must be 1 (fixed USDC) or 2 (proportion), got ${JSON.stringify(p.copyMode)}`, 'copyMode');
+  }
+  const amount = String(p.fixedAmountCostPerOrder ?? '');
+  if (p.copyMode === 1) parseRawAmount(amount, 'fixedAmountCostPerOrder');
+  else validateAmount(amount, 'fixedAmountCostPerOrder');
+  validateAmount(String(p.lossPercent ?? ''), 'lossPercent');
+  validateAmount(String(p.profitPercent ?? ''), 'profitPercent');
+}
+
+/**
  * Create a new HL perpetual futures copy trade.
  *
  * ABI (hl_create, 8 fields):
@@ -267,6 +287,7 @@ export async function createHlCopyTrade(
   validateRequired(params.lossPercent, 'lossPercent');
   validateRequired(params.profitPercent, 'profitPercent');
   validateRequired(params.fixedAmountCostPerOrder, 'fixedAmountCostPerOrder');
+  checkHlCopyTradeNumbers(params);
 
   const computedData = buildHlComputedData({
     action: 'hl_create',
@@ -314,6 +335,8 @@ export async function updateHlCopyTrade(
       'isChangeStatus',
     );
   }
+  // Settings changes are checked like a create; delete / pause / resume re-send stored values.
+  if (params.isDelete !== true && params.isChangeStatus !== true) checkHlCopyTradeNumbers(params);
 
   const computedData = buildHlComputedData({
     action: 'hl_update',

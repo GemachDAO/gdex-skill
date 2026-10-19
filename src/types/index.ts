@@ -12,6 +12,8 @@ export * from './hlCopyTrade';
 export * from './bridge';
 export * from './managed';
 
+import type { ManagedReadCredentials } from './portfolio';
+
 /**
  * Top trader information (as returned by /v1/copy_trade/top_traders).
  *
@@ -86,26 +88,30 @@ export interface TopTradersParams {
  * Wallet information.
  */
 export interface WalletInfo {
-  /** Wallet address */
+  /** Managed trading wallet address on this chain (from `/v1/user`) */
   address: string;
-  /** Chain */
-  chain: import('./common').SupportedChain;
-  /** Native token balance */
+  /** Control wallet (the GDEX userId) */
+  userId: string;
+  /** Numeric chain id (normalized) */
+  chain: number;
+  /** Numeric chain id (normalized) */
+  chainId: number;
+  /** Native balance in whole units; the backend sends a float, so this is approximate */
   nativeBalance: string;
   /** Native token symbol */
   nativeSymbol: string;
-  /** Total USD value of all assets */
+  /** `nativeBalance` comes from a backend float */
+  precision: 'approximate';
+  /** Total USD value of the token holdings, when every holding has a price */
   totalValueUsd?: string;
   /** Number of token holdings */
-  tokenCount?: number;
+  tokenCount: number;
 }
 
 /**
- * Parameters for fetching wallet info.
+ * Parameters for fetching wallet info: an authenticated managed read.
  */
-export interface WalletInfoParams {
-  /** Wallet address */
-  walletAddress: string;
+export interface WalletInfoParams extends ManagedReadCredentials {
   /** Chain */
   chain: import('./common').SupportedChain;
 }

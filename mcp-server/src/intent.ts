@@ -26,7 +26,7 @@ import {
   buyGasHeadroomUsdc,
 } from '@gemachdao/gdex-skill';
 import type { GdexSkill } from '@gemachdao/gdex-skill';
-import { gdexHome, loadAccount, type StoredAccount } from './credentials.js';
+import { connectAccount, gdexHome, loadAccount, type StoredAccount } from './credentials.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -129,6 +129,8 @@ export interface IntentDeps {
   /** POST to the Hyperliquid info API (public market data). */
   hlInfo: (body: Record<string, unknown>) => Promise<unknown>;
   now: () => number;
+  /** Re-sign-in an account whose session the backend rejected (default: connectAccount). */
+  refreshSession?: (a: StoredAccount) => Promise<StoredAccount>;
 }
 
 const SOLANA_CHAIN_ID = 622112261;
@@ -176,6 +178,37 @@ export async function loadPolicy(accountRef: string): Promise<Policy | undefined
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * The backend rejected the session itself (expired/replaced session key): HTTP
+ * 401, or code 103/104 "invalid params"/"Unauthorized" from the session check.
+ * That check runs before anything executes, so retrying once with a fresh
+ * session cannot duplicate a trade.
+ */
+export function isSessionRejected(err: unknown): boolean {
+  const e = err as { name?: string; message?: string; responseBody?: { code?: unknown } };
+  if (e?.name === 'GdexAuthError') return true;
+  if (e?.name !== 'GdexApiError') return false;
+  const code = Number(e.responseBody?.code);
+  return code === 103 || code === 104 || /unauthori[sz]ed/i.test(e.message ?? '');
+}
+
+async function refresh(deps: IntentDeps, a: StoredAccount): Promise<StoredAccount> {
+  return deps.refreshSession
+    ? deps.refreshSession(a)
+    : connectAccount({ controlPrivateKey: a.controlPrivateKey, source: a.source, apiKey: a.apiKey });
+}
+
+/** Run `fn` with the stored account; on a session rejection, re-sign-in once and run it again. */
+async function withSession<T>(deps: IntentDeps, accountRef: string, fn: (a: StoredAccount) => Promise<T>): Promise<T> {
+  const account = await loadAccount(accountRef);
+  try {
+    return await fn(account);
+  } catch (err) {
+    if (!isSessionRejected(err)) throw err;
+    return fn(await refresh(deps, account));
+  }
+}
 
 function bind(accountRef: string, kind: TradeKind, terms: Record<string, unknown>): string {
   return createHash('sha256').update(JSON.stringify([accountRef, kind, terms])).digest('hex');
@@ -239,7 +272,10 @@ async function perpMarket(deps: IntentDeps, coin: string): Promise<PerpMarket> {
 // ── Preview ────────────────────────────────────────────────────────────────
 
 export async function previewTrade(deps: IntentDeps, accountRef: string, intent: TradeIntent): Promise<Preview> {
-  const account = await loadAccount(accountRef);
+  return withSession(deps, accountRef, (account) => previewWith(deps, account, accountRef, intent));
+}
+
+async function previewWith(deps: IntentDeps, account: StoredAccount, accountRef: string, intent: TradeIntent): Promise<Preview> {
   const sdk = deps.sdk();
   const now = deps.now();
   let kind: TradeKind = intent.kind;
@@ -397,7 +433,7 @@ export async function executeTrade(deps: IntentDeps, previewId: string, userAppr
   const authority = await checkAuthority(deps, p, userApproved);
   if (!authority.ok) return { status: 'denied', reasons: authority.reasons };
 
-  const account = await loadAccount(p.accountRef);
+  let account = await loadAccount(p.accountRef);
   const sdk = deps.sdk();
   const t = p.terms as Record<string, string & number & boolean>;
 
@@ -412,7 +448,12 @@ export async function executeTrade(deps: IntentDeps, previewId: string, userAppr
     return { status: 'revised', reason: 'Preview expired; review the fresh terms', preview: await previewTrade(deps, p.accountRef, intentOf()) };
   }
   if (p.kind === 'spot') {
-    const fresh = (await sdk.getUsdcTradeQuote({ ...creds(account), chainId: t.chainId, tokenAddress: t.tokenAddress, payAsset: 'usdc', amountInRaw: t.side === 'buy' ? t.spendRaw : t.sellRaw, side: t.side as 'buy' | 'sell' })) as Record<string, unknown>;
+    const quote = (a: StoredAccount) => sdk.getUsdcTradeQuote({ ...creds(a), chainId: t.chainId, tokenAddress: t.tokenAddress, payAsset: 'usdc', amountInRaw: t.side === 'buy' ? t.spendRaw : t.sellRaw, side: t.side as 'buy' | 'sell' });
+    const fresh = (await quote(account).catch(async (err) => {
+      if (!isSessionRejected(err)) throw err;
+      account = await refresh(deps, account);
+      return quote(account);
+    })) as Record<string, unknown>;
     const floor = BigInt(t.side === 'buy' ? t.minOutRaw : t.minUsdcRaw);
     if (!/^\d+$/.test(String(fresh.amountOutRaw ?? '')) || BigInt(String(fresh.amountOutRaw)) < floor) {
       return { status: 'revised', reason: 'Price moved below the approved minimum', preview: await previewTrade(deps, p.accountRef, intentOf()) };
@@ -427,6 +468,7 @@ export async function executeTrade(deps: IntentDeps, previewId: string, userAppr
   };
   await writeJson('operations', op.opId, op);
 
+  for (let attempt = 0; ; attempt++) {
   try {
     let res: Record<string, unknown>;
     if (p.kind === 'spot' && t.side === 'buy') {
@@ -450,11 +492,20 @@ export async function executeTrade(deps: IntentDeps, previewId: string, userAppr
         ? 'failed'
         : requestId || order.isSuccess === true ? 'accepted' : 'pending';
     op = await saveOp(op, state, { requestId, hash, detail: { ...(op.detail as object), response: res } }, undefined, deps.now());
+    break;
   } catch (err) {
+    // A session rejection happens before execution: refresh once and resubmit the same signed terms.
+    if (attempt === 0 && isSessionRejected(err)) {
+      account = await refresh(deps, account);
+      op = await saveOp(op, 'submitting', {}, 'session rejected before execution; refreshed and resubmitting', deps.now());
+      continue;
+    }
     op = isUnknown(err)
       ? await saveOp(op, 'submission_unknown', { errorCode: 'SUBMISSION_UNKNOWN' }, (err as Error).message, deps.now())
       : await saveOp(op, 'failed', { errorCode: (err as { code?: string }).code ?? 'ERROR' }, (err as Error).message, deps.now());
     if (!isUnknown(err)) throw err;
+    break;
+  }
   }
   return { status: 'submitted', operation: op };
 }
@@ -465,7 +516,11 @@ export async function reconcileOperation(deps: IntentDeps, opId: string, waitMs 
   let op = await readJson<Operation>('operations', opId);
   if (!op) throw new GdexValidationError(`Unknown opId ${opId}`, 'opId');
   if (op.state === 'filled' || op.state === 'failed') return op;
-  const account = await loadAccount(op.accountRef);
+  const current = op;
+  return withSession(deps, op.accountRef, (account) => reconcileWith(deps, account, current, waitMs));
+}
+
+async function reconcileWith(deps: IntentDeps, account: StoredAccount, op: Operation, waitMs: number): Promise<Operation> {
   const sdk = deps.sdk();
   const p = await readJson<Preview>('previews', op.previewId);
   const t = (p?.terms ?? {}) as Record<string, string & number>;
@@ -515,9 +570,19 @@ async function liveSzi(deps: IntentDeps, account: StoredAccount, coin: string, d
 
 export async function positions(deps: IntentDeps, accountRef: string): Promise<Record<string, unknown>> {
   const account = await loadAccount(accountRef);
+  const first = await positionsWith(deps, account, accountRef);
+  if (!(first.sessionRejected as boolean)) return first;
+  return positionsWith(deps, await refresh(deps, account), accountRef);
+}
+
+async function positionsWith(deps: IntentDeps, account: StoredAccount, accountRef: string): Promise<Record<string, unknown>> {
   const sdk = deps.sdk();
+  let sessionRejected = false;
   const section = async (fn: () => Promise<unknown>) => {
-    try { return { status: 'ok', asOf: deps.now(), data: await fn() }; } catch (e) { return { status: 'unavailable', error: (e as Error).message }; }
+    try { return { status: 'ok', asOf: deps.now(), data: await fn() }; } catch (e) {
+      if (isSessionRejected(e)) sessionRejected = true;
+      return { status: 'unavailable', error: (e as Error).message };
+    }
   };
   const [usdc, perps, openOrders] = await Promise.all([
     section(() => sdk.getUsdcBalances(creds(account))),
@@ -530,6 +595,7 @@ export async function positions(deps: IntentDeps, accountRef: string): Promise<R
     usdcWallet: usdc, perps, openOrders,
     pendingOperations: ops.map((o) => ({ opId: o.opId, kind: o.kind, state: o.state, notionalUsd: o.notionalUsd, createdAt: o.createdAt })),
     note: 'A section with status "unavailable" is unknown, not empty.',
+    ...(sessionRejected ? { sessionRejected: true } : {}),
   };
 }
 
