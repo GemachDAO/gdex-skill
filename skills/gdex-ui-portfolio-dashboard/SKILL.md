@@ -297,7 +297,7 @@ export function useTradeHistoryQuery(page: number, limit = 20) {
 
 ## Backend Quirk: SDK Methods Need Raw Client (Live-Tested)
 
-> **WARNING:** The high-level `skill.getPortfolio()` and `skill.getTradeHistory()` methods send incorrect params to the backend. For managed-custody users, the UI components above will return empty/incorrect data unless you use the raw client workaround. See **gdex-portfolio** skill for correct raw client calls.
+> **Note:** `skill.getPortfolio()`, `getBalances()` and `getTradeHistory()` are managed-account reads: pass the control `walletAddress`, the session (`sessionPrivateKey` + `apiKey`, or `data`) and a `chain` on every call. The examples above omit them for brevity. Holdings are returned under `holdings[]`; history pages with `cursor`. See **gdex-portfolio**.
 
 **For frontend React Query hooks, use raw client instead:**
 
