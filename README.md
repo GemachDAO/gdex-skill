@@ -161,6 +161,8 @@ npx @gemachdao/gdex-mcp-server init --client codex    # → .codex/config.toml
 npx @gemachdao/gdex-mcp-server init --client opencode  # → .opencode/mcp.json
 ```
 
+`init` merges into an existing config: other MCP servers and settings are kept, the previous file is saved as `<file>.bak`, and rerunning is a no-op. If a different `gdex-mcp-server` entry is already there it is shown and left alone unless you pass `--force`; a config it can't parse is never modified.
+
 ### Claude Code plugin
 
 ```
