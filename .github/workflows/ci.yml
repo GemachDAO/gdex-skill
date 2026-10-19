@@ -116,6 +116,63 @@ jobs:
             exit 1
           fi
 
+      # Marketplace/plugin/Gemini/.mcp.json/Glama/MCP Registry manifests: shape, version pins,
+      # plugin skills sync and skill counts. Offline.
+      - name: Validate release manifests
+        run: npm run test:manifests
+
+  # Release artifacts as users get them, on the advertised minimum Node (engines >=18) and 22:
+  # npm-pack the root SDK, install the tarball into a fresh project, require/import/type-check it,
+  # run its gdex-mcp-server bin over MCP stdio, and secret-scan the tarball. Needs the npm
+  # registry, never the GDEX backend.
+  artifacts:
+    name: Release artifacts (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18, 22]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build SDK and MCP bundle
+        run: npm run build:mcp
+
+      - name: Test packed root package
+        run: npm run test:artifacts
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Only the test runner runs on the host; the image builds the server from source.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build image and test it over stdio
+        run: npm run test:artifacts:docker
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
