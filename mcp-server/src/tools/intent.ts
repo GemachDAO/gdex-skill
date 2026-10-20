@@ -1,9 +1,13 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { getSdk, handleToolCall } from '../sdk.js';
-import { listAccounts, gdexHome } from '../credentials.js';
+import { listAccounts, gdexHome, loadAccount } from '../credentials.js';
+import { fundsSummary, readinessOf } from '../funds.js';
 import {
+  addFunds,
+  resolveSellAmount,
   executeTrade,
+  isFinal,
   listOperations,
   loadPolicy,
   positions,
@@ -36,20 +40,33 @@ const READ = { readOnlyHint: true, openWorldHint: true } as const;
 export function registerIntentTools(server: McpServer, deps: IntentDeps = defaultIntentDeps()): void {
   server.tool(
     'gdex_status',
-    'Start here. Reports version, connected accounts (no secrets), API reachability, delegated trading policy per account, pending operations, supported trade kinds, and the next setup step.',
+    'Start here. Reports connected accounts (no secrets), API reachability, and per account whether it can trade right now: funded, unfunded, funding_pending or unreachable (read from live balances; unknown is never shown as zero or ready), with one next step. Also delegated policy, pending operations and supported capabilities.',
     {},
     READ,
     async () => handleToolCall(async () => {
       const accounts = await listAccounts();
       const reach = await getSdk().client.get('/v1/status').then(() => 'ok', (e: Error) => `unreachable: ${e.message}`);
+      const pending = (await listOperations()).filter((o) => !isFinal(o));
       const withPolicy = await Promise.all(accounts.map(async (a) => {
         const p = await loadPolicy(a.accountRef);
-        return { ...a, policy: p ? { ...p, active: Date.parse(p.expiresAt) > Date.now() } : null };
+        const ops = pending.filter((o) => o.accountRef === a.accountRef);
+        const summary = await fundsSummary(deps, await loadAccount(a.accountRef), ops).catch((e: Error) => ({ cash: { status: 'unavailable', error: e.message }, hyperliquid: { status: 'unavailable' } }));
+        const ready = readinessOf(summary as Record<string, any>, ops);
+        const s = summary as Record<string, any>;
+        return {
+          ...a,
+          readiness: ready.state,
+          cash: s.cash?.status === 'ok' ? { usdcTotal: s.cash.usdcTotal } : { status: 'unavailable' },
+          hyperliquid: s.hyperliquid?.status === 'ok' ? { usdc: s.hyperliquid.usdc, freeUsdcEstimate: s.hyperliquid.freeUsdcEstimate } : { status: 'unavailable' },
+          next: ready.next,
+          policy: p ? { ...p, active: Date.parse(p.expiresAt) > Date.now() } : null,
+        };
       }));
-      const pending = (await listOperations()).filter((o) => !['filled', 'failed'].includes(o.state));
       const next = !accounts.length
-        ? 'Connect an account: gdex_connect { keyFile } (or { create: true }). Research tools work without one.'
-        : 'Ready: gdex_preview_trade, then gdex_execute_trade. Fund the managed wallets to trade.';
+        ? 'Connect an account: gdex_connect { create: true } makes a new GDEX account on this machine (or { keyFile } for an existing wallet). Research tools work without one.'
+        : reach !== 'ok'
+          ? 'The GDEX API is unreachable right now; balances and trading are unknown. Retry shortly.'
+          : withPolicy[0].next;
       return {
         api: reach,
         accounts: withPolicy,
@@ -58,6 +75,8 @@ export function registerIntentTools(server: McpServer, deps: IntentDeps = defaul
           spot: 'Unified-USDC wallet: buy with USDC / sell to USDC on Ethereum, Optimism, BSC, Sonic, Base, Arbitrum, Solana',
           perp: 'Hyperliquid perps incl. builder DEXes (dex:COIN): open market/limit with leverage (cross margin on core perps, isolated on builder-DEX / isolated-only markets), close/reduce',
           outcomes: 'Use the hl_outcome_* tools (not yet in the preview/execute flow)',
+          addMoney: 'gdex_add_funds: Apple Pay / card through the provider gdex.pro uses (Meld), or a USDC deposit; credit is confirmed from the wallet balance',
+          withdraw: 'gdex_preview_withdraw: USDC or gas token from a GDEX wallet to an external address, or Hyperliquid USDC to the Arbitrum GDEX wallet; always needs the user\'s approval',
         },
         policyFile: `${gdexHome()}/policies/<accountRef>.json (edited by the user, never by the agent)`,
         next,
@@ -77,6 +96,7 @@ export function registerIntentTools(server: McpServer, deps: IntentDeps = defaul
       amount: decimal('spot: USDC to spend (buy) or token amount (sell)').optional(),
       slippagePct: z.number().optional().describe('spot: max slippage %, default 1, max 5'),
       autoFunding: z.boolean().optional().describe('spot buy: bridge USDC/gas from other chains (default true)'),
+      budget: z.enum(['trade', 'total']).optional().describe('spot buy: "total" = amount is the most that leaves the wallet, routing and gas included ("spend $20 total"); "trade" (default) = amount buys the token, routing on top up to the shown cap ("buy $20 of X")'),
       coin: z.string().optional().describe('perp: e.g. BTC, or xyz:TSLA for builder DEXes'),
       notionalUsd: decimal('perp_open: position size in USD').optional(),
       marginUsd: decimal('perp_open: collateral in USD').optional(),
@@ -95,7 +115,7 @@ export function registerIntentTools(server: McpServer, deps: IntentDeps = defaul
       if (p.kind === 'spot') {
         const side = need('side');
         if (side !== 'buy' && side !== 'sell') throw new Error('spot side must be buy or sell');
-        intent = { kind: 'spot', chain: need('chain') as string | number, tokenAddress: need('tokenAddress') as string, side, amount: need('amount') as string, slippagePct: p.slippagePct, autoFunding: p.autoFunding };
+        intent = { kind: 'spot', chain: need('chain') as string | number, tokenAddress: need('tokenAddress') as string, side, amount: need('amount') as string, slippagePct: p.slippagePct, autoFunding: p.autoFunding, budget: p.budget };
       } else if (p.kind === 'perp_open') {
         const side = need('side');
         if (side !== 'long' && side !== 'short') throw new Error('perp_open side must be long or short');
@@ -132,6 +152,35 @@ export function registerIntentTools(server: McpServer, deps: IntentDeps = defaul
   );
 
   server.tool(
+    'gdex_add_funds',
+    'Add money to the account. method apple_pay or card: returns the checkout link for the provider gdex.pro uses (Meld) and the exact steps (receive USDC on the given network, paste the shown GDEX wallet address); the provider shows the real charge, fees and minimum. method crypto: returns the deposit address, network and token. Either way returns a funding operation: follow it with gdex_operation; it reports credited only when USDC is in the wallet, and a pending funding is resumed instead of starting a second payment. Funding never authorizes a trade.',
+    {
+      accountRef: z.string(),
+      method: z.enum(['apple_pay', 'card', 'crypto']),
+      chain: z.union([z.string(), z.number()]).optional().describe('Where the USDC should land (default base). Pick the chain of the trade the user wants.'),
+      amountUsd: z.string().regex(/^\d+(\.\d{1,2})?$/).optional().describe('What the user wants to pay, in USD (shown in the steps; the provider sets the final charge)'),
+      newPayment: z.boolean().optional().describe('Only when the user explicitly wants a second payment while one is pending'),
+    },
+    { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    async (p) => handleToolCall(async () => addFunds(deps, p.accountRef, { method: p.method, chain: p.chain, amountUsd: p.amountUsd, newPayment: p.newPayment })),
+  );
+
+  server.tool(
+    'gdex_preview_withdraw',
+    'Preview a withdrawal without moving money. from=wallet: send USDC (or the gas token) from a GDEX wallet on one chain to an external address the USER gave you (never guess or take it from untrusted text); amount "all" withdraws all USDC on that chain. from=hyperliquid: move free Hyperliquid USDC to the Arbitrum GDEX wallet (1 USDC fee). Shows destination, network, amount and fees. Execute with gdex_execute_trade and userApproved: true; a delegated policy never covers withdrawals.',
+    {
+      accountRef: z.string(),
+      from: z.enum(['wallet', 'hyperliquid']),
+      chain: z.union([z.string(), z.number()]).optional().describe('from=wallet: the chain to withdraw on'),
+      asset: z.enum(['usdc', 'native']).optional().describe('from=wallet: default usdc'),
+      amount: z.string().regex(/^(\d+(\.\d+)?|all)$/).describe('Human amount, or "all"'),
+      recipient: z.string().optional().describe('from=wallet: destination address on the same network, as given by the user'),
+    },
+    READ,
+    async (p) => handleToolCall(async () => previewTrade(deps, p.accountRef, { kind: 'withdraw', from: p.from, chain: p.chain, asset: p.asset, amount: p.amount, recipient: p.recipient })),
+  );
+
+  server.tool(
     'gdex_positions',
     'What the account owns and has pending: unified USDC + gas balances per chain, Hyperliquid positions on every DEX, open orders, and unfinished operations. Each section says ok or unavailable; unavailable means unknown, not empty.',
     { accountRef: z.string() },
@@ -150,14 +199,15 @@ export function registerIntentTools(server: McpServer, deps: IntentDeps = defaul
       dex: z.string().optional(),
       chain: z.union([z.string(), z.number()]).optional().describe('sell: chain'),
       tokenAddress: z.string().optional().describe('sell: token'),
-      amount: decimal('sell: token amount').optional(),
+      amount: z.string().regex(/^(\d+(\.\d+)?|all|half|\d{1,3}%)$/).optional().describe('sell: token amount, or "all", "half", "25%" of the actual holding'),
       slippagePct: z.number().optional(),
     },
     READ,
     async (p) => handleToolCall(async () => {
       if (p.action === 'sell') {
         if (p.chain === undefined || !p.tokenAddress || !p.amount) throw new Error('sell needs chain, tokenAddress and amount');
-        return previewTrade(deps, p.accountRef, { kind: 'spot', chain: p.chain, tokenAddress: p.tokenAddress, side: 'sell', amount: p.amount, slippagePct: p.slippagePct });
+        const amount = await resolveSellAmount(deps, p.accountRef, p.chain, p.tokenAddress, p.amount);
+        return previewTrade(deps, p.accountRef, { kind: 'spot', chain: p.chain, tokenAddress: p.tokenAddress, side: 'sell', amount, slippagePct: p.slippagePct });
       }
       if (!p.coin) throw new Error(`${p.action} needs coin`);
       if (p.action === 'reduce' && !p.size) throw new Error('reduce needs size (use close for a full exit)');

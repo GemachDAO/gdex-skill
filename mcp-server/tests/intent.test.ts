@@ -63,7 +63,7 @@ describe('preview', () => {
     const p = await buy();
     expect(p.terms).toMatchObject({ chainId: 8453, spendRaw: '5000000', expectedOutRaw: '1276000000000000000', minOutRaw: '1263240000000000000', maxSourceSpendRaw: '9600000', autoFunding: true });
     expect(p.expiresAt - p.createdAt).toBe(60_000);
-    expect(p.warnings.join(' ')).toMatch(/never more than 9.6 USDC/);
+    expect(p.summary).toMatch(/Total maximum debit: 9.6 USDC/);
   });
 
   it('rejects chains without USDC and malformed amounts before quoting', async () => {
