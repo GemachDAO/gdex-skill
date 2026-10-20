@@ -155392,11 +155392,11 @@ async function perpMarket(deps, coin) {
 }
 var bridgeQuotes = /* @__PURE__ */ new Map();
 var BRIDGE_QUOTE_TTL_MS = 3e4;
-async function bridgeSourceRaw(deps, account, fromChainId, toChainId, amountRaw) {
-  const key = `${account.accountRef}:${fromChainId}:${toChainId}:${amountRaw}`;
+async function bridgeSourceRaw(deps, account, fromChainId, toChainId, amountRaw, gasTopUp) {
+  const key = `${account.accountRef}:${fromChainId}:${toChainId}:${amountRaw}:${gasTopUp}`;
   const hit = bridgeQuotes.get(key);
   if (hit && deps.now() - hit.at < BRIDGE_QUOTE_TTL_MS) return hit.fromRaw;
-  const quote = () => deps.sdk().estimateUsdcBridge({ ...creds2(account), fromChainId, toChainId, amountRaw });
+  const quote = () => deps.sdk().estimateUsdcBridge({ ...creds2(account), fromChainId, toChainId, amountRaw, gasTopUp });
   let est;
   try {
     est = await quote();
@@ -155429,7 +155429,7 @@ async function fundingPlan(deps, account, chainId, amountRaw, autoFunding) {
   if (!autoFunding || !src) return { ...plan, routingCostRaw: "0" };
   try {
     const deliverRaw = shortfall > 0n ? shortfall : 10n ** BigInt(dDec);
-    const fromRaw = await bridgeSourceRaw(deps, account, src.chainId, chainId, deliverRaw.toString());
+    const fromRaw = await bridgeSourceRaw(deps, account, src.chainId, chainId, deliverRaw.toString(), needsGas);
     const sDec = usdcDecimals(src.chainId);
     const fromInDest = sDec === dDec ? fromRaw : sDec > dDec ? fromRaw / 10n ** BigInt(sDec - dDec) : fromRaw * 10n ** BigInt(dDec - sDec);
     const cost = fromInDest > deliverRaw ? fromInDest - deliverRaw : 0n;
@@ -155467,7 +155467,11 @@ async function previewWith(deps, account, accountRef, intent) {
       let maxSourceSpendRaw;
       if (budget === "total") {
         if (plan.status !== "ok") throw new Error(`The funding route could not be priced (${plan.error ?? "unknown"}), so a total budget cannot be guaranteed right now; retry, or preview with budget "trade" to see the signed cap`);
-        amountRaw = (BigInt(requestedRaw) - BigInt(plan.routingCostRaw ?? "0")).toString();
+        const routed = BigInt(requestedRaw) - BigInt(plan.routingCostRaw ?? "0");
+        const local = plan.needsGas ? 0n : BigInt(plan.localUsdcRaw ?? "0");
+        const localOnly = local < BigInt(requestedRaw) ? local : BigInt(requestedRaw);
+        amountRaw = (localOnly > routed ? localOnly : routed).toString();
+        if (localOnly > routed) warnings.push(`Using the ${formatUnits(localOnly.toString(), uDec)} USDC already on this chain: bridging the rest would cost more than it adds.`);
         if (BigInt(amountRaw) <= 0n) {
           throw new import_gdex_skill6.GdexValidationError(`${intent.amount} USDC does not cover routing: moving funds to ${USDC_TOKENS[chain.id]?.name ?? chain.id} costs ~${formatUnits(plan.routingCostRaw ?? "0", uDec)} USDC. Add money on this chain or raise the budget.`, "amount");
         }
@@ -155512,7 +155516,7 @@ async function previewWith(deps, account, accountRef, intent) {
         fundingPlan: plan
       };
       summary = budget === "total" ? `Buy ${formatUnits2(outRaw, tokenDecimals)} (min ${formatUnits2(minOutRaw, tokenDecimals)}) of ${intent.tokenAddress} on ${USDC_TOKENS[chain.id]?.name ?? chain.id}. Total maximum spend: ${intent.amount} USDC, routing and gas included (trade ${amountHuman} USDC).` : `Buy ${formatUnits2(outRaw, tokenDecimals)} (min ${formatUnits2(minOutRaw, tokenDecimals)}) of ${intent.tokenAddress} for ${amountHuman} USDC on ${USDC_TOKENS[chain.id]?.name ?? chain.id}. Total maximum debit: ${maxDebit} USDC (trade plus any routing and gas; a signed cap, not a fee quote).`;
-      if (plan.status === "ok" && !plan.localSufficient) warnings.push(`Only ${formatUnits(plan.localUsdcRaw, uDec)} USDC is on this chain; GDEX will bridge the rest${plan.bridgeFrom ? ` from ${plan.bridgeFrom}` : ""} (~${formatUnits(plan.routingCostRaw ?? "0", uDec)} USDC routing cost estimated).`);
+      if (plan.status === "ok" && BigInt(amountRaw) > BigInt(plan.localUsdcRaw ?? "0")) warnings.push(`Only ${formatUnits(plan.localUsdcRaw, uDec)} USDC is on this chain; GDEX will bridge the rest${plan.bridgeFrom ? ` from ${plan.bridgeFrom}` : ""} (~${formatUnits(plan.routingCostRaw ?? "0", uDec)} USDC routing cost estimated).`);
       if (plan.status === "ok" && plan.needsGas) warnings.push("No gas on this chain: GDEX tops it up from USDC as part of the funding, inside the cap above.");
       if (plan.status !== "ok") warnings.push("Balances could not be read, so the funding route is unknown; the signed cap still bounds the debit.");
       if (budget === "trade" && autoFunding) warnings.push(`To spend at most ${intent.amount} USDC in total instead, preview again with budget: "total".`);
@@ -155744,6 +155748,16 @@ async function reconcileWith(deps, account, op, waitMs) {
     for (; ; ) {
       const row = (await chainBalances(deps, account)).find((c) => c.chainId === d.chainId && !c.error);
       if (!row) return saveOp(op, op.state, {}, "Balance unavailable right now; still waiting (unknown, not failed)", deps.now());
+      if (op.state !== "credited" && BigInt(row.usdcRaw) < BigInt(d.baselineRaw)) {
+        op = await saveOp(
+          op,
+          op.state,
+          { detail: { ...op.detail, baselineRaw: row.usdcRaw } },
+          `Wallet USDC fell to ${formatUnits(row.usdcRaw, USDC_TOKENS[d.chainId]?.decimals ?? 6)} while waiting; arrival is measured from here`,
+          deps.now()
+        );
+        d.baselineRaw = row.usdcRaw;
+      }
       const prog = fundingProgress(op, row.usdcRaw, deps.now());
       if (prog.state === "credited" || prog.state === "expired" || deps.now() >= deadline) {
         if (prog.state === op.state && prog.state !== "credited") return op;

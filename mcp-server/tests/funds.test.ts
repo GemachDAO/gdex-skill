@@ -110,6 +110,26 @@ describe('total budget', () => {
     expect(p.summary).toMatch(/Total maximum spend: 20 USDC/);
   });
 
+  it('prices a gas top-up only when the destination has no gas', async () => {
+    clock += 31_000;
+    await buy({ budget: 'total' });
+    expect(sdk.estimateUsdcBridge).toHaveBeenLastCalledWith(expect.objectContaining({ toChainId: 8453, gasTopUp: false }));
+    clock += 31_000;
+    chains = [row(8453, '0', '0'), row(42161, '30')];
+    await buy({ budget: 'total' });
+    expect(sdk.estimateUsdcBridge).toHaveBeenLastCalledWith(expect.objectContaining({ toChainId: 8453, gasTopUp: true }));
+  });
+
+  it('"total" uses the USDC already on the chain when routing a small shortfall costs more than it adds', async () => {
+    clock += 31_000;
+    chains = [row(8453, '19', '0.001'), row(42161, '10')];
+    const p = await buy({ budget: 'total' });
+    // shortfall 1 USDC, quote charges 1.5 to route it: 20 - 1.5 = 18.5 < 19 local
+    expect(p.terms).toMatchObject({ spendRaw: '19000000', maxSourceSpendRaw: '20000000' });
+    expect(p.warnings.join(' ')).toMatch(/already on this chain/);
+    expect(p.warnings.join(' ')).not.toMatch(/will bridge/);
+  });
+
   it('"total" with enough USDC and gas on the chain needs no routing', async () => {
     chains = [row(8453, '25', '0.001'), row(42161, '10')];
     const p = await buy({ budget: 'total' });
@@ -158,6 +178,17 @@ describe('add money', () => {
     chains = [row(8453, '48.5', '0.001'), row(42161, '10')];
     op = await intent.reconcileOperation(deps as any, r.operation.opId, 20_000);
     expect(op).toMatchObject({ state: 'credited', detail: expect.objectContaining({ creditedRaw: '48500000' }) });
+  });
+
+  it('money leaving the wallet while waiting does not hide or shrink the arrival', async () => {
+    chains = [row(8453, '5', '0.001'), row(42161, '10')];
+    const r: any = await intent.addFunds(deps as any, REF, { method: 'crypto', chain: 'base' });
+    chains = [row(8453, '4', '0.001'), row(42161, '10')]; // a 1 USDC withdrawal from the same wallet
+    let op = await intent.reconcileOperation(deps as any, r.operation.opId, 10_000);
+    expect(op).toMatchObject({ state: 'awaiting_user', detail: expect.objectContaining({ baselineRaw: '4000000' }) });
+    chains = [row(8453, '24', '0.001'), row(42161, '10')];
+    op = await intent.reconcileOperation(deps as any, r.operation.opId, 10_000);
+    expect(op).toMatchObject({ state: 'credited', detail: expect.objectContaining({ creditedRaw: '20000000' }) });
   });
 
   it('expires after 48h without credit and says a late delivery still lands', async () => {

@@ -7,7 +7,7 @@ What an agent can do with GDEX through the MCP server, and how each capability w
 - **live-read**: queried against production; no funds moved.
 - **offline**: unit, fixture or packed-artifact tests only.
 
-Snapshot: release 5.0.0 plus the Phase 3 changes; tests dated 2026-10-19.
+Snapshot: release 5.1.0 plus the flow-of-funds changes; tests dated 2026-10-20.
 
 ## Capability matrix
 
@@ -15,6 +15,12 @@ Snapshot: release 5.0.0 plus the Phase 3 changes; tests dated 2026-10-19.
 |---|---|---|---|
 | Readiness: `gdex_status` | — | — | live-read |
 | Connect without secrets in chat: `gdex_connect` (key file or new wallet) | GDEX managed custody | Server keeps the control key + session key locally (0600); GDEX holds the trading wallets | live-read |
+| Funded / unfunded readiness and balance summary (`gdex_status`, `gdex_positions.summary`) | all USDC chains + HL | managed | live-read |
+| Add money: Apple Pay / card checkout steps (`gdex_add_funds`), bound to the GDEX wallet and USDC network | Base (Meld) | managed | live-read (instructions and resume); a real Meld payment is not yet verified |
+| Add money: funding operation reports `credited` from the wallet balance | Arbitrum | managed | **live** (1 USDC arrival from a Hyperliquid withdrawal) |
+| Total-budget buy (`budget: "total"`), bridged funding | Ethereum (from Arbitrum) | managed | **live** ($3 budget, $1.86 debited, filled in 23 s) |
+| Withdraw USDC from a GDEX wallet to the user's address (`gdex_preview_withdraw`) | Base | managed | **live** (1 USDC, confirmed on-chain) |
+| Withdraw Hyperliquid USDC to the Arbitrum GDEX wallet | Hyperliquid → Arbitrum | managed | **live** (2 USDC, 1 USDC arrived after the fee in ~4 min) |
 | Spot buy with USDC, sell to USDC (agent flow) | Base | managed | **live** (AERO buy, then sell; filled; balance back to zero) |
 | Spot buy with USDC, auto-bridged funding + gas top-up | Solana, BSC, Ethereum (funded from Arbitrum) | managed | **live** |
 | Spot sell to USDC | Solana, Base, Ethereum | managed | **live** |
