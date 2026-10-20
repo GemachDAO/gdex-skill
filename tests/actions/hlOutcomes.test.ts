@@ -254,12 +254,18 @@ describe('outcome actions (mocked client)', () => {
   let client: jest.Mocked<GdexApiClient>;
 
   beforeEach(() => {
+    // Run at the fixture's capture time (shifted, not frozen) so its markets don't expire with the wall clock
+    const realNow = Date.now.bind(Date);
+    const offset = realNow() - NOW;
+    jest.spyOn(Date, 'now').mockImplementation(() => realNow() - offset);
     client = new MockedClient() as jest.Mocked<GdexApiClient>;
     client.get = jest.fn().mockImplementation(async (path: string) =>
       path === '/v1/hl/outcome_account' ? clone(accountFixture) : clone(liveFixture),
     );
     client.post = jest.fn().mockResolvedValue(resting);
   });
+
+  afterEach(() => jest.restoreAllMocks());
 
   it('getHlOutcomeMarkets filters by state/query and reports totals', async () => {
     const r = await getHlOutcomeMarkets(client, { state: 'active', query: 'ETH', now: NOW });
