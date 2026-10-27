@@ -133,13 +133,33 @@ export function formatTimestamp(timestamp: number): string {
   return new Date(timestamp * 1000).toISOString();
 }
 
+/** The shortest decimal JavaScript prints for a non-negative `value`, without exponent notation. */
+function plainDecimal(value: number): string {
+  const [mantissa, exponent] = String(value).split('e');
+  if (exponent === undefined) return mantissa;
+  const [int, frac = ''] = mantissa.split('.');
+  const digits = int + frac;
+  const point = int.length + Number(exponent);
+  if (point <= 0) return `0.${'0'.repeat(-point)}${digits}`;
+  if (point >= digits.length) return digits + '0'.repeat(point - digits.length);
+  return `${digits.slice(0, point)}.${digits.slice(point)}`;
+}
+
 /**
  * Truncate a number to a fixed number of decimal places without rounding.
+ *
+ * Non-negative values are cut on their decimal form, so a value that already
+ * has `decimals` places is kept (1.15 stays "1.15"; `1.15 * 100` would be
+ * 114.99999999999999 and floor to 1.14). Negative values round down, as before.
  *
  * @param value - Value to truncate
  * @param decimals - Number of decimal places
  */
 export function truncateDecimals(value: number, decimals: number): string {
+  if (Number.isFinite(value) && value >= 0 && Number.isInteger(decimals) && decimals >= 0) {
+    const [int, frac = ''] = plainDecimal(value).split('.');
+    return decimals === 0 ? int : `${int}.${frac.slice(0, decimals).padEnd(decimals, '0')}`;
+  }
   const factor = Math.pow(10, decimals);
   return (Math.floor(value * factor) / factor).toFixed(decimals);
 }

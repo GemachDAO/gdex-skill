@@ -128228,7 +128228,7 @@ var require_formatting = __commonJS({
     exports.formatPercentChange = formatPercentChange;
     exports.shortenAddress = shortenAddress;
     exports.formatTimestamp = formatTimestamp;
-    exports.truncateDecimals = truncateDecimals;
+    exports.truncateDecimals = truncateDecimals2;
     var common_1 = require_common2();
     function getChainName(chain) {
       if (chain === "solana")
@@ -128321,7 +128321,24 @@ var require_formatting = __commonJS({
     function formatTimestamp(timestamp) {
       return new Date(timestamp * 1e3).toISOString();
     }
-    function truncateDecimals(value, decimals) {
+    function plainDecimal(value) {
+      const [mantissa, exponent] = String(value).split("e");
+      if (exponent === void 0)
+        return mantissa;
+      const [int2, frac = ""] = mantissa.split(".");
+      const digits = int2 + frac;
+      const point = int2.length + Number(exponent);
+      if (point <= 0)
+        return `0.${"0".repeat(-point)}${digits}`;
+      if (point >= digits.length)
+        return digits + "0".repeat(point - digits.length);
+      return `${digits.slice(0, point)}.${digits.slice(point)}`;
+    }
+    function truncateDecimals2(value, decimals) {
+      if (Number.isFinite(value) && value >= 0 && Number.isInteger(decimals) && decimals >= 0) {
+        const [int2, frac = ""] = plainDecimal(value).split(".");
+        return decimals === 0 ? int2 : `${int2}.${frac.slice(0, decimals).padEnd(decimals, "0")}`;
+      }
       const factor = Math.pow(10, decimals);
       return (Math.floor(value * factor) / factor).toFixed(decimals);
     }
@@ -155136,10 +155153,6 @@ function formatUnits(raw, decimals) {
   const frac = s.slice(s.length - decimals).replace(/0+$/, "");
   return frac ? `${whole}.${frac}` : whole;
 }
-function floorToDecimals(value, decimals) {
-  const f2 = 10 ** decimals;
-  return (Math.floor(value * f2) / f2).toFixed(decimals);
-}
 function usdcDecimals(chainId) {
   return chainId === 56 ? 18 : 6;
 }
@@ -155254,7 +155267,7 @@ async function previewWith(deps, account, accountRef, intent) {
     if (!Number.isFinite(price) || price <= 0) throw new import_gdex_skill5.GdexValidationError("limitPrice must be a positive number", "limitPrice");
     const notional = intent.notionalUsd !== void 0 ? Number(intent.notionalUsd) : Number(intent.marginUsd) * intent.leverage;
     if (!Number.isFinite(notional) || notional <= 0) throw new import_gdex_skill5.GdexValidationError("Amount must be a positive number", "notionalUsd");
-    const size = floorToDecimals(notional / price, m.szDecimals);
+    const size = (0, import_gdex_skill5.truncateDecimals)(notional / price, m.szDecimals);
     const sizedNotional = Number(size) * price;
     if (Number(size) <= 0 || sizedNotional < HL_MIN_ORDER_USD) {
       throw new import_gdex_skill5.GdexValidationError(`Order too small: ${size} ${m.coin} \u2248 $${sizedNotional.toFixed(2)}; GDEX requires at least $${HL_MIN_ORDER_USD}`, "notionalUsd");
