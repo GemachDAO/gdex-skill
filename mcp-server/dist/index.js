@@ -936,9 +936,9 @@ if __name__ == "__main__":
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/codegen/code.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/codegen/code.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/codegen/code.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -1091,9 +1091,9 @@ var require_code = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/codegen/scope.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/codegen/scope.js
 var require_scope = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/codegen/scope.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/codegen/scope.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -1237,9 +1237,9 @@ var require_scope = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/codegen/index.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/codegen/index.js
 var require_codegen = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/codegen/index.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/codegen/index.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -1958,9 +1958,9 @@ var require_codegen = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/util.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/util.js
 var require_util = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/util.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/util.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -1968,10 +1968,10 @@ var require_util = __commonJS({
     var codegen_1 = require_codegen();
     var code_1 = require_code();
     function toHash(arr) {
-      const hash3 = {};
+      const hash2 = {};
       for (const item of arr)
-        hash3[item] = true;
-      return hash3;
+        hash2[item] = true;
+      return hash2;
     }
     exports.toHash = toHash;
     function alwaysValidSchema(it, schema) {
@@ -2126,9 +2126,9 @@ var require_util = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/names.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/names.js
 var require_names = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/names.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/names.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -2166,9 +2166,9 @@ var require_names = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/errors.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/errors.js
 var require_errors = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/errors.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/errors.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -2289,9 +2289,9 @@ var require_errors = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/validate/boolSchema.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/boolSchema.js
 var require_boolSchema = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/validate/boolSchema.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/boolSchema.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -2341,9 +2341,9 @@ var require_boolSchema = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/rules.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/rules.js
 var require_rules = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/rules.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/rules.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -2373,9 +2373,9 @@ var require_rules = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/validate/applicability.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/applicability.js
 var require_applicability = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/validate/applicability.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/applicability.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -2397,9 +2397,9 @@ var require_applicability = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/validate/dataType.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/dataType.js
 var require_dataType = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/validate/dataType.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/dataType.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -2582,9 +2582,9 @@ var require_dataType = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/validate/defaults.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/defaults.js
 var require_defaults = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/validate/defaults.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/defaults.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -2620,9 +2620,9 @@ var require_defaults = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/code.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/code.js
 var require_code2 = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/code.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/code.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -2754,9 +2754,9 @@ var require_code2 = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/validate/keyword.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/keyword.js
 var require_keyword = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/validate/keyword.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/keyword.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -2873,9 +2873,9 @@ var require_keyword = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/validate/subschema.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/subschema.js
 var require_subschema = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/validate/subschema.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/subschema.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -2957,9 +2957,9 @@ var require_subschema = __commonJS({
   }
 });
 
-// mcp-server/node_modules/fast-deep-equal/index.js
+// node_modules/fast-deep-equal/index.js
 var require_fast_deep_equal = __commonJS({
-  "mcp-server/node_modules/fast-deep-equal/index.js"(exports, module) {
+  "node_modules/fast-deep-equal/index.js"(exports, module) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     module.exports = function equal(a, b) {
@@ -2993,9 +2993,9 @@ var require_fast_deep_equal = __commonJS({
   }
 });
 
-// mcp-server/node_modules/json-schema-traverse/index.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/json-schema-traverse/index.js
 var require_json_schema_traverse = __commonJS({
-  "mcp-server/node_modules/json-schema-traverse/index.js"(exports, module) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/json-schema-traverse/index.js"(exports, module) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     var traverse = module.exports = function(schema, opts, cb) {
@@ -3082,9 +3082,9 @@ var require_json_schema_traverse = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/resolve.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/resolve.js
 var require_resolve = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/resolve.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/resolve.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -3239,9 +3239,9 @@ var require_resolve = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/validate/index.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/index.js
 var require_validate = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/validate/index.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/validate/index.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -3748,9 +3748,9 @@ var require_validate = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/runtime/validation_error.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/runtime/validation_error.js
 var require_validation_error = __commonJS({
-  "mcp-server/node_modules/ajv/dist/runtime/validation_error.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/runtime/validation_error.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -3765,9 +3765,9 @@ var require_validation_error = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/ref_error.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/ref_error.js
 var require_ref_error = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/ref_error.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/ref_error.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -3783,9 +3783,9 @@ var require_ref_error = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/compile/index.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/index.js
 var require_compile = __commonJS({
-  "mcp-server/node_modules/ajv/dist/compile/index.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/compile/index.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -4008,9 +4008,9 @@ var require_compile = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/refs/data.json
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/refs/data.json
 var require_data = __commonJS({
-  "mcp-server/node_modules/ajv/dist/refs/data.json"(exports, module) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/refs/data.json"(exports, module) {
     module.exports = {
       $id: "https://raw.githubusercontent.com/ajv-validator/ajv/master/lib/refs/data.json#",
       description: "Meta-schema for $data reference (JSON AnySchema extension proposal)",
@@ -4027,9 +4027,9 @@ var require_data = __commonJS({
   }
 });
 
-// mcp-server/node_modules/fast-uri/lib/utils.js
+// node_modules/fast-uri/lib/utils.js
 var require_utils = __commonJS({
-  "mcp-server/node_modules/fast-uri/lib/utils.js"(exports, module) {
+  "node_modules/fast-uri/lib/utils.js"(exports, module) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     var isUUID = RegExp.prototype.test.bind(/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu);
@@ -4066,13 +4066,13 @@ var require_utils = __commonJS({
       buffer.length = 0;
       return true;
     }
-    function consumeHextets(buffer, address, output3) {
+    function consumeHextets(buffer, address, output2) {
       if (buffer.length) {
         const hex = stringArrayToHexStripped(buffer);
         if (hex !== "") {
           address.push(hex);
         } else {
-          output3.error = true;
+          output2.error = true;
           return false;
         }
         buffer.length = 0;
@@ -4081,7 +4081,7 @@ var require_utils = __commonJS({
     }
     function getIPV6(input) {
       let tokenCount = 0;
-      const output3 = { error: false, address: "", zone: "" };
+      const output2 = { error: false, address: "", zone: "" };
       const address = [];
       const buffer = [];
       let endipv6Encountered = false;
@@ -4096,11 +4096,11 @@ var require_utils = __commonJS({
           if (endipv6Encountered === true) {
             endIpv6 = true;
           }
-          if (!consume(buffer, address, output3)) {
+          if (!consume(buffer, address, output2)) {
             break;
           }
           if (++tokenCount > 7) {
-            output3.error = true;
+            output2.error = true;
             break;
           }
           if (i > 0 && input[i - 1] === ":") {
@@ -4109,7 +4109,7 @@ var require_utils = __commonJS({
           address.push(":");
           continue;
         } else if (cursor === "%") {
-          if (!consume(buffer, address, output3)) {
+          if (!consume(buffer, address, output2)) {
             break;
           }
           consume = consumeIsZone;
@@ -4120,15 +4120,15 @@ var require_utils = __commonJS({
       }
       if (buffer.length) {
         if (consume === consumeIsZone) {
-          output3.zone = buffer.join("");
+          output2.zone = buffer.join("");
         } else if (endIpv6) {
           address.push(buffer.join(""));
         } else {
           address.push(stringArrayToHexStripped(buffer));
         }
       }
-      output3.address = address.join("");
-      return output3;
+      output2.address = address.join("");
+      return output2;
     }
     function normalizeIPv6(host) {
       if (findToken(host, ":") < 2) {
@@ -4156,7 +4156,7 @@ var require_utils = __commonJS({
     }
     function removeDotSegments(path3) {
       let input = path3;
-      const output3 = [];
+      const output2 = [];
       let nextSlash = -1;
       let len = 0;
       while (len = input.length) {
@@ -4164,10 +4164,10 @@ var require_utils = __commonJS({
           if (input === ".") {
             break;
           } else if (input === "/") {
-            output3.push("/");
+            output2.push("/");
             break;
           } else {
-            output3.push(input);
+            output2.push(input);
             break;
           }
         } else if (len === 2) {
@@ -4180,16 +4180,16 @@ var require_utils = __commonJS({
             }
           } else if (input[0] === "/") {
             if (input[1] === "." || input[1] === "/") {
-              output3.push("/");
+              output2.push("/");
               break;
             }
           }
         } else if (len === 3) {
           if (input === "/..") {
-            if (output3.length !== 0) {
-              output3.pop();
+            if (output2.length !== 0) {
+              output2.pop();
             }
-            output3.push("/");
+            output2.push("/");
             break;
           }
         }
@@ -4211,8 +4211,8 @@ var require_utils = __commonJS({
             } else if (input[2] === ".") {
               if (input[3] === "/") {
                 input = input.slice(3);
-                if (output3.length !== 0) {
-                  output3.pop();
+                if (output2.length !== 0) {
+                  output2.pop();
                 }
                 continue;
               }
@@ -4220,14 +4220,14 @@ var require_utils = __commonJS({
           }
         }
         if ((nextSlash = input.indexOf("/", 1)) === -1) {
-          output3.push(input);
+          output2.push(input);
           break;
         } else {
-          output3.push(input.slice(0, nextSlash));
+          output2.push(input.slice(0, nextSlash));
           input = input.slice(nextSlash);
         }
       }
-      return output3.join("");
+      return output2.join("");
     }
     var HOST_DELIMS = { "@": "%40", "/": "%2F", "?": "%3F", "#": "%23", ":": "%3A" };
     var HOST_DELIM_RE = /[@/?#:]/g;
@@ -4241,7 +4241,7 @@ var require_utils = __commonJS({
       if (input.indexOf("%") === -1) {
         return input;
       }
-      let output3 = "";
+      let output2 = "";
       for (let i = 0; i < input.length; i++) {
         if (input[i] === "%" && i + 2 < input.length) {
           const hex = input.slice(i + 1, i + 3);
@@ -4249,20 +4249,20 @@ var require_utils = __commonJS({
             const normalizedHex = hex.toUpperCase();
             const decoded = String.fromCharCode(parseInt(normalizedHex, 16));
             if (decodeUnreserved && isUnreserved(decoded)) {
-              output3 += decoded;
+              output2 += decoded;
             } else {
-              output3 += "%" + normalizedHex;
+              output2 += "%" + normalizedHex;
             }
             i += 2;
             continue;
           }
         }
-        output3 += input[i];
+        output2 += input[i];
       }
-      return output3;
+      return output2;
     }
     function normalizePathEncoding(input) {
-      let output3 = "";
+      let output2 = "";
       for (let i = 0; i < input.length; i++) {
         if (input[i] === "%" && i + 2 < input.length) {
           const hex = input.slice(i + 1, i + 3);
@@ -4270,36 +4270,36 @@ var require_utils = __commonJS({
             const normalizedHex = hex.toUpperCase();
             const decoded = String.fromCharCode(parseInt(normalizedHex, 16));
             if (decoded !== "." && isUnreserved(decoded)) {
-              output3 += decoded;
+              output2 += decoded;
             } else {
-              output3 += "%" + normalizedHex;
+              output2 += "%" + normalizedHex;
             }
             i += 2;
             continue;
           }
         }
         if (isPathCharacter(input[i])) {
-          output3 += input[i];
+          output2 += input[i];
         } else {
-          output3 += escape(input[i]);
+          output2 += escape(input[i]);
         }
       }
-      return output3;
+      return output2;
     }
     function escapePreservingEscapes(input) {
-      let output3 = "";
+      let output2 = "";
       for (let i = 0; i < input.length; i++) {
         if (input[i] === "%" && i + 2 < input.length) {
           const hex = input.slice(i + 1, i + 3);
           if (isHexPair(hex)) {
-            output3 += "%" + hex.toUpperCase();
+            output2 += "%" + hex.toUpperCase();
             i += 2;
             continue;
           }
         }
-        output3 += escape(input[i]);
+        output2 += escape(input[i]);
       }
-      return output3;
+      return output2;
     }
     function recomposeAuthority(component) {
       const uriTokens = [];
@@ -4341,9 +4341,9 @@ var require_utils = __commonJS({
   }
 });
 
-// mcp-server/node_modules/fast-uri/lib/schemes.js
+// node_modules/fast-uri/lib/schemes.js
 var require_schemes = __commonJS({
-  "mcp-server/node_modules/fast-uri/lib/schemes.js"(exports, module) {
+  "node_modules/fast-uri/lib/schemes.js"(exports, module) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     var { isUUID } = require_utils();
@@ -4552,9 +4552,9 @@ var require_schemes = __commonJS({
   }
 });
 
-// mcp-server/node_modules/fast-uri/index.js
+// node_modules/fast-uri/index.js
 var require_fast_uri = __commonJS({
-  "mcp-server/node_modules/fast-uri/index.js"(exports, module) {
+  "node_modules/fast-uri/index.js"(exports, module) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     var { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizePercentEncoding, normalizePathEncoding, escapePreservingEscapes, reescapeHostDelimiters, isIPv4, nonSimpleDomain } = require_utils();
@@ -4839,9 +4839,9 @@ var require_fast_uri = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/runtime/uri.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/runtime/uri.js
 var require_uri = __commonJS({
-  "mcp-server/node_modules/ajv/dist/runtime/uri.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/runtime/uri.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -4851,9 +4851,9 @@ var require_uri = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/core.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/core.js
 var require_core = __commonJS({
-  "mcp-server/node_modules/ajv/dist/core.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/core.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -4964,7 +4964,7 @@ var require_core = __commonJS({
       constructor(opts = {}) {
         this.schemas = {};
         this.refs = {};
-        this.formats = {};
+        this.formats = /* @__PURE__ */ Object.create(null);
         this._compilations = /* @__PURE__ */ new Set();
         this._loading = {};
         this._cache = /* @__PURE__ */ new Map();
@@ -5463,9 +5463,9 @@ var require_core = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/core/id.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/core/id.js
 var require_id = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/core/id.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/core/id.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -5479,9 +5479,9 @@ var require_id = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/core/ref.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/core/ref.js
 var require_ref = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/core/ref.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/core/ref.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -5602,9 +5602,9 @@ var require_ref = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/core/index.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/core/index.js
 var require_core2 = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/core/index.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/core/index.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -5624,9 +5624,9 @@ var require_core2 = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/validation/limitNumber.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/limitNumber.js
 var require_limitNumber = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/validation/limitNumber.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/limitNumber.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -5657,9 +5657,9 @@ var require_limitNumber = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/validation/multipleOf.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/multipleOf.js
 var require_multipleOf = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/validation/multipleOf.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/multipleOf.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -5686,9 +5686,9 @@ var require_multipleOf = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/runtime/ucs2length.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/runtime/ucs2length.js
 var require_ucs2length = __commonJS({
-  "mcp-server/node_modules/ajv/dist/runtime/ucs2length.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/runtime/ucs2length.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -5713,9 +5713,9 @@ var require_ucs2length = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/validation/limitLength.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/limitLength.js
 var require_limitLength = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/validation/limitLength.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/limitLength.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -5746,9 +5746,9 @@ var require_limitLength = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/validation/pattern.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/pattern.js
 var require_pattern = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/validation/pattern.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/pattern.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -5784,9 +5784,9 @@ var require_pattern = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/validation/limitProperties.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/limitProperties.js
 var require_limitProperties = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/validation/limitProperties.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/limitProperties.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -5814,9 +5814,9 @@ var require_limitProperties = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/validation/required.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/required.js
 var require_required = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/validation/required.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/required.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -5897,9 +5897,9 @@ var require_required = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/validation/limitItems.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/limitItems.js
 var require_limitItems = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/validation/limitItems.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/limitItems.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -5927,9 +5927,9 @@ var require_limitItems = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/runtime/equal.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/runtime/equal.js
 var require_equal = __commonJS({
-  "mcp-server/node_modules/ajv/dist/runtime/equal.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/runtime/equal.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -5939,9 +5939,9 @@ var require_equal = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/validation/uniqueItems.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/uniqueItems.js
 var require_uniqueItems = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/validation/uniqueItems.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/uniqueItems.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6007,9 +6007,9 @@ var require_uniqueItems = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/validation/const.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/const.js
 var require_const = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/validation/const.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/const.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6037,9 +6037,9 @@ var require_const = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/validation/enum.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/enum.js
 var require_enum = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/validation/enum.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/enum.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6087,9 +6087,9 @@ var require_enum = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/validation/index.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/index.js
 var require_validation = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/validation/index.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/validation/index.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6126,9 +6126,9 @@ var require_validation = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/additionalItems.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/additionalItems.js
 var require_additionalItems = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/additionalItems.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/additionalItems.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6180,9 +6180,9 @@ var require_additionalItems = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/items.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/items.js
 var require_items = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/items.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/items.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6238,9 +6238,9 @@ var require_items = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/prefixItems.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/prefixItems.js
 var require_prefixItems = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/prefixItems.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/prefixItems.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6256,9 +6256,9 @@ var require_prefixItems = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/items2020.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/items2020.js
 var require_items2020 = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/items2020.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/items2020.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6292,9 +6292,9 @@ var require_items2020 = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/contains.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/contains.js
 var require_contains = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/contains.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/contains.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6387,9 +6387,9 @@ var require_contains = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/dependencies.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/dependencies.js
 var require_dependencies = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/dependencies.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/dependencies.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6482,9 +6482,9 @@ var require_dependencies = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/propertyNames.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/propertyNames.js
 var require_propertyNames = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/propertyNames.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/propertyNames.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6526,9 +6526,9 @@ var require_propertyNames = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js
 var require_additionalProperties = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6633,9 +6633,9 @@ var require_additionalProperties = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/properties.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/properties.js
 var require_properties = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/properties.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/properties.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6692,9 +6692,9 @@ var require_properties = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/patternProperties.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/patternProperties.js
 var require_patternProperties = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/patternProperties.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/patternProperties.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6767,9 +6767,9 @@ var require_patternProperties = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/not.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/not.js
 var require_not = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/not.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/not.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6799,9 +6799,9 @@ var require_not = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/anyOf.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/anyOf.js
 var require_anyOf = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/anyOf.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/anyOf.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6817,9 +6817,9 @@ var require_anyOf = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/oneOf.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/oneOf.js
 var require_oneOf = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/oneOf.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/oneOf.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6876,9 +6876,9 @@ var require_oneOf = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/allOf.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/allOf.js
 var require_allOf = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/allOf.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/allOf.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6904,9 +6904,9 @@ var require_allOf = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/if.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/if.js
 var require_if = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/if.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/if.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6974,9 +6974,9 @@ var require_if = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/thenElse.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/thenElse.js
 var require_thenElse = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/thenElse.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/thenElse.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -6993,9 +6993,9 @@ var require_thenElse = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/applicator/index.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/index.js
 var require_applicator = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/applicator/index.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/applicator/index.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7042,9 +7042,9 @@ var require_applicator = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/format/format.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/format/format.js
 var require_format = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/format/format.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/format/format.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7133,9 +7133,9 @@ var require_format = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/format/index.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/format/index.js
 var require_format2 = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/format/index.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/format/index.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7145,9 +7145,9 @@ var require_format2 = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/metadata.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/metadata.js
 var require_metadata = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/metadata.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/metadata.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7169,9 +7169,9 @@ var require_metadata = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/draft7.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/draft7.js
 var require_draft7 = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/draft7.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/draft7.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7192,9 +7192,9 @@ var require_draft7 = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/discriminator/types.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/discriminator/types.js
 var require_types = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/discriminator/types.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/discriminator/types.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7207,9 +7207,9 @@ var require_types = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/vocabularies/discriminator/index.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/discriminator/index.js
 var require_discriminator = __commonJS({
-  "mcp-server/node_modules/ajv/dist/vocabularies/discriminator/index.js"(exports) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/vocabularies/discriminator/index.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7313,9 +7313,9 @@ var require_discriminator = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/refs/json-schema-draft-07.json
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/refs/json-schema-draft-07.json
 var require_json_schema_draft_07 = __commonJS({
-  "mcp-server/node_modules/ajv/dist/refs/json-schema-draft-07.json"(exports, module) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/refs/json-schema-draft-07.json"(exports, module) {
     module.exports = {
       $schema: "http://json-schema.org/draft-07/schema#",
       $id: "http://json-schema.org/draft-07/schema#",
@@ -7470,9 +7470,9 @@ var require_json_schema_draft_07 = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv/dist/ajv.js
+// node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/ajv.js
 var require_ajv = __commonJS({
-  "mcp-server/node_modules/ajv/dist/ajv.js"(exports, module) {
+  "node_modules/@modelcontextprotocol/sdk/node_modules/ajv/dist/ajv.js"(exports, module) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7541,9 +7541,9 @@ var require_ajv = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv-formats/dist/formats.js
+// node_modules/ajv-formats/dist/formats.js
 var require_formats = __commonJS({
-  "mcp-server/node_modules/ajv-formats/dist/formats.js"(exports) {
+  "node_modules/ajv-formats/dist/formats.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7745,15 +7745,5772 @@ var require_formats = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv-formats/dist/limit.js
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/codegen/code.js
+var require_code3 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/codegen/code.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.regexpCode = exports.getEsmExportName = exports.getProperty = exports.safeStringify = exports.stringify = exports.strConcat = exports.addCodeArg = exports.str = exports._ = exports.nil = exports._Code = exports.Name = exports.IDENTIFIER = exports._CodeOrName = void 0;
+    var _CodeOrName = class {
+    };
+    exports._CodeOrName = _CodeOrName;
+    exports.IDENTIFIER = /^[a-z$_][a-z$_0-9]*$/i;
+    var Name = class extends _CodeOrName {
+      constructor(s) {
+        super();
+        if (!exports.IDENTIFIER.test(s))
+          throw new Error("CodeGen: name must be a valid identifier");
+        this.str = s;
+      }
+      toString() {
+        return this.str;
+      }
+      emptyStr() {
+        return false;
+      }
+      get names() {
+        return { [this.str]: 1 };
+      }
+    };
+    exports.Name = Name;
+    var _Code = class extends _CodeOrName {
+      constructor(code) {
+        super();
+        this._items = typeof code === "string" ? [code] : code;
+      }
+      toString() {
+        return this.str;
+      }
+      emptyStr() {
+        if (this._items.length > 1)
+          return false;
+        const item = this._items[0];
+        return item === "" || item === '""';
+      }
+      get str() {
+        var _a;
+        return (_a = this._str) !== null && _a !== void 0 ? _a : this._str = this._items.reduce((s, c) => `${s}${c}`, "");
+      }
+      get names() {
+        var _a;
+        return (_a = this._names) !== null && _a !== void 0 ? _a : this._names = this._items.reduce((names, c) => {
+          if (c instanceof Name)
+            names[c.str] = (names[c.str] || 0) + 1;
+          return names;
+        }, {});
+      }
+    };
+    exports._Code = _Code;
+    exports.nil = new _Code("");
+    function _(strs, ...args2) {
+      const code = [strs[0]];
+      let i = 0;
+      while (i < args2.length) {
+        addCodeArg(code, args2[i]);
+        code.push(strs[++i]);
+      }
+      return new _Code(code);
+    }
+    exports._ = _;
+    var plus = new _Code("+");
+    function str(strs, ...args2) {
+      const expr = [safeStringify(strs[0])];
+      let i = 0;
+      while (i < args2.length) {
+        expr.push(plus);
+        addCodeArg(expr, args2[i]);
+        expr.push(plus, safeStringify(strs[++i]));
+      }
+      optimize(expr);
+      return new _Code(expr);
+    }
+    exports.str = str;
+    function addCodeArg(code, arg) {
+      if (arg instanceof _Code)
+        code.push(...arg._items);
+      else if (arg instanceof Name)
+        code.push(arg);
+      else
+        code.push(interpolate(arg));
+    }
+    exports.addCodeArg = addCodeArg;
+    function optimize(expr) {
+      let i = 1;
+      while (i < expr.length - 1) {
+        if (expr[i] === plus) {
+          const res = mergeExprItems(expr[i - 1], expr[i + 1]);
+          if (res !== void 0) {
+            expr.splice(i - 1, 3, res);
+            continue;
+          }
+          expr[i++] = "+";
+        }
+        i++;
+      }
+    }
+    function mergeExprItems(a, b) {
+      if (b === '""')
+        return a;
+      if (a === '""')
+        return b;
+      if (typeof a == "string") {
+        if (b instanceof Name || a[a.length - 1] !== '"')
+          return;
+        if (typeof b != "string")
+          return `${a.slice(0, -1)}${b}"`;
+        if (b[0] === '"')
+          return a.slice(0, -1) + b.slice(1);
+        return;
+      }
+      if (typeof b == "string" && b[0] === '"' && !(a instanceof Name))
+        return `"${a}${b.slice(1)}`;
+      return;
+    }
+    function strConcat(c1, c2) {
+      return c2.emptyStr() ? c1 : c1.emptyStr() ? c2 : str`${c1}${c2}`;
+    }
+    exports.strConcat = strConcat;
+    function interpolate(x) {
+      return typeof x == "number" || typeof x == "boolean" || x === null ? x : safeStringify(Array.isArray(x) ? x.join(",") : x);
+    }
+    function stringify2(x) {
+      return new _Code(safeStringify(x));
+    }
+    exports.stringify = stringify2;
+    function safeStringify(x) {
+      return JSON.stringify(x).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+    }
+    exports.safeStringify = safeStringify;
+    function getProperty(key) {
+      return typeof key == "string" && exports.IDENTIFIER.test(key) ? new _Code(`.${key}`) : _`[${key}]`;
+    }
+    exports.getProperty = getProperty;
+    function getEsmExportName(key) {
+      if (typeof key == "string" && exports.IDENTIFIER.test(key)) {
+        return new _Code(`${key}`);
+      }
+      throw new Error(`CodeGen: invalid export name: ${key}, use explicit $id name mapping`);
+    }
+    exports.getEsmExportName = getEsmExportName;
+    function regexpCode(rx) {
+      return new _Code(rx.toString());
+    }
+    exports.regexpCode = regexpCode;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/codegen/scope.js
+var require_scope2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/codegen/scope.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
+    var code_1 = require_code3();
+    var ValueError = class extends Error {
+      constructor(name) {
+        super(`CodeGen: "code" for ${name} not defined`);
+        this.value = name.value;
+      }
+    };
+    var UsedValueState;
+    (function(UsedValueState2) {
+      UsedValueState2[UsedValueState2["Started"] = 0] = "Started";
+      UsedValueState2[UsedValueState2["Completed"] = 1] = "Completed";
+    })(UsedValueState || (exports.UsedValueState = UsedValueState = {}));
+    exports.varKinds = {
+      const: new code_1.Name("const"),
+      let: new code_1.Name("let"),
+      var: new code_1.Name("var")
+    };
+    var Scope = class {
+      constructor({ prefixes, parent } = {}) {
+        this._names = {};
+        this._prefixes = prefixes;
+        this._parent = parent;
+      }
+      toName(nameOrPrefix) {
+        return nameOrPrefix instanceof code_1.Name ? nameOrPrefix : this.name(nameOrPrefix);
+      }
+      name(prefix) {
+        return new code_1.Name(this._newName(prefix));
+      }
+      _newName(prefix) {
+        const ng = this._names[prefix] || this._nameGroup(prefix);
+        return `${prefix}${ng.index++}`;
+      }
+      _nameGroup(prefix) {
+        var _a, _b;
+        if (((_b = (_a = this._parent) === null || _a === void 0 ? void 0 : _a._prefixes) === null || _b === void 0 ? void 0 : _b.has(prefix)) || this._prefixes && !this._prefixes.has(prefix)) {
+          throw new Error(`CodeGen: prefix "${prefix}" is not allowed in this scope`);
+        }
+        return this._names[prefix] = { prefix, index: 0 };
+      }
+    };
+    exports.Scope = Scope;
+    var ValueScopeName = class extends code_1.Name {
+      constructor(prefix, nameStr) {
+        super(nameStr);
+        this.prefix = prefix;
+      }
+      setValue(value, { property, itemIndex }) {
+        this.value = value;
+        this.scopePath = (0, code_1._)`.${new code_1.Name(property)}[${itemIndex}]`;
+      }
+    };
+    exports.ValueScopeName = ValueScopeName;
+    var line = (0, code_1._)`\n`;
+    var ValueScope = class extends Scope {
+      constructor(opts) {
+        super(opts);
+        this._values = {};
+        this._scope = opts.scope;
+        this.opts = { ...opts, _n: opts.lines ? line : code_1.nil };
+      }
+      get() {
+        return this._scope;
+      }
+      name(prefix) {
+        return new ValueScopeName(prefix, this._newName(prefix));
+      }
+      value(nameOrPrefix, value) {
+        var _a;
+        if (value.ref === void 0)
+          throw new Error("CodeGen: ref must be passed in value");
+        const name = this.toName(nameOrPrefix);
+        const { prefix } = name;
+        const valueKey = (_a = value.key) !== null && _a !== void 0 ? _a : value.ref;
+        let vs = this._values[prefix];
+        if (vs) {
+          const _name = vs.get(valueKey);
+          if (_name)
+            return _name;
+        } else {
+          vs = this._values[prefix] = /* @__PURE__ */ new Map();
+        }
+        vs.set(valueKey, name);
+        const s = this._scope[prefix] || (this._scope[prefix] = []);
+        const itemIndex = s.length;
+        s[itemIndex] = value.ref;
+        name.setValue(value, { property: prefix, itemIndex });
+        return name;
+      }
+      getValue(prefix, keyOrRef) {
+        const vs = this._values[prefix];
+        if (!vs)
+          return;
+        return vs.get(keyOrRef);
+      }
+      scopeRefs(scopeName, values = this._values) {
+        return this._reduceValues(values, (name) => {
+          if (name.scopePath === void 0)
+            throw new Error(`CodeGen: name "${name}" has no value`);
+          return (0, code_1._)`${scopeName}${name.scopePath}`;
+        });
+      }
+      scopeCode(values = this._values, usedValues, getCode) {
+        return this._reduceValues(values, (name) => {
+          if (name.value === void 0)
+            throw new Error(`CodeGen: name "${name}" has no value`);
+          return name.value.code;
+        }, usedValues, getCode);
+      }
+      _reduceValues(values, valueCode, usedValues = {}, getCode) {
+        let code = code_1.nil;
+        for (const prefix in values) {
+          const vs = values[prefix];
+          if (!vs)
+            continue;
+          const nameSet = usedValues[prefix] = usedValues[prefix] || /* @__PURE__ */ new Map();
+          vs.forEach((name) => {
+            if (nameSet.has(name))
+              return;
+            nameSet.set(name, UsedValueState.Started);
+            let c = valueCode(name);
+            if (c) {
+              const def = this.opts.es5 ? exports.varKinds.var : exports.varKinds.const;
+              code = (0, code_1._)`${code}${def} ${name} = ${c};${this.opts._n}`;
+            } else if (c = getCode === null || getCode === void 0 ? void 0 : getCode(name)) {
+              code = (0, code_1._)`${code}${c}${this.opts._n}`;
+            } else {
+              throw new ValueError(name);
+            }
+            nameSet.set(name, UsedValueState.Completed);
+          });
+        }
+        return code;
+      }
+    };
+    exports.ValueScope = ValueScope;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/codegen/index.js
+var require_codegen2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/codegen/index.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
+    var code_1 = require_code3();
+    var scope_1 = require_scope2();
+    var code_2 = require_code3();
+    Object.defineProperty(exports, "_", { enumerable: true, get: function() {
+      return code_2._;
+    } });
+    Object.defineProperty(exports, "str", { enumerable: true, get: function() {
+      return code_2.str;
+    } });
+    Object.defineProperty(exports, "strConcat", { enumerable: true, get: function() {
+      return code_2.strConcat;
+    } });
+    Object.defineProperty(exports, "nil", { enumerable: true, get: function() {
+      return code_2.nil;
+    } });
+    Object.defineProperty(exports, "getProperty", { enumerable: true, get: function() {
+      return code_2.getProperty;
+    } });
+    Object.defineProperty(exports, "stringify", { enumerable: true, get: function() {
+      return code_2.stringify;
+    } });
+    Object.defineProperty(exports, "regexpCode", { enumerable: true, get: function() {
+      return code_2.regexpCode;
+    } });
+    Object.defineProperty(exports, "Name", { enumerable: true, get: function() {
+      return code_2.Name;
+    } });
+    var scope_2 = require_scope2();
+    Object.defineProperty(exports, "Scope", { enumerable: true, get: function() {
+      return scope_2.Scope;
+    } });
+    Object.defineProperty(exports, "ValueScope", { enumerable: true, get: function() {
+      return scope_2.ValueScope;
+    } });
+    Object.defineProperty(exports, "ValueScopeName", { enumerable: true, get: function() {
+      return scope_2.ValueScopeName;
+    } });
+    Object.defineProperty(exports, "varKinds", { enumerable: true, get: function() {
+      return scope_2.varKinds;
+    } });
+    exports.operators = {
+      GT: new code_1._Code(">"),
+      GTE: new code_1._Code(">="),
+      LT: new code_1._Code("<"),
+      LTE: new code_1._Code("<="),
+      EQ: new code_1._Code("==="),
+      NEQ: new code_1._Code("!=="),
+      NOT: new code_1._Code("!"),
+      OR: new code_1._Code("||"),
+      AND: new code_1._Code("&&"),
+      ADD: new code_1._Code("+")
+    };
+    var Node = class {
+      optimizeNodes() {
+        return this;
+      }
+      optimizeNames(_names, _constants) {
+        return this;
+      }
+    };
+    var Def = class extends Node {
+      constructor(varKind, name, rhs) {
+        super();
+        this.varKind = varKind;
+        this.name = name;
+        this.rhs = rhs;
+      }
+      render({ es5, _n }) {
+        const varKind = es5 ? scope_1.varKinds.var : this.varKind;
+        const rhs = this.rhs === void 0 ? "" : ` = ${this.rhs}`;
+        return `${varKind} ${this.name}${rhs};` + _n;
+      }
+      optimizeNames(names, constants) {
+        if (!names[this.name.str])
+          return;
+        if (this.rhs)
+          this.rhs = optimizeExpr(this.rhs, names, constants);
+        return this;
+      }
+      get names() {
+        return this.rhs instanceof code_1._CodeOrName ? this.rhs.names : {};
+      }
+    };
+    var Assign = class extends Node {
+      constructor(lhs, rhs, sideEffects) {
+        super();
+        this.lhs = lhs;
+        this.rhs = rhs;
+        this.sideEffects = sideEffects;
+      }
+      render({ _n }) {
+        return `${this.lhs} = ${this.rhs};` + _n;
+      }
+      optimizeNames(names, constants) {
+        if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
+          return;
+        this.rhs = optimizeExpr(this.rhs, names, constants);
+        return this;
+      }
+      get names() {
+        const names = this.lhs instanceof code_1.Name ? {} : { ...this.lhs.names };
+        return addExprNames(names, this.rhs);
+      }
+    };
+    var AssignOp = class extends Assign {
+      constructor(lhs, op, rhs, sideEffects) {
+        super(lhs, rhs, sideEffects);
+        this.op = op;
+      }
+      render({ _n }) {
+        return `${this.lhs} ${this.op}= ${this.rhs};` + _n;
+      }
+    };
+    var Label = class extends Node {
+      constructor(label) {
+        super();
+        this.label = label;
+        this.names = {};
+      }
+      render({ _n }) {
+        return `${this.label}:` + _n;
+      }
+    };
+    var Break = class extends Node {
+      constructor(label) {
+        super();
+        this.label = label;
+        this.names = {};
+      }
+      render({ _n }) {
+        const label = this.label ? ` ${this.label}` : "";
+        return `break${label};` + _n;
+      }
+    };
+    var Throw = class extends Node {
+      constructor(error2) {
+        super();
+        this.error = error2;
+      }
+      render({ _n }) {
+        return `throw ${this.error};` + _n;
+      }
+      get names() {
+        return this.error.names;
+      }
+    };
+    var AnyCode = class extends Node {
+      constructor(code) {
+        super();
+        this.code = code;
+      }
+      render({ _n }) {
+        return `${this.code};` + _n;
+      }
+      optimizeNodes() {
+        return `${this.code}` ? this : void 0;
+      }
+      optimizeNames(names, constants) {
+        this.code = optimizeExpr(this.code, names, constants);
+        return this;
+      }
+      get names() {
+        return this.code instanceof code_1._CodeOrName ? this.code.names : {};
+      }
+    };
+    var ParentNode = class extends Node {
+      constructor(nodes = []) {
+        super();
+        this.nodes = nodes;
+      }
+      render(opts) {
+        return this.nodes.reduce((code, n) => code + n.render(opts), "");
+      }
+      optimizeNodes() {
+        const { nodes } = this;
+        let i = nodes.length;
+        while (i--) {
+          const n = nodes[i].optimizeNodes();
+          if (Array.isArray(n))
+            nodes.splice(i, 1, ...n);
+          else if (n)
+            nodes[i] = n;
+          else
+            nodes.splice(i, 1);
+        }
+        return nodes.length > 0 ? this : void 0;
+      }
+      optimizeNames(names, constants) {
+        const { nodes } = this;
+        let i = nodes.length;
+        while (i--) {
+          const n = nodes[i];
+          if (n.optimizeNames(names, constants))
+            continue;
+          subtractNames(names, n.names);
+          nodes.splice(i, 1);
+        }
+        return nodes.length > 0 ? this : void 0;
+      }
+      get names() {
+        return this.nodes.reduce((names, n) => addNames(names, n.names), {});
+      }
+    };
+    var BlockNode = class extends ParentNode {
+      render(opts) {
+        return "{" + opts._n + super.render(opts) + "}" + opts._n;
+      }
+    };
+    var Root = class extends ParentNode {
+    };
+    var Else = class extends BlockNode {
+    };
+    Else.kind = "else";
+    var If = class _If extends BlockNode {
+      constructor(condition, nodes) {
+        super(nodes);
+        this.condition = condition;
+      }
+      render(opts) {
+        let code = `if(${this.condition})` + super.render(opts);
+        if (this.else)
+          code += "else " + this.else.render(opts);
+        return code;
+      }
+      optimizeNodes() {
+        super.optimizeNodes();
+        const cond = this.condition;
+        if (cond === true)
+          return this.nodes;
+        let e = this.else;
+        if (e) {
+          const ns = e.optimizeNodes();
+          e = this.else = Array.isArray(ns) ? new Else(ns) : ns;
+        }
+        if (e) {
+          if (cond === false)
+            return e instanceof _If ? e : e.nodes;
+          if (this.nodes.length)
+            return this;
+          return new _If(not(cond), e instanceof _If ? [e] : e.nodes);
+        }
+        if (cond === false || !this.nodes.length)
+          return void 0;
+        return this;
+      }
+      optimizeNames(names, constants) {
+        var _a;
+        this.else = (_a = this.else) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
+        if (!(super.optimizeNames(names, constants) || this.else))
+          return;
+        this.condition = optimizeExpr(this.condition, names, constants);
+        return this;
+      }
+      get names() {
+        const names = super.names;
+        addExprNames(names, this.condition);
+        if (this.else)
+          addNames(names, this.else.names);
+        return names;
+      }
+    };
+    If.kind = "if";
+    var For = class extends BlockNode {
+    };
+    For.kind = "for";
+    var ForLoop = class extends For {
+      constructor(iteration) {
+        super();
+        this.iteration = iteration;
+      }
+      render(opts) {
+        return `for(${this.iteration})` + super.render(opts);
+      }
+      optimizeNames(names, constants) {
+        if (!super.optimizeNames(names, constants))
+          return;
+        this.iteration = optimizeExpr(this.iteration, names, constants);
+        return this;
+      }
+      get names() {
+        return addNames(super.names, this.iteration.names);
+      }
+    };
+    var ForRange = class extends For {
+      constructor(varKind, name, from, to) {
+        super();
+        this.varKind = varKind;
+        this.name = name;
+        this.from = from;
+        this.to = to;
+      }
+      render(opts) {
+        const varKind = opts.es5 ? scope_1.varKinds.var : this.varKind;
+        const { name, from, to } = this;
+        return `for(${varKind} ${name}=${from}; ${name}<${to}; ${name}++)` + super.render(opts);
+      }
+      get names() {
+        const names = addExprNames(super.names, this.from);
+        return addExprNames(names, this.to);
+      }
+    };
+    var ForIter = class extends For {
+      constructor(loop, varKind, name, iterable) {
+        super();
+        this.loop = loop;
+        this.varKind = varKind;
+        this.name = name;
+        this.iterable = iterable;
+      }
+      render(opts) {
+        return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
+      }
+      optimizeNames(names, constants) {
+        if (!super.optimizeNames(names, constants))
+          return;
+        this.iterable = optimizeExpr(this.iterable, names, constants);
+        return this;
+      }
+      get names() {
+        return addNames(super.names, this.iterable.names);
+      }
+    };
+    var Func = class extends BlockNode {
+      constructor(name, args2, async) {
+        super();
+        this.name = name;
+        this.args = args2;
+        this.async = async;
+      }
+      render(opts) {
+        const _async = this.async ? "async " : "";
+        return `${_async}function ${this.name}(${this.args})` + super.render(opts);
+      }
+    };
+    Func.kind = "func";
+    var Return = class extends ParentNode {
+      render(opts) {
+        return "return " + super.render(opts);
+      }
+    };
+    Return.kind = "return";
+    var Try = class extends BlockNode {
+      render(opts) {
+        let code = "try" + super.render(opts);
+        if (this.catch)
+          code += this.catch.render(opts);
+        if (this.finally)
+          code += this.finally.render(opts);
+        return code;
+      }
+      optimizeNodes() {
+        var _a, _b;
+        super.optimizeNodes();
+        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNodes();
+        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
+        return this;
+      }
+      optimizeNames(names, constants) {
+        var _a, _b;
+        super.optimizeNames(names, constants);
+        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
+        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants);
+        return this;
+      }
+      get names() {
+        const names = super.names;
+        if (this.catch)
+          addNames(names, this.catch.names);
+        if (this.finally)
+          addNames(names, this.finally.names);
+        return names;
+      }
+    };
+    var Catch = class extends BlockNode {
+      constructor(error2) {
+        super();
+        this.error = error2;
+      }
+      render(opts) {
+        return `catch(${this.error})` + super.render(opts);
+      }
+    };
+    Catch.kind = "catch";
+    var Finally = class extends BlockNode {
+      render(opts) {
+        return "finally" + super.render(opts);
+      }
+    };
+    Finally.kind = "finally";
+    var CodeGen = class {
+      constructor(extScope, opts = {}) {
+        this._values = {};
+        this._blockStarts = [];
+        this._constants = {};
+        this.opts = { ...opts, _n: opts.lines ? "\n" : "" };
+        this._extScope = extScope;
+        this._scope = new scope_1.Scope({ parent: extScope });
+        this._nodes = [new Root()];
+      }
+      toString() {
+        return this._root.render(this.opts);
+      }
+      // returns unique name in the internal scope
+      name(prefix) {
+        return this._scope.name(prefix);
+      }
+      // reserves unique name in the external scope
+      scopeName(prefix) {
+        return this._extScope.name(prefix);
+      }
+      // reserves unique name in the external scope and assigns value to it
+      scopeValue(prefixOrName, value) {
+        const name = this._extScope.value(prefixOrName, value);
+        const vs = this._values[name.prefix] || (this._values[name.prefix] = /* @__PURE__ */ new Set());
+        vs.add(name);
+        return name;
+      }
+      getScopeValue(prefix, keyOrRef) {
+        return this._extScope.getValue(prefix, keyOrRef);
+      }
+      // return code that assigns values in the external scope to the names that are used internally
+      // (same names that were returned by gen.scopeName or gen.scopeValue)
+      scopeRefs(scopeName) {
+        return this._extScope.scopeRefs(scopeName, this._values);
+      }
+      scopeCode() {
+        return this._extScope.scopeCode(this._values);
+      }
+      _def(varKind, nameOrPrefix, rhs, constant) {
+        const name = this._scope.toName(nameOrPrefix);
+        if (rhs !== void 0 && constant)
+          this._constants[name.str] = rhs;
+        this._leafNode(new Def(varKind, name, rhs));
+        return name;
+      }
+      // `const` declaration (`var` in es5 mode)
+      const(nameOrPrefix, rhs, _constant) {
+        return this._def(scope_1.varKinds.const, nameOrPrefix, rhs, _constant);
+      }
+      // `let` declaration with optional assignment (`var` in es5 mode)
+      let(nameOrPrefix, rhs, _constant) {
+        return this._def(scope_1.varKinds.let, nameOrPrefix, rhs, _constant);
+      }
+      // `var` declaration with optional assignment
+      var(nameOrPrefix, rhs, _constant) {
+        return this._def(scope_1.varKinds.var, nameOrPrefix, rhs, _constant);
+      }
+      // assignment code
+      assign(lhs, rhs, sideEffects) {
+        return this._leafNode(new Assign(lhs, rhs, sideEffects));
+      }
+      // `+=` code
+      add(lhs, rhs) {
+        return this._leafNode(new AssignOp(lhs, exports.operators.ADD, rhs));
+      }
+      // appends passed SafeExpr to code or executes Block
+      code(c) {
+        if (typeof c == "function")
+          c();
+        else if (c !== code_1.nil)
+          this._leafNode(new AnyCode(c));
+        return this;
+      }
+      // returns code for object literal for the passed argument list of key-value pairs
+      object(...keyValues) {
+        const code = ["{"];
+        for (const [key, value] of keyValues) {
+          if (code.length > 1)
+            code.push(",");
+          code.push(key);
+          if (key !== value || this.opts.es5) {
+            code.push(":");
+            (0, code_1.addCodeArg)(code, value);
+          }
+        }
+        code.push("}");
+        return new code_1._Code(code);
+      }
+      // `if` clause (or statement if `thenBody` and, optionally, `elseBody` are passed)
+      if(condition, thenBody, elseBody) {
+        this._blockNode(new If(condition));
+        if (thenBody && elseBody) {
+          this.code(thenBody).else().code(elseBody).endIf();
+        } else if (thenBody) {
+          this.code(thenBody).endIf();
+        } else if (elseBody) {
+          throw new Error('CodeGen: "else" body without "then" body');
+        }
+        return this;
+      }
+      // `else if` clause - invalid without `if` or after `else` clauses
+      elseIf(condition) {
+        return this._elseNode(new If(condition));
+      }
+      // `else` clause - only valid after `if` or `else if` clauses
+      else() {
+        return this._elseNode(new Else());
+      }
+      // end `if` statement (needed if gen.if was used only with condition)
+      endIf() {
+        return this._endBlockNode(If, Else);
+      }
+      _for(node, forBody) {
+        this._blockNode(node);
+        if (forBody)
+          this.code(forBody).endFor();
+        return this;
+      }
+      // a generic `for` clause (or statement if `forBody` is passed)
+      for(iteration, forBody) {
+        return this._for(new ForLoop(iteration), forBody);
+      }
+      // `for` statement for a range of values
+      forRange(nameOrPrefix, from, to, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.let) {
+        const name = this._scope.toName(nameOrPrefix);
+        return this._for(new ForRange(varKind, name, from, to), () => forBody(name));
+      }
+      // `for-of` statement (in es5 mode replace with a normal for loop)
+      forOf(nameOrPrefix, iterable, forBody, varKind = scope_1.varKinds.const) {
+        const name = this._scope.toName(nameOrPrefix);
+        if (this.opts.es5) {
+          const arr = iterable instanceof code_1.Name ? iterable : this.var("_arr", iterable);
+          return this.forRange("_i", 0, (0, code_1._)`${arr}.length`, (i) => {
+            this.var(name, (0, code_1._)`${arr}[${i}]`);
+            forBody(name);
+          });
+        }
+        return this._for(new ForIter("of", varKind, name, iterable), () => forBody(name));
+      }
+      // `for-in` statement.
+      // With option `ownProperties` replaced with a `for-of` loop for object keys
+      forIn(nameOrPrefix, obj, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.const) {
+        if (this.opts.ownProperties) {
+          return this.forOf(nameOrPrefix, (0, code_1._)`Object.keys(${obj})`, forBody);
+        }
+        const name = this._scope.toName(nameOrPrefix);
+        return this._for(new ForIter("in", varKind, name, obj), () => forBody(name));
+      }
+      // end `for` loop
+      endFor() {
+        return this._endBlockNode(For);
+      }
+      // `label` statement
+      label(label) {
+        return this._leafNode(new Label(label));
+      }
+      // `break` statement
+      break(label) {
+        return this._leafNode(new Break(label));
+      }
+      // `return` statement
+      return(value) {
+        const node = new Return();
+        this._blockNode(node);
+        this.code(value);
+        if (node.nodes.length !== 1)
+          throw new Error('CodeGen: "return" should have one node');
+        return this._endBlockNode(Return);
+      }
+      // `try` statement
+      try(tryBody, catchCode, finallyCode) {
+        if (!catchCode && !finallyCode)
+          throw new Error('CodeGen: "try" without "catch" and "finally"');
+        const node = new Try();
+        this._blockNode(node);
+        this.code(tryBody);
+        if (catchCode) {
+          const error2 = this.name("e");
+          this._currNode = node.catch = new Catch(error2);
+          catchCode(error2);
+        }
+        if (finallyCode) {
+          this._currNode = node.finally = new Finally();
+          this.code(finallyCode);
+        }
+        return this._endBlockNode(Catch, Finally);
+      }
+      // `throw` statement
+      throw(error2) {
+        return this._leafNode(new Throw(error2));
+      }
+      // start self-balancing block
+      block(body, nodeCount) {
+        this._blockStarts.push(this._nodes.length);
+        if (body)
+          this.code(body).endBlock(nodeCount);
+        return this;
+      }
+      // end the current self-balancing block
+      endBlock(nodeCount) {
+        const len = this._blockStarts.pop();
+        if (len === void 0)
+          throw new Error("CodeGen: not in self-balancing block");
+        const toClose = this._nodes.length - len;
+        if (toClose < 0 || nodeCount !== void 0 && toClose !== nodeCount) {
+          throw new Error(`CodeGen: wrong number of nodes: ${toClose} vs ${nodeCount} expected`);
+        }
+        this._nodes.length = len;
+        return this;
+      }
+      // `function` heading (or definition if funcBody is passed)
+      func(name, args2 = code_1.nil, async, funcBody) {
+        this._blockNode(new Func(name, args2, async));
+        if (funcBody)
+          this.code(funcBody).endFunc();
+        return this;
+      }
+      // end function definition
+      endFunc() {
+        return this._endBlockNode(Func);
+      }
+      optimize(n = 1) {
+        while (n-- > 0) {
+          this._root.optimizeNodes();
+          this._root.optimizeNames(this._root.names, this._constants);
+        }
+      }
+      _leafNode(node) {
+        this._currNode.nodes.push(node);
+        return this;
+      }
+      _blockNode(node) {
+        this._currNode.nodes.push(node);
+        this._nodes.push(node);
+      }
+      _endBlockNode(N1, N2) {
+        const n = this._currNode;
+        if (n instanceof N1 || N2 && n instanceof N2) {
+          this._nodes.pop();
+          return this;
+        }
+        throw new Error(`CodeGen: not in block "${N2 ? `${N1.kind}/${N2.kind}` : N1.kind}"`);
+      }
+      _elseNode(node) {
+        const n = this._currNode;
+        if (!(n instanceof If)) {
+          throw new Error('CodeGen: "else" without "if"');
+        }
+        this._currNode = n.else = node;
+        return this;
+      }
+      get _root() {
+        return this._nodes[0];
+      }
+      get _currNode() {
+        const ns = this._nodes;
+        return ns[ns.length - 1];
+      }
+      set _currNode(node) {
+        const ns = this._nodes;
+        ns[ns.length - 1] = node;
+      }
+    };
+    exports.CodeGen = CodeGen;
+    function addNames(names, from) {
+      for (const n in from)
+        names[n] = (names[n] || 0) + (from[n] || 0);
+      return names;
+    }
+    function addExprNames(names, from) {
+      return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
+    }
+    function optimizeExpr(expr, names, constants) {
+      if (expr instanceof code_1.Name)
+        return replaceName(expr);
+      if (!canOptimize(expr))
+        return expr;
+      return new code_1._Code(expr._items.reduce((items, c) => {
+        if (c instanceof code_1.Name)
+          c = replaceName(c);
+        if (c instanceof code_1._Code)
+          items.push(...c._items);
+        else
+          items.push(c);
+        return items;
+      }, []));
+      function replaceName(n) {
+        const c = constants[n.str];
+        if (c === void 0 || names[n.str] !== 1)
+          return n;
+        delete names[n.str];
+        return c;
+      }
+      function canOptimize(e) {
+        return e instanceof code_1._Code && e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants[c.str] !== void 0);
+      }
+    }
+    function subtractNames(names, from) {
+      for (const n in from)
+        names[n] = (names[n] || 0) - (from[n] || 0);
+    }
+    function not(x) {
+      return typeof x == "boolean" || typeof x == "number" || x === null ? !x : (0, code_1._)`!${par(x)}`;
+    }
+    exports.not = not;
+    var andCode = mappend(exports.operators.AND);
+    function and(...args2) {
+      return args2.reduce(andCode);
+    }
+    exports.and = and;
+    var orCode = mappend(exports.operators.OR);
+    function or(...args2) {
+      return args2.reduce(orCode);
+    }
+    exports.or = or;
+    function mappend(op) {
+      return (x, y) => x === code_1.nil ? y : y === code_1.nil ? x : (0, code_1._)`${par(x)} ${op} ${par(y)}`;
+    }
+    function par(x) {
+      return x instanceof code_1.Name ? x : (0, code_1._)`(${x})`;
+    }
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/util.js
+var require_util2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/util.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.checkStrictMode = exports.getErrorPath = exports.Type = exports.useFunc = exports.setEvaluated = exports.evaluatedPropsToName = exports.mergeEvaluated = exports.eachItem = exports.unescapeJsonPointer = exports.escapeJsonPointer = exports.escapeFragment = exports.unescapeFragment = exports.schemaRefOrVal = exports.schemaHasRulesButRef = exports.schemaHasRules = exports.checkUnknownRules = exports.alwaysValidSchema = exports.toHash = void 0;
+    var codegen_1 = require_codegen2();
+    var code_1 = require_code3();
+    function toHash(arr) {
+      const hash2 = {};
+      for (const item of arr)
+        hash2[item] = true;
+      return hash2;
+    }
+    exports.toHash = toHash;
+    function alwaysValidSchema(it, schema) {
+      if (typeof schema == "boolean")
+        return schema;
+      if (Object.keys(schema).length === 0)
+        return true;
+      checkUnknownRules(it, schema);
+      return !schemaHasRules(schema, it.self.RULES.all);
+    }
+    exports.alwaysValidSchema = alwaysValidSchema;
+    function checkUnknownRules(it, schema = it.schema) {
+      const { opts, self: self2 } = it;
+      if (!opts.strictSchema)
+        return;
+      if (typeof schema === "boolean")
+        return;
+      const rules = self2.RULES.keywords;
+      for (const key in schema) {
+        if (!rules[key])
+          checkStrictMode(it, `unknown keyword: "${key}"`);
+      }
+    }
+    exports.checkUnknownRules = checkUnknownRules;
+    function schemaHasRules(schema, rules) {
+      if (typeof schema == "boolean")
+        return !schema;
+      for (const key in schema)
+        if (rules[key])
+          return true;
+      return false;
+    }
+    exports.schemaHasRules = schemaHasRules;
+    function schemaHasRulesButRef(schema, RULES) {
+      if (typeof schema == "boolean")
+        return !schema;
+      for (const key in schema)
+        if (key !== "$ref" && RULES.all[key])
+          return true;
+      return false;
+    }
+    exports.schemaHasRulesButRef = schemaHasRulesButRef;
+    function schemaRefOrVal({ topSchemaRef, schemaPath }, schema, keyword, $data) {
+      if (!$data) {
+        if (typeof schema == "number" || typeof schema == "boolean")
+          return schema;
+        if (typeof schema == "string")
+          return (0, codegen_1._)`${schema}`;
+      }
+      return (0, codegen_1._)`${topSchemaRef}${schemaPath}${(0, codegen_1.getProperty)(keyword)}`;
+    }
+    exports.schemaRefOrVal = schemaRefOrVal;
+    function unescapeFragment(str) {
+      return unescapeJsonPointer(decodeURIComponent(str));
+    }
+    exports.unescapeFragment = unescapeFragment;
+    function escapeFragment(str) {
+      return encodeURIComponent(escapeJsonPointer(str));
+    }
+    exports.escapeFragment = escapeFragment;
+    function escapeJsonPointer(str) {
+      if (typeof str == "number")
+        return `${str}`;
+      return str.replace(/~/g, "~0").replace(/\//g, "~1");
+    }
+    exports.escapeJsonPointer = escapeJsonPointer;
+    function unescapeJsonPointer(str) {
+      return str.replace(/~1/g, "/").replace(/~0/g, "~");
+    }
+    exports.unescapeJsonPointer = unescapeJsonPointer;
+    function eachItem(xs, f2) {
+      if (Array.isArray(xs)) {
+        for (const x of xs)
+          f2(x);
+      } else {
+        f2(xs);
+      }
+    }
+    exports.eachItem = eachItem;
+    function makeMergeEvaluated({ mergeNames, mergeToName, mergeValues: mergeValues3, resultToName }) {
+      return (gen2, from, to, toName) => {
+        const res = to === void 0 ? from : to instanceof codegen_1.Name ? (from instanceof codegen_1.Name ? mergeNames(gen2, from, to) : mergeToName(gen2, from, to), to) : from instanceof codegen_1.Name ? (mergeToName(gen2, to, from), from) : mergeValues3(from, to);
+        return toName === codegen_1.Name && !(res instanceof codegen_1.Name) ? resultToName(gen2, res) : res;
+      };
+    }
+    exports.mergeEvaluated = {
+      props: makeMergeEvaluated({
+        mergeNames: (gen2, from, to) => gen2.if((0, codegen_1._)`${to} !== true && ${from} !== undefined`, () => {
+          gen2.if((0, codegen_1._)`${from} === true`, () => gen2.assign(to, true), () => gen2.assign(to, (0, codegen_1._)`${to} || {}`).code((0, codegen_1._)`Object.assign(${to}, ${from})`));
+        }),
+        mergeToName: (gen2, from, to) => gen2.if((0, codegen_1._)`${to} !== true`, () => {
+          if (from === true) {
+            gen2.assign(to, true);
+          } else {
+            gen2.assign(to, (0, codegen_1._)`${to} || {}`);
+            setEvaluated(gen2, to, from);
+          }
+        }),
+        mergeValues: (from, to) => from === true ? true : { ...from, ...to },
+        resultToName: evaluatedPropsToName
+      }),
+      items: makeMergeEvaluated({
+        mergeNames: (gen2, from, to) => gen2.if((0, codegen_1._)`${to} !== true && ${from} !== undefined`, () => gen2.assign(to, (0, codegen_1._)`${from} === true ? true : ${to} > ${from} ? ${to} : ${from}`)),
+        mergeToName: (gen2, from, to) => gen2.if((0, codegen_1._)`${to} !== true`, () => gen2.assign(to, from === true ? true : (0, codegen_1._)`${to} > ${from} ? ${to} : ${from}`)),
+        mergeValues: (from, to) => from === true ? true : Math.max(from, to),
+        resultToName: (gen2, items) => gen2.var("items", items)
+      })
+    };
+    function evaluatedPropsToName(gen2, ps) {
+      if (ps === true)
+        return gen2.var("props", true);
+      const props = gen2.var("props", (0, codegen_1._)`{}`);
+      if (ps !== void 0)
+        setEvaluated(gen2, props, ps);
+      return props;
+    }
+    exports.evaluatedPropsToName = evaluatedPropsToName;
+    function setEvaluated(gen2, props, ps) {
+      Object.keys(ps).forEach((p) => gen2.assign((0, codegen_1._)`${props}${(0, codegen_1.getProperty)(p)}`, true));
+    }
+    exports.setEvaluated = setEvaluated;
+    var snippets = {};
+    function useFunc(gen2, f2) {
+      return gen2.scopeValue("func", {
+        ref: f2,
+        code: snippets[f2.code] || (snippets[f2.code] = new code_1._Code(f2.code))
+      });
+    }
+    exports.useFunc = useFunc;
+    var Type;
+    (function(Type2) {
+      Type2[Type2["Num"] = 0] = "Num";
+      Type2[Type2["Str"] = 1] = "Str";
+    })(Type || (exports.Type = Type = {}));
+    function getErrorPath(dataProp, dataPropType, jsPropertySyntax) {
+      if (dataProp instanceof codegen_1.Name) {
+        const isNumber = dataPropType === Type.Num;
+        return jsPropertySyntax ? isNumber ? (0, codegen_1._)`"[" + ${dataProp} + "]"` : (0, codegen_1._)`"['" + ${dataProp} + "']"` : isNumber ? (0, codegen_1._)`"/" + ${dataProp}` : (0, codegen_1._)`"/" + ${dataProp}.replace(/~/g, "~0").replace(/\\//g, "~1")`;
+      }
+      return jsPropertySyntax ? (0, codegen_1.getProperty)(dataProp).toString() : "/" + escapeJsonPointer(dataProp);
+    }
+    exports.getErrorPath = getErrorPath;
+    function checkStrictMode(it, msg, mode = it.opts.strictSchema) {
+      if (!mode)
+        return;
+      msg = `strict mode: ${msg}`;
+      if (mode === true)
+        throw new Error(msg);
+      it.self.logger.warn(msg);
+    }
+    exports.checkStrictMode = checkStrictMode;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/names.js
+var require_names2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/names.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var codegen_1 = require_codegen2();
+    var names = {
+      // validation function arguments
+      data: new codegen_1.Name("data"),
+      // data passed to validation function
+      // args passed from referencing schema
+      valCxt: new codegen_1.Name("valCxt"),
+      // validation/data context - should not be used directly, it is destructured to the names below
+      instancePath: new codegen_1.Name("instancePath"),
+      parentData: new codegen_1.Name("parentData"),
+      parentDataProperty: new codegen_1.Name("parentDataProperty"),
+      rootData: new codegen_1.Name("rootData"),
+      // root data - same as the data passed to the first/top validation function
+      dynamicAnchors: new codegen_1.Name("dynamicAnchors"),
+      // used to support recursiveRef and dynamicRef
+      // function scoped variables
+      vErrors: new codegen_1.Name("vErrors"),
+      // null or array of validation errors
+      errors: new codegen_1.Name("errors"),
+      // counter of validation errors
+      this: new codegen_1.Name("this"),
+      // "globals"
+      self: new codegen_1.Name("self"),
+      scope: new codegen_1.Name("scope"),
+      // JTD serialize/parse name for JSON string and position
+      json: new codegen_1.Name("json"),
+      jsonPos: new codegen_1.Name("jsonPos"),
+      jsonLen: new codegen_1.Name("jsonLen"),
+      jsonPart: new codegen_1.Name("jsonPart")
+    };
+    exports.default = names;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/errors.js
+var require_errors2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/errors.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.extendErrors = exports.resetErrorsCount = exports.reportExtraError = exports.reportError = exports.keyword$DataError = exports.keywordError = void 0;
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var names_1 = require_names2();
+    exports.keywordError = {
+      message: ({ keyword }) => (0, codegen_1.str)`must pass "${keyword}" keyword validation`
+    };
+    exports.keyword$DataError = {
+      message: ({ keyword, schemaType }) => schemaType ? (0, codegen_1.str)`"${keyword}" keyword must be ${schemaType} ($data)` : (0, codegen_1.str)`"${keyword}" keyword is invalid ($data)`
+    };
+    function reportError(cxt, error2 = exports.keywordError, errorPaths, overrideAllErrors) {
+      const { it } = cxt;
+      const { gen: gen2, compositeRule, allErrors } = it;
+      const errObj = errorObjectCode(cxt, error2, errorPaths);
+      if (overrideAllErrors !== null && overrideAllErrors !== void 0 ? overrideAllErrors : compositeRule || allErrors) {
+        addError(gen2, errObj);
+      } else {
+        returnErrors(it, (0, codegen_1._)`[${errObj}]`);
+      }
+    }
+    exports.reportError = reportError;
+    function reportExtraError(cxt, error2 = exports.keywordError, errorPaths) {
+      const { it } = cxt;
+      const { gen: gen2, compositeRule, allErrors } = it;
+      const errObj = errorObjectCode(cxt, error2, errorPaths);
+      addError(gen2, errObj);
+      if (!(compositeRule || allErrors)) {
+        returnErrors(it, names_1.default.vErrors);
+      }
+    }
+    exports.reportExtraError = reportExtraError;
+    function resetErrorsCount(gen2, errsCount) {
+      gen2.assign(names_1.default.errors, errsCount);
+      gen2.if((0, codegen_1._)`${names_1.default.vErrors} !== null`, () => gen2.if(errsCount, () => gen2.assign((0, codegen_1._)`${names_1.default.vErrors}.length`, errsCount), () => gen2.assign(names_1.default.vErrors, null)));
+    }
+    exports.resetErrorsCount = resetErrorsCount;
+    function extendErrors({ gen: gen2, keyword, schemaValue, data, errsCount, it }) {
+      if (errsCount === void 0)
+        throw new Error("ajv implementation error");
+      const err = gen2.name("err");
+      gen2.forRange("i", errsCount, names_1.default.errors, (i) => {
+        gen2.const(err, (0, codegen_1._)`${names_1.default.vErrors}[${i}]`);
+        gen2.if((0, codegen_1._)`${err}.instancePath === undefined`, () => gen2.assign((0, codegen_1._)`${err}.instancePath`, (0, codegen_1.strConcat)(names_1.default.instancePath, it.errorPath)));
+        gen2.assign((0, codegen_1._)`${err}.schemaPath`, (0, codegen_1.str)`${it.errSchemaPath}/${keyword}`);
+        if (it.opts.verbose) {
+          gen2.assign((0, codegen_1._)`${err}.schema`, schemaValue);
+          gen2.assign((0, codegen_1._)`${err}.data`, data);
+        }
+      });
+    }
+    exports.extendErrors = extendErrors;
+    function addError(gen2, errObj) {
+      const err = gen2.const("err", errObj);
+      gen2.if((0, codegen_1._)`${names_1.default.vErrors} === null`, () => gen2.assign(names_1.default.vErrors, (0, codegen_1._)`[${err}]`), (0, codegen_1._)`${names_1.default.vErrors}.push(${err})`);
+      gen2.code((0, codegen_1._)`${names_1.default.errors}++`);
+    }
+    function returnErrors(it, errs) {
+      const { gen: gen2, validateName, schemaEnv } = it;
+      if (schemaEnv.$async) {
+        gen2.throw((0, codegen_1._)`new ${it.ValidationError}(${errs})`);
+      } else {
+        gen2.assign((0, codegen_1._)`${validateName}.errors`, errs);
+        gen2.return(false);
+      }
+    }
+    var E = {
+      keyword: new codegen_1.Name("keyword"),
+      schemaPath: new codegen_1.Name("schemaPath"),
+      // also used in JTD errors
+      params: new codegen_1.Name("params"),
+      propertyName: new codegen_1.Name("propertyName"),
+      message: new codegen_1.Name("message"),
+      schema: new codegen_1.Name("schema"),
+      parentSchema: new codegen_1.Name("parentSchema")
+    };
+    function errorObjectCode(cxt, error2, errorPaths) {
+      const { createErrors } = cxt.it;
+      if (createErrors === false)
+        return (0, codegen_1._)`{}`;
+      return errorObject(cxt, error2, errorPaths);
+    }
+    function errorObject(cxt, error2, errorPaths = {}) {
+      const { gen: gen2, it } = cxt;
+      const keyValues = [
+        errorInstancePath(it, errorPaths),
+        errorSchemaPath(cxt, errorPaths)
+      ];
+      extraErrorProps(cxt, error2, keyValues);
+      return gen2.object(...keyValues);
+    }
+    function errorInstancePath({ errorPath }, { instancePath }) {
+      const instPath = instancePath ? (0, codegen_1.str)`${errorPath}${(0, util_1.getErrorPath)(instancePath, util_1.Type.Str)}` : errorPath;
+      return [names_1.default.instancePath, (0, codegen_1.strConcat)(names_1.default.instancePath, instPath)];
+    }
+    function errorSchemaPath({ keyword, it: { errSchemaPath } }, { schemaPath, parentSchema }) {
+      let schPath = parentSchema ? errSchemaPath : (0, codegen_1.str)`${errSchemaPath}/${keyword}`;
+      if (schemaPath) {
+        schPath = (0, codegen_1.str)`${schPath}${(0, util_1.getErrorPath)(schemaPath, util_1.Type.Str)}`;
+      }
+      return [E.schemaPath, schPath];
+    }
+    function extraErrorProps(cxt, { params, message }, keyValues) {
+      const { keyword, data, schemaValue, it } = cxt;
+      const { opts, propertyName, topSchemaRef, schemaPath } = it;
+      keyValues.push([E.keyword, keyword], [E.params, typeof params == "function" ? params(cxt) : params || (0, codegen_1._)`{}`]);
+      if (opts.messages) {
+        keyValues.push([E.message, typeof message == "function" ? message(cxt) : message]);
+      }
+      if (opts.verbose) {
+        keyValues.push([E.schema, schemaValue], [E.parentSchema, (0, codegen_1._)`${topSchemaRef}${schemaPath}`], [names_1.default.data, data]);
+      }
+      if (propertyName)
+        keyValues.push([E.propertyName, propertyName]);
+    }
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/boolSchema.js
+var require_boolSchema2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/boolSchema.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.boolOrEmptySchema = exports.topBoolOrEmptySchema = void 0;
+    var errors_1 = require_errors2();
+    var codegen_1 = require_codegen2();
+    var names_1 = require_names2();
+    var boolError = {
+      message: "boolean schema is false"
+    };
+    function topBoolOrEmptySchema(it) {
+      const { gen: gen2, schema, validateName } = it;
+      if (schema === false) {
+        falseSchemaError(it, false);
+      } else if (typeof schema == "object" && schema.$async === true) {
+        gen2.return(names_1.default.data);
+      } else {
+        gen2.assign((0, codegen_1._)`${validateName}.errors`, null);
+        gen2.return(true);
+      }
+    }
+    exports.topBoolOrEmptySchema = topBoolOrEmptySchema;
+    function boolOrEmptySchema(it, valid) {
+      const { gen: gen2, schema } = it;
+      if (schema === false) {
+        gen2.var(valid, false);
+        falseSchemaError(it);
+      } else {
+        gen2.var(valid, true);
+      }
+    }
+    exports.boolOrEmptySchema = boolOrEmptySchema;
+    function falseSchemaError(it, overrideAllErrors) {
+      const { gen: gen2, data } = it;
+      const cxt = {
+        gen: gen2,
+        keyword: "false schema",
+        data,
+        schema: false,
+        schemaCode: false,
+        schemaValue: false,
+        params: {},
+        it
+      };
+      (0, errors_1.reportError)(cxt, boolError, void 0, overrideAllErrors);
+    }
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/rules.js
+var require_rules2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/rules.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.getRules = exports.isJSONType = void 0;
+    var _jsonTypes = ["string", "number", "integer", "boolean", "null", "object", "array"];
+    var jsonTypes = new Set(_jsonTypes);
+    function isJSONType(x) {
+      return typeof x == "string" && jsonTypes.has(x);
+    }
+    exports.isJSONType = isJSONType;
+    function getRules() {
+      const groups = {
+        number: { type: "number", rules: [] },
+        string: { type: "string", rules: [] },
+        array: { type: "array", rules: [] },
+        object: { type: "object", rules: [] }
+      };
+      return {
+        types: { ...groups, integer: true, boolean: true, null: true },
+        rules: [{ rules: [] }, groups.number, groups.string, groups.array, groups.object],
+        post: { rules: [] },
+        all: {},
+        keywords: {}
+      };
+    }
+    exports.getRules = getRules;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/applicability.js
+var require_applicability2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/applicability.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.shouldUseRule = exports.shouldUseGroup = exports.schemaHasRulesForType = void 0;
+    function schemaHasRulesForType({ schema, self: self2 }, type) {
+      const group = self2.RULES.types[type];
+      return group && group !== true && shouldUseGroup(schema, group);
+    }
+    exports.schemaHasRulesForType = schemaHasRulesForType;
+    function shouldUseGroup(schema, group) {
+      return group.rules.some((rule) => shouldUseRule(schema, rule));
+    }
+    exports.shouldUseGroup = shouldUseGroup;
+    function shouldUseRule(schema, rule) {
+      var _a;
+      return schema[rule.keyword] !== void 0 || ((_a = rule.definition.implements) === null || _a === void 0 ? void 0 : _a.some((kwd) => schema[kwd] !== void 0));
+    }
+    exports.shouldUseRule = shouldUseRule;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/dataType.js
+var require_dataType2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/dataType.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.reportTypeError = exports.checkDataTypes = exports.checkDataType = exports.coerceAndCheckDataType = exports.getJSONTypes = exports.getSchemaTypes = exports.DataType = void 0;
+    var rules_1 = require_rules2();
+    var applicability_1 = require_applicability2();
+    var errors_1 = require_errors2();
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var DataType;
+    (function(DataType2) {
+      DataType2[DataType2["Correct"] = 0] = "Correct";
+      DataType2[DataType2["Wrong"] = 1] = "Wrong";
+    })(DataType || (exports.DataType = DataType = {}));
+    function getSchemaTypes(schema) {
+      const types = getJSONTypes(schema.type);
+      const hasNull = types.includes("null");
+      if (hasNull) {
+        if (schema.nullable === false)
+          throw new Error("type: null contradicts nullable: false");
+      } else {
+        if (!types.length && schema.nullable !== void 0) {
+          throw new Error('"nullable" cannot be used without "type"');
+        }
+        if (schema.nullable === true)
+          types.push("null");
+      }
+      return types;
+    }
+    exports.getSchemaTypes = getSchemaTypes;
+    function getJSONTypes(ts) {
+      const types = Array.isArray(ts) ? ts : ts ? [ts] : [];
+      if (types.every(rules_1.isJSONType))
+        return types;
+      throw new Error("type must be JSONType or JSONType[]: " + types.join(","));
+    }
+    exports.getJSONTypes = getJSONTypes;
+    function coerceAndCheckDataType(it, types) {
+      const { gen: gen2, data, opts } = it;
+      const coerceTo = coerceToTypes(types, opts.coerceTypes);
+      const checkTypes = types.length > 0 && !(coerceTo.length === 0 && types.length === 1 && (0, applicability_1.schemaHasRulesForType)(it, types[0]));
+      if (checkTypes) {
+        const wrongType = checkDataTypes(types, data, opts.strictNumbers, DataType.Wrong);
+        gen2.if(wrongType, () => {
+          if (coerceTo.length)
+            coerceData(it, types, coerceTo);
+          else
+            reportTypeError(it);
+        });
+      }
+      return checkTypes;
+    }
+    exports.coerceAndCheckDataType = coerceAndCheckDataType;
+    var COERCIBLE = /* @__PURE__ */ new Set(["string", "number", "integer", "boolean", "null"]);
+    function coerceToTypes(types, coerceTypes) {
+      return coerceTypes ? types.filter((t) => COERCIBLE.has(t) || coerceTypes === "array" && t === "array") : [];
+    }
+    function coerceData(it, types, coerceTo) {
+      const { gen: gen2, data, opts } = it;
+      const dataType = gen2.let("dataType", (0, codegen_1._)`typeof ${data}`);
+      const coerced = gen2.let("coerced", (0, codegen_1._)`undefined`);
+      if (opts.coerceTypes === "array") {
+        gen2.if((0, codegen_1._)`${dataType} == 'object' && Array.isArray(${data}) && ${data}.length == 1`, () => gen2.assign(data, (0, codegen_1._)`${data}[0]`).assign(dataType, (0, codegen_1._)`typeof ${data}`).if(checkDataTypes(types, data, opts.strictNumbers), () => gen2.assign(coerced, data)));
+      }
+      gen2.if((0, codegen_1._)`${coerced} !== undefined`);
+      for (const t of coerceTo) {
+        if (COERCIBLE.has(t) || t === "array" && opts.coerceTypes === "array") {
+          coerceSpecificType(t);
+        }
+      }
+      gen2.else();
+      reportTypeError(it);
+      gen2.endIf();
+      gen2.if((0, codegen_1._)`${coerced} !== undefined`, () => {
+        gen2.assign(data, coerced);
+        assignParentData(it, coerced);
+      });
+      function coerceSpecificType(t) {
+        switch (t) {
+          case "string":
+            gen2.elseIf((0, codegen_1._)`${dataType} == "number" || ${dataType} == "boolean"`).assign(coerced, (0, codegen_1._)`"" + ${data}`).elseIf((0, codegen_1._)`${data} === null`).assign(coerced, (0, codegen_1._)`""`);
+            return;
+          case "number":
+            gen2.elseIf((0, codegen_1._)`${dataType} == "boolean" || ${data} === null
+              || (${dataType} == "string" && ${data} && ${data} == +${data})`).assign(coerced, (0, codegen_1._)`+${data}`);
+            return;
+          case "integer":
+            gen2.elseIf((0, codegen_1._)`${dataType} === "boolean" || ${data} === null
+              || (${dataType} === "string" && ${data} && ${data} == +${data} && !(${data} % 1))`).assign(coerced, (0, codegen_1._)`+${data}`);
+            return;
+          case "boolean":
+            gen2.elseIf((0, codegen_1._)`${data} === "false" || ${data} === 0 || ${data} === null`).assign(coerced, false).elseIf((0, codegen_1._)`${data} === "true" || ${data} === 1`).assign(coerced, true);
+            return;
+          case "null":
+            gen2.elseIf((0, codegen_1._)`${data} === "" || ${data} === 0 || ${data} === false`);
+            gen2.assign(coerced, null);
+            return;
+          case "array":
+            gen2.elseIf((0, codegen_1._)`${dataType} === "string" || ${dataType} === "number"
+              || ${dataType} === "boolean" || ${data} === null`).assign(coerced, (0, codegen_1._)`[${data}]`);
+        }
+      }
+    }
+    function assignParentData({ gen: gen2, parentData, parentDataProperty }, expr) {
+      gen2.if((0, codegen_1._)`${parentData} !== undefined`, () => gen2.assign((0, codegen_1._)`${parentData}[${parentDataProperty}]`, expr));
+    }
+    function checkDataType(dataType, data, strictNums, correct = DataType.Correct) {
+      const EQ = correct === DataType.Correct ? codegen_1.operators.EQ : codegen_1.operators.NEQ;
+      let cond;
+      switch (dataType) {
+        case "null":
+          return (0, codegen_1._)`${data} ${EQ} null`;
+        case "array":
+          cond = (0, codegen_1._)`Array.isArray(${data})`;
+          break;
+        case "object":
+          cond = (0, codegen_1._)`${data} && typeof ${data} == "object" && !Array.isArray(${data})`;
+          break;
+        case "integer":
+          cond = numCond((0, codegen_1._)`!(${data} % 1) && !isNaN(${data})`);
+          break;
+        case "number":
+          cond = numCond();
+          break;
+        default:
+          return (0, codegen_1._)`typeof ${data} ${EQ} ${dataType}`;
+      }
+      return correct === DataType.Correct ? cond : (0, codegen_1.not)(cond);
+      function numCond(_cond = codegen_1.nil) {
+        return (0, codegen_1.and)((0, codegen_1._)`typeof ${data} == "number"`, _cond, strictNums ? (0, codegen_1._)`isFinite(${data})` : codegen_1.nil);
+      }
+    }
+    exports.checkDataType = checkDataType;
+    function checkDataTypes(dataTypes, data, strictNums, correct) {
+      if (dataTypes.length === 1) {
+        return checkDataType(dataTypes[0], data, strictNums, correct);
+      }
+      let cond;
+      const types = (0, util_1.toHash)(dataTypes);
+      if (types.array && types.object) {
+        const notObj = (0, codegen_1._)`typeof ${data} != "object"`;
+        cond = types.null ? notObj : (0, codegen_1._)`!${data} || ${notObj}`;
+        delete types.null;
+        delete types.array;
+        delete types.object;
+      } else {
+        cond = codegen_1.nil;
+      }
+      if (types.number)
+        delete types.integer;
+      for (const t in types)
+        cond = (0, codegen_1.and)(cond, checkDataType(t, data, strictNums, correct));
+      return cond;
+    }
+    exports.checkDataTypes = checkDataTypes;
+    var typeError = {
+      message: ({ schema }) => `must be ${schema}`,
+      params: ({ schema, schemaValue }) => typeof schema == "string" ? (0, codegen_1._)`{type: ${schema}}` : (0, codegen_1._)`{type: ${schemaValue}}`
+    };
+    function reportTypeError(it) {
+      const cxt = getTypeErrorContext(it);
+      (0, errors_1.reportError)(cxt, typeError);
+    }
+    exports.reportTypeError = reportTypeError;
+    function getTypeErrorContext(it) {
+      const { gen: gen2, data, schema } = it;
+      const schemaCode = (0, util_1.schemaRefOrVal)(it, schema, "type");
+      return {
+        gen: gen2,
+        keyword: "type",
+        data,
+        schema: schema.type,
+        schemaCode,
+        schemaValue: schemaCode,
+        parentSchema: schema,
+        params: {},
+        it
+      };
+    }
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/defaults.js
+var require_defaults2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/defaults.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.assignDefaults = void 0;
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    function assignDefaults(it, ty) {
+      const { properties, items } = it.schema;
+      if (ty === "object" && properties) {
+        for (const key in properties) {
+          assignDefault(it, key, properties[key].default);
+        }
+      } else if (ty === "array" && Array.isArray(items)) {
+        items.forEach((sch, i) => assignDefault(it, i, sch.default));
+      }
+    }
+    exports.assignDefaults = assignDefaults;
+    function assignDefault(it, prop, defaultValue) {
+      const { gen: gen2, compositeRule, data, opts } = it;
+      if (defaultValue === void 0)
+        return;
+      const childData = (0, codegen_1._)`${data}${(0, codegen_1.getProperty)(prop)}`;
+      if (compositeRule) {
+        (0, util_1.checkStrictMode)(it, `default is ignored for: ${childData}`);
+        return;
+      }
+      let condition = (0, codegen_1._)`${childData} === undefined`;
+      if (opts.useDefaults === "empty") {
+        condition = (0, codegen_1._)`${condition} || ${childData} === null || ${childData} === ""`;
+      }
+      gen2.if(condition, (0, codegen_1._)`${childData} = ${(0, codegen_1.stringify)(defaultValue)}`);
+    }
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/code.js
+var require_code4 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/code.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.validateUnion = exports.validateArray = exports.usePattern = exports.callValidateCode = exports.schemaProperties = exports.allSchemaProperties = exports.noPropertyInData = exports.propertyInData = exports.isOwnProperty = exports.hasPropFunc = exports.reportMissingProp = exports.checkMissingProp = exports.checkReportMissingProp = void 0;
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var names_1 = require_names2();
+    var util_2 = require_util2();
+    function checkReportMissingProp(cxt, prop) {
+      const { gen: gen2, data, it } = cxt;
+      gen2.if(noPropertyInData(gen2, data, prop, it.opts.ownProperties), () => {
+        cxt.setParams({ missingProperty: (0, codegen_1._)`${prop}` }, true);
+        cxt.error();
+      });
+    }
+    exports.checkReportMissingProp = checkReportMissingProp;
+    function checkMissingProp({ gen: gen2, data, it: { opts } }, properties, missing) {
+      return (0, codegen_1.or)(...properties.map((prop) => (0, codegen_1.and)(noPropertyInData(gen2, data, prop, opts.ownProperties), (0, codegen_1._)`${missing} = ${prop}`)));
+    }
+    exports.checkMissingProp = checkMissingProp;
+    function reportMissingProp(cxt, missing) {
+      cxt.setParams({ missingProperty: missing }, true);
+      cxt.error();
+    }
+    exports.reportMissingProp = reportMissingProp;
+    function hasPropFunc(gen2) {
+      return gen2.scopeValue("func", {
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        ref: Object.prototype.hasOwnProperty,
+        code: (0, codegen_1._)`Object.prototype.hasOwnProperty`
+      });
+    }
+    exports.hasPropFunc = hasPropFunc;
+    function isOwnProperty(gen2, data, property) {
+      return (0, codegen_1._)`${hasPropFunc(gen2)}.call(${data}, ${property})`;
+    }
+    exports.isOwnProperty = isOwnProperty;
+    function propertyInData(gen2, data, property, ownProperties) {
+      const cond = (0, codegen_1._)`${data}${(0, codegen_1.getProperty)(property)} !== undefined`;
+      return ownProperties ? (0, codegen_1._)`${cond} && ${isOwnProperty(gen2, data, property)}` : cond;
+    }
+    exports.propertyInData = propertyInData;
+    function noPropertyInData(gen2, data, property, ownProperties) {
+      const cond = (0, codegen_1._)`${data}${(0, codegen_1.getProperty)(property)} === undefined`;
+      return ownProperties ? (0, codegen_1.or)(cond, (0, codegen_1.not)(isOwnProperty(gen2, data, property))) : cond;
+    }
+    exports.noPropertyInData = noPropertyInData;
+    function allSchemaProperties(schemaMap) {
+      return schemaMap ? Object.keys(schemaMap).filter((p) => p !== "__proto__") : [];
+    }
+    exports.allSchemaProperties = allSchemaProperties;
+    function schemaProperties(it, schemaMap) {
+      return allSchemaProperties(schemaMap).filter((p) => !(0, util_1.alwaysValidSchema)(it, schemaMap[p]));
+    }
+    exports.schemaProperties = schemaProperties;
+    function callValidateCode({ schemaCode, data, it: { gen: gen2, topSchemaRef, schemaPath, errorPath }, it }, func, context, passSchema) {
+      const dataAndSchema = passSchema ? (0, codegen_1._)`${schemaCode}, ${data}, ${topSchemaRef}${schemaPath}` : data;
+      const valCxt = [
+        [names_1.default.instancePath, (0, codegen_1.strConcat)(names_1.default.instancePath, errorPath)],
+        [names_1.default.parentData, it.parentData],
+        [names_1.default.parentDataProperty, it.parentDataProperty],
+        [names_1.default.rootData, names_1.default.rootData]
+      ];
+      if (it.opts.dynamicRef)
+        valCxt.push([names_1.default.dynamicAnchors, names_1.default.dynamicAnchors]);
+      const args2 = (0, codegen_1._)`${dataAndSchema}, ${gen2.object(...valCxt)}`;
+      return context !== codegen_1.nil ? (0, codegen_1._)`${func}.call(${context}, ${args2})` : (0, codegen_1._)`${func}(${args2})`;
+    }
+    exports.callValidateCode = callValidateCode;
+    var newRegExp = (0, codegen_1._)`new RegExp`;
+    function usePattern({ gen: gen2, it: { opts } }, pattern) {
+      const u = opts.unicodeRegExp ? "u" : "";
+      const { regExp } = opts.code;
+      const rx = regExp(pattern, u);
+      return gen2.scopeValue("pattern", {
+        key: rx.toString(),
+        ref: rx,
+        code: (0, codegen_1._)`${regExp.code === "new RegExp" ? newRegExp : (0, util_2.useFunc)(gen2, regExp)}(${pattern}, ${u})`
+      });
+    }
+    exports.usePattern = usePattern;
+    function validateArray(cxt) {
+      const { gen: gen2, data, keyword, it } = cxt;
+      const valid = gen2.name("valid");
+      if (it.allErrors) {
+        const validArr = gen2.let("valid", true);
+        validateItems(() => gen2.assign(validArr, false));
+        return validArr;
+      }
+      gen2.var(valid, true);
+      validateItems(() => gen2.break());
+      return valid;
+      function validateItems(notValid) {
+        const len = gen2.const("len", (0, codegen_1._)`${data}.length`);
+        gen2.forRange("i", 0, len, (i) => {
+          cxt.subschema({
+            keyword,
+            dataProp: i,
+            dataPropType: util_1.Type.Num
+          }, valid);
+          gen2.if((0, codegen_1.not)(valid), notValid);
+        });
+      }
+    }
+    exports.validateArray = validateArray;
+    function validateUnion(cxt) {
+      const { gen: gen2, schema, keyword, it } = cxt;
+      if (!Array.isArray(schema))
+        throw new Error("ajv implementation error");
+      const alwaysValid = schema.some((sch) => (0, util_1.alwaysValidSchema)(it, sch));
+      if (alwaysValid && !it.opts.unevaluated)
+        return;
+      const valid = gen2.let("valid", false);
+      const schValid = gen2.name("_valid");
+      gen2.block(() => schema.forEach((_sch, i) => {
+        const schCxt = cxt.subschema({
+          keyword,
+          schemaProp: i,
+          compositeRule: true
+        }, schValid);
+        gen2.assign(valid, (0, codegen_1._)`${valid} || ${schValid}`);
+        const merged = cxt.mergeValidEvaluated(schCxt, schValid);
+        if (!merged)
+          gen2.if((0, codegen_1.not)(valid));
+      }));
+      cxt.result(valid, () => cxt.reset(), () => cxt.error(true));
+    }
+    exports.validateUnion = validateUnion;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/keyword.js
+var require_keyword2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/keyword.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.validateKeywordUsage = exports.validSchemaType = exports.funcKeywordCode = exports.macroKeywordCode = void 0;
+    var codegen_1 = require_codegen2();
+    var names_1 = require_names2();
+    var code_1 = require_code4();
+    var errors_1 = require_errors2();
+    function macroKeywordCode(cxt, def) {
+      const { gen: gen2, keyword, schema, parentSchema, it } = cxt;
+      const macroSchema = def.macro.call(it.self, schema, parentSchema, it);
+      const schemaRef = useKeyword(gen2, keyword, macroSchema);
+      if (it.opts.validateSchema !== false)
+        it.self.validateSchema(macroSchema, true);
+      const valid = gen2.name("valid");
+      cxt.subschema({
+        schema: macroSchema,
+        schemaPath: codegen_1.nil,
+        errSchemaPath: `${it.errSchemaPath}/${keyword}`,
+        topSchemaRef: schemaRef,
+        compositeRule: true
+      }, valid);
+      cxt.pass(valid, () => cxt.error(true));
+    }
+    exports.macroKeywordCode = macroKeywordCode;
+    function funcKeywordCode(cxt, def) {
+      var _a;
+      const { gen: gen2, keyword, schema, parentSchema, $data, it } = cxt;
+      checkAsyncKeyword(it, def);
+      const validate = !$data && def.compile ? def.compile.call(it.self, schema, parentSchema, it) : def.validate;
+      const validateRef = useKeyword(gen2, keyword, validate);
+      const valid = gen2.let("valid");
+      cxt.block$data(valid, validateKeyword);
+      cxt.ok((_a = def.valid) !== null && _a !== void 0 ? _a : valid);
+      function validateKeyword() {
+        if (def.errors === false) {
+          assignValid();
+          if (def.modifying)
+            modifyData(cxt);
+          reportErrs(() => cxt.error());
+        } else {
+          const ruleErrs = def.async ? validateAsync() : validateSync();
+          if (def.modifying)
+            modifyData(cxt);
+          reportErrs(() => addErrs(cxt, ruleErrs));
+        }
+      }
+      function validateAsync() {
+        const ruleErrs = gen2.let("ruleErrs", null);
+        gen2.try(() => assignValid((0, codegen_1._)`await `), (e) => gen2.assign(valid, false).if((0, codegen_1._)`${e} instanceof ${it.ValidationError}`, () => gen2.assign(ruleErrs, (0, codegen_1._)`${e}.errors`), () => gen2.throw(e)));
+        return ruleErrs;
+      }
+      function validateSync() {
+        const validateErrs = (0, codegen_1._)`${validateRef}.errors`;
+        gen2.assign(validateErrs, null);
+        assignValid(codegen_1.nil);
+        return validateErrs;
+      }
+      function assignValid(_await = def.async ? (0, codegen_1._)`await ` : codegen_1.nil) {
+        const passCxt = it.opts.passContext ? names_1.default.this : names_1.default.self;
+        const passSchema = !("compile" in def && !$data || def.schema === false);
+        gen2.assign(valid, (0, codegen_1._)`${_await}${(0, code_1.callValidateCode)(cxt, validateRef, passCxt, passSchema)}`, def.modifying);
+      }
+      function reportErrs(errors) {
+        var _a2;
+        gen2.if((0, codegen_1.not)((_a2 = def.valid) !== null && _a2 !== void 0 ? _a2 : valid), errors);
+      }
+    }
+    exports.funcKeywordCode = funcKeywordCode;
+    function modifyData(cxt) {
+      const { gen: gen2, data, it } = cxt;
+      gen2.if(it.parentData, () => gen2.assign(data, (0, codegen_1._)`${it.parentData}[${it.parentDataProperty}]`));
+    }
+    function addErrs(cxt, errs) {
+      const { gen: gen2 } = cxt;
+      gen2.if((0, codegen_1._)`Array.isArray(${errs})`, () => {
+        gen2.assign(names_1.default.vErrors, (0, codegen_1._)`${names_1.default.vErrors} === null ? ${errs} : ${names_1.default.vErrors}.concat(${errs})`).assign(names_1.default.errors, (0, codegen_1._)`${names_1.default.vErrors}.length`);
+        (0, errors_1.extendErrors)(cxt);
+      }, () => cxt.error());
+    }
+    function checkAsyncKeyword({ schemaEnv }, def) {
+      if (def.async && !schemaEnv.$async)
+        throw new Error("async keyword in sync schema");
+    }
+    function useKeyword(gen2, keyword, result) {
+      if (result === void 0)
+        throw new Error(`keyword "${keyword}" failed to compile`);
+      return gen2.scopeValue("keyword", typeof result == "function" ? { ref: result } : { ref: result, code: (0, codegen_1.stringify)(result) });
+    }
+    function validSchemaType(schema, schemaType, allowUndefined = false) {
+      return !schemaType.length || schemaType.some((st) => st === "array" ? Array.isArray(schema) : st === "object" ? schema && typeof schema == "object" && !Array.isArray(schema) : typeof schema == st || allowUndefined && typeof schema == "undefined");
+    }
+    exports.validSchemaType = validSchemaType;
+    function validateKeywordUsage({ schema, opts, self: self2, errSchemaPath }, def, keyword) {
+      if (Array.isArray(def.keyword) ? !def.keyword.includes(keyword) : def.keyword !== keyword) {
+        throw new Error("ajv implementation error");
+      }
+      const deps = def.dependencies;
+      if (deps === null || deps === void 0 ? void 0 : deps.some((kwd) => !Object.prototype.hasOwnProperty.call(schema, kwd))) {
+        throw new Error(`parent schema must have dependencies of ${keyword}: ${deps.join(",")}`);
+      }
+      if (def.validateSchema) {
+        const valid = def.validateSchema(schema[keyword]);
+        if (!valid) {
+          const msg = `keyword "${keyword}" value is invalid at path "${errSchemaPath}": ` + self2.errorsText(def.validateSchema.errors);
+          if (opts.validateSchema === "log")
+            self2.logger.error(msg);
+          else
+            throw new Error(msg);
+        }
+      }
+    }
+    exports.validateKeywordUsage = validateKeywordUsage;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/subschema.js
+var require_subschema2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/subschema.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.extendSubschemaMode = exports.extendSubschemaData = exports.getSubschema = void 0;
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    function getSubschema(it, { keyword, schemaProp, schema, schemaPath, errSchemaPath, topSchemaRef }) {
+      if (keyword !== void 0 && schema !== void 0) {
+        throw new Error('both "keyword" and "schema" passed, only one allowed');
+      }
+      if (keyword !== void 0) {
+        const sch = it.schema[keyword];
+        return schemaProp === void 0 ? {
+          schema: sch,
+          schemaPath: (0, codegen_1._)`${it.schemaPath}${(0, codegen_1.getProperty)(keyword)}`,
+          errSchemaPath: `${it.errSchemaPath}/${keyword}`
+        } : {
+          schema: sch[schemaProp],
+          schemaPath: (0, codegen_1._)`${it.schemaPath}${(0, codegen_1.getProperty)(keyword)}${(0, codegen_1.getProperty)(schemaProp)}`,
+          errSchemaPath: `${it.errSchemaPath}/${keyword}/${(0, util_1.escapeFragment)(schemaProp)}`
+        };
+      }
+      if (schema !== void 0) {
+        if (schemaPath === void 0 || errSchemaPath === void 0 || topSchemaRef === void 0) {
+          throw new Error('"schemaPath", "errSchemaPath" and "topSchemaRef" are required with "schema"');
+        }
+        return {
+          schema,
+          schemaPath,
+          topSchemaRef,
+          errSchemaPath
+        };
+      }
+      throw new Error('either "keyword" or "schema" must be passed');
+    }
+    exports.getSubschema = getSubschema;
+    function extendSubschemaData(subschema, it, { dataProp, dataPropType: dpType, data, dataTypes, propertyName }) {
+      if (data !== void 0 && dataProp !== void 0) {
+        throw new Error('both "data" and "dataProp" passed, only one allowed');
+      }
+      const { gen: gen2 } = it;
+      if (dataProp !== void 0) {
+        const { errorPath, dataPathArr, opts } = it;
+        const nextData = gen2.let("data", (0, codegen_1._)`${it.data}${(0, codegen_1.getProperty)(dataProp)}`, true);
+        dataContextProps(nextData);
+        subschema.errorPath = (0, codegen_1.str)`${errorPath}${(0, util_1.getErrorPath)(dataProp, dpType, opts.jsPropertySyntax)}`;
+        subschema.parentDataProperty = (0, codegen_1._)`${dataProp}`;
+        subschema.dataPathArr = [...dataPathArr, subschema.parentDataProperty];
+      }
+      if (data !== void 0) {
+        const nextData = data instanceof codegen_1.Name ? data : gen2.let("data", data, true);
+        dataContextProps(nextData);
+        if (propertyName !== void 0)
+          subschema.propertyName = propertyName;
+      }
+      if (dataTypes)
+        subschema.dataTypes = dataTypes;
+      function dataContextProps(_nextData) {
+        subschema.data = _nextData;
+        subschema.dataLevel = it.dataLevel + 1;
+        subschema.dataTypes = [];
+        it.definedProperties = /* @__PURE__ */ new Set();
+        subschema.parentData = it.data;
+        subschema.dataNames = [...it.dataNames, _nextData];
+      }
+    }
+    exports.extendSubschemaData = extendSubschemaData;
+    function extendSubschemaMode(subschema, { jtdDiscriminator, jtdMetadata, compositeRule, createErrors, allErrors }) {
+      if (compositeRule !== void 0)
+        subschema.compositeRule = compositeRule;
+      if (createErrors !== void 0)
+        subschema.createErrors = createErrors;
+      if (allErrors !== void 0)
+        subschema.allErrors = allErrors;
+      subschema.jtdDiscriminator = jtdDiscriminator;
+      subschema.jtdMetadata = jtdMetadata;
+    }
+    exports.extendSubschemaMode = extendSubschemaMode;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/json-schema-traverse/index.js
+var require_json_schema_traverse2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/json-schema-traverse/index.js"(exports, module) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    var traverse = module.exports = function(schema, opts, cb) {
+      if (typeof opts == "function") {
+        cb = opts;
+        opts = {};
+      }
+      cb = opts.cb || cb;
+      var pre = typeof cb == "function" ? cb : cb.pre || function() {
+      };
+      var post = cb.post || function() {
+      };
+      _traverse(opts, pre, post, schema, "", schema);
+    };
+    traverse.keywords = {
+      additionalItems: true,
+      items: true,
+      contains: true,
+      additionalProperties: true,
+      propertyNames: true,
+      not: true,
+      if: true,
+      then: true,
+      else: true
+    };
+    traverse.arrayKeywords = {
+      items: true,
+      allOf: true,
+      anyOf: true,
+      oneOf: true
+    };
+    traverse.propsKeywords = {
+      $defs: true,
+      definitions: true,
+      properties: true,
+      patternProperties: true,
+      dependencies: true
+    };
+    traverse.skipKeywords = {
+      default: true,
+      enum: true,
+      const: true,
+      required: true,
+      maximum: true,
+      minimum: true,
+      exclusiveMaximum: true,
+      exclusiveMinimum: true,
+      multipleOf: true,
+      maxLength: true,
+      minLength: true,
+      pattern: true,
+      format: true,
+      maxItems: true,
+      minItems: true,
+      uniqueItems: true,
+      maxProperties: true,
+      minProperties: true
+    };
+    function _traverse(opts, pre, post, schema, jsonPtr, rootSchema, parentJsonPtr, parentKeyword, parentSchema, keyIndex) {
+      if (schema && typeof schema == "object" && !Array.isArray(schema)) {
+        pre(schema, jsonPtr, rootSchema, parentJsonPtr, parentKeyword, parentSchema, keyIndex);
+        for (var key in schema) {
+          var sch = schema[key];
+          if (Array.isArray(sch)) {
+            if (key in traverse.arrayKeywords) {
+              for (var i = 0; i < sch.length; i++)
+                _traverse(opts, pre, post, sch[i], jsonPtr + "/" + key + "/" + i, rootSchema, jsonPtr, key, schema, i);
+            }
+          } else if (key in traverse.propsKeywords) {
+            if (sch && typeof sch == "object") {
+              for (var prop in sch)
+                _traverse(opts, pre, post, sch[prop], jsonPtr + "/" + key + "/" + escapeJsonPtr(prop), rootSchema, jsonPtr, key, schema, prop);
+            }
+          } else if (key in traverse.keywords || opts.allKeys && !(key in traverse.skipKeywords)) {
+            _traverse(opts, pre, post, sch, jsonPtr + "/" + key, rootSchema, jsonPtr, key, schema);
+          }
+        }
+        post(schema, jsonPtr, rootSchema, parentJsonPtr, parentKeyword, parentSchema, keyIndex);
+      }
+    }
+    function escapeJsonPtr(str) {
+      return str.replace(/~/g, "~0").replace(/\//g, "~1");
+    }
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/resolve.js
+var require_resolve2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/resolve.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.getSchemaRefs = exports.resolveUrl = exports.normalizeId = exports._getFullPath = exports.getFullPath = exports.inlineRef = void 0;
+    var util_1 = require_util2();
+    var equal = require_fast_deep_equal();
+    var traverse = require_json_schema_traverse2();
+    var SIMPLE_INLINED = /* @__PURE__ */ new Set([
+      "type",
+      "format",
+      "pattern",
+      "maxLength",
+      "minLength",
+      "maxProperties",
+      "minProperties",
+      "maxItems",
+      "minItems",
+      "maximum",
+      "minimum",
+      "uniqueItems",
+      "multipleOf",
+      "required",
+      "enum",
+      "const"
+    ]);
+    function inlineRef(schema, limit = true) {
+      if (typeof schema == "boolean")
+        return true;
+      if (limit === true)
+        return !hasRef(schema);
+      if (!limit)
+        return false;
+      return countKeys(schema) <= limit;
+    }
+    exports.inlineRef = inlineRef;
+    var REF_KEYWORDS = /* @__PURE__ */ new Set([
+      "$ref",
+      "$recursiveRef",
+      "$recursiveAnchor",
+      "$dynamicRef",
+      "$dynamicAnchor"
+    ]);
+    function hasRef(schema) {
+      for (const key in schema) {
+        if (REF_KEYWORDS.has(key))
+          return true;
+        const sch = schema[key];
+        if (Array.isArray(sch) && sch.some(hasRef))
+          return true;
+        if (typeof sch == "object" && hasRef(sch))
+          return true;
+      }
+      return false;
+    }
+    function countKeys(schema) {
+      let count = 0;
+      for (const key in schema) {
+        if (key === "$ref")
+          return Infinity;
+        count++;
+        if (SIMPLE_INLINED.has(key))
+          continue;
+        if (typeof schema[key] == "object") {
+          (0, util_1.eachItem)(schema[key], (sch) => count += countKeys(sch));
+        }
+        if (count === Infinity)
+          return Infinity;
+      }
+      return count;
+    }
+    function getFullPath(resolver, id2 = "", normalize) {
+      if (normalize !== false)
+        id2 = normalizeId(id2);
+      const p = resolver.parse(id2);
+      return _getFullPath(resolver, p);
+    }
+    exports.getFullPath = getFullPath;
+    function _getFullPath(resolver, p) {
+      const serialized = resolver.serialize(p);
+      return serialized.split("#")[0] + "#";
+    }
+    exports._getFullPath = _getFullPath;
+    var TRAILING_SLASH_HASH = /#\/?$/;
+    function normalizeId(id2) {
+      return id2 ? id2.replace(TRAILING_SLASH_HASH, "") : "";
+    }
+    exports.normalizeId = normalizeId;
+    function resolveUrl(resolver, baseId, id2) {
+      id2 = normalizeId(id2);
+      return resolver.resolve(baseId, id2);
+    }
+    exports.resolveUrl = resolveUrl;
+    var ANCHOR = /^[a-z_][-a-z0-9._]*$/i;
+    function getSchemaRefs(schema, baseId) {
+      if (typeof schema == "boolean")
+        return {};
+      const { schemaId, uriResolver } = this.opts;
+      const schId = normalizeId(schema[schemaId] || baseId);
+      const baseIds = { "": schId };
+      const pathPrefix = getFullPath(uriResolver, schId, false);
+      const localRefs = {};
+      const schemaRefs = /* @__PURE__ */ new Set();
+      traverse(schema, { allKeys: true }, (sch, jsonPtr, _, parentJsonPtr) => {
+        if (parentJsonPtr === void 0)
+          return;
+        const fullPath = pathPrefix + jsonPtr;
+        let innerBaseId = baseIds[parentJsonPtr];
+        if (typeof sch[schemaId] == "string")
+          innerBaseId = addRef.call(this, sch[schemaId]);
+        addAnchor.call(this, sch.$anchor);
+        addAnchor.call(this, sch.$dynamicAnchor);
+        baseIds[jsonPtr] = innerBaseId;
+        function addRef(ref) {
+          const _resolve = this.opts.uriResolver.resolve;
+          ref = normalizeId(innerBaseId ? _resolve(innerBaseId, ref) : ref);
+          if (schemaRefs.has(ref))
+            throw ambiguos(ref);
+          schemaRefs.add(ref);
+          let schOrRef = this.refs[ref];
+          if (typeof schOrRef == "string")
+            schOrRef = this.refs[schOrRef];
+          if (typeof schOrRef == "object") {
+            checkAmbiguosRef(sch, schOrRef.schema, ref);
+          } else if (ref !== normalizeId(fullPath)) {
+            if (ref[0] === "#") {
+              checkAmbiguosRef(sch, localRefs[ref], ref);
+              localRefs[ref] = sch;
+            } else {
+              this.refs[ref] = fullPath;
+            }
+          }
+          return ref;
+        }
+        function addAnchor(anchor) {
+          if (typeof anchor == "string") {
+            if (!ANCHOR.test(anchor))
+              throw new Error(`invalid anchor "${anchor}"`);
+            addRef.call(this, `#${anchor}`);
+          }
+        }
+      });
+      return localRefs;
+      function checkAmbiguosRef(sch1, sch2, ref) {
+        if (sch2 !== void 0 && !equal(sch1, sch2))
+          throw ambiguos(ref);
+      }
+      function ambiguos(ref) {
+        return new Error(`reference "${ref}" resolves to more than one schema`);
+      }
+    }
+    exports.getSchemaRefs = getSchemaRefs;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/index.js
+var require_validate2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/validate/index.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.getData = exports.KeywordCxt = exports.validateFunctionCode = void 0;
+    var boolSchema_1 = require_boolSchema2();
+    var dataType_1 = require_dataType2();
+    var applicability_1 = require_applicability2();
+    var dataType_2 = require_dataType2();
+    var defaults_1 = require_defaults2();
+    var keyword_1 = require_keyword2();
+    var subschema_1 = require_subschema2();
+    var codegen_1 = require_codegen2();
+    var names_1 = require_names2();
+    var resolve_1 = require_resolve2();
+    var util_1 = require_util2();
+    var errors_1 = require_errors2();
+    function validateFunctionCode(it) {
+      if (isSchemaObj(it)) {
+        checkKeywords(it);
+        if (schemaCxtHasRules(it)) {
+          topSchemaObjCode(it);
+          return;
+        }
+      }
+      validateFunction(it, () => (0, boolSchema_1.topBoolOrEmptySchema)(it));
+    }
+    exports.validateFunctionCode = validateFunctionCode;
+    function validateFunction({ gen: gen2, validateName, schema, schemaEnv, opts }, body) {
+      if (opts.code.es5) {
+        gen2.func(validateName, (0, codegen_1._)`${names_1.default.data}, ${names_1.default.valCxt}`, schemaEnv.$async, () => {
+          gen2.code((0, codegen_1._)`"use strict"; ${funcSourceUrl(schema, opts)}`);
+          destructureValCxtES5(gen2, opts);
+          gen2.code(body);
+        });
+      } else {
+        gen2.func(validateName, (0, codegen_1._)`${names_1.default.data}, ${destructureValCxt(opts)}`, schemaEnv.$async, () => gen2.code(funcSourceUrl(schema, opts)).code(body));
+      }
+    }
+    function destructureValCxt(opts) {
+      return (0, codegen_1._)`{${names_1.default.instancePath}="", ${names_1.default.parentData}, ${names_1.default.parentDataProperty}, ${names_1.default.rootData}=${names_1.default.data}${opts.dynamicRef ? (0, codegen_1._)`, ${names_1.default.dynamicAnchors}={}` : codegen_1.nil}}={}`;
+    }
+    function destructureValCxtES5(gen2, opts) {
+      gen2.if(names_1.default.valCxt, () => {
+        gen2.var(names_1.default.instancePath, (0, codegen_1._)`${names_1.default.valCxt}.${names_1.default.instancePath}`);
+        gen2.var(names_1.default.parentData, (0, codegen_1._)`${names_1.default.valCxt}.${names_1.default.parentData}`);
+        gen2.var(names_1.default.parentDataProperty, (0, codegen_1._)`${names_1.default.valCxt}.${names_1.default.parentDataProperty}`);
+        gen2.var(names_1.default.rootData, (0, codegen_1._)`${names_1.default.valCxt}.${names_1.default.rootData}`);
+        if (opts.dynamicRef)
+          gen2.var(names_1.default.dynamicAnchors, (0, codegen_1._)`${names_1.default.valCxt}.${names_1.default.dynamicAnchors}`);
+      }, () => {
+        gen2.var(names_1.default.instancePath, (0, codegen_1._)`""`);
+        gen2.var(names_1.default.parentData, (0, codegen_1._)`undefined`);
+        gen2.var(names_1.default.parentDataProperty, (0, codegen_1._)`undefined`);
+        gen2.var(names_1.default.rootData, names_1.default.data);
+        if (opts.dynamicRef)
+          gen2.var(names_1.default.dynamicAnchors, (0, codegen_1._)`{}`);
+      });
+    }
+    function topSchemaObjCode(it) {
+      const { schema, opts, gen: gen2 } = it;
+      validateFunction(it, () => {
+        if (opts.$comment && schema.$comment)
+          commentKeyword(it);
+        checkNoDefault(it);
+        gen2.let(names_1.default.vErrors, null);
+        gen2.let(names_1.default.errors, 0);
+        if (opts.unevaluated)
+          resetEvaluated(it);
+        typeAndKeywords(it);
+        returnResults(it);
+      });
+      return;
+    }
+    function resetEvaluated(it) {
+      const { gen: gen2, validateName } = it;
+      it.evaluated = gen2.const("evaluated", (0, codegen_1._)`${validateName}.evaluated`);
+      gen2.if((0, codegen_1._)`${it.evaluated}.dynamicProps`, () => gen2.assign((0, codegen_1._)`${it.evaluated}.props`, (0, codegen_1._)`undefined`));
+      gen2.if((0, codegen_1._)`${it.evaluated}.dynamicItems`, () => gen2.assign((0, codegen_1._)`${it.evaluated}.items`, (0, codegen_1._)`undefined`));
+    }
+    function funcSourceUrl(schema, opts) {
+      const schId = typeof schema == "object" && schema[opts.schemaId];
+      return schId && (opts.code.source || opts.code.process) ? (0, codegen_1._)`/*# sourceURL=${schId} */` : codegen_1.nil;
+    }
+    function subschemaCode(it, valid) {
+      if (isSchemaObj(it)) {
+        checkKeywords(it);
+        if (schemaCxtHasRules(it)) {
+          subSchemaObjCode(it, valid);
+          return;
+        }
+      }
+      (0, boolSchema_1.boolOrEmptySchema)(it, valid);
+    }
+    function schemaCxtHasRules({ schema, self: self2 }) {
+      if (typeof schema == "boolean")
+        return !schema;
+      for (const key in schema)
+        if (self2.RULES.all[key])
+          return true;
+      return false;
+    }
+    function isSchemaObj(it) {
+      return typeof it.schema != "boolean";
+    }
+    function subSchemaObjCode(it, valid) {
+      const { schema, gen: gen2, opts } = it;
+      if (opts.$comment && schema.$comment)
+        commentKeyword(it);
+      updateContext(it);
+      checkAsyncSchema(it);
+      const errsCount = gen2.const("_errs", names_1.default.errors);
+      typeAndKeywords(it, errsCount);
+      gen2.var(valid, (0, codegen_1._)`${errsCount} === ${names_1.default.errors}`);
+    }
+    function checkKeywords(it) {
+      (0, util_1.checkUnknownRules)(it);
+      checkRefsAndKeywords(it);
+    }
+    function typeAndKeywords(it, errsCount) {
+      if (it.opts.jtd)
+        return schemaKeywords(it, [], false, errsCount);
+      const types = (0, dataType_1.getSchemaTypes)(it.schema);
+      const checkedTypes = (0, dataType_1.coerceAndCheckDataType)(it, types);
+      schemaKeywords(it, types, !checkedTypes, errsCount);
+    }
+    function checkRefsAndKeywords(it) {
+      const { schema, errSchemaPath, opts, self: self2 } = it;
+      if (schema.$ref && opts.ignoreKeywordsWithRef && (0, util_1.schemaHasRulesButRef)(schema, self2.RULES)) {
+        self2.logger.warn(`$ref: keywords ignored in schema at path "${errSchemaPath}"`);
+      }
+    }
+    function checkNoDefault(it) {
+      const { schema, opts } = it;
+      if (schema.default !== void 0 && opts.useDefaults && opts.strictSchema) {
+        (0, util_1.checkStrictMode)(it, "default is ignored in the schema root");
+      }
+    }
+    function updateContext(it) {
+      const schId = it.schema[it.opts.schemaId];
+      if (schId)
+        it.baseId = (0, resolve_1.resolveUrl)(it.opts.uriResolver, it.baseId, schId);
+    }
+    function checkAsyncSchema(it) {
+      if (it.schema.$async && !it.schemaEnv.$async)
+        throw new Error("async schema in sync schema");
+    }
+    function commentKeyword({ gen: gen2, schemaEnv, schema, errSchemaPath, opts }) {
+      const msg = schema.$comment;
+      if (opts.$comment === true) {
+        gen2.code((0, codegen_1._)`${names_1.default.self}.logger.log(${msg})`);
+      } else if (typeof opts.$comment == "function") {
+        const schemaPath = (0, codegen_1.str)`${errSchemaPath}/$comment`;
+        const rootName = gen2.scopeValue("root", { ref: schemaEnv.root });
+        gen2.code((0, codegen_1._)`${names_1.default.self}.opts.$comment(${msg}, ${schemaPath}, ${rootName}.schema)`);
+      }
+    }
+    function returnResults(it) {
+      const { gen: gen2, schemaEnv, validateName, ValidationError, opts } = it;
+      if (schemaEnv.$async) {
+        gen2.if((0, codegen_1._)`${names_1.default.errors} === 0`, () => gen2.return(names_1.default.data), () => gen2.throw((0, codegen_1._)`new ${ValidationError}(${names_1.default.vErrors})`));
+      } else {
+        gen2.assign((0, codegen_1._)`${validateName}.errors`, names_1.default.vErrors);
+        if (opts.unevaluated)
+          assignEvaluated(it);
+        gen2.return((0, codegen_1._)`${names_1.default.errors} === 0`);
+      }
+    }
+    function assignEvaluated({ gen: gen2, evaluated, props, items }) {
+      if (props instanceof codegen_1.Name)
+        gen2.assign((0, codegen_1._)`${evaluated}.props`, props);
+      if (items instanceof codegen_1.Name)
+        gen2.assign((0, codegen_1._)`${evaluated}.items`, items);
+    }
+    function schemaKeywords(it, types, typeErrors, errsCount) {
+      const { gen: gen2, schema, data, allErrors, opts, self: self2 } = it;
+      const { RULES } = self2;
+      if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_1.schemaHasRulesButRef)(schema, RULES))) {
+        gen2.block(() => keywordCode(it, "$ref", RULES.all.$ref.definition));
+        return;
+      }
+      if (!opts.jtd)
+        checkStrictTypes(it, types);
+      gen2.block(() => {
+        for (const group of RULES.rules)
+          groupKeywords(group);
+        groupKeywords(RULES.post);
+      });
+      function groupKeywords(group) {
+        if (!(0, applicability_1.shouldUseGroup)(schema, group))
+          return;
+        if (group.type) {
+          gen2.if((0, dataType_2.checkDataType)(group.type, data, opts.strictNumbers));
+          iterateKeywords(it, group);
+          if (types.length === 1 && types[0] === group.type && typeErrors) {
+            gen2.else();
+            (0, dataType_2.reportTypeError)(it);
+          }
+          gen2.endIf();
+        } else {
+          iterateKeywords(it, group);
+        }
+        if (!allErrors)
+          gen2.if((0, codegen_1._)`${names_1.default.errors} === ${errsCount || 0}`);
+      }
+    }
+    function iterateKeywords(it, group) {
+      const { gen: gen2, schema, opts: { useDefaults } } = it;
+      if (useDefaults)
+        (0, defaults_1.assignDefaults)(it, group.type);
+      gen2.block(() => {
+        for (const rule of group.rules) {
+          if ((0, applicability_1.shouldUseRule)(schema, rule)) {
+            keywordCode(it, rule.keyword, rule.definition, group.type);
+          }
+        }
+      });
+    }
+    function checkStrictTypes(it, types) {
+      if (it.schemaEnv.meta || !it.opts.strictTypes)
+        return;
+      checkContextTypes(it, types);
+      if (!it.opts.allowUnionTypes)
+        checkMultipleTypes(it, types);
+      checkKeywordTypes(it, it.dataTypes);
+    }
+    function checkContextTypes(it, types) {
+      if (!types.length)
+        return;
+      if (!it.dataTypes.length) {
+        it.dataTypes = types;
+        return;
+      }
+      types.forEach((t) => {
+        if (!includesType(it.dataTypes, t)) {
+          strictTypesError(it, `type "${t}" not allowed by context "${it.dataTypes.join(",")}"`);
+        }
+      });
+      narrowSchemaTypes(it, types);
+    }
+    function checkMultipleTypes(it, ts) {
+      if (ts.length > 1 && !(ts.length === 2 && ts.includes("null"))) {
+        strictTypesError(it, "use allowUnionTypes to allow union type keyword");
+      }
+    }
+    function checkKeywordTypes(it, ts) {
+      const rules = it.self.RULES.all;
+      for (const keyword in rules) {
+        const rule = rules[keyword];
+        if (typeof rule == "object" && (0, applicability_1.shouldUseRule)(it.schema, rule)) {
+          const { type } = rule.definition;
+          if (type.length && !type.some((t) => hasApplicableType(ts, t))) {
+            strictTypesError(it, `missing type "${type.join(",")}" for keyword "${keyword}"`);
+          }
+        }
+      }
+    }
+    function hasApplicableType(schTs, kwdT) {
+      return schTs.includes(kwdT) || kwdT === "number" && schTs.includes("integer");
+    }
+    function includesType(ts, t) {
+      return ts.includes(t) || t === "integer" && ts.includes("number");
+    }
+    function narrowSchemaTypes(it, withTypes) {
+      const ts = [];
+      for (const t of it.dataTypes) {
+        if (includesType(withTypes, t))
+          ts.push(t);
+        else if (withTypes.includes("integer") && t === "number")
+          ts.push("integer");
+      }
+      it.dataTypes = ts;
+    }
+    function strictTypesError(it, msg) {
+      const schemaPath = it.schemaEnv.baseId + it.errSchemaPath;
+      msg += ` at "${schemaPath}" (strictTypes)`;
+      (0, util_1.checkStrictMode)(it, msg, it.opts.strictTypes);
+    }
+    var KeywordCxt = class {
+      constructor(it, def, keyword) {
+        (0, keyword_1.validateKeywordUsage)(it, def, keyword);
+        this.gen = it.gen;
+        this.allErrors = it.allErrors;
+        this.keyword = keyword;
+        this.data = it.data;
+        this.schema = it.schema[keyword];
+        this.$data = def.$data && it.opts.$data && this.schema && this.schema.$data;
+        this.schemaValue = (0, util_1.schemaRefOrVal)(it, this.schema, keyword, this.$data);
+        this.schemaType = def.schemaType;
+        this.parentSchema = it.schema;
+        this.params = {};
+        this.it = it;
+        this.def = def;
+        if (this.$data) {
+          this.schemaCode = it.gen.const("vSchema", getData(this.$data, it));
+        } else {
+          this.schemaCode = this.schemaValue;
+          if (!(0, keyword_1.validSchemaType)(this.schema, def.schemaType, def.allowUndefined)) {
+            throw new Error(`${keyword} value must be ${JSON.stringify(def.schemaType)}`);
+          }
+        }
+        if ("code" in def ? def.trackErrors : def.errors !== false) {
+          this.errsCount = it.gen.const("_errs", names_1.default.errors);
+        }
+      }
+      result(condition, successAction, failAction) {
+        this.failResult((0, codegen_1.not)(condition), successAction, failAction);
+      }
+      failResult(condition, successAction, failAction) {
+        this.gen.if(condition);
+        if (failAction)
+          failAction();
+        else
+          this.error();
+        if (successAction) {
+          this.gen.else();
+          successAction();
+          if (this.allErrors)
+            this.gen.endIf();
+        } else {
+          if (this.allErrors)
+            this.gen.endIf();
+          else
+            this.gen.else();
+        }
+      }
+      pass(condition, failAction) {
+        this.failResult((0, codegen_1.not)(condition), void 0, failAction);
+      }
+      fail(condition) {
+        if (condition === void 0) {
+          this.error();
+          if (!this.allErrors)
+            this.gen.if(false);
+          return;
+        }
+        this.gen.if(condition);
+        this.error();
+        if (this.allErrors)
+          this.gen.endIf();
+        else
+          this.gen.else();
+      }
+      fail$data(condition) {
+        if (!this.$data)
+          return this.fail(condition);
+        const { schemaCode } = this;
+        this.fail((0, codegen_1._)`${schemaCode} !== undefined && (${(0, codegen_1.or)(this.invalid$data(), condition)})`);
+      }
+      error(append, errorParams, errorPaths) {
+        if (errorParams) {
+          this.setParams(errorParams);
+          this._error(append, errorPaths);
+          this.setParams({});
+          return;
+        }
+        this._error(append, errorPaths);
+      }
+      _error(append, errorPaths) {
+        ;
+        (append ? errors_1.reportExtraError : errors_1.reportError)(this, this.def.error, errorPaths);
+      }
+      $dataError() {
+        (0, errors_1.reportError)(this, this.def.$dataError || errors_1.keyword$DataError);
+      }
+      reset() {
+        if (this.errsCount === void 0)
+          throw new Error('add "trackErrors" to keyword definition');
+        (0, errors_1.resetErrorsCount)(this.gen, this.errsCount);
+      }
+      ok(cond) {
+        if (!this.allErrors)
+          this.gen.if(cond);
+      }
+      setParams(obj, assign) {
+        if (assign)
+          Object.assign(this.params, obj);
+        else
+          this.params = obj;
+      }
+      block$data(valid, codeBlock, $dataValid = codegen_1.nil) {
+        this.gen.block(() => {
+          this.check$data(valid, $dataValid);
+          codeBlock();
+        });
+      }
+      check$data(valid = codegen_1.nil, $dataValid = codegen_1.nil) {
+        if (!this.$data)
+          return;
+        const { gen: gen2, schemaCode, schemaType, def } = this;
+        gen2.if((0, codegen_1.or)((0, codegen_1._)`${schemaCode} === undefined`, $dataValid));
+        if (valid !== codegen_1.nil)
+          gen2.assign(valid, true);
+        if (schemaType.length || def.validateSchema) {
+          gen2.elseIf(this.invalid$data());
+          this.$dataError();
+          if (valid !== codegen_1.nil)
+            gen2.assign(valid, false);
+        }
+        gen2.else();
+      }
+      invalid$data() {
+        const { gen: gen2, schemaCode, schemaType, def, it } = this;
+        return (0, codegen_1.or)(wrong$DataType(), invalid$DataSchema());
+        function wrong$DataType() {
+          if (schemaType.length) {
+            if (!(schemaCode instanceof codegen_1.Name))
+              throw new Error("ajv implementation error");
+            const st = Array.isArray(schemaType) ? schemaType : [schemaType];
+            return (0, codegen_1._)`${(0, dataType_2.checkDataTypes)(st, schemaCode, it.opts.strictNumbers, dataType_2.DataType.Wrong)}`;
+          }
+          return codegen_1.nil;
+        }
+        function invalid$DataSchema() {
+          if (def.validateSchema) {
+            const validateSchemaRef = gen2.scopeValue("validate$data", { ref: def.validateSchema });
+            return (0, codegen_1._)`!${validateSchemaRef}(${schemaCode})`;
+          }
+          return codegen_1.nil;
+        }
+      }
+      subschema(appl, valid) {
+        const subschema = (0, subschema_1.getSubschema)(this.it, appl);
+        (0, subschema_1.extendSubschemaData)(subschema, this.it, appl);
+        (0, subschema_1.extendSubschemaMode)(subschema, appl);
+        const nextContext = { ...this.it, ...subschema, items: void 0, props: void 0 };
+        subschemaCode(nextContext, valid);
+        return nextContext;
+      }
+      mergeEvaluated(schemaCxt, toName) {
+        const { it, gen: gen2 } = this;
+        if (!it.opts.unevaluated)
+          return;
+        if (it.props !== true && schemaCxt.props !== void 0) {
+          it.props = util_1.mergeEvaluated.props(gen2, schemaCxt.props, it.props, toName);
+        }
+        if (it.items !== true && schemaCxt.items !== void 0) {
+          it.items = util_1.mergeEvaluated.items(gen2, schemaCxt.items, it.items, toName);
+        }
+      }
+      mergeValidEvaluated(schemaCxt, valid) {
+        const { it, gen: gen2 } = this;
+        if (it.opts.unevaluated && (it.props !== true || it.items !== true)) {
+          gen2.if(valid, () => this.mergeEvaluated(schemaCxt, codegen_1.Name));
+          return true;
+        }
+      }
+    };
+    exports.KeywordCxt = KeywordCxt;
+    function keywordCode(it, keyword, def, ruleType) {
+      const cxt = new KeywordCxt(it, def, keyword);
+      if ("code" in def) {
+        def.code(cxt, ruleType);
+      } else if (cxt.$data && def.validate) {
+        (0, keyword_1.funcKeywordCode)(cxt, def);
+      } else if ("macro" in def) {
+        (0, keyword_1.macroKeywordCode)(cxt, def);
+      } else if (def.compile || def.validate) {
+        (0, keyword_1.funcKeywordCode)(cxt, def);
+      }
+    }
+    var JSON_POINTER = /^\/(?:[^~]|~0|~1)*$/;
+    var RELATIVE_JSON_POINTER = /^([0-9]+)(#|\/(?:[^~]|~0|~1)*)?$/;
+    function getData($data, { dataLevel, dataNames, dataPathArr }) {
+      let jsonPointer;
+      let data;
+      if ($data === "")
+        return names_1.default.rootData;
+      if ($data[0] === "/") {
+        if (!JSON_POINTER.test($data))
+          throw new Error(`Invalid JSON-pointer: ${$data}`);
+        jsonPointer = $data;
+        data = names_1.default.rootData;
+      } else {
+        const matches = RELATIVE_JSON_POINTER.exec($data);
+        if (!matches)
+          throw new Error(`Invalid JSON-pointer: ${$data}`);
+        const up = +matches[1];
+        jsonPointer = matches[2];
+        if (jsonPointer === "#") {
+          if (up >= dataLevel)
+            throw new Error(errorMsg("property/index", up));
+          return dataPathArr[dataLevel - up];
+        }
+        if (up > dataLevel)
+          throw new Error(errorMsg("data", up));
+        data = dataNames[dataLevel - up];
+        if (!jsonPointer)
+          return data;
+      }
+      let expr = data;
+      const segments = jsonPointer.split("/");
+      for (const segment of segments) {
+        if (segment) {
+          data = (0, codegen_1._)`${data}${(0, codegen_1.getProperty)((0, util_1.unescapeJsonPointer)(segment))}`;
+          expr = (0, codegen_1._)`${expr} && ${data}`;
+        }
+      }
+      return expr;
+      function errorMsg(pointerType, up) {
+        return `Cannot access ${pointerType} ${up} levels up, current level is ${dataLevel}`;
+      }
+    }
+    exports.getData = getData;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/runtime/validation_error.js
+var require_validation_error2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/runtime/validation_error.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var ValidationError = class extends Error {
+      constructor(errors) {
+        super("validation failed");
+        this.errors = errors;
+        this.ajv = this.validation = true;
+      }
+    };
+    exports.default = ValidationError;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/ref_error.js
+var require_ref_error2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/ref_error.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var resolve_1 = require_resolve2();
+    var MissingRefError = class extends Error {
+      constructor(resolver, baseId, ref, msg) {
+        super(msg || `can't resolve reference ${ref} from id ${baseId}`);
+        this.missingRef = (0, resolve_1.resolveUrl)(resolver, baseId, ref);
+        this.missingSchema = (0, resolve_1.normalizeId)((0, resolve_1.getFullPath)(resolver, this.missingRef));
+      }
+    };
+    exports.default = MissingRefError;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/compile/index.js
+var require_compile2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/compile/index.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.resolveSchema = exports.getCompilingSchema = exports.resolveRef = exports.compileSchema = exports.SchemaEnv = void 0;
+    var codegen_1 = require_codegen2();
+    var validation_error_1 = require_validation_error2();
+    var names_1 = require_names2();
+    var resolve_1 = require_resolve2();
+    var util_1 = require_util2();
+    var validate_1 = require_validate2();
+    var SchemaEnv = class {
+      constructor(env) {
+        var _a;
+        this.refs = {};
+        this.dynamicAnchors = {};
+        let schema;
+        if (typeof env.schema == "object")
+          schema = env.schema;
+        this.schema = env.schema;
+        this.schemaId = env.schemaId;
+        this.root = env.root || this;
+        this.baseId = (_a = env.baseId) !== null && _a !== void 0 ? _a : (0, resolve_1.normalizeId)(schema === null || schema === void 0 ? void 0 : schema[env.schemaId || "$id"]);
+        this.schemaPath = env.schemaPath;
+        this.localRefs = env.localRefs;
+        this.meta = env.meta;
+        this.$async = schema === null || schema === void 0 ? void 0 : schema.$async;
+        this.refs = {};
+      }
+    };
+    exports.SchemaEnv = SchemaEnv;
+    function compileSchema(sch) {
+      const _sch = getCompilingSchema.call(this, sch);
+      if (_sch)
+        return _sch;
+      const rootId = (0, resolve_1.getFullPath)(this.opts.uriResolver, sch.root.baseId);
+      const { es5, lines } = this.opts.code;
+      const { ownProperties } = this.opts;
+      const gen2 = new codegen_1.CodeGen(this.scope, { es5, lines, ownProperties });
+      let _ValidationError;
+      if (sch.$async) {
+        _ValidationError = gen2.scopeValue("Error", {
+          ref: validation_error_1.default,
+          code: (0, codegen_1._)`require("ajv/dist/runtime/validation_error").default`
+        });
+      }
+      const validateName = gen2.scopeName("validate");
+      sch.validateName = validateName;
+      const schemaCxt = {
+        gen: gen2,
+        allErrors: this.opts.allErrors,
+        data: names_1.default.data,
+        parentData: names_1.default.parentData,
+        parentDataProperty: names_1.default.parentDataProperty,
+        dataNames: [names_1.default.data],
+        dataPathArr: [codegen_1.nil],
+        // TODO can its length be used as dataLevel if nil is removed?
+        dataLevel: 0,
+        dataTypes: [],
+        definedProperties: /* @__PURE__ */ new Set(),
+        topSchemaRef: gen2.scopeValue("schema", this.opts.code.source === true ? { ref: sch.schema, code: (0, codegen_1.stringify)(sch.schema) } : { ref: sch.schema }),
+        validateName,
+        ValidationError: _ValidationError,
+        schema: sch.schema,
+        schemaEnv: sch,
+        rootId,
+        baseId: sch.baseId || rootId,
+        schemaPath: codegen_1.nil,
+        errSchemaPath: sch.schemaPath || (this.opts.jtd ? "" : "#"),
+        errorPath: (0, codegen_1._)`""`,
+        opts: this.opts,
+        self: this
+      };
+      let sourceCode;
+      try {
+        this._compilations.add(sch);
+        (0, validate_1.validateFunctionCode)(schemaCxt);
+        gen2.optimize(this.opts.code.optimize);
+        const validateCode = gen2.toString();
+        sourceCode = `${gen2.scopeRefs(names_1.default.scope)}return ${validateCode}`;
+        if (this.opts.code.process)
+          sourceCode = this.opts.code.process(sourceCode, sch);
+        const makeValidate = new Function(`${names_1.default.self}`, `${names_1.default.scope}`, sourceCode);
+        const validate = makeValidate(this, this.scope.get());
+        this.scope.value(validateName, { ref: validate });
+        validate.errors = null;
+        validate.schema = sch.schema;
+        validate.schemaEnv = sch;
+        if (sch.$async)
+          validate.$async = true;
+        if (this.opts.code.source === true) {
+          validate.source = { validateName, validateCode, scopeValues: gen2._values };
+        }
+        if (this.opts.unevaluated) {
+          const { props, items } = schemaCxt;
+          validate.evaluated = {
+            props: props instanceof codegen_1.Name ? void 0 : props,
+            items: items instanceof codegen_1.Name ? void 0 : items,
+            dynamicProps: props instanceof codegen_1.Name,
+            dynamicItems: items instanceof codegen_1.Name
+          };
+          if (validate.source)
+            validate.source.evaluated = (0, codegen_1.stringify)(validate.evaluated);
+        }
+        sch.validate = validate;
+        return sch;
+      } catch (e) {
+        delete sch.validate;
+        delete sch.validateName;
+        if (sourceCode)
+          this.logger.error("Error compiling schema, function code:", sourceCode);
+        throw e;
+      } finally {
+        this._compilations.delete(sch);
+      }
+    }
+    exports.compileSchema = compileSchema;
+    function resolveRef(root, baseId, ref) {
+      var _a;
+      ref = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, ref);
+      const schOrFunc = root.refs[ref];
+      if (schOrFunc)
+        return schOrFunc;
+      let _sch = resolve2.call(this, root, ref);
+      if (_sch === void 0) {
+        const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
+        const { schemaId } = this.opts;
+        if (schema)
+          _sch = new SchemaEnv({ schema, schemaId, root, baseId });
+      }
+      if (_sch === void 0)
+        return;
+      return root.refs[ref] = inlineOrCompile.call(this, _sch);
+    }
+    exports.resolveRef = resolveRef;
+    function inlineOrCompile(sch) {
+      if ((0, resolve_1.inlineRef)(sch.schema, this.opts.inlineRefs))
+        return sch.schema;
+      return sch.validate ? sch : compileSchema.call(this, sch);
+    }
+    function getCompilingSchema(schEnv) {
+      for (const sch of this._compilations) {
+        if (sameSchemaEnv(sch, schEnv))
+          return sch;
+      }
+    }
+    exports.getCompilingSchema = getCompilingSchema;
+    function sameSchemaEnv(s1, s2) {
+      return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
+    }
+    function resolve2(root, ref) {
+      let sch;
+      while (typeof (sch = this.refs[ref]) == "string")
+        ref = sch;
+      return sch || this.schemas[ref] || resolveSchema.call(this, root, ref);
+    }
+    function resolveSchema(root, ref) {
+      const p = this.opts.uriResolver.parse(ref);
+      const refPath = (0, resolve_1._getFullPath)(this.opts.uriResolver, p);
+      let baseId = (0, resolve_1.getFullPath)(this.opts.uriResolver, root.baseId, void 0);
+      if (Object.keys(root.schema).length > 0 && refPath === baseId) {
+        return getJsonPointer.call(this, p, root);
+      }
+      const id2 = (0, resolve_1.normalizeId)(refPath);
+      const schOrRef = this.refs[id2] || this.schemas[id2];
+      if (typeof schOrRef == "string") {
+        const sch = resolveSchema.call(this, root, schOrRef);
+        if (typeof (sch === null || sch === void 0 ? void 0 : sch.schema) !== "object")
+          return;
+        return getJsonPointer.call(this, p, sch);
+      }
+      if (typeof (schOrRef === null || schOrRef === void 0 ? void 0 : schOrRef.schema) !== "object")
+        return;
+      if (!schOrRef.validate)
+        compileSchema.call(this, schOrRef);
+      if (id2 === (0, resolve_1.normalizeId)(ref)) {
+        const { schema } = schOrRef;
+        const { schemaId } = this.opts;
+        const schId = schema[schemaId];
+        if (schId)
+          baseId = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, schId);
+        return new SchemaEnv({ schema, schemaId, root, baseId });
+      }
+      return getJsonPointer.call(this, p, schOrRef);
+    }
+    exports.resolveSchema = resolveSchema;
+    var PREVENT_SCOPE_CHANGE = /* @__PURE__ */ new Set([
+      "properties",
+      "patternProperties",
+      "enum",
+      "dependencies",
+      "definitions"
+    ]);
+    function getJsonPointer(parsedRef, { baseId, schema, root }) {
+      var _a;
+      if (((_a = parsedRef.fragment) === null || _a === void 0 ? void 0 : _a[0]) !== "/")
+        return;
+      for (const part of parsedRef.fragment.slice(1).split("/")) {
+        if (typeof schema === "boolean")
+          return;
+        const partSchema = schema[(0, util_1.unescapeFragment)(part)];
+        if (partSchema === void 0)
+          return;
+        schema = partSchema;
+        const schId = typeof schema === "object" && schema[this.opts.schemaId];
+        if (!PREVENT_SCOPE_CHANGE.has(part) && schId) {
+          baseId = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, schId);
+        }
+      }
+      let env;
+      if (typeof schema != "boolean" && schema.$ref && !(0, util_1.schemaHasRulesButRef)(schema, this.RULES)) {
+        const $ref = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, schema.$ref);
+        env = resolveSchema.call(this, root, $ref);
+      }
+      const { schemaId } = this.opts;
+      env = env || new SchemaEnv({ schema, schemaId, root, baseId });
+      if (env.schema !== env.root.schema)
+        return env;
+      return void 0;
+    }
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/refs/data.json
+var require_data2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/refs/data.json"(exports, module) {
+    module.exports = {
+      $id: "https://raw.githubusercontent.com/ajv-validator/ajv/master/lib/refs/data.json#",
+      description: "Meta-schema for $data reference (JSON AnySchema extension proposal)",
+      type: "object",
+      required: ["$data"],
+      properties: {
+        $data: {
+          type: "string",
+          anyOf: [{ format: "relative-json-pointer" }, { format: "json-pointer" }]
+        }
+      },
+      additionalProperties: false
+    };
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/runtime/uri.js
+var require_uri2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/runtime/uri.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var uri = require_fast_uri();
+    uri.code = 'require("ajv/dist/runtime/uri").default';
+    exports.default = uri;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/core.js
+var require_core3 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/core.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = void 0;
+    var validate_1 = require_validate2();
+    Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function() {
+      return validate_1.KeywordCxt;
+    } });
+    var codegen_1 = require_codegen2();
+    Object.defineProperty(exports, "_", { enumerable: true, get: function() {
+      return codegen_1._;
+    } });
+    Object.defineProperty(exports, "str", { enumerable: true, get: function() {
+      return codegen_1.str;
+    } });
+    Object.defineProperty(exports, "stringify", { enumerable: true, get: function() {
+      return codegen_1.stringify;
+    } });
+    Object.defineProperty(exports, "nil", { enumerable: true, get: function() {
+      return codegen_1.nil;
+    } });
+    Object.defineProperty(exports, "Name", { enumerable: true, get: function() {
+      return codegen_1.Name;
+    } });
+    Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function() {
+      return codegen_1.CodeGen;
+    } });
+    var validation_error_1 = require_validation_error2();
+    var ref_error_1 = require_ref_error2();
+    var rules_1 = require_rules2();
+    var compile_1 = require_compile2();
+    var codegen_2 = require_codegen2();
+    var resolve_1 = require_resolve2();
+    var dataType_1 = require_dataType2();
+    var util_1 = require_util2();
+    var $dataRefSchema = require_data2();
+    var uri_1 = require_uri2();
+    var defaultRegExp = (str, flags) => new RegExp(str, flags);
+    defaultRegExp.code = "new RegExp";
+    var META_IGNORE_OPTIONS = ["removeAdditional", "useDefaults", "coerceTypes"];
+    var EXT_SCOPE_NAMES = /* @__PURE__ */ new Set([
+      "validate",
+      "serialize",
+      "parse",
+      "wrapper",
+      "root",
+      "schema",
+      "keyword",
+      "pattern",
+      "formats",
+      "validate$data",
+      "func",
+      "obj",
+      "Error"
+    ]);
+    var removedOptions = {
+      errorDataPath: "",
+      format: "`validateFormats: false` can be used instead.",
+      nullable: '"nullable" keyword is supported by default.',
+      jsonPointers: "Deprecated jsPropertySyntax can be used instead.",
+      extendRefs: "Deprecated ignoreKeywordsWithRef can be used instead.",
+      missingRefs: "Pass empty schema with $id that should be ignored to ajv.addSchema.",
+      processCode: "Use option `code: {process: (code, schemaEnv: object) => string}`",
+      sourceCode: "Use option `code: {source: true}`",
+      strictDefaults: "It is default now, see option `strict`.",
+      strictKeywords: "It is default now, see option `strict`.",
+      uniqueItems: '"uniqueItems" keyword is always validated.',
+      unknownFormats: "Disable strict mode or pass `true` to `ajv.addFormat` (or `formats` option).",
+      cache: "Map is used as cache, schema object as key.",
+      serialize: "Map is used as cache, schema object as key.",
+      ajvErrors: "It is default now."
+    };
+    var deprecatedOptions = {
+      ignoreKeywordsWithRef: "",
+      jsPropertySyntax: "",
+      unicode: '"minLength"/"maxLength" account for unicode characters by default.'
+    };
+    var MAX_EXPRESSION = 200;
+    function requiredOptions(o) {
+      var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0;
+      const s = o.strict;
+      const _optz = (_a = o.code) === null || _a === void 0 ? void 0 : _a.optimize;
+      const optimize = _optz === true || _optz === void 0 ? 1 : _optz || 0;
+      const regExp = (_c = (_b = o.code) === null || _b === void 0 ? void 0 : _b.regExp) !== null && _c !== void 0 ? _c : defaultRegExp;
+      const uriResolver = (_d = o.uriResolver) !== null && _d !== void 0 ? _d : uri_1.default;
+      return {
+        strictSchema: (_f = (_e = o.strictSchema) !== null && _e !== void 0 ? _e : s) !== null && _f !== void 0 ? _f : true,
+        strictNumbers: (_h = (_g = o.strictNumbers) !== null && _g !== void 0 ? _g : s) !== null && _h !== void 0 ? _h : true,
+        strictTypes: (_k = (_j = o.strictTypes) !== null && _j !== void 0 ? _j : s) !== null && _k !== void 0 ? _k : "log",
+        strictTuples: (_m = (_l = o.strictTuples) !== null && _l !== void 0 ? _l : s) !== null && _m !== void 0 ? _m : "log",
+        strictRequired: (_p = (_o = o.strictRequired) !== null && _o !== void 0 ? _o : s) !== null && _p !== void 0 ? _p : false,
+        code: o.code ? { ...o.code, optimize, regExp } : { optimize, regExp },
+        loopRequired: (_q = o.loopRequired) !== null && _q !== void 0 ? _q : MAX_EXPRESSION,
+        loopEnum: (_r = o.loopEnum) !== null && _r !== void 0 ? _r : MAX_EXPRESSION,
+        meta: (_s = o.meta) !== null && _s !== void 0 ? _s : true,
+        messages: (_t = o.messages) !== null && _t !== void 0 ? _t : true,
+        inlineRefs: (_u = o.inlineRefs) !== null && _u !== void 0 ? _u : true,
+        schemaId: (_v = o.schemaId) !== null && _v !== void 0 ? _v : "$id",
+        addUsedSchema: (_w = o.addUsedSchema) !== null && _w !== void 0 ? _w : true,
+        validateSchema: (_x = o.validateSchema) !== null && _x !== void 0 ? _x : true,
+        validateFormats: (_y = o.validateFormats) !== null && _y !== void 0 ? _y : true,
+        unicodeRegExp: (_z = o.unicodeRegExp) !== null && _z !== void 0 ? _z : true,
+        int32range: (_0 = o.int32range) !== null && _0 !== void 0 ? _0 : true,
+        uriResolver
+      };
+    }
+    var Ajv2 = class {
+      constructor(opts = {}) {
+        this.schemas = {};
+        this.refs = {};
+        this.formats = /* @__PURE__ */ Object.create(null);
+        this._compilations = /* @__PURE__ */ new Set();
+        this._loading = {};
+        this._cache = /* @__PURE__ */ new Map();
+        opts = this.opts = { ...opts, ...requiredOptions(opts) };
+        const { es5, lines } = this.opts.code;
+        this.scope = new codegen_2.ValueScope({ scope: {}, prefixes: EXT_SCOPE_NAMES, es5, lines });
+        this.logger = getLogger(opts.logger);
+        const formatOpt = opts.validateFormats;
+        opts.validateFormats = false;
+        this.RULES = (0, rules_1.getRules)();
+        checkOptions.call(this, removedOptions, opts, "NOT SUPPORTED");
+        checkOptions.call(this, deprecatedOptions, opts, "DEPRECATED", "warn");
+        this._metaOpts = getMetaSchemaOptions.call(this);
+        if (opts.formats)
+          addInitialFormats.call(this);
+        this._addVocabularies();
+        this._addDefaultMetaSchema();
+        if (opts.keywords)
+          addInitialKeywords.call(this, opts.keywords);
+        if (typeof opts.meta == "object")
+          this.addMetaSchema(opts.meta);
+        addInitialSchemas.call(this);
+        opts.validateFormats = formatOpt;
+      }
+      _addVocabularies() {
+        this.addKeyword("$async");
+      }
+      _addDefaultMetaSchema() {
+        const { $data, meta, schemaId } = this.opts;
+        let _dataRefSchema = $dataRefSchema;
+        if (schemaId === "id") {
+          _dataRefSchema = { ...$dataRefSchema };
+          _dataRefSchema.id = _dataRefSchema.$id;
+          delete _dataRefSchema.$id;
+        }
+        if (meta && $data)
+          this.addMetaSchema(_dataRefSchema, _dataRefSchema[schemaId], false);
+      }
+      defaultMeta() {
+        const { meta, schemaId } = this.opts;
+        return this.opts.defaultMeta = typeof meta == "object" ? meta[schemaId] || meta : void 0;
+      }
+      validate(schemaKeyRef, data) {
+        let v;
+        if (typeof schemaKeyRef == "string") {
+          v = this.getSchema(schemaKeyRef);
+          if (!v)
+            throw new Error(`no schema with key or ref "${schemaKeyRef}"`);
+        } else {
+          v = this.compile(schemaKeyRef);
+        }
+        const valid = v(data);
+        if (!("$async" in v))
+          this.errors = v.errors;
+        return valid;
+      }
+      compile(schema, _meta) {
+        const sch = this._addSchema(schema, _meta);
+        return sch.validate || this._compileSchemaEnv(sch);
+      }
+      compileAsync(schema, meta) {
+        if (typeof this.opts.loadSchema != "function") {
+          throw new Error("options.loadSchema should be a function");
+        }
+        const { loadSchema } = this.opts;
+        return runCompileAsync.call(this, schema, meta);
+        async function runCompileAsync(_schema, _meta) {
+          await loadMetaSchema.call(this, _schema.$schema);
+          const sch = this._addSchema(_schema, _meta);
+          return sch.validate || _compileAsync.call(this, sch);
+        }
+        async function loadMetaSchema($ref) {
+          if ($ref && !this.getSchema($ref)) {
+            await runCompileAsync.call(this, { $ref }, true);
+          }
+        }
+        async function _compileAsync(sch) {
+          try {
+            return this._compileSchemaEnv(sch);
+          } catch (e) {
+            if (!(e instanceof ref_error_1.default))
+              throw e;
+            checkLoaded.call(this, e);
+            await loadMissingSchema.call(this, e.missingSchema);
+            return _compileAsync.call(this, sch);
+          }
+        }
+        function checkLoaded({ missingSchema: ref, missingRef }) {
+          if (this.refs[ref]) {
+            throw new Error(`AnySchema ${ref} is loaded but ${missingRef} cannot be resolved`);
+          }
+        }
+        async function loadMissingSchema(ref) {
+          const _schema = await _loadSchema.call(this, ref);
+          if (!this.refs[ref])
+            await loadMetaSchema.call(this, _schema.$schema);
+          if (!this.refs[ref])
+            this.addSchema(_schema, ref, meta);
+        }
+        async function _loadSchema(ref) {
+          const p = this._loading[ref];
+          if (p)
+            return p;
+          try {
+            return await (this._loading[ref] = loadSchema(ref));
+          } finally {
+            delete this._loading[ref];
+          }
+        }
+      }
+      // Adds schema to the instance
+      addSchema(schema, key, _meta, _validateSchema = this.opts.validateSchema) {
+        if (Array.isArray(schema)) {
+          for (const sch of schema)
+            this.addSchema(sch, void 0, _meta, _validateSchema);
+          return this;
+        }
+        let id2;
+        if (typeof schema === "object") {
+          const { schemaId } = this.opts;
+          id2 = schema[schemaId];
+          if (id2 !== void 0 && typeof id2 != "string") {
+            throw new Error(`schema ${schemaId} must be string`);
+          }
+        }
+        key = (0, resolve_1.normalizeId)(key || id2);
+        this._checkUnique(key);
+        this.schemas[key] = this._addSchema(schema, _meta, key, _validateSchema, true);
+        return this;
+      }
+      // Add schema that will be used to validate other schemas
+      // options in META_IGNORE_OPTIONS are alway set to false
+      addMetaSchema(schema, key, _validateSchema = this.opts.validateSchema) {
+        this.addSchema(schema, key, true, _validateSchema);
+        return this;
+      }
+      //  Validate schema against its meta-schema
+      validateSchema(schema, throwOrLogError) {
+        if (typeof schema == "boolean")
+          return true;
+        let $schema;
+        $schema = schema.$schema;
+        if ($schema !== void 0 && typeof $schema != "string") {
+          throw new Error("$schema must be a string");
+        }
+        $schema = $schema || this.opts.defaultMeta || this.defaultMeta();
+        if (!$schema) {
+          this.logger.warn("meta-schema not available");
+          this.errors = null;
+          return true;
+        }
+        const valid = this.validate($schema, schema);
+        if (!valid && throwOrLogError) {
+          const message = "schema is invalid: " + this.errorsText();
+          if (this.opts.validateSchema === "log")
+            this.logger.error(message);
+          else
+            throw new Error(message);
+        }
+        return valid;
+      }
+      // Get compiled schema by `key` or `ref`.
+      // (`key` that was passed to `addSchema` or full schema reference - `schema.$id` or resolved id)
+      getSchema(keyRef) {
+        let sch;
+        while (typeof (sch = getSchEnv.call(this, keyRef)) == "string")
+          keyRef = sch;
+        if (sch === void 0) {
+          const { schemaId } = this.opts;
+          const root = new compile_1.SchemaEnv({ schema: {}, schemaId });
+          sch = compile_1.resolveSchema.call(this, root, keyRef);
+          if (!sch)
+            return;
+          this.refs[keyRef] = sch;
+        }
+        return sch.validate || this._compileSchemaEnv(sch);
+      }
+      // Remove cached schema(s).
+      // If no parameter is passed all schemas but meta-schemas are removed.
+      // If RegExp is passed all schemas with key/id matching pattern but meta-schemas are removed.
+      // Even if schema is referenced by other schemas it still can be removed as other schemas have local references.
+      removeSchema(schemaKeyRef) {
+        if (schemaKeyRef instanceof RegExp) {
+          this._removeAllSchemas(this.schemas, schemaKeyRef);
+          this._removeAllSchemas(this.refs, schemaKeyRef);
+          return this;
+        }
+        switch (typeof schemaKeyRef) {
+          case "undefined":
+            this._removeAllSchemas(this.schemas);
+            this._removeAllSchemas(this.refs);
+            this._cache.clear();
+            return this;
+          case "string": {
+            const sch = getSchEnv.call(this, schemaKeyRef);
+            if (typeof sch == "object")
+              this._cache.delete(sch.schema);
+            delete this.schemas[schemaKeyRef];
+            delete this.refs[schemaKeyRef];
+            return this;
+          }
+          case "object": {
+            const cacheKey = schemaKeyRef;
+            this._cache.delete(cacheKey);
+            let id2 = schemaKeyRef[this.opts.schemaId];
+            if (id2) {
+              id2 = (0, resolve_1.normalizeId)(id2);
+              delete this.schemas[id2];
+              delete this.refs[id2];
+            }
+            return this;
+          }
+          default:
+            throw new Error("ajv.removeSchema: invalid parameter");
+        }
+      }
+      // add "vocabulary" - a collection of keywords
+      addVocabulary(definitions) {
+        for (const def of definitions)
+          this.addKeyword(def);
+        return this;
+      }
+      addKeyword(kwdOrDef, def) {
+        let keyword;
+        if (typeof kwdOrDef == "string") {
+          keyword = kwdOrDef;
+          if (typeof def == "object") {
+            this.logger.warn("these parameters are deprecated, see docs for addKeyword");
+            def.keyword = keyword;
+          }
+        } else if (typeof kwdOrDef == "object" && def === void 0) {
+          def = kwdOrDef;
+          keyword = def.keyword;
+          if (Array.isArray(keyword) && !keyword.length) {
+            throw new Error("addKeywords: keyword must be string or non-empty array");
+          }
+        } else {
+          throw new Error("invalid addKeywords parameters");
+        }
+        checkKeyword.call(this, keyword, def);
+        if (!def) {
+          (0, util_1.eachItem)(keyword, (kwd) => addRule.call(this, kwd));
+          return this;
+        }
+        keywordMetaschema.call(this, def);
+        const definition = {
+          ...def,
+          type: (0, dataType_1.getJSONTypes)(def.type),
+          schemaType: (0, dataType_1.getJSONTypes)(def.schemaType)
+        };
+        (0, util_1.eachItem)(keyword, definition.type.length === 0 ? (k) => addRule.call(this, k, definition) : (k) => definition.type.forEach((t) => addRule.call(this, k, definition, t)));
+        return this;
+      }
+      getKeyword(keyword) {
+        const rule = this.RULES.all[keyword];
+        return typeof rule == "object" ? rule.definition : !!rule;
+      }
+      // Remove keyword
+      removeKeyword(keyword) {
+        const { RULES } = this;
+        delete RULES.keywords[keyword];
+        delete RULES.all[keyword];
+        for (const group of RULES.rules) {
+          const i = group.rules.findIndex((rule) => rule.keyword === keyword);
+          if (i >= 0)
+            group.rules.splice(i, 1);
+        }
+        return this;
+      }
+      // Add format
+      addFormat(name, format) {
+        if (typeof format == "string")
+          format = new RegExp(format);
+        this.formats[name] = format;
+        return this;
+      }
+      errorsText(errors = this.errors, { separator = ", ", dataVar = "data" } = {}) {
+        if (!errors || errors.length === 0)
+          return "No errors";
+        return errors.map((e) => `${dataVar}${e.instancePath} ${e.message}`).reduce((text, msg) => text + separator + msg);
+      }
+      $dataMetaSchema(metaSchema, keywordsJsonPointers) {
+        const rules = this.RULES.all;
+        metaSchema = JSON.parse(JSON.stringify(metaSchema));
+        for (const jsonPointer of keywordsJsonPointers) {
+          const segments = jsonPointer.split("/").slice(1);
+          let keywords = metaSchema;
+          for (const seg of segments)
+            keywords = keywords[seg];
+          for (const key in rules) {
+            const rule = rules[key];
+            if (typeof rule != "object")
+              continue;
+            const { $data } = rule.definition;
+            const schema = keywords[key];
+            if ($data && schema)
+              keywords[key] = schemaOrData(schema);
+          }
+        }
+        return metaSchema;
+      }
+      _removeAllSchemas(schemas, regex) {
+        for (const keyRef in schemas) {
+          const sch = schemas[keyRef];
+          if (!regex || regex.test(keyRef)) {
+            if (typeof sch == "string") {
+              delete schemas[keyRef];
+            } else if (sch && !sch.meta) {
+              this._cache.delete(sch.schema);
+              delete schemas[keyRef];
+            }
+          }
+        }
+      }
+      _addSchema(schema, meta, baseId, validateSchema = this.opts.validateSchema, addSchema = this.opts.addUsedSchema) {
+        let id2;
+        const { schemaId } = this.opts;
+        if (typeof schema == "object") {
+          id2 = schema[schemaId];
+        } else {
+          if (this.opts.jtd)
+            throw new Error("schema must be object");
+          else if (typeof schema != "boolean")
+            throw new Error("schema must be object or boolean");
+        }
+        let sch = this._cache.get(schema);
+        if (sch !== void 0)
+          return sch;
+        baseId = (0, resolve_1.normalizeId)(id2 || baseId);
+        const localRefs = resolve_1.getSchemaRefs.call(this, schema, baseId);
+        sch = new compile_1.SchemaEnv({ schema, schemaId, meta, baseId, localRefs });
+        this._cache.set(sch.schema, sch);
+        if (addSchema && !baseId.startsWith("#")) {
+          if (baseId)
+            this._checkUnique(baseId);
+          this.refs[baseId] = sch;
+        }
+        if (validateSchema)
+          this.validateSchema(schema, true);
+        return sch;
+      }
+      _checkUnique(id2) {
+        if (this.schemas[id2] || this.refs[id2]) {
+          throw new Error(`schema with key or id "${id2}" already exists`);
+        }
+      }
+      _compileSchemaEnv(sch) {
+        if (sch.meta)
+          this._compileMetaSchema(sch);
+        else
+          compile_1.compileSchema.call(this, sch);
+        if (!sch.validate)
+          throw new Error("ajv implementation error");
+        return sch.validate;
+      }
+      _compileMetaSchema(sch) {
+        const currentOpts = this.opts;
+        this.opts = this._metaOpts;
+        try {
+          compile_1.compileSchema.call(this, sch);
+        } finally {
+          this.opts = currentOpts;
+        }
+      }
+    };
+    Ajv2.ValidationError = validation_error_1.default;
+    Ajv2.MissingRefError = ref_error_1.default;
+    exports.default = Ajv2;
+    function checkOptions(checkOpts3, options, msg, log = "error") {
+      for (const key in checkOpts3) {
+        const opt = key;
+        if (opt in options)
+          this.logger[log](`${msg}: option ${key}. ${checkOpts3[opt]}`);
+      }
+    }
+    function getSchEnv(keyRef) {
+      keyRef = (0, resolve_1.normalizeId)(keyRef);
+      return this.schemas[keyRef] || this.refs[keyRef];
+    }
+    function addInitialSchemas() {
+      const optsSchemas = this.opts.schemas;
+      if (!optsSchemas)
+        return;
+      if (Array.isArray(optsSchemas))
+        this.addSchema(optsSchemas);
+      else
+        for (const key in optsSchemas)
+          this.addSchema(optsSchemas[key], key);
+    }
+    function addInitialFormats() {
+      for (const name in this.opts.formats) {
+        const format = this.opts.formats[name];
+        if (format)
+          this.addFormat(name, format);
+      }
+    }
+    function addInitialKeywords(defs) {
+      if (Array.isArray(defs)) {
+        this.addVocabulary(defs);
+        return;
+      }
+      this.logger.warn("keywords option as map is deprecated, pass array");
+      for (const keyword in defs) {
+        const def = defs[keyword];
+        if (!def.keyword)
+          def.keyword = keyword;
+        this.addKeyword(def);
+      }
+    }
+    function getMetaSchemaOptions() {
+      const metaOpts = { ...this.opts };
+      for (const opt of META_IGNORE_OPTIONS)
+        delete metaOpts[opt];
+      return metaOpts;
+    }
+    var noLogs = { log() {
+    }, warn() {
+    }, error() {
+    } };
+    function getLogger(logger) {
+      if (logger === false)
+        return noLogs;
+      if (logger === void 0)
+        return console;
+      if (logger.log && logger.warn && logger.error)
+        return logger;
+      throw new Error("logger must implement log, warn and error methods");
+    }
+    var KEYWORD_NAME = /^[a-z_$][a-z0-9_$:-]*$/i;
+    function checkKeyword(keyword, def) {
+      const { RULES } = this;
+      (0, util_1.eachItem)(keyword, (kwd) => {
+        if (RULES.keywords[kwd])
+          throw new Error(`Keyword ${kwd} is already defined`);
+        if (!KEYWORD_NAME.test(kwd))
+          throw new Error(`Keyword ${kwd} has invalid name`);
+      });
+      if (!def)
+        return;
+      if (def.$data && !("code" in def || "validate" in def)) {
+        throw new Error('$data keyword must have "code" or "validate" function');
+      }
+    }
+    function addRule(keyword, definition, dataType) {
+      var _a;
+      const post = definition === null || definition === void 0 ? void 0 : definition.post;
+      if (dataType && post)
+        throw new Error('keyword with "post" flag cannot have "type"');
+      const { RULES } = this;
+      let ruleGroup = post ? RULES.post : RULES.rules.find(({ type: t }) => t === dataType);
+      if (!ruleGroup) {
+        ruleGroup = { type: dataType, rules: [] };
+        RULES.rules.push(ruleGroup);
+      }
+      RULES.keywords[keyword] = true;
+      if (!definition)
+        return;
+      const rule = {
+        keyword,
+        definition: {
+          ...definition,
+          type: (0, dataType_1.getJSONTypes)(definition.type),
+          schemaType: (0, dataType_1.getJSONTypes)(definition.schemaType)
+        }
+      };
+      if (definition.before)
+        addBeforeRule.call(this, ruleGroup, rule, definition.before);
+      else
+        ruleGroup.rules.push(rule);
+      RULES.all[keyword] = rule;
+      (_a = definition.implements) === null || _a === void 0 ? void 0 : _a.forEach((kwd) => this.addKeyword(kwd));
+    }
+    function addBeforeRule(ruleGroup, rule, before) {
+      const i = ruleGroup.rules.findIndex((_rule) => _rule.keyword === before);
+      if (i >= 0) {
+        ruleGroup.rules.splice(i, 0, rule);
+      } else {
+        ruleGroup.rules.push(rule);
+        this.logger.warn(`rule ${before} is not defined`);
+      }
+    }
+    function keywordMetaschema(def) {
+      let { metaSchema } = def;
+      if (metaSchema === void 0)
+        return;
+      if (def.$data && this.opts.$data)
+        metaSchema = schemaOrData(metaSchema);
+      def.validateSchema = this.compile(metaSchema, true);
+    }
+    var $dataRef = {
+      $ref: "https://raw.githubusercontent.com/ajv-validator/ajv/master/lib/refs/data.json#"
+    };
+    function schemaOrData(schema) {
+      return { anyOf: [schema, $dataRef] };
+    }
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/core/id.js
+var require_id2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/core/id.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var def = {
+      keyword: "id",
+      code() {
+        throw new Error('NOT SUPPORTED: keyword "id", use "$id" for schema ID');
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/core/ref.js
+var require_ref2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/core/ref.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.callRef = exports.getValidate = void 0;
+    var ref_error_1 = require_ref_error2();
+    var code_1 = require_code4();
+    var codegen_1 = require_codegen2();
+    var names_1 = require_names2();
+    var compile_1 = require_compile2();
+    var util_1 = require_util2();
+    var def = {
+      keyword: "$ref",
+      schemaType: "string",
+      code(cxt) {
+        const { gen: gen2, schema: $ref, it } = cxt;
+        const { baseId, schemaEnv: env, validateName, opts, self: self2 } = it;
+        const { root } = env;
+        if (($ref === "#" || $ref === "#/") && baseId === root.baseId)
+          return callRootRef();
+        const schOrEnv = compile_1.resolveRef.call(self2, root, baseId, $ref);
+        if (schOrEnv === void 0)
+          throw new ref_error_1.default(it.opts.uriResolver, baseId, $ref);
+        if (schOrEnv instanceof compile_1.SchemaEnv)
+          return callValidate(schOrEnv);
+        return inlineRefSchema(schOrEnv);
+        function callRootRef() {
+          if (env === root)
+            return callRef(cxt, validateName, env, env.$async);
+          const rootName = gen2.scopeValue("root", { ref: root });
+          return callRef(cxt, (0, codegen_1._)`${rootName}.validate`, root, root.$async);
+        }
+        function callValidate(sch) {
+          const v = getValidate(cxt, sch);
+          callRef(cxt, v, sch, sch.$async);
+        }
+        function inlineRefSchema(sch) {
+          const schName = gen2.scopeValue("schema", opts.code.source === true ? { ref: sch, code: (0, codegen_1.stringify)(sch) } : { ref: sch });
+          const valid = gen2.name("valid");
+          const schCxt = cxt.subschema({
+            schema: sch,
+            dataTypes: [],
+            schemaPath: codegen_1.nil,
+            topSchemaRef: schName,
+            errSchemaPath: $ref
+          }, valid);
+          cxt.mergeEvaluated(schCxt);
+          cxt.ok(valid);
+        }
+      }
+    };
+    function getValidate(cxt, sch) {
+      const { gen: gen2 } = cxt;
+      return sch.validate ? gen2.scopeValue("validate", { ref: sch.validate }) : (0, codegen_1._)`${gen2.scopeValue("wrapper", { ref: sch })}.validate`;
+    }
+    exports.getValidate = getValidate;
+    function callRef(cxt, v, sch, $async) {
+      const { gen: gen2, it } = cxt;
+      const { allErrors, schemaEnv: env, opts } = it;
+      const passCxt = opts.passContext ? names_1.default.this : codegen_1.nil;
+      if ($async)
+        callAsyncRef();
+      else
+        callSyncRef();
+      function callAsyncRef() {
+        if (!env.$async)
+          throw new Error("async schema referenced by sync schema");
+        const valid = gen2.let("valid");
+        gen2.try(() => {
+          gen2.code((0, codegen_1._)`await ${(0, code_1.callValidateCode)(cxt, v, passCxt)}`);
+          addEvaluatedFrom(v);
+          if (!allErrors)
+            gen2.assign(valid, true);
+        }, (e) => {
+          gen2.if((0, codegen_1._)`!(${e} instanceof ${it.ValidationError})`, () => gen2.throw(e));
+          addErrorsFrom(e);
+          if (!allErrors)
+            gen2.assign(valid, false);
+        });
+        cxt.ok(valid);
+      }
+      function callSyncRef() {
+        cxt.result((0, code_1.callValidateCode)(cxt, v, passCxt), () => addEvaluatedFrom(v), () => addErrorsFrom(v));
+      }
+      function addErrorsFrom(source) {
+        const errs = (0, codegen_1._)`${source}.errors`;
+        gen2.assign(names_1.default.vErrors, (0, codegen_1._)`${names_1.default.vErrors} === null ? ${errs} : ${names_1.default.vErrors}.concat(${errs})`);
+        gen2.assign(names_1.default.errors, (0, codegen_1._)`${names_1.default.vErrors}.length`);
+      }
+      function addEvaluatedFrom(source) {
+        var _a;
+        if (!it.opts.unevaluated)
+          return;
+        const schEvaluated = (_a = sch === null || sch === void 0 ? void 0 : sch.validate) === null || _a === void 0 ? void 0 : _a.evaluated;
+        if (it.props !== true) {
+          if (schEvaluated && !schEvaluated.dynamicProps) {
+            if (schEvaluated.props !== void 0) {
+              it.props = util_1.mergeEvaluated.props(gen2, schEvaluated.props, it.props);
+            }
+          } else {
+            const props = gen2.var("props", (0, codegen_1._)`${source}.evaluated.props`);
+            it.props = util_1.mergeEvaluated.props(gen2, props, it.props, codegen_1.Name);
+          }
+        }
+        if (it.items !== true) {
+          if (schEvaluated && !schEvaluated.dynamicItems) {
+            if (schEvaluated.items !== void 0) {
+              it.items = util_1.mergeEvaluated.items(gen2, schEvaluated.items, it.items);
+            }
+          } else {
+            const items = gen2.var("items", (0, codegen_1._)`${source}.evaluated.items`);
+            it.items = util_1.mergeEvaluated.items(gen2, items, it.items, codegen_1.Name);
+          }
+        }
+      }
+    }
+    exports.callRef = callRef;
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/core/index.js
+var require_core4 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/core/index.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var id_1 = require_id2();
+    var ref_1 = require_ref2();
+    var core = [
+      "$schema",
+      "$id",
+      "$defs",
+      "$vocabulary",
+      { keyword: "$comment" },
+      "definitions",
+      id_1.default,
+      ref_1.default
+    ];
+    exports.default = core;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/limitNumber.js
+var require_limitNumber2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/limitNumber.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var codegen_1 = require_codegen2();
+    var ops = codegen_1.operators;
+    var KWDs = {
+      maximum: { okStr: "<=", ok: ops.LTE, fail: ops.GT },
+      minimum: { okStr: ">=", ok: ops.GTE, fail: ops.LT },
+      exclusiveMaximum: { okStr: "<", ok: ops.LT, fail: ops.GTE },
+      exclusiveMinimum: { okStr: ">", ok: ops.GT, fail: ops.LTE }
+    };
+    var error2 = {
+      message: ({ keyword, schemaCode }) => (0, codegen_1.str)`must be ${KWDs[keyword].okStr} ${schemaCode}`,
+      params: ({ keyword, schemaCode }) => (0, codegen_1._)`{comparison: ${KWDs[keyword].okStr}, limit: ${schemaCode}}`
+    };
+    var def = {
+      keyword: Object.keys(KWDs),
+      type: "number",
+      schemaType: "number",
+      $data: true,
+      error: error2,
+      code(cxt) {
+        const { keyword, data, schemaCode } = cxt;
+        cxt.fail$data((0, codegen_1._)`${data} ${KWDs[keyword].fail} ${schemaCode} || isNaN(${data})`);
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/multipleOf.js
+var require_multipleOf2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/multipleOf.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var codegen_1 = require_codegen2();
+    var error2 = {
+      message: ({ schemaCode }) => (0, codegen_1.str)`must be multiple of ${schemaCode}`,
+      params: ({ schemaCode }) => (0, codegen_1._)`{multipleOf: ${schemaCode}}`
+    };
+    var def = {
+      keyword: "multipleOf",
+      type: "number",
+      schemaType: "number",
+      $data: true,
+      error: error2,
+      code(cxt) {
+        const { gen: gen2, data, schemaCode, it } = cxt;
+        const prec = it.opts.multipleOfPrecision;
+        const res = gen2.let("res");
+        const invalid = prec ? (0, codegen_1._)`Math.abs(Math.round(${res}) - ${res}) > 1e-${prec}` : (0, codegen_1._)`${res} !== parseInt(${res})`;
+        cxt.fail$data((0, codegen_1._)`(${schemaCode} === 0 || (${res} = ${data}/${schemaCode}, ${invalid}))`);
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/runtime/ucs2length.js
+var require_ucs2length2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/runtime/ucs2length.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    function ucs2length(str) {
+      const len = str.length;
+      let length = 0;
+      let pos = 0;
+      let value;
+      while (pos < len) {
+        length++;
+        value = str.charCodeAt(pos++);
+        if (value >= 55296 && value <= 56319 && pos < len) {
+          value = str.charCodeAt(pos);
+          if ((value & 64512) === 56320)
+            pos++;
+        }
+      }
+      return length;
+    }
+    exports.default = ucs2length;
+    ucs2length.code = 'require("ajv/dist/runtime/ucs2length").default';
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/limitLength.js
+var require_limitLength2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/limitLength.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var ucs2length_1 = require_ucs2length2();
+    var error2 = {
+      message({ keyword, schemaCode }) {
+        const comp = keyword === "maxLength" ? "more" : "fewer";
+        return (0, codegen_1.str)`must NOT have ${comp} than ${schemaCode} characters`;
+      },
+      params: ({ schemaCode }) => (0, codegen_1._)`{limit: ${schemaCode}}`
+    };
+    var def = {
+      keyword: ["maxLength", "minLength"],
+      type: "string",
+      schemaType: "number",
+      $data: true,
+      error: error2,
+      code(cxt) {
+        const { keyword, data, schemaCode, it } = cxt;
+        const op = keyword === "maxLength" ? codegen_1.operators.GT : codegen_1.operators.LT;
+        const len = it.opts.unicode === false ? (0, codegen_1._)`${data}.length` : (0, codegen_1._)`${(0, util_1.useFunc)(cxt.gen, ucs2length_1.default)}(${data})`;
+        cxt.fail$data((0, codegen_1._)`${len} ${op} ${schemaCode}`);
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/pattern.js
+var require_pattern2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/pattern.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var code_1 = require_code4();
+    var util_1 = require_util2();
+    var codegen_1 = require_codegen2();
+    var error2 = {
+      message: ({ schemaCode }) => (0, codegen_1.str)`must match pattern "${schemaCode}"`,
+      params: ({ schemaCode }) => (0, codegen_1._)`{pattern: ${schemaCode}}`
+    };
+    var def = {
+      keyword: "pattern",
+      type: "string",
+      schemaType: "string",
+      $data: true,
+      error: error2,
+      code(cxt) {
+        const { gen: gen2, data, $data, schema, schemaCode, it } = cxt;
+        const u = it.opts.unicodeRegExp ? "u" : "";
+        if ($data) {
+          const { regExp } = it.opts.code;
+          const regExpCode = regExp.code === "new RegExp" ? (0, codegen_1._)`new RegExp` : (0, util_1.useFunc)(gen2, regExp);
+          const valid = gen2.let("valid");
+          gen2.try(() => gen2.assign(valid, (0, codegen_1._)`${regExpCode}(${schemaCode}, ${u}).test(${data})`), () => gen2.assign(valid, false));
+          cxt.fail$data((0, codegen_1._)`!${valid}`);
+        } else {
+          const regExp = (0, code_1.usePattern)(cxt, schema);
+          cxt.fail$data((0, codegen_1._)`!${regExp}.test(${data})`);
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/limitProperties.js
+var require_limitProperties2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/limitProperties.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var codegen_1 = require_codegen2();
+    var error2 = {
+      message({ keyword, schemaCode }) {
+        const comp = keyword === "maxProperties" ? "more" : "fewer";
+        return (0, codegen_1.str)`must NOT have ${comp} than ${schemaCode} properties`;
+      },
+      params: ({ schemaCode }) => (0, codegen_1._)`{limit: ${schemaCode}}`
+    };
+    var def = {
+      keyword: ["maxProperties", "minProperties"],
+      type: "object",
+      schemaType: "number",
+      $data: true,
+      error: error2,
+      code(cxt) {
+        const { keyword, data, schemaCode } = cxt;
+        const op = keyword === "maxProperties" ? codegen_1.operators.GT : codegen_1.operators.LT;
+        cxt.fail$data((0, codegen_1._)`Object.keys(${data}).length ${op} ${schemaCode}`);
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/required.js
+var require_required2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/required.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var code_1 = require_code4();
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var error2 = {
+      message: ({ params: { missingProperty } }) => (0, codegen_1.str)`must have required property '${missingProperty}'`,
+      params: ({ params: { missingProperty } }) => (0, codegen_1._)`{missingProperty: ${missingProperty}}`
+    };
+    var def = {
+      keyword: "required",
+      type: "object",
+      schemaType: "array",
+      $data: true,
+      error: error2,
+      code(cxt) {
+        const { gen: gen2, schema, schemaCode, data, $data, it } = cxt;
+        const { opts } = it;
+        if (!$data && schema.length === 0)
+          return;
+        const useLoop = schema.length >= opts.loopRequired;
+        if (it.allErrors)
+          allErrorsMode();
+        else
+          exitOnErrorMode();
+        if (opts.strictRequired) {
+          const props = cxt.parentSchema.properties;
+          const { definedProperties } = cxt.it;
+          for (const requiredKey of schema) {
+            if ((props === null || props === void 0 ? void 0 : props[requiredKey]) === void 0 && !definedProperties.has(requiredKey)) {
+              const schemaPath = it.schemaEnv.baseId + it.errSchemaPath;
+              const msg = `required property "${requiredKey}" is not defined at "${schemaPath}" (strictRequired)`;
+              (0, util_1.checkStrictMode)(it, msg, it.opts.strictRequired);
+            }
+          }
+        }
+        function allErrorsMode() {
+          if (useLoop || $data) {
+            cxt.block$data(codegen_1.nil, loopAllRequired);
+          } else {
+            for (const prop of schema) {
+              (0, code_1.checkReportMissingProp)(cxt, prop);
+            }
+          }
+        }
+        function exitOnErrorMode() {
+          const missing = gen2.let("missing");
+          if (useLoop || $data) {
+            const valid = gen2.let("valid", true);
+            cxt.block$data(valid, () => loopUntilMissing(missing, valid));
+            cxt.ok(valid);
+          } else {
+            gen2.if((0, code_1.checkMissingProp)(cxt, schema, missing));
+            (0, code_1.reportMissingProp)(cxt, missing);
+            gen2.else();
+          }
+        }
+        function loopAllRequired() {
+          gen2.forOf("prop", schemaCode, (prop) => {
+            cxt.setParams({ missingProperty: prop });
+            gen2.if((0, code_1.noPropertyInData)(gen2, data, prop, opts.ownProperties), () => cxt.error());
+          });
+        }
+        function loopUntilMissing(missing, valid) {
+          cxt.setParams({ missingProperty: missing });
+          gen2.forOf(missing, schemaCode, () => {
+            gen2.assign(valid, (0, code_1.propertyInData)(gen2, data, missing, opts.ownProperties));
+            gen2.if((0, codegen_1.not)(valid), () => {
+              cxt.error();
+              gen2.break();
+            });
+          }, codegen_1.nil);
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/limitItems.js
+var require_limitItems2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/limitItems.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var codegen_1 = require_codegen2();
+    var error2 = {
+      message({ keyword, schemaCode }) {
+        const comp = keyword === "maxItems" ? "more" : "fewer";
+        return (0, codegen_1.str)`must NOT have ${comp} than ${schemaCode} items`;
+      },
+      params: ({ schemaCode }) => (0, codegen_1._)`{limit: ${schemaCode}}`
+    };
+    var def = {
+      keyword: ["maxItems", "minItems"],
+      type: "array",
+      schemaType: "number",
+      $data: true,
+      error: error2,
+      code(cxt) {
+        const { keyword, data, schemaCode } = cxt;
+        const op = keyword === "maxItems" ? codegen_1.operators.GT : codegen_1.operators.LT;
+        cxt.fail$data((0, codegen_1._)`${data}.length ${op} ${schemaCode}`);
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/runtime/equal.js
+var require_equal2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/runtime/equal.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var equal = require_fast_deep_equal();
+    equal.code = 'require("ajv/dist/runtime/equal").default';
+    exports.default = equal;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/uniqueItems.js
+var require_uniqueItems2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/uniqueItems.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var dataType_1 = require_dataType2();
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var equal_1 = require_equal2();
+    var error2 = {
+      message: ({ params: { i, j } }) => (0, codegen_1.str)`must NOT have duplicate items (items ## ${j} and ${i} are identical)`,
+      params: ({ params: { i, j } }) => (0, codegen_1._)`{i: ${i}, j: ${j}}`
+    };
+    var def = {
+      keyword: "uniqueItems",
+      type: "array",
+      schemaType: "boolean",
+      $data: true,
+      error: error2,
+      code(cxt) {
+        const { gen: gen2, data, $data, schema, parentSchema, schemaCode, it } = cxt;
+        if (!$data && !schema)
+          return;
+        const valid = gen2.let("valid");
+        const itemTypes = parentSchema.items ? (0, dataType_1.getSchemaTypes)(parentSchema.items) : [];
+        cxt.block$data(valid, validateUniqueItems, (0, codegen_1._)`${schemaCode} === false`);
+        cxt.ok(valid);
+        function validateUniqueItems() {
+          const i = gen2.let("i", (0, codegen_1._)`${data}.length`);
+          const j = gen2.let("j");
+          cxt.setParams({ i, j });
+          gen2.assign(valid, true);
+          gen2.if((0, codegen_1._)`${i} > 1`, () => (canOptimize() ? loopN : loopN2)(i, j));
+        }
+        function canOptimize() {
+          return itemTypes.length > 0 && !itemTypes.some((t) => t === "object" || t === "array");
+        }
+        function loopN(i, j) {
+          const item = gen2.name("item");
+          const wrongType = (0, dataType_1.checkDataTypes)(itemTypes, item, it.opts.strictNumbers, dataType_1.DataType.Wrong);
+          const indices = gen2.const("indices", (0, codegen_1._)`{}`);
+          gen2.for((0, codegen_1._)`;${i}--;`, () => {
+            gen2.let(item, (0, codegen_1._)`${data}[${i}]`);
+            gen2.if(wrongType, (0, codegen_1._)`continue`);
+            if (itemTypes.length > 1)
+              gen2.if((0, codegen_1._)`typeof ${item} == "string"`, (0, codegen_1._)`${item} += "_"`);
+            gen2.if((0, codegen_1._)`typeof ${indices}[${item}] == "number"`, () => {
+              gen2.assign(j, (0, codegen_1._)`${indices}[${item}]`);
+              cxt.error();
+              gen2.assign(valid, false).break();
+            }).code((0, codegen_1._)`${indices}[${item}] = ${i}`);
+          });
+        }
+        function loopN2(i, j) {
+          const eql = (0, util_1.useFunc)(gen2, equal_1.default);
+          const outer = gen2.name("outer");
+          gen2.label(outer).for((0, codegen_1._)`;${i}--;`, () => gen2.for((0, codegen_1._)`${j} = ${i}; ${j}--;`, () => gen2.if((0, codegen_1._)`${eql}(${data}[${i}], ${data}[${j}])`, () => {
+            cxt.error();
+            gen2.assign(valid, false).break(outer);
+          })));
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/const.js
+var require_const2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/const.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var equal_1 = require_equal2();
+    var error2 = {
+      message: "must be equal to constant",
+      params: ({ schemaCode }) => (0, codegen_1._)`{allowedValue: ${schemaCode}}`
+    };
+    var def = {
+      keyword: "const",
+      $data: true,
+      error: error2,
+      code(cxt) {
+        const { gen: gen2, data, $data, schemaCode, schema } = cxt;
+        if ($data || schema && typeof schema == "object") {
+          cxt.fail$data((0, codegen_1._)`!${(0, util_1.useFunc)(gen2, equal_1.default)}(${data}, ${schemaCode})`);
+        } else {
+          cxt.fail((0, codegen_1._)`${schema} !== ${data}`);
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/enum.js
+var require_enum2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/enum.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var equal_1 = require_equal2();
+    var error2 = {
+      message: "must be equal to one of the allowed values",
+      params: ({ schemaCode }) => (0, codegen_1._)`{allowedValues: ${schemaCode}}`
+    };
+    var def = {
+      keyword: "enum",
+      schemaType: "array",
+      $data: true,
+      error: error2,
+      code(cxt) {
+        const { gen: gen2, data, $data, schema, schemaCode, it } = cxt;
+        if (!$data && schema.length === 0)
+          throw new Error("enum must have non-empty array");
+        const useLoop = schema.length >= it.opts.loopEnum;
+        let eql;
+        const getEql = () => eql !== null && eql !== void 0 ? eql : eql = (0, util_1.useFunc)(gen2, equal_1.default);
+        let valid;
+        if (useLoop || $data) {
+          valid = gen2.let("valid");
+          cxt.block$data(valid, loopEnum);
+        } else {
+          if (!Array.isArray(schema))
+            throw new Error("ajv implementation error");
+          const vSchema = gen2.const("vSchema", schemaCode);
+          valid = (0, codegen_1.or)(...schema.map((_x, i) => equalCode(vSchema, i)));
+        }
+        cxt.pass(valid);
+        function loopEnum() {
+          gen2.assign(valid, false);
+          gen2.forOf("v", schemaCode, (v) => gen2.if((0, codegen_1._)`${getEql()}(${data}, ${v})`, () => gen2.assign(valid, true).break()));
+        }
+        function equalCode(vSchema, i) {
+          const sch = schema[i];
+          return typeof sch === "object" && sch !== null ? (0, codegen_1._)`${getEql()}(${data}, ${vSchema}[${i}])` : (0, codegen_1._)`${data} === ${sch}`;
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/index.js
+var require_validation2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/validation/index.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var limitNumber_1 = require_limitNumber2();
+    var multipleOf_1 = require_multipleOf2();
+    var limitLength_1 = require_limitLength2();
+    var pattern_1 = require_pattern2();
+    var limitProperties_1 = require_limitProperties2();
+    var required_1 = require_required2();
+    var limitItems_1 = require_limitItems2();
+    var uniqueItems_1 = require_uniqueItems2();
+    var const_1 = require_const2();
+    var enum_1 = require_enum2();
+    var validation = [
+      // number
+      limitNumber_1.default,
+      multipleOf_1.default,
+      // string
+      limitLength_1.default,
+      pattern_1.default,
+      // object
+      limitProperties_1.default,
+      required_1.default,
+      // array
+      limitItems_1.default,
+      uniqueItems_1.default,
+      // any
+      { keyword: "type", schemaType: ["string", "array"] },
+      { keyword: "nullable", schemaType: "boolean" },
+      const_1.default,
+      enum_1.default
+    ];
+    exports.default = validation;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/additionalItems.js
+var require_additionalItems2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/additionalItems.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.validateAdditionalItems = void 0;
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var error2 = {
+      message: ({ params: { len } }) => (0, codegen_1.str)`must NOT have more than ${len} items`,
+      params: ({ params: { len } }) => (0, codegen_1._)`{limit: ${len}}`
+    };
+    var def = {
+      keyword: "additionalItems",
+      type: "array",
+      schemaType: ["boolean", "object"],
+      before: "uniqueItems",
+      error: error2,
+      code(cxt) {
+        const { parentSchema, it } = cxt;
+        const { items } = parentSchema;
+        if (!Array.isArray(items)) {
+          (0, util_1.checkStrictMode)(it, '"additionalItems" is ignored when "items" is not an array of schemas');
+          return;
+        }
+        validateAdditionalItems(cxt, items);
+      }
+    };
+    function validateAdditionalItems(cxt, items) {
+      const { gen: gen2, schema, data, keyword, it } = cxt;
+      it.items = true;
+      const len = gen2.const("len", (0, codegen_1._)`${data}.length`);
+      if (schema === false) {
+        cxt.setParams({ len: items.length });
+        cxt.pass((0, codegen_1._)`${len} <= ${items.length}`);
+      } else if (typeof schema == "object" && !(0, util_1.alwaysValidSchema)(it, schema)) {
+        const valid = gen2.var("valid", (0, codegen_1._)`${len} <= ${items.length}`);
+        gen2.if((0, codegen_1.not)(valid), () => validateItems(valid));
+        cxt.ok(valid);
+      }
+      function validateItems(valid) {
+        gen2.forRange("i", items.length, len, (i) => {
+          cxt.subschema({ keyword, dataProp: i, dataPropType: util_1.Type.Num }, valid);
+          if (!it.allErrors)
+            gen2.if((0, codegen_1.not)(valid), () => gen2.break());
+        });
+      }
+    }
+    exports.validateAdditionalItems = validateAdditionalItems;
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/items.js
+var require_items2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/items.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.validateTuple = void 0;
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var code_1 = require_code4();
+    var def = {
+      keyword: "items",
+      type: "array",
+      schemaType: ["object", "array", "boolean"],
+      before: "uniqueItems",
+      code(cxt) {
+        const { schema, it } = cxt;
+        if (Array.isArray(schema))
+          return validateTuple(cxt, "additionalItems", schema);
+        it.items = true;
+        if ((0, util_1.alwaysValidSchema)(it, schema))
+          return;
+        cxt.ok((0, code_1.validateArray)(cxt));
+      }
+    };
+    function validateTuple(cxt, extraItems, schArr = cxt.schema) {
+      const { gen: gen2, parentSchema, data, keyword, it } = cxt;
+      checkStrictTuple(parentSchema);
+      if (it.opts.unevaluated && schArr.length && it.items !== true) {
+        it.items = util_1.mergeEvaluated.items(gen2, schArr.length, it.items);
+      }
+      const valid = gen2.name("valid");
+      const len = gen2.const("len", (0, codegen_1._)`${data}.length`);
+      schArr.forEach((sch, i) => {
+        if ((0, util_1.alwaysValidSchema)(it, sch))
+          return;
+        gen2.if((0, codegen_1._)`${len} > ${i}`, () => cxt.subschema({
+          keyword,
+          schemaProp: i,
+          dataProp: i
+        }, valid));
+        cxt.ok(valid);
+      });
+      function checkStrictTuple(sch) {
+        const { opts, errSchemaPath } = it;
+        const l = schArr.length;
+        const fullTuple = l === sch.minItems && (l === sch.maxItems || sch[extraItems] === false);
+        if (opts.strictTuples && !fullTuple) {
+          const msg = `"${keyword}" is ${l}-tuple, but minItems or maxItems/${extraItems} are not specified or different at path "${errSchemaPath}"`;
+          (0, util_1.checkStrictMode)(it, msg, opts.strictTuples);
+        }
+      }
+    }
+    exports.validateTuple = validateTuple;
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/prefixItems.js
+var require_prefixItems2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/prefixItems.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var items_1 = require_items2();
+    var def = {
+      keyword: "prefixItems",
+      type: "array",
+      schemaType: ["array"],
+      before: "uniqueItems",
+      code: (cxt) => (0, items_1.validateTuple)(cxt, "items")
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/items2020.js
+var require_items20202 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/items2020.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var code_1 = require_code4();
+    var additionalItems_1 = require_additionalItems2();
+    var error2 = {
+      message: ({ params: { len } }) => (0, codegen_1.str)`must NOT have more than ${len} items`,
+      params: ({ params: { len } }) => (0, codegen_1._)`{limit: ${len}}`
+    };
+    var def = {
+      keyword: "items",
+      type: "array",
+      schemaType: ["object", "boolean"],
+      before: "uniqueItems",
+      error: error2,
+      code(cxt) {
+        const { schema, parentSchema, it } = cxt;
+        const { prefixItems } = parentSchema;
+        it.items = true;
+        if ((0, util_1.alwaysValidSchema)(it, schema))
+          return;
+        if (prefixItems)
+          (0, additionalItems_1.validateAdditionalItems)(cxt, prefixItems);
+        else
+          cxt.ok((0, code_1.validateArray)(cxt));
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/contains.js
+var require_contains2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/contains.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var error2 = {
+      message: ({ params: { min, max } }) => max === void 0 ? (0, codegen_1.str)`must contain at least ${min} valid item(s)` : (0, codegen_1.str)`must contain at least ${min} and no more than ${max} valid item(s)`,
+      params: ({ params: { min, max } }) => max === void 0 ? (0, codegen_1._)`{minContains: ${min}}` : (0, codegen_1._)`{minContains: ${min}, maxContains: ${max}}`
+    };
+    var def = {
+      keyword: "contains",
+      type: "array",
+      schemaType: ["object", "boolean"],
+      before: "uniqueItems",
+      trackErrors: true,
+      error: error2,
+      code(cxt) {
+        const { gen: gen2, schema, parentSchema, data, it } = cxt;
+        let min;
+        let max;
+        const { minContains, maxContains } = parentSchema;
+        if (it.opts.next) {
+          min = minContains === void 0 ? 1 : minContains;
+          max = maxContains;
+        } else {
+          min = 1;
+        }
+        const len = gen2.const("len", (0, codegen_1._)`${data}.length`);
+        cxt.setParams({ min, max });
+        if (max === void 0 && min === 0) {
+          (0, util_1.checkStrictMode)(it, `"minContains" == 0 without "maxContains": "contains" keyword ignored`);
+          return;
+        }
+        if (max !== void 0 && min > max) {
+          (0, util_1.checkStrictMode)(it, `"minContains" > "maxContains" is always invalid`);
+          cxt.fail();
+          return;
+        }
+        if ((0, util_1.alwaysValidSchema)(it, schema)) {
+          let cond = (0, codegen_1._)`${len} >= ${min}`;
+          if (max !== void 0)
+            cond = (0, codegen_1._)`${cond} && ${len} <= ${max}`;
+          cxt.pass(cond);
+          return;
+        }
+        it.items = true;
+        const valid = gen2.name("valid");
+        if (max === void 0 && min === 1) {
+          validateItems(valid, () => gen2.if(valid, () => gen2.break()));
+        } else if (min === 0) {
+          gen2.let(valid, true);
+          if (max !== void 0)
+            gen2.if((0, codegen_1._)`${data}.length > 0`, validateItemsWithCount);
+        } else {
+          gen2.let(valid, false);
+          validateItemsWithCount();
+        }
+        cxt.result(valid, () => cxt.reset());
+        function validateItemsWithCount() {
+          const schValid = gen2.name("_valid");
+          const count = gen2.let("count", 0);
+          validateItems(schValid, () => gen2.if(schValid, () => checkLimits(count)));
+        }
+        function validateItems(_valid, block) {
+          gen2.forRange("i", 0, len, (i) => {
+            cxt.subschema({
+              keyword: "contains",
+              dataProp: i,
+              dataPropType: util_1.Type.Num,
+              compositeRule: true
+            }, _valid);
+            block();
+          });
+        }
+        function checkLimits(count) {
+          gen2.code((0, codegen_1._)`${count}++`);
+          if (max === void 0) {
+            gen2.if((0, codegen_1._)`${count} >= ${min}`, () => gen2.assign(valid, true).break());
+          } else {
+            gen2.if((0, codegen_1._)`${count} > ${max}`, () => gen2.assign(valid, false).break());
+            if (min === 1)
+              gen2.assign(valid, true);
+            else
+              gen2.if((0, codegen_1._)`${count} >= ${min}`, () => gen2.assign(valid, true));
+          }
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/dependencies.js
+var require_dependencies2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/dependencies.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.validateSchemaDeps = exports.validatePropertyDeps = exports.error = void 0;
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var code_1 = require_code4();
+    exports.error = {
+      message: ({ params: { property, depsCount, deps } }) => {
+        const property_ies = depsCount === 1 ? "property" : "properties";
+        return (0, codegen_1.str)`must have ${property_ies} ${deps} when property ${property} is present`;
+      },
+      params: ({ params: { property, depsCount, deps, missingProperty } }) => (0, codegen_1._)`{property: ${property},
+    missingProperty: ${missingProperty},
+    depsCount: ${depsCount},
+    deps: ${deps}}`
+      // TODO change to reference
+    };
+    var def = {
+      keyword: "dependencies",
+      type: "object",
+      schemaType: "object",
+      error: exports.error,
+      code(cxt) {
+        const [propDeps, schDeps] = splitDependencies(cxt);
+        validatePropertyDeps(cxt, propDeps);
+        validateSchemaDeps(cxt, schDeps);
+      }
+    };
+    function splitDependencies({ schema }) {
+      const propertyDeps = {};
+      const schemaDeps = {};
+      for (const key in schema) {
+        if (key === "__proto__")
+          continue;
+        const deps = Array.isArray(schema[key]) ? propertyDeps : schemaDeps;
+        deps[key] = schema[key];
+      }
+      return [propertyDeps, schemaDeps];
+    }
+    function validatePropertyDeps(cxt, propertyDeps = cxt.schema) {
+      const { gen: gen2, data, it } = cxt;
+      if (Object.keys(propertyDeps).length === 0)
+        return;
+      const missing = gen2.let("missing");
+      for (const prop in propertyDeps) {
+        const deps = propertyDeps[prop];
+        if (deps.length === 0)
+          continue;
+        const hasProperty = (0, code_1.propertyInData)(gen2, data, prop, it.opts.ownProperties);
+        cxt.setParams({
+          property: prop,
+          depsCount: deps.length,
+          deps: deps.join(", ")
+        });
+        if (it.allErrors) {
+          gen2.if(hasProperty, () => {
+            for (const depProp of deps) {
+              (0, code_1.checkReportMissingProp)(cxt, depProp);
+            }
+          });
+        } else {
+          gen2.if((0, codegen_1._)`${hasProperty} && (${(0, code_1.checkMissingProp)(cxt, deps, missing)})`);
+          (0, code_1.reportMissingProp)(cxt, missing);
+          gen2.else();
+        }
+      }
+    }
+    exports.validatePropertyDeps = validatePropertyDeps;
+    function validateSchemaDeps(cxt, schemaDeps = cxt.schema) {
+      const { gen: gen2, data, keyword, it } = cxt;
+      const valid = gen2.name("valid");
+      for (const prop in schemaDeps) {
+        if ((0, util_1.alwaysValidSchema)(it, schemaDeps[prop]))
+          continue;
+        gen2.if(
+          (0, code_1.propertyInData)(gen2, data, prop, it.opts.ownProperties),
+          () => {
+            const schCxt = cxt.subschema({ keyword, schemaProp: prop }, valid);
+            cxt.mergeValidEvaluated(schCxt, valid);
+          },
+          () => gen2.var(valid, true)
+          // TODO var
+        );
+        cxt.ok(valid);
+      }
+    }
+    exports.validateSchemaDeps = validateSchemaDeps;
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/propertyNames.js
+var require_propertyNames2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/propertyNames.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var error2 = {
+      message: "property name must be valid",
+      params: ({ params }) => (0, codegen_1._)`{propertyName: ${params.propertyName}}`
+    };
+    var def = {
+      keyword: "propertyNames",
+      type: "object",
+      schemaType: ["object", "boolean"],
+      error: error2,
+      code(cxt) {
+        const { gen: gen2, schema, data, it } = cxt;
+        if ((0, util_1.alwaysValidSchema)(it, schema))
+          return;
+        const valid = gen2.name("valid");
+        gen2.forIn("key", data, (key) => {
+          cxt.setParams({ propertyName: key });
+          cxt.subschema({
+            keyword: "propertyNames",
+            data: key,
+            dataTypes: ["string"],
+            propertyName: key,
+            compositeRule: true
+          }, valid);
+          gen2.if((0, codegen_1.not)(valid), () => {
+            cxt.error(true);
+            if (!it.allErrors)
+              gen2.break();
+          });
+        });
+        cxt.ok(valid);
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js
+var require_additionalProperties2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var code_1 = require_code4();
+    var codegen_1 = require_codegen2();
+    var names_1 = require_names2();
+    var util_1 = require_util2();
+    var error2 = {
+      message: "must NOT have additional properties",
+      params: ({ params }) => (0, codegen_1._)`{additionalProperty: ${params.additionalProperty}}`
+    };
+    var def = {
+      keyword: "additionalProperties",
+      type: ["object"],
+      schemaType: ["boolean", "object"],
+      allowUndefined: true,
+      trackErrors: true,
+      error: error2,
+      code(cxt) {
+        const { gen: gen2, schema, parentSchema, data, errsCount, it } = cxt;
+        if (!errsCount)
+          throw new Error("ajv implementation error");
+        const { allErrors, opts } = it;
+        it.props = true;
+        if (opts.removeAdditional !== "all" && (0, util_1.alwaysValidSchema)(it, schema))
+          return;
+        const props = (0, code_1.allSchemaProperties)(parentSchema.properties);
+        const patProps = (0, code_1.allSchemaProperties)(parentSchema.patternProperties);
+        checkAdditionalProperties();
+        cxt.ok((0, codegen_1._)`${errsCount} === ${names_1.default.errors}`);
+        function checkAdditionalProperties() {
+          gen2.forIn("key", data, (key) => {
+            if (!props.length && !patProps.length)
+              additionalPropertyCode(key);
+            else
+              gen2.if(isAdditional(key), () => additionalPropertyCode(key));
+          });
+        }
+        function isAdditional(key) {
+          let definedProp;
+          if (props.length > 8) {
+            const propsSchema = (0, util_1.schemaRefOrVal)(it, parentSchema.properties, "properties");
+            definedProp = (0, code_1.isOwnProperty)(gen2, propsSchema, key);
+          } else if (props.length) {
+            definedProp = (0, codegen_1.or)(...props.map((p) => (0, codegen_1._)`${key} === ${p}`));
+          } else {
+            definedProp = codegen_1.nil;
+          }
+          if (patProps.length) {
+            definedProp = (0, codegen_1.or)(definedProp, ...patProps.map((p) => (0, codegen_1._)`${(0, code_1.usePattern)(cxt, p)}.test(${key})`));
+          }
+          return (0, codegen_1.not)(definedProp);
+        }
+        function deleteAdditional(key) {
+          gen2.code((0, codegen_1._)`delete ${data}[${key}]`);
+        }
+        function additionalPropertyCode(key) {
+          if (opts.removeAdditional === "all" || opts.removeAdditional && schema === false) {
+            deleteAdditional(key);
+            return;
+          }
+          if (schema === false) {
+            cxt.setParams({ additionalProperty: key });
+            cxt.error();
+            if (!allErrors)
+              gen2.break();
+            return;
+          }
+          if (typeof schema == "object" && !(0, util_1.alwaysValidSchema)(it, schema)) {
+            const valid = gen2.name("valid");
+            if (opts.removeAdditional === "failing") {
+              applyAdditionalSchema(key, valid, false);
+              gen2.if((0, codegen_1.not)(valid), () => {
+                cxt.reset();
+                deleteAdditional(key);
+              });
+            } else {
+              applyAdditionalSchema(key, valid);
+              if (!allErrors)
+                gen2.if((0, codegen_1.not)(valid), () => gen2.break());
+            }
+          }
+        }
+        function applyAdditionalSchema(key, valid, errors) {
+          const subschema = {
+            keyword: "additionalProperties",
+            dataProp: key,
+            dataPropType: util_1.Type.Str
+          };
+          if (errors === false) {
+            Object.assign(subschema, {
+              compositeRule: true,
+              createErrors: false,
+              allErrors: false
+            });
+          }
+          cxt.subschema(subschema, valid);
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/properties.js
+var require_properties2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/properties.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var validate_1 = require_validate2();
+    var code_1 = require_code4();
+    var util_1 = require_util2();
+    var additionalProperties_1 = require_additionalProperties2();
+    var def = {
+      keyword: "properties",
+      type: "object",
+      schemaType: "object",
+      code(cxt) {
+        const { gen: gen2, schema, parentSchema, data, it } = cxt;
+        if (it.opts.removeAdditional === "all" && parentSchema.additionalProperties === void 0) {
+          additionalProperties_1.default.code(new validate_1.KeywordCxt(it, additionalProperties_1.default, "additionalProperties"));
+        }
+        const allProps = (0, code_1.allSchemaProperties)(schema);
+        for (const prop of allProps) {
+          it.definedProperties.add(prop);
+        }
+        if (it.opts.unevaluated && allProps.length && it.props !== true) {
+          it.props = util_1.mergeEvaluated.props(gen2, (0, util_1.toHash)(allProps), it.props);
+        }
+        const properties = allProps.filter((p) => !(0, util_1.alwaysValidSchema)(it, schema[p]));
+        if (properties.length === 0)
+          return;
+        const valid = gen2.name("valid");
+        for (const prop of properties) {
+          if (hasDefault(prop)) {
+            applyPropertySchema(prop);
+          } else {
+            gen2.if((0, code_1.propertyInData)(gen2, data, prop, it.opts.ownProperties));
+            applyPropertySchema(prop);
+            if (!it.allErrors)
+              gen2.else().var(valid, true);
+            gen2.endIf();
+          }
+          cxt.it.definedProperties.add(prop);
+          cxt.ok(valid);
+        }
+        function hasDefault(prop) {
+          return it.opts.useDefaults && !it.compositeRule && schema[prop].default !== void 0;
+        }
+        function applyPropertySchema(prop) {
+          cxt.subschema({
+            keyword: "properties",
+            schemaProp: prop,
+            dataProp: prop
+          }, valid);
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/patternProperties.js
+var require_patternProperties2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/patternProperties.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var code_1 = require_code4();
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var util_2 = require_util2();
+    var def = {
+      keyword: "patternProperties",
+      type: "object",
+      schemaType: "object",
+      code(cxt) {
+        const { gen: gen2, schema, data, parentSchema, it } = cxt;
+        const { opts } = it;
+        const patterns = (0, code_1.allSchemaProperties)(schema);
+        const alwaysValidPatterns = patterns.filter((p) => (0, util_1.alwaysValidSchema)(it, schema[p]));
+        if (patterns.length === 0 || alwaysValidPatterns.length === patterns.length && (!it.opts.unevaluated || it.props === true)) {
+          return;
+        }
+        const checkProperties = opts.strictSchema && !opts.allowMatchingProperties && parentSchema.properties;
+        const valid = gen2.name("valid");
+        if (it.props !== true && !(it.props instanceof codegen_1.Name)) {
+          it.props = (0, util_2.evaluatedPropsToName)(gen2, it.props);
+        }
+        const { props } = it;
+        validatePatternProperties();
+        function validatePatternProperties() {
+          for (const pat of patterns) {
+            if (checkProperties)
+              checkMatchingProperties(pat);
+            if (it.allErrors) {
+              validateProperties(pat);
+            } else {
+              gen2.var(valid, true);
+              validateProperties(pat);
+              gen2.if(valid);
+            }
+          }
+        }
+        function checkMatchingProperties(pat) {
+          for (const prop in checkProperties) {
+            if (new RegExp(pat).test(prop)) {
+              (0, util_1.checkStrictMode)(it, `property ${prop} matches pattern ${pat} (use allowMatchingProperties)`);
+            }
+          }
+        }
+        function validateProperties(pat) {
+          gen2.forIn("key", data, (key) => {
+            gen2.if((0, codegen_1._)`${(0, code_1.usePattern)(cxt, pat)}.test(${key})`, () => {
+              const alwaysValid = alwaysValidPatterns.includes(pat);
+              if (!alwaysValid) {
+                cxt.subschema({
+                  keyword: "patternProperties",
+                  schemaProp: pat,
+                  dataProp: key,
+                  dataPropType: util_2.Type.Str
+                }, valid);
+              }
+              if (it.opts.unevaluated && props !== true) {
+                gen2.assign((0, codegen_1._)`${props}[${key}]`, true);
+              } else if (!alwaysValid && !it.allErrors) {
+                gen2.if((0, codegen_1.not)(valid), () => gen2.break());
+              }
+            });
+          });
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/not.js
+var require_not2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/not.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var util_1 = require_util2();
+    var def = {
+      keyword: "not",
+      schemaType: ["object", "boolean"],
+      trackErrors: true,
+      code(cxt) {
+        const { gen: gen2, schema, it } = cxt;
+        if ((0, util_1.alwaysValidSchema)(it, schema)) {
+          cxt.fail();
+          return;
+        }
+        const valid = gen2.name("valid");
+        cxt.subschema({
+          keyword: "not",
+          compositeRule: true,
+          createErrors: false,
+          allErrors: false
+        }, valid);
+        cxt.failResult(valid, () => cxt.reset(), () => cxt.error());
+      },
+      error: { message: "must NOT be valid" }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/anyOf.js
+var require_anyOf2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/anyOf.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var code_1 = require_code4();
+    var def = {
+      keyword: "anyOf",
+      schemaType: "array",
+      trackErrors: true,
+      code: code_1.validateUnion,
+      error: { message: "must match a schema in anyOf" }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/oneOf.js
+var require_oneOf2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/oneOf.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var error2 = {
+      message: "must match exactly one schema in oneOf",
+      params: ({ params }) => (0, codegen_1._)`{passingSchemas: ${params.passing}}`
+    };
+    var def = {
+      keyword: "oneOf",
+      schemaType: "array",
+      trackErrors: true,
+      error: error2,
+      code(cxt) {
+        const { gen: gen2, schema, parentSchema, it } = cxt;
+        if (!Array.isArray(schema))
+          throw new Error("ajv implementation error");
+        if (it.opts.discriminator && parentSchema.discriminator)
+          return;
+        const schArr = schema;
+        const valid = gen2.let("valid", false);
+        const passing = gen2.let("passing", null);
+        const schValid = gen2.name("_valid");
+        cxt.setParams({ passing });
+        gen2.block(validateOneOf);
+        cxt.result(valid, () => cxt.reset(), () => cxt.error(true));
+        function validateOneOf() {
+          schArr.forEach((sch, i) => {
+            let schCxt;
+            if ((0, util_1.alwaysValidSchema)(it, sch)) {
+              gen2.var(schValid, true);
+            } else {
+              schCxt = cxt.subschema({
+                keyword: "oneOf",
+                schemaProp: i,
+                compositeRule: true
+              }, schValid);
+            }
+            if (i > 0) {
+              gen2.if((0, codegen_1._)`${schValid} && ${valid}`).assign(valid, false).assign(passing, (0, codegen_1._)`[${passing}, ${i}]`).else();
+            }
+            gen2.if(schValid, () => {
+              gen2.assign(valid, true);
+              gen2.assign(passing, i);
+              if (schCxt)
+                cxt.mergeEvaluated(schCxt, codegen_1.Name);
+            });
+          });
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/allOf.js
+var require_allOf2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/allOf.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var util_1 = require_util2();
+    var def = {
+      keyword: "allOf",
+      schemaType: "array",
+      code(cxt) {
+        const { gen: gen2, schema, it } = cxt;
+        if (!Array.isArray(schema))
+          throw new Error("ajv implementation error");
+        const valid = gen2.name("valid");
+        schema.forEach((sch, i) => {
+          if ((0, util_1.alwaysValidSchema)(it, sch))
+            return;
+          const schCxt = cxt.subschema({ keyword: "allOf", schemaProp: i }, valid);
+          cxt.ok(valid);
+          cxt.mergeEvaluated(schCxt);
+        });
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/if.js
+var require_if2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/if.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var codegen_1 = require_codegen2();
+    var util_1 = require_util2();
+    var error2 = {
+      message: ({ params }) => (0, codegen_1.str)`must match "${params.ifClause}" schema`,
+      params: ({ params }) => (0, codegen_1._)`{failingKeyword: ${params.ifClause}}`
+    };
+    var def = {
+      keyword: "if",
+      schemaType: ["object", "boolean"],
+      trackErrors: true,
+      error: error2,
+      code(cxt) {
+        const { gen: gen2, parentSchema, it } = cxt;
+        if (parentSchema.then === void 0 && parentSchema.else === void 0) {
+          (0, util_1.checkStrictMode)(it, '"if" without "then" and "else" is ignored');
+        }
+        const hasThen = hasSchema(it, "then");
+        const hasElse = hasSchema(it, "else");
+        if (!hasThen && !hasElse)
+          return;
+        const valid = gen2.let("valid", true);
+        const schValid = gen2.name("_valid");
+        validateIf();
+        cxt.reset();
+        if (hasThen && hasElse) {
+          const ifClause = gen2.let("ifClause");
+          cxt.setParams({ ifClause });
+          gen2.if(schValid, validateClause("then", ifClause), validateClause("else", ifClause));
+        } else if (hasThen) {
+          gen2.if(schValid, validateClause("then"));
+        } else {
+          gen2.if((0, codegen_1.not)(schValid), validateClause("else"));
+        }
+        cxt.pass(valid, () => cxt.error(true));
+        function validateIf() {
+          const schCxt = cxt.subschema({
+            keyword: "if",
+            compositeRule: true,
+            createErrors: false,
+            allErrors: false
+          }, schValid);
+          cxt.mergeEvaluated(schCxt);
+        }
+        function validateClause(keyword, ifClause) {
+          return () => {
+            const schCxt = cxt.subschema({ keyword }, schValid);
+            gen2.assign(valid, schValid);
+            cxt.mergeValidEvaluated(schCxt, valid);
+            if (ifClause)
+              gen2.assign(ifClause, (0, codegen_1._)`${keyword}`);
+            else
+              cxt.setParams({ ifClause: keyword });
+          };
+        }
+      }
+    };
+    function hasSchema(it, keyword) {
+      const schema = it.schema[keyword];
+      return schema !== void 0 && !(0, util_1.alwaysValidSchema)(it, schema);
+    }
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/thenElse.js
+var require_thenElse2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/thenElse.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var util_1 = require_util2();
+    var def = {
+      keyword: ["then", "else"],
+      schemaType: ["object", "boolean"],
+      code({ keyword, parentSchema, it }) {
+        if (parentSchema.if === void 0)
+          (0, util_1.checkStrictMode)(it, `"${keyword}" without "if" is ignored`);
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/index.js
+var require_applicator2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/applicator/index.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var additionalItems_1 = require_additionalItems2();
+    var prefixItems_1 = require_prefixItems2();
+    var items_1 = require_items2();
+    var items2020_1 = require_items20202();
+    var contains_1 = require_contains2();
+    var dependencies_1 = require_dependencies2();
+    var propertyNames_1 = require_propertyNames2();
+    var additionalProperties_1 = require_additionalProperties2();
+    var properties_1 = require_properties2();
+    var patternProperties_1 = require_patternProperties2();
+    var not_1 = require_not2();
+    var anyOf_1 = require_anyOf2();
+    var oneOf_1 = require_oneOf2();
+    var allOf_1 = require_allOf2();
+    var if_1 = require_if2();
+    var thenElse_1 = require_thenElse2();
+    function getApplicator(draft2020 = false) {
+      const applicator = [
+        // any
+        not_1.default,
+        anyOf_1.default,
+        oneOf_1.default,
+        allOf_1.default,
+        if_1.default,
+        thenElse_1.default,
+        // object
+        propertyNames_1.default,
+        additionalProperties_1.default,
+        dependencies_1.default,
+        properties_1.default,
+        patternProperties_1.default
+      ];
+      if (draft2020)
+        applicator.push(prefixItems_1.default, items2020_1.default);
+      else
+        applicator.push(additionalItems_1.default, items_1.default);
+      applicator.push(contains_1.default);
+      return applicator;
+    }
+    exports.default = getApplicator;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/format/format.js
+var require_format3 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/format/format.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var codegen_1 = require_codegen2();
+    var error2 = {
+      message: ({ schemaCode }) => (0, codegen_1.str)`must match format "${schemaCode}"`,
+      params: ({ schemaCode }) => (0, codegen_1._)`{format: ${schemaCode}}`
+    };
+    var def = {
+      keyword: "format",
+      type: ["number", "string"],
+      schemaType: "string",
+      $data: true,
+      error: error2,
+      code(cxt, ruleType) {
+        const { gen: gen2, data, $data, schema, schemaCode, it } = cxt;
+        const { opts, errSchemaPath, schemaEnv, self: self2 } = it;
+        if (!opts.validateFormats)
+          return;
+        if ($data)
+          validate$DataFormat();
+        else
+          validateFormat();
+        function validate$DataFormat() {
+          const fmts = gen2.scopeValue("formats", {
+            ref: self2.formats,
+            code: opts.code.formats
+          });
+          const fDef = gen2.const("fDef", (0, codegen_1._)`${fmts}[${schemaCode}]`);
+          const fType = gen2.let("fType");
+          const format = gen2.let("format");
+          gen2.if((0, codegen_1._)`typeof ${fDef} == "object" && !(${fDef} instanceof RegExp)`, () => gen2.assign(fType, (0, codegen_1._)`${fDef}.type || "string"`).assign(format, (0, codegen_1._)`${fDef}.validate`), () => gen2.assign(fType, (0, codegen_1._)`"string"`).assign(format, fDef));
+          cxt.fail$data((0, codegen_1.or)(unknownFmt(), invalidFmt()));
+          function unknownFmt() {
+            if (opts.strictSchema === false)
+              return codegen_1.nil;
+            return (0, codegen_1._)`${schemaCode} && !${format}`;
+          }
+          function invalidFmt() {
+            const callFormat = schemaEnv.$async ? (0, codegen_1._)`(${fDef}.async ? await ${format}(${data}) : ${format}(${data}))` : (0, codegen_1._)`${format}(${data})`;
+            const validData = (0, codegen_1._)`(typeof ${format} == "function" ? ${callFormat} : ${format}.test(${data}))`;
+            return (0, codegen_1._)`${format} && ${format} !== true && ${fType} === ${ruleType} && !${validData}`;
+          }
+        }
+        function validateFormat() {
+          const formatDef = self2.formats[schema];
+          if (!formatDef) {
+            unknownFormat();
+            return;
+          }
+          if (formatDef === true)
+            return;
+          const [fmtType, format, fmtRef] = getFormat(formatDef);
+          if (fmtType === ruleType)
+            cxt.pass(validCondition());
+          function unknownFormat() {
+            if (opts.strictSchema === false) {
+              self2.logger.warn(unknownMsg());
+              return;
+            }
+            throw new Error(unknownMsg());
+            function unknownMsg() {
+              return `unknown format "${schema}" ignored in schema at path "${errSchemaPath}"`;
+            }
+          }
+          function getFormat(fmtDef) {
+            const code = fmtDef instanceof RegExp ? (0, codegen_1.regexpCode)(fmtDef) : opts.code.formats ? (0, codegen_1._)`${opts.code.formats}${(0, codegen_1.getProperty)(schema)}` : void 0;
+            const fmt = gen2.scopeValue("formats", { key: schema, ref: fmtDef, code });
+            if (typeof fmtDef == "object" && !(fmtDef instanceof RegExp)) {
+              return [fmtDef.type || "string", fmtDef.validate, (0, codegen_1._)`${fmt}.validate`];
+            }
+            return ["string", fmtDef, fmt];
+          }
+          function validCondition() {
+            if (typeof formatDef == "object" && !(formatDef instanceof RegExp) && formatDef.async) {
+              if (!schemaEnv.$async)
+                throw new Error("async format in sync schema");
+              return (0, codegen_1._)`await ${fmtRef}(${data})`;
+            }
+            return typeof format == "function" ? (0, codegen_1._)`${fmtRef}(${data})` : (0, codegen_1._)`${fmtRef}.test(${data})`;
+          }
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/format/index.js
+var require_format4 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/format/index.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var format_1 = require_format3();
+    var format = [format_1.default];
+    exports.default = format;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/metadata.js
+var require_metadata2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/metadata.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.contentVocabulary = exports.metadataVocabulary = void 0;
+    exports.metadataVocabulary = [
+      "title",
+      "description",
+      "default",
+      "deprecated",
+      "readOnly",
+      "writeOnly",
+      "examples"
+    ];
+    exports.contentVocabulary = [
+      "contentMediaType",
+      "contentEncoding",
+      "contentSchema"
+    ];
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/draft7.js
+var require_draft72 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/draft7.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var core_1 = require_core4();
+    var validation_1 = require_validation2();
+    var applicator_1 = require_applicator2();
+    var format_1 = require_format4();
+    var metadata_1 = require_metadata2();
+    var draft7Vocabularies = [
+      core_1.default,
+      validation_1.default,
+      (0, applicator_1.default)(),
+      format_1.default,
+      metadata_1.metadataVocabulary,
+      metadata_1.contentVocabulary
+    ];
+    exports.default = draft7Vocabularies;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/discriminator/types.js
+var require_types2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/discriminator/types.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.DiscrError = void 0;
+    var DiscrError;
+    (function(DiscrError2) {
+      DiscrError2["Tag"] = "tag";
+      DiscrError2["Mapping"] = "mapping";
+    })(DiscrError || (exports.DiscrError = DiscrError = {}));
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/discriminator/index.js
+var require_discriminator2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/vocabularies/discriminator/index.js"(exports) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var codegen_1 = require_codegen2();
+    var types_1 = require_types2();
+    var compile_1 = require_compile2();
+    var ref_error_1 = require_ref_error2();
+    var util_1 = require_util2();
+    var error2 = {
+      message: ({ params: { discrError, tagName } }) => discrError === types_1.DiscrError.Tag ? `tag "${tagName}" must be string` : `value of tag "${tagName}" must be in oneOf`,
+      params: ({ params: { discrError, tag, tagName } }) => (0, codegen_1._)`{error: ${discrError}, tag: ${tagName}, tagValue: ${tag}}`
+    };
+    var def = {
+      keyword: "discriminator",
+      type: "object",
+      schemaType: "object",
+      error: error2,
+      code(cxt) {
+        const { gen: gen2, data, schema, parentSchema, it } = cxt;
+        const { oneOf } = parentSchema;
+        if (!it.opts.discriminator) {
+          throw new Error("discriminator: requires discriminator option");
+        }
+        const tagName = schema.propertyName;
+        if (typeof tagName != "string")
+          throw new Error("discriminator: requires propertyName");
+        if (schema.mapping)
+          throw new Error("discriminator: mapping is not supported");
+        if (!oneOf)
+          throw new Error("discriminator: requires oneOf keyword");
+        const valid = gen2.let("valid", false);
+        const tag = gen2.const("tag", (0, codegen_1._)`${data}${(0, codegen_1.getProperty)(tagName)}`);
+        gen2.if((0, codegen_1._)`typeof ${tag} == "string"`, () => validateMapping(), () => cxt.error(false, { discrError: types_1.DiscrError.Tag, tag, tagName }));
+        cxt.ok(valid);
+        function validateMapping() {
+          const mapping = getMapping();
+          gen2.if(false);
+          for (const tagValue in mapping) {
+            gen2.elseIf((0, codegen_1._)`${tag} === ${tagValue}`);
+            gen2.assign(valid, applyTagSchema(mapping[tagValue]));
+          }
+          gen2.else();
+          cxt.error(false, { discrError: types_1.DiscrError.Mapping, tag, tagName });
+          gen2.endIf();
+        }
+        function applyTagSchema(schemaProp) {
+          const _valid = gen2.name("valid");
+          const schCxt = cxt.subschema({ keyword: "oneOf", schemaProp }, _valid);
+          cxt.mergeEvaluated(schCxt, codegen_1.Name);
+          return _valid;
+        }
+        function getMapping() {
+          var _a;
+          const oneOfMapping = {};
+          const topRequired = hasRequired(parentSchema);
+          let tagRequired = true;
+          for (let i = 0; i < oneOf.length; i++) {
+            let sch = oneOf[i];
+            if ((sch === null || sch === void 0 ? void 0 : sch.$ref) && !(0, util_1.schemaHasRulesButRef)(sch, it.self.RULES)) {
+              const ref = sch.$ref;
+              sch = compile_1.resolveRef.call(it.self, it.schemaEnv.root, it.baseId, ref);
+              if (sch instanceof compile_1.SchemaEnv)
+                sch = sch.schema;
+              if (sch === void 0)
+                throw new ref_error_1.default(it.opts.uriResolver, it.baseId, ref);
+            }
+            const propSch = (_a = sch === null || sch === void 0 ? void 0 : sch.properties) === null || _a === void 0 ? void 0 : _a[tagName];
+            if (typeof propSch != "object") {
+              throw new Error(`discriminator: oneOf subschemas (or referenced schemas) must have "properties/${tagName}"`);
+            }
+            tagRequired = tagRequired && (topRequired || hasRequired(sch));
+            addMappings(propSch, i);
+          }
+          if (!tagRequired)
+            throw new Error(`discriminator: "${tagName}" must be required`);
+          return oneOfMapping;
+          function hasRequired({ required: required2 }) {
+            return Array.isArray(required2) && required2.includes(tagName);
+          }
+          function addMappings(sch, i) {
+            if (sch.const) {
+              addMapping(sch.const, i);
+            } else if (sch.enum) {
+              for (const tagValue of sch.enum) {
+                addMapping(tagValue, i);
+              }
+            } else {
+              throw new Error(`discriminator: "properties/${tagName}" must have "const" or "enum"`);
+            }
+          }
+          function addMapping(tagValue, i) {
+            if (typeof tagValue != "string" || tagValue in oneOfMapping) {
+              throw new Error(`discriminator: "${tagName}" values must be unique strings`);
+            }
+            oneOfMapping[tagValue] = i;
+          }
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/refs/json-schema-draft-07.json
+var require_json_schema_draft_072 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/refs/json-schema-draft-07.json"(exports, module) {
+    module.exports = {
+      $schema: "http://json-schema.org/draft-07/schema#",
+      $id: "http://json-schema.org/draft-07/schema#",
+      title: "Core schema meta-schema",
+      definitions: {
+        schemaArray: {
+          type: "array",
+          minItems: 1,
+          items: { $ref: "#" }
+        },
+        nonNegativeInteger: {
+          type: "integer",
+          minimum: 0
+        },
+        nonNegativeIntegerDefault0: {
+          allOf: [{ $ref: "#/definitions/nonNegativeInteger" }, { default: 0 }]
+        },
+        simpleTypes: {
+          enum: ["array", "boolean", "integer", "null", "number", "object", "string"]
+        },
+        stringArray: {
+          type: "array",
+          items: { type: "string" },
+          uniqueItems: true,
+          default: []
+        }
+      },
+      type: ["object", "boolean"],
+      properties: {
+        $id: {
+          type: "string",
+          format: "uri-reference"
+        },
+        $schema: {
+          type: "string",
+          format: "uri"
+        },
+        $ref: {
+          type: "string",
+          format: "uri-reference"
+        },
+        $comment: {
+          type: "string"
+        },
+        title: {
+          type: "string"
+        },
+        description: {
+          type: "string"
+        },
+        default: true,
+        readOnly: {
+          type: "boolean",
+          default: false
+        },
+        examples: {
+          type: "array",
+          items: true
+        },
+        multipleOf: {
+          type: "number",
+          exclusiveMinimum: 0
+        },
+        maximum: {
+          type: "number"
+        },
+        exclusiveMaximum: {
+          type: "number"
+        },
+        minimum: {
+          type: "number"
+        },
+        exclusiveMinimum: {
+          type: "number"
+        },
+        maxLength: { $ref: "#/definitions/nonNegativeInteger" },
+        minLength: { $ref: "#/definitions/nonNegativeIntegerDefault0" },
+        pattern: {
+          type: "string",
+          format: "regex"
+        },
+        additionalItems: { $ref: "#" },
+        items: {
+          anyOf: [{ $ref: "#" }, { $ref: "#/definitions/schemaArray" }],
+          default: true
+        },
+        maxItems: { $ref: "#/definitions/nonNegativeInteger" },
+        minItems: { $ref: "#/definitions/nonNegativeIntegerDefault0" },
+        uniqueItems: {
+          type: "boolean",
+          default: false
+        },
+        contains: { $ref: "#" },
+        maxProperties: { $ref: "#/definitions/nonNegativeInteger" },
+        minProperties: { $ref: "#/definitions/nonNegativeIntegerDefault0" },
+        required: { $ref: "#/definitions/stringArray" },
+        additionalProperties: { $ref: "#" },
+        definitions: {
+          type: "object",
+          additionalProperties: { $ref: "#" },
+          default: {}
+        },
+        properties: {
+          type: "object",
+          additionalProperties: { $ref: "#" },
+          default: {}
+        },
+        patternProperties: {
+          type: "object",
+          additionalProperties: { $ref: "#" },
+          propertyNames: { format: "regex" },
+          default: {}
+        },
+        dependencies: {
+          type: "object",
+          additionalProperties: {
+            anyOf: [{ $ref: "#" }, { $ref: "#/definitions/stringArray" }]
+          }
+        },
+        propertyNames: { $ref: "#" },
+        const: true,
+        enum: {
+          type: "array",
+          items: true,
+          minItems: 1,
+          uniqueItems: true
+        },
+        type: {
+          anyOf: [
+            { $ref: "#/definitions/simpleTypes" },
+            {
+              type: "array",
+              items: { $ref: "#/definitions/simpleTypes" },
+              minItems: 1,
+              uniqueItems: true
+            }
+          ]
+        },
+        format: { type: "string" },
+        contentMediaType: { type: "string" },
+        contentEncoding: { type: "string" },
+        if: { $ref: "#" },
+        then: { $ref: "#" },
+        else: { $ref: "#" },
+        allOf: { $ref: "#/definitions/schemaArray" },
+        anyOf: { $ref: "#/definitions/schemaArray" },
+        oneOf: { $ref: "#/definitions/schemaArray" },
+        not: { $ref: "#" }
+      },
+      default: true
+    };
+  }
+});
+
+// node_modules/ajv-formats/node_modules/ajv/dist/ajv.js
+var require_ajv2 = __commonJS({
+  "node_modules/ajv-formats/node_modules/ajv/dist/ajv.js"(exports, module) {
+    "use strict";
+    init_define_GDEX_SKILL_REGISTRY();
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.MissingRefError = exports.ValidationError = exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = exports.Ajv = void 0;
+    var core_1 = require_core3();
+    var draft7_1 = require_draft72();
+    var discriminator_1 = require_discriminator2();
+    var draft7MetaSchema = require_json_schema_draft_072();
+    var META_SUPPORT_DATA = ["/properties"];
+    var META_SCHEMA_ID = "http://json-schema.org/draft-07/schema";
+    var Ajv2 = class extends core_1.default {
+      _addVocabularies() {
+        super._addVocabularies();
+        draft7_1.default.forEach((v) => this.addVocabulary(v));
+        if (this.opts.discriminator)
+          this.addKeyword(discriminator_1.default);
+      }
+      _addDefaultMetaSchema() {
+        super._addDefaultMetaSchema();
+        if (!this.opts.meta)
+          return;
+        const metaSchema = this.opts.$data ? this.$dataMetaSchema(draft7MetaSchema, META_SUPPORT_DATA) : draft7MetaSchema;
+        this.addMetaSchema(metaSchema, META_SCHEMA_ID, false);
+        this.refs["http://json-schema.org/schema"] = META_SCHEMA_ID;
+      }
+      defaultMeta() {
+        return this.opts.defaultMeta = super.defaultMeta() || (this.getSchema(META_SCHEMA_ID) ? META_SCHEMA_ID : void 0);
+      }
+    };
+    exports.Ajv = Ajv2;
+    module.exports = exports = Ajv2;
+    module.exports.Ajv = Ajv2;
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.default = Ajv2;
+    var validate_1 = require_validate2();
+    Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function() {
+      return validate_1.KeywordCxt;
+    } });
+    var codegen_1 = require_codegen2();
+    Object.defineProperty(exports, "_", { enumerable: true, get: function() {
+      return codegen_1._;
+    } });
+    Object.defineProperty(exports, "str", { enumerable: true, get: function() {
+      return codegen_1.str;
+    } });
+    Object.defineProperty(exports, "stringify", { enumerable: true, get: function() {
+      return codegen_1.stringify;
+    } });
+    Object.defineProperty(exports, "nil", { enumerable: true, get: function() {
+      return codegen_1.nil;
+    } });
+    Object.defineProperty(exports, "Name", { enumerable: true, get: function() {
+      return codegen_1.Name;
+    } });
+    Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function() {
+      return codegen_1.CodeGen;
+    } });
+    var validation_error_1 = require_validation_error2();
+    Object.defineProperty(exports, "ValidationError", { enumerable: true, get: function() {
+      return validation_error_1.default;
+    } });
+    var ref_error_1 = require_ref_error2();
+    Object.defineProperty(exports, "MissingRefError", { enumerable: true, get: function() {
+      return ref_error_1.default;
+    } });
+  }
+});
+
+// node_modules/ajv-formats/dist/limit.js
 var require_limit = __commonJS({
-  "mcp-server/node_modules/ajv-formats/dist/limit.js"(exports) {
+  "node_modules/ajv-formats/dist/limit.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatLimitDefinition = void 0;
-    var ajv_1 = require_ajv();
-    var codegen_1 = require_codegen();
+    var ajv_1 = require_ajv2();
+    var codegen_1 = require_codegen2();
     var ops = codegen_1.operators;
     var KWDs = {
       formatMaximum: { okStr: "<=", ok: ops.LTE, fail: ops.GT },
@@ -7818,15 +13575,15 @@ var require_limit = __commonJS({
   }
 });
 
-// mcp-server/node_modules/ajv-formats/dist/index.js
+// node_modules/ajv-formats/dist/index.js
 var require_dist = __commonJS({
-  "mcp-server/node_modules/ajv-formats/dist/index.js"(exports, module) {
+  "node_modules/ajv-formats/dist/index.js"(exports, module) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     var formats_1 = require_formats();
     var limit_1 = require_limit();
-    var codegen_1 = require_codegen();
+    var codegen_1 = require_codegen2();
     var fullName = new codegen_1.Name("fullFormats");
     var fastName = new codegen_1.Name("fastFormats");
     var formatsPlugin = (ajv, opts = { keywords: true }) => {
@@ -8377,7 +14134,7 @@ var require_version = __commonJS({
 });
 
 // node_modules/ethers/lib.commonjs/utils/properties.js
-var require_properties2 = __commonJS({
+var require_properties3 = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/properties.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
@@ -8428,14 +14185,14 @@ var require_properties2 = __commonJS({
 });
 
 // node_modules/ethers/lib.commonjs/utils/errors.js
-var require_errors2 = __commonJS({
+var require_errors3 = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/errors.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.assertPrivate = exports.assertNormalize = exports.assertArgumentCount = exports.assertArgument = exports.assert = exports.makeError = exports.isCallException = exports.isError = void 0;
     var _version_js_1 = require_version();
-    var properties_js_1 = require_properties2();
+    var properties_js_1 = require_properties3();
     function stringify2(value, seen) {
       if (value == null) {
         return "null";
@@ -8605,13 +14362,13 @@ var require_errors2 = __commonJS({
 });
 
 // node_modules/ethers/lib.commonjs/utils/data.js
-var require_data2 = __commonJS({
+var require_data3 = __commonJS({
   "node_modules/ethers/lib.commonjs/utils/data.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.zeroPadBytes = exports.zeroPadValue = exports.stripZerosLeft = exports.dataSlice = exports.dataLength = exports.concat = exports.hexlify = exports.isBytesLike = exports.isHexString = exports.getBytesCopy = exports.getBytes = void 0;
-    var errors_js_1 = require_errors2();
+    var errors_js_1 = require_errors3();
     function _getBytes2(value, name, copy) {
       if (value instanceof Uint8Array) {
         if (copy) {
@@ -8657,10 +14414,10 @@ var require_data2 = __commonJS({
     exports.isBytesLike = isBytesLike2;
     var HexCharacters2 = "0123456789abcdef";
     function hexlify2(data) {
-      const bytes3 = getBytes2(data);
+      const bytes2 = getBytes2(data);
       let result = "0x";
-      for (let i = 0; i < bytes3.length; i++) {
-        const v = bytes3[i];
+      for (let i = 0; i < bytes2.length; i++) {
+        const v = bytes2[i];
         result += HexCharacters2[(v & 240) >> 4] + HexCharacters2[v & 15];
       }
       return result;
@@ -8678,38 +14435,38 @@ var require_data2 = __commonJS({
     }
     exports.dataLength = dataLength2;
     function dataSlice2(data, start, end) {
-      const bytes3 = getBytes2(data);
-      if (end != null && end > bytes3.length) {
+      const bytes2 = getBytes2(data);
+      if (end != null && end > bytes2.length) {
         (0, errors_js_1.assert)(false, "cannot slice beyond data bounds", "BUFFER_OVERRUN", {
-          buffer: bytes3,
-          length: bytes3.length,
+          buffer: bytes2,
+          length: bytes2.length,
           offset: end
         });
       }
-      return hexlify2(bytes3.slice(start == null ? 0 : start, end == null ? bytes3.length : end));
+      return hexlify2(bytes2.slice(start == null ? 0 : start, end == null ? bytes2.length : end));
     }
     exports.dataSlice = dataSlice2;
     function stripZerosLeft2(data) {
-      let bytes3 = hexlify2(data).substring(2);
-      while (bytes3.startsWith("00")) {
-        bytes3 = bytes3.substring(2);
+      let bytes2 = hexlify2(data).substring(2);
+      while (bytes2.startsWith("00")) {
+        bytes2 = bytes2.substring(2);
       }
-      return "0x" + bytes3;
+      return "0x" + bytes2;
     }
     exports.stripZerosLeft = stripZerosLeft2;
     function zeroPad2(data, length, left) {
-      const bytes3 = getBytes2(data);
-      (0, errors_js_1.assert)(length >= bytes3.length, "padding exceeds data length", "BUFFER_OVERRUN", {
-        buffer: new Uint8Array(bytes3),
+      const bytes2 = getBytes2(data);
+      (0, errors_js_1.assert)(length >= bytes2.length, "padding exceeds data length", "BUFFER_OVERRUN", {
+        buffer: new Uint8Array(bytes2),
         length,
         offset: length + 1
       });
       const result = new Uint8Array(length);
       result.fill(0);
       if (left) {
-        result.set(bytes3, length - bytes3.length);
+        result.set(bytes2, length - bytes2.length);
       } else {
-        result.set(bytes3, 0);
+        result.set(bytes2, 0);
       }
       return hexlify2(result);
     }
@@ -8731,8 +14488,8 @@ var require_maths = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toQuantity = exports.toBeArray = exports.toBeHex = exports.toNumber = exports.getNumber = exports.toBigInt = exports.getUint = exports.getBigInt = exports.mask = exports.toTwos = exports.fromTwos = void 0;
-    var data_js_1 = require_data2();
-    var errors_js_1 = require_errors2();
+    var data_js_1 = require_data3();
+    var errors_js_1 = require_errors3();
     var BN_08 = BigInt(0);
     var BN_14 = BigInt(1);
     var maxValue2 = 9007199254740991;
@@ -8927,8 +14684,8 @@ var require_base58 = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.decodeBase58 = exports.encodeBase58 = void 0;
-    var data_js_1 = require_data2();
-    var errors_js_1 = require_errors2();
+    var data_js_1 = require_data3();
+    var errors_js_1 = require_errors3();
     var maths_js_1 = require_maths();
     var Alphabet2 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
     var Lookup2 = null;
@@ -8946,15 +14703,15 @@ var require_base58 = __commonJS({
     var BN_08 = BigInt(0);
     var BN_582 = BigInt(58);
     function encodeBase582(_value) {
-      const bytes3 = (0, data_js_1.getBytes)(_value);
-      let value = (0, maths_js_1.toBigInt)(bytes3);
+      const bytes2 = (0, data_js_1.getBytes)(_value);
+      let value = (0, maths_js_1.toBigInt)(bytes2);
       let result = "";
       while (value) {
         result = Alphabet2[Number(value % BN_582)] + result;
         value /= BN_582;
       }
-      for (let i = 0; i < bytes3.length; i++) {
-        if (bytes3[i]) {
+      for (let i = 0; i < bytes2.length; i++) {
+        if (bytes2[i]) {
           break;
         }
         result = Alphabet2[0] + result;
@@ -8981,7 +14738,7 @@ var require_base64 = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.encodeBase64 = exports.decodeBase64 = void 0;
-    var data_js_1 = require_data2();
+    var data_js_1 = require_data3();
     function decodeBase64(value) {
       return (0, data_js_1.getBytesCopy)(Buffer.from(value, "base64"));
     }
@@ -9000,7 +14757,7 @@ var require_events = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.EventPayload = void 0;
-    var properties_js_1 = require_properties2();
+    var properties_js_1 = require_properties3();
     var EventPayload = class {
       /**
        *  The event filter.
@@ -9040,16 +14797,16 @@ var require_utf8 = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toUtf8CodePoints = exports.toUtf8String = exports.toUtf8Bytes = exports.Utf8ErrorFuncs = void 0;
-    var data_js_1 = require_data2();
-    var errors_js_1 = require_errors2();
-    function errorFunc2(reason, offset, bytes3, output3, badCodepoint) {
-      (0, errors_js_1.assertArgument)(false, `invalid codepoint at offset ${offset}; ${reason}`, "bytes", bytes3);
+    var data_js_1 = require_data3();
+    var errors_js_1 = require_errors3();
+    function errorFunc2(reason, offset, bytes2, output2, badCodepoint) {
+      (0, errors_js_1.assertArgument)(false, `invalid codepoint at offset ${offset}; ${reason}`, "bytes", bytes2);
     }
-    function ignoreFunc2(reason, offset, bytes3, output3, badCodepoint) {
+    function ignoreFunc2(reason, offset, bytes2, output2, badCodepoint) {
       if (reason === "BAD_PREFIX" || reason === "UNEXPECTED_CONTINUE") {
         let i = 0;
-        for (let o = offset + 1; o < bytes3.length; o++) {
-          if (bytes3[o] >> 6 !== 2) {
+        for (let o = offset + 1; o < bytes2.length; o++) {
+          if (bytes2[o] >> 6 !== 2) {
             break;
           }
           i++;
@@ -9057,18 +14814,18 @@ var require_utf8 = __commonJS({
         return i;
       }
       if (reason === "OVERRUN") {
-        return bytes3.length - offset - 1;
+        return bytes2.length - offset - 1;
       }
       return 0;
     }
-    function replaceFunc2(reason, offset, bytes3, output3, badCodepoint) {
+    function replaceFunc2(reason, offset, bytes2, output2, badCodepoint) {
       if (reason === "OVERLONG") {
         (0, errors_js_1.assertArgument)(typeof badCodepoint === "number", "invalid bad code point for replacement", "badCodepoint", badCodepoint);
-        output3.push(badCodepoint);
+        output2.push(badCodepoint);
         return 0;
       }
-      output3.push(65533);
-      return ignoreFunc2(reason, offset, bytes3, output3, badCodepoint);
+      output2.push(65533);
+      return ignoreFunc2(reason, offset, bytes2, output2, badCodepoint);
     }
     exports.Utf8ErrorFuncs = Object.freeze({
       error: errorFunc2,
@@ -9079,11 +14836,11 @@ var require_utf8 = __commonJS({
       if (onError == null) {
         onError = exports.Utf8ErrorFuncs.error;
       }
-      const bytes3 = (0, data_js_1.getBytes)(_bytes, "bytes");
+      const bytes2 = (0, data_js_1.getBytes)(_bytes, "bytes");
       const result = [];
       let i = 0;
-      while (i < bytes3.length) {
-        const c = bytes3[i++];
+      while (i < bytes2.length) {
+        const c = bytes2[i++];
         if (c >> 7 === 0) {
           result.push(c);
           continue;
@@ -9101,21 +14858,21 @@ var require_utf8 = __commonJS({
           overlongMask = 65535;
         } else {
           if ((c & 192) === 128) {
-            i += onError("UNEXPECTED_CONTINUE", i - 1, bytes3, result);
+            i += onError("UNEXPECTED_CONTINUE", i - 1, bytes2, result);
           } else {
-            i += onError("BAD_PREFIX", i - 1, bytes3, result);
+            i += onError("BAD_PREFIX", i - 1, bytes2, result);
           }
           continue;
         }
-        if (i - 1 + extraLength >= bytes3.length) {
-          i += onError("OVERRUN", i - 1, bytes3, result);
+        if (i - 1 + extraLength >= bytes2.length) {
+          i += onError("OVERRUN", i - 1, bytes2, result);
           continue;
         }
         let res = c & (1 << 8 - extraLength - 1) - 1;
         for (let j = 0; j < extraLength; j++) {
-          let nextChar = bytes3[i];
+          let nextChar = bytes2[i];
           if ((nextChar & 192) != 128) {
-            i += onError("MISSING_CONTINUE", i, bytes3, result);
+            i += onError("MISSING_CONTINUE", i, bytes2, result);
             res = null;
             break;
           }
@@ -9127,15 +14884,15 @@ var require_utf8 = __commonJS({
           continue;
         }
         if (res > 1114111) {
-          i += onError("OUT_OF_RANGE", i - 1 - extraLength, bytes3, result, res);
+          i += onError("OUT_OF_RANGE", i - 1 - extraLength, bytes2, result, res);
           continue;
         }
         if (res >= 55296 && res <= 57343) {
-          i += onError("UTF16_SURROGATE", i - 1 - extraLength, bytes3, result, res);
+          i += onError("UTF16_SURROGATE", i - 1 - extraLength, bytes2, result, res);
           continue;
         }
         if (res <= overlongMask) {
-          i += onError("OVERLONG", i - 1 - extraLength, bytes3, result, res);
+          i += onError("OVERLONG", i - 1 - extraLength, bytes2, result, res);
           continue;
         }
         result.push(res);
@@ -9183,8 +14940,8 @@ var require_utf8 = __commonJS({
         return String.fromCharCode((codePoint >> 10 & 1023) + 55296, (codePoint & 1023) + 56320);
       }).join("");
     }
-    function toUtf8String2(bytes3, onError) {
-      return _toUtf8String(getUtf8CodePoints(bytes3, onError));
+    function toUtf8String2(bytes2, onError) {
+      return _toUtf8String(getUtf8CodePoints(bytes2, onError));
     }
     exports.toUtf8String = toUtf8String2;
     function toUtf8CodePoints2(str, form) {
@@ -9205,8 +14962,8 @@ var require_geturl = __commonJS({
     var http_1 = tslib_1.__importDefault(__require("http"));
     var https_1 = tslib_1.__importDefault(__require("https"));
     var zlib_1 = __require("zlib");
-    var errors_js_1 = require_errors2();
-    var data_js_1 = require_data2();
+    var errors_js_1 = require_errors3();
+    var data_js_1 = require_data3();
     function createGetUrl(options) {
       async function getUrl2(req, signal) {
         (0, errors_js_1.assert)(signal == null || !signal.cancelled, "request cancelled before sending", "CANCELLED");
@@ -9323,9 +15080,9 @@ var require_fetch = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FetchResponse = exports.FetchRequest = exports.FetchCancelSignal = void 0;
     var base64_js_1 = require_base64();
-    var data_js_1 = require_data2();
-    var errors_js_1 = require_errors2();
-    var properties_js_1 = require_properties2();
+    var data_js_1 = require_data3();
+    var errors_js_1 = require_errors3();
+    var properties_js_1 = require_properties3();
     var utf8_js_1 = require_utf8();
     var geturl_js_1 = require_geturl();
     var MAX_ATTEMPTS = 12;
@@ -10129,10 +15886,10 @@ var require_fixednumber = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FixedNumber = void 0;
-    var data_js_1 = require_data2();
-    var errors_js_1 = require_errors2();
+    var data_js_1 = require_data3();
+    var errors_js_1 = require_errors3();
     var maths_js_1 = require_maths();
-    var properties_js_1 = require_properties2();
+    var properties_js_1 = require_properties3();
     var BN_N1 = BigInt(-1);
     var BN_08 = BigInt(0);
     var BN_14 = BigInt(1);
@@ -10629,9 +16386,9 @@ var require_rlp_decode = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.decodeRlp = void 0;
-    var data_js_1 = require_data2();
-    var errors_js_1 = require_errors2();
-    var data_js_2 = require_data2();
+    var data_js_1 = require_data3();
+    var errors_js_1 = require_errors3();
+    var data_js_2 = require_data3();
     function hexlifyByte2(value) {
       let result = value.toString(16);
       while (result.length < 2) {
@@ -10715,7 +16472,7 @@ var require_rlp_encode = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.encodeRlp = void 0;
-    var data_js_1 = require_data2();
+    var data_js_1 = require_data3();
     function arrayifyInteger2(value) {
       const result = [];
       while (value) {
@@ -10769,7 +16526,7 @@ var require_units = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.parseEther = exports.formatEther = exports.parseUnits = exports.formatUnits = void 0;
-    var errors_js_1 = require_errors2();
+    var errors_js_1 = require_errors3();
     var fixednumber_js_1 = require_fixednumber();
     var maths_js_1 = require_maths();
     var names = [
@@ -10824,12 +16581,12 @@ var require_uuid = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.uuidV4 = void 0;
-    var data_js_1 = require_data2();
+    var data_js_1 = require_data3();
     function uuidV42(randomBytes6) {
-      const bytes3 = (0, data_js_1.getBytes)(randomBytes6, "randomBytes");
-      bytes3[6] = bytes3[6] & 15 | 64;
-      bytes3[8] = bytes3[8] & 63 | 128;
-      const value = (0, data_js_1.hexlify)(bytes3);
+      const bytes2 = (0, data_js_1.getBytes)(randomBytes6, "randomBytes");
+      bytes2[6] = bytes2[6] & 15 | 64;
+      bytes2[8] = bytes2[8] & 63 | 128;
+      const value = (0, data_js_1.hexlify)(bytes2);
       return [
         value.substring(2, 10),
         value.substring(10, 14),
@@ -10864,7 +16621,7 @@ var require_utils2 = __commonJS({
     Object.defineProperty(exports, "encodeBase64", { enumerable: true, get: function() {
       return base64_js_1.encodeBase64;
     } });
-    var data_js_1 = require_data2();
+    var data_js_1 = require_data3();
     Object.defineProperty(exports, "getBytes", { enumerable: true, get: function() {
       return data_js_1.getBytes;
     } });
@@ -10898,7 +16655,7 @@ var require_utils2 = __commonJS({
     Object.defineProperty(exports, "zeroPadBytes", { enumerable: true, get: function() {
       return data_js_1.zeroPadBytes;
     } });
-    var errors_js_1 = require_errors2();
+    var errors_js_1 = require_errors3();
     Object.defineProperty(exports, "isCallException", { enumerable: true, get: function() {
       return errors_js_1.isCallException;
     } });
@@ -10975,7 +16732,7 @@ var require_utils2 = __commonJS({
     Object.defineProperty(exports, "toQuantity", { enumerable: true, get: function() {
       return maths_js_1.toQuantity;
     } });
-    var properties_js_1 = require_properties2();
+    var properties_js_1 = require_properties3();
     Object.defineProperty(exports, "resolveProperties", { enumerable: true, get: function() {
       return properties_js_1.resolveProperties;
     } });
@@ -11293,12 +17050,12 @@ var require_abstract_coder = __commonJS({
     }
     exports.checkResultErrors = checkResultErrors;
     function getValue(value) {
-      let bytes3 = (0, index_js_1.toBeArray)(value);
-      (0, index_js_1.assert)(bytes3.length <= exports.WordSize, "value out-of-bounds", "BUFFER_OVERRUN", { buffer: bytes3, length: exports.WordSize, offset: bytes3.length });
-      if (bytes3.length !== exports.WordSize) {
-        bytes3 = (0, index_js_1.getBytesCopy)((0, index_js_1.concat)([Padding.slice(bytes3.length % exports.WordSize), bytes3]));
+      let bytes2 = (0, index_js_1.toBeArray)(value);
+      (0, index_js_1.assert)(bytes2.length <= exports.WordSize, "value out-of-bounds", "BUFFER_OVERRUN", { buffer: bytes2, length: exports.WordSize, offset: bytes2.length });
+      if (bytes2.length !== exports.WordSize) {
+        bytes2 = (0, index_js_1.getBytesCopy)((0, index_js_1.concat)([Padding.slice(bytes2.length % exports.WordSize), bytes2]));
       }
-      return bytes3;
+      return bytes2;
     }
     var Coder = class {
       // The coder name:
@@ -11351,12 +17108,12 @@ var require_abstract_coder = __commonJS({
       }
       // Arrayish item; pad on the right to *nearest* WordSize
       writeBytes(value) {
-        let bytes3 = (0, index_js_1.getBytesCopy)(value);
-        const paddingOffset = bytes3.length % exports.WordSize;
+        let bytes2 = (0, index_js_1.getBytesCopy)(value);
+        const paddingOffset = bytes2.length % exports.WordSize;
         if (paddingOffset) {
-          bytes3 = (0, index_js_1.getBytesCopy)((0, index_js_1.concat)([bytes3, Padding.slice(paddingOffset)]));
+          bytes2 = (0, index_js_1.getBytesCopy)((0, index_js_1.concat)([bytes2, Padding.slice(paddingOffset)]));
         }
-        return this.#writeData(bytes3);
+        return this.#writeData(bytes2);
       }
       // Numeric item; pad on the left *to* WordSize
       writeValue(value) {
@@ -11443,10 +17200,10 @@ var require_abstract_coder = __commonJS({
       }
       // Read bytes
       readBytes(length, loose) {
-        let bytes3 = this.#peekBytes(0, length, !!loose);
+        let bytes2 = this.#peekBytes(0, length, !!loose);
         this.#incrementBytesRead(length);
-        this.#offset += bytes3.length;
-        return bytes3.slice(0, length);
+        this.#offset += bytes2.length;
+        return bytes2.slice(0, length);
       }
       // Read a numeric values
       readValue() {
@@ -11524,46 +17281,46 @@ var require_assert = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.output = exports.exists = exports.hash = exports.bytes = exports.bool = exports.number = void 0;
-    function number5(n) {
+    function number4(n) {
       if (!Number.isSafeInteger(n) || n < 0)
         throw new Error(`Wrong positive integer: ${n}`);
     }
-    exports.number = number5;
+    exports.number = number4;
     function bool(b) {
       if (typeof b !== "boolean")
         throw new Error(`Expected boolean, not ${b}`);
     }
     exports.bool = bool;
-    function bytes3(b, ...lengths) {
+    function bytes2(b, ...lengths) {
       if (!(b instanceof Uint8Array))
         throw new Error("Expected Uint8Array");
       if (lengths.length > 0 && !lengths.includes(b.length))
         throw new Error(`Expected Uint8Array of length ${lengths}, not of length=${b.length}`);
     }
-    exports.bytes = bytes3;
-    function hash3(hash4) {
-      if (typeof hash4 !== "function" || typeof hash4.create !== "function")
+    exports.bytes = bytes2;
+    function hash2(hash3) {
+      if (typeof hash3 !== "function" || typeof hash3.create !== "function")
         throw new Error("Hash should be wrapped by utils.wrapConstructor");
-      number5(hash4.outputLen);
-      number5(hash4.blockLen);
+      number4(hash3.outputLen);
+      number4(hash3.blockLen);
     }
-    exports.hash = hash3;
-    function exists3(instance, checkFinished = true) {
+    exports.hash = hash2;
+    function exists2(instance, checkFinished = true) {
       if (instance.destroyed)
         throw new Error("Hash instance has been destroyed");
       if (checkFinished && instance.finished)
         throw new Error("Hash#digest() has already been called");
     }
-    exports.exists = exists3;
-    function output3(out, instance) {
-      bytes3(out);
+    exports.exists = exists2;
+    function output2(out, instance) {
+      bytes2(out);
       const min = instance.outputLen;
       if (out.length < min) {
         throw new Error(`digestInto() expects output buffer of length at least ${min}`);
       }
     }
-    exports.output = output3;
-    var assert3 = { number: number5, bool, bytes: bytes3, hash: hash3, exists: exists3, output: output3 };
+    exports.output = output2;
+    var assert3 = { number: number4, bool, bytes: bytes2, hash: hash2, exists: exists2, output: output2 };
     exports.default = assert3;
   }
 });
@@ -11684,25 +17441,25 @@ var require_utils3 = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.randomBytes = exports.wrapXOFConstructorWithOpts = exports.wrapConstructorWithOpts = exports.wrapConstructor = exports.checkOpts = exports.Hash = exports.concatBytes = exports.toBytes = exports.utf8ToBytes = exports.asyncLoop = exports.nextTick = exports.hexToBytes = exports.bytesToHex = exports.isLE = exports.rotr = exports.createView = exports.u32 = exports.u8 = void 0;
     var crypto_1 = require_cryptoNode();
-    var u8a4 = (a) => a instanceof Uint8Array;
+    var u8a3 = (a) => a instanceof Uint8Array;
     var u82 = (arr) => new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
     exports.u8 = u82;
     var u323 = (arr) => new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
     exports.u32 = u323;
-    var createView4 = (arr) => new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
-    exports.createView = createView4;
-    var rotr4 = (word, shift) => word << 32 - shift | word >>> shift;
-    exports.rotr = rotr4;
+    var createView3 = (arr) => new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
+    exports.createView = createView3;
+    var rotr3 = (word, shift) => word << 32 - shift | word >>> shift;
+    exports.rotr = rotr3;
     exports.isLE = new Uint8Array(new Uint32Array([287454020]).buffer)[0] === 68;
     if (!exports.isLE)
       throw new Error("Non little-endian hardware is not supported");
     var hexes3 = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0"));
-    function bytesToHex3(bytes3) {
-      if (!u8a4(bytes3))
+    function bytesToHex3(bytes2) {
+      if (!u8a3(bytes2))
         throw new Error("Uint8Array expected");
       let hex = "";
-      for (let i = 0; i < bytes3.length; i++) {
-        hex += hexes3[bytes3[i]];
+      for (let i = 0; i < bytes2.length; i++) {
+        hex += hexes3[bytes2[i]];
       }
       return hex;
     }
@@ -11740,25 +17497,25 @@ var require_utils3 = __commonJS({
       }
     }
     exports.asyncLoop = asyncLoop3;
-    function utf8ToBytes5(str) {
+    function utf8ToBytes4(str) {
       if (typeof str !== "string")
         throw new Error(`utf8ToBytes expected string, got ${typeof str}`);
       return new Uint8Array(new TextEncoder().encode(str));
     }
-    exports.utf8ToBytes = utf8ToBytes5;
-    function toBytes3(data) {
+    exports.utf8ToBytes = utf8ToBytes4;
+    function toBytes2(data) {
       if (typeof data === "string")
-        data = utf8ToBytes5(data);
-      if (!u8a4(data))
+        data = utf8ToBytes4(data);
+      if (!u8a3(data))
         throw new Error(`expected Uint8Array, got ${typeof data}`);
       return data;
     }
-    exports.toBytes = toBytes3;
+    exports.toBytes = toBytes2;
     function concatBytes4(...arrays) {
       const r = new Uint8Array(arrays.reduce((sum, a) => sum + a.length, 0));
       let pad = 0;
       arrays.forEach((a) => {
-        if (!u8a4(a))
+        if (!u8a3(a))
           throw new Error("Uint8Array expected");
         r.set(a, pad);
         pad += a.length;
@@ -11766,32 +17523,32 @@ var require_utils3 = __commonJS({
       return r;
     }
     exports.concatBytes = concatBytes4;
-    var Hash3 = class {
+    var Hash2 = class {
       // Safe version that clones internal state
       clone() {
         return this._cloneInto();
       }
     };
-    exports.Hash = Hash3;
-    var toStr3 = {}.toString;
+    exports.Hash = Hash2;
+    var toStr2 = {}.toString;
     function checkOpts3(defaults, opts) {
-      if (opts !== void 0 && toStr3.call(opts) !== "[object Object]")
+      if (opts !== void 0 && toStr2.call(opts) !== "[object Object]")
         throw new Error("Options should be object or undefined");
       const merged = Object.assign(defaults, opts);
       return merged;
     }
     exports.checkOpts = checkOpts3;
-    function wrapConstructor3(hashCons) {
-      const hashC = (msg) => hashCons().update(toBytes3(msg)).digest();
+    function wrapConstructor2(hashCons) {
+      const hashC = (msg) => hashCons().update(toBytes2(msg)).digest();
       const tmp = hashCons();
       hashC.outputLen = tmp.outputLen;
       hashC.blockLen = tmp.blockLen;
       hashC.create = () => hashCons();
       return hashC;
     }
-    exports.wrapConstructor = wrapConstructor3;
+    exports.wrapConstructor = wrapConstructor2;
     function wrapConstructorWithOpts(hashCons) {
-      const hashC = (msg, opts) => hashCons(opts).update(toBytes3(msg)).digest();
+      const hashC = (msg, opts) => hashCons(opts).update(toBytes2(msg)).digest();
       const tmp = hashCons({});
       hashC.outputLen = tmp.outputLen;
       hashC.blockLen = tmp.blockLen;
@@ -11800,7 +17557,7 @@ var require_utils3 = __commonJS({
     }
     exports.wrapConstructorWithOpts = wrapConstructorWithOpts;
     function wrapXOFConstructorWithOpts2(hashCons) {
-      const hashC = (msg, opts) => hashCons(opts).update(toBytes3(msg)).digest();
+      const hashC = (msg, opts) => hashCons(opts).update(toBytes2(msg)).digest();
       const tmp = hashCons({});
       hashC.outputLen = tmp.outputLen;
       hashC.blockLen = tmp.blockLen;
@@ -11961,9 +17718,9 @@ var require_sha3 = __commonJS({
           throw new Error("XOF is not possible for this instance");
         return this.writeInto(out);
       }
-      xof(bytes3) {
-        (0, _assert_js_1.number)(bytes3);
-        return this.xofInto(new Uint8Array(bytes3));
+      xof(bytes2) {
+        (0, _assert_js_1.number)(bytes2);
+        return this.xofInto(new Uint8Array(bytes2));
       }
       digestInto(out) {
         (0, _assert_js_1.output)(out, this);
@@ -12053,25 +17810,25 @@ var require_sha2 = __commonJS({
     exports.SHA2 = void 0;
     var _assert_js_1 = require_assert();
     var utils_js_1 = require_utils3();
-    function setBigUint643(view, byteOffset, value, isLE4) {
+    function setBigUint642(view, byteOffset, value, isLE3) {
       if (typeof view.setBigUint64 === "function")
-        return view.setBigUint64(byteOffset, value, isLE4);
+        return view.setBigUint64(byteOffset, value, isLE3);
       const _32n3 = BigInt(32);
       const _u32_max = BigInt(4294967295);
       const wh = Number(value >> _32n3 & _u32_max);
       const wl = Number(value & _u32_max);
-      const h = isLE4 ? 4 : 0;
-      const l = isLE4 ? 0 : 4;
-      view.setUint32(byteOffset + h, wh, isLE4);
-      view.setUint32(byteOffset + l, wl, isLE4);
+      const h = isLE3 ? 4 : 0;
+      const l = isLE3 ? 0 : 4;
+      view.setUint32(byteOffset + h, wh, isLE3);
+      view.setUint32(byteOffset + l, wl, isLE3);
     }
-    var SHA23 = class extends utils_js_1.Hash {
-      constructor(blockLen, outputLen, padOffset, isLE4) {
+    var SHA22 = class extends utils_js_1.Hash {
+      constructor(blockLen, outputLen, padOffset, isLE3) {
         super();
         this.blockLen = blockLen;
         this.outputLen = outputLen;
         this.padOffset = padOffset;
-        this.isLE = isLE4;
+        this.isLE = isLE3;
         this.finished = false;
         this.length = 0;
         this.pos = 0;
@@ -12108,7 +17865,7 @@ var require_sha2 = __commonJS({
         (0, _assert_js_1.exists)(this);
         (0, _assert_js_1.output)(out, this);
         this.finished = true;
-        const { buffer, view, blockLen, isLE: isLE4 } = this;
+        const { buffer, view, blockLen, isLE: isLE3 } = this;
         let { pos } = this;
         buffer[pos++] = 128;
         this.buffer.subarray(pos).fill(0);
@@ -12118,7 +17875,7 @@ var require_sha2 = __commonJS({
         }
         for (let i = pos; i < blockLen; i++)
           buffer[i] = 0;
-        setBigUint643(view, blockLen - 8, BigInt(this.length * 8), isLE4);
+        setBigUint642(view, blockLen - 8, BigInt(this.length * 8), isLE3);
         this.process(view, 0);
         const oview = (0, utils_js_1.createView)(out);
         const len = this.outputLen;
@@ -12129,7 +17886,7 @@ var require_sha2 = __commonJS({
         if (outLen > state.length)
           throw new Error("_sha2: outputLen bigger than state");
         for (let i = 0; i < outLen; i++)
-          oview.setUint32(4 * i, state[i], isLE4);
+          oview.setUint32(4 * i, state[i], isLE3);
       }
       digest() {
         const { buffer, outputLen } = this;
@@ -12151,7 +17908,7 @@ var require_sha2 = __commonJS({
         return to;
       }
     };
-    exports.SHA2 = SHA23;
+    exports.SHA2 = SHA22;
   }
 });
 
@@ -12370,9 +18127,9 @@ var require_sha256 = __commonJS({
     exports.sha224 = exports.sha256 = void 0;
     var _sha2_js_1 = require_sha2();
     var utils_js_1 = require_utils3();
-    var Chi3 = (a, b, c) => a & b ^ ~a & c;
-    var Maj3 = (a, b, c) => a & b ^ a & c ^ b & c;
-    var SHA256_K3 = /* @__PURE__ */ new Uint32Array([
+    var Chi2 = (a, b, c) => a & b ^ ~a & c;
+    var Maj2 = (a, b, c) => a & b ^ a & c ^ b & c;
+    var SHA256_K2 = /* @__PURE__ */ new Uint32Array([
       1116352408,
       1899447441,
       3049323471,
@@ -12438,7 +18195,7 @@ var require_sha256 = __commonJS({
       3204031479,
       3329325298
     ]);
-    var IV3 = /* @__PURE__ */ new Uint32Array([
+    var IV2 = /* @__PURE__ */ new Uint32Array([
       1779033703,
       3144134277,
       1013904242,
@@ -12448,18 +18205,18 @@ var require_sha256 = __commonJS({
       528734635,
       1541459225
     ]);
-    var SHA256_W3 = /* @__PURE__ */ new Uint32Array(64);
-    var SHA2563 = class extends _sha2_js_1.SHA2 {
+    var SHA256_W2 = /* @__PURE__ */ new Uint32Array(64);
+    var SHA2562 = class extends _sha2_js_1.SHA2 {
       constructor() {
         super(64, 32, 8, false);
-        this.A = IV3[0] | 0;
-        this.B = IV3[1] | 0;
-        this.C = IV3[2] | 0;
-        this.D = IV3[3] | 0;
-        this.E = IV3[4] | 0;
-        this.F = IV3[5] | 0;
-        this.G = IV3[6] | 0;
-        this.H = IV3[7] | 0;
+        this.A = IV2[0] | 0;
+        this.B = IV2[1] | 0;
+        this.C = IV2[2] | 0;
+        this.D = IV2[3] | 0;
+        this.E = IV2[4] | 0;
+        this.F = IV2[5] | 0;
+        this.G = IV2[6] | 0;
+        this.H = IV2[7] | 0;
       }
       get() {
         const { A, B, C, D, E, F, G, H } = this;
@@ -12478,20 +18235,20 @@ var require_sha256 = __commonJS({
       }
       process(view, offset) {
         for (let i = 0; i < 16; i++, offset += 4)
-          SHA256_W3[i] = view.getUint32(offset, false);
+          SHA256_W2[i] = view.getUint32(offset, false);
         for (let i = 16; i < 64; i++) {
-          const W15 = SHA256_W3[i - 15];
-          const W2 = SHA256_W3[i - 2];
+          const W15 = SHA256_W2[i - 15];
+          const W2 = SHA256_W2[i - 2];
           const s0 = (0, utils_js_1.rotr)(W15, 7) ^ (0, utils_js_1.rotr)(W15, 18) ^ W15 >>> 3;
           const s1 = (0, utils_js_1.rotr)(W2, 17) ^ (0, utils_js_1.rotr)(W2, 19) ^ W2 >>> 10;
-          SHA256_W3[i] = s1 + SHA256_W3[i - 7] + s0 + SHA256_W3[i - 16] | 0;
+          SHA256_W2[i] = s1 + SHA256_W2[i - 7] + s0 + SHA256_W2[i - 16] | 0;
         }
         let { A, B, C, D, E, F, G, H } = this;
         for (let i = 0; i < 64; i++) {
           const sigma1 = (0, utils_js_1.rotr)(E, 6) ^ (0, utils_js_1.rotr)(E, 11) ^ (0, utils_js_1.rotr)(E, 25);
-          const T12 = H + sigma1 + Chi3(E, F, G) + SHA256_K3[i] + SHA256_W3[i] | 0;
+          const T12 = H + sigma1 + Chi2(E, F, G) + SHA256_K2[i] + SHA256_W2[i] | 0;
           const sigma0 = (0, utils_js_1.rotr)(A, 2) ^ (0, utils_js_1.rotr)(A, 13) ^ (0, utils_js_1.rotr)(A, 22);
-          const T22 = sigma0 + Maj3(A, B, C) | 0;
+          const T22 = sigma0 + Maj2(A, B, C) | 0;
           H = G;
           G = F;
           F = E;
@@ -12512,14 +18269,14 @@ var require_sha256 = __commonJS({
         this.set(A, B, C, D, E, F, G, H);
       }
       roundClean() {
-        SHA256_W3.fill(0);
+        SHA256_W2.fill(0);
       }
       destroy() {
         this.set(0, 0, 0, 0, 0, 0, 0, 0);
         this.buffer.fill(0);
       }
     };
-    var SHA224 = class extends SHA2563 {
+    var SHA224 = class extends SHA2562 {
       constructor() {
         super();
         this.A = 3238371032 | 0;
@@ -12533,7 +18290,7 @@ var require_sha256 = __commonJS({
         this.outputLen = 28;
       }
     };
-    exports.sha256 = (0, utils_js_1.wrapConstructor)(() => new SHA2563());
+    exports.sha256 = (0, utils_js_1.wrapConstructor)(() => new SHA2562());
     exports.sha224 = (0, utils_js_1.wrapConstructor)(() => new SHA224());
   }
 });
@@ -12547,25 +18304,25 @@ var require_hmac2 = __commonJS({
     exports.hmac = exports.HMAC = void 0;
     var _assert_js_1 = require_assert();
     var utils_js_1 = require_utils3();
-    var HMAC3 = class extends utils_js_1.Hash {
-      constructor(hash3, _key) {
+    var HMAC2 = class extends utils_js_1.Hash {
+      constructor(hash2, _key) {
         super();
         this.finished = false;
         this.destroyed = false;
-        (0, _assert_js_1.hash)(hash3);
+        (0, _assert_js_1.hash)(hash2);
         const key = (0, utils_js_1.toBytes)(_key);
-        this.iHash = hash3.create();
+        this.iHash = hash2.create();
         if (typeof this.iHash.update !== "function")
           throw new Error("Expected instance of class which extends utils.Hash");
         this.blockLen = this.iHash.blockLen;
         this.outputLen = this.iHash.outputLen;
         const blockLen = this.blockLen;
         const pad = new Uint8Array(blockLen);
-        pad.set(key.length > blockLen ? hash3.create().update(key).digest() : key);
+        pad.set(key.length > blockLen ? hash2.create().update(key).digest() : key);
         for (let i = 0; i < pad.length; i++)
           pad[i] ^= 54;
         this.iHash.update(pad);
-        this.oHash = hash3.create();
+        this.oHash = hash2.create();
         for (let i = 0; i < pad.length; i++)
           pad[i] ^= 54 ^ 92;
         this.oHash.update(pad);
@@ -12608,10 +18365,10 @@ var require_hmac2 = __commonJS({
         this.iHash.destroy();
       }
     };
-    exports.HMAC = HMAC3;
-    var hmac3 = (hash3, key, message) => new HMAC3(hash3, key).update(message).digest();
-    exports.hmac = hmac3;
-    exports.hmac.create = (hash3, key) => new HMAC3(hash3, key);
+    exports.HMAC = HMAC2;
+    var hmac2 = (hash2, key, message) => new HMAC2(hash2, key).update(message).digest();
+    exports.hmac = hmac2;
+    exports.hmac.create = (hash2, key) => new HMAC2(hash2, key);
   }
 });
 
@@ -12625,8 +18382,8 @@ var require_pbkdf22 = __commonJS({
     var _assert_js_1 = require_assert();
     var hmac_js_1 = require_hmac2();
     var utils_js_1 = require_utils3();
-    function pbkdf2Init2(hash3, _password, _salt, _opts) {
-      (0, _assert_js_1.hash)(hash3);
+    function pbkdf2Init2(hash2, _password, _salt, _opts) {
+      (0, _assert_js_1.hash)(hash2);
       const opts = (0, utils_js_1.checkOpts)({ dkLen: 32, asyncTick: 10 }, _opts);
       const { c, dkLen, asyncTick } = opts;
       (0, _assert_js_1.number)(c);
@@ -12637,7 +18394,7 @@ var require_pbkdf22 = __commonJS({
       const password = (0, utils_js_1.toBytes)(_password);
       const salt = (0, utils_js_1.toBytes)(_salt);
       const DK = new Uint8Array(dkLen);
-      const PRF = hmac_js_1.hmac.create(hash3, password);
+      const PRF = hmac_js_1.hmac.create(hash2, password);
       const PRFSalt = PRF._cloneInto().update(salt);
       return { c, dkLen, asyncTick, DK, PRF, PRFSalt };
     }
@@ -12649,8 +18406,8 @@ var require_pbkdf22 = __commonJS({
       u.fill(0);
       return DK;
     }
-    function pbkdf23(hash3, password, salt, opts) {
-      const { c, dkLen, DK, PRF, PRFSalt } = pbkdf2Init2(hash3, password, salt, opts);
+    function pbkdf23(hash2, password, salt, opts) {
+      const { c, dkLen, DK, PRF, PRFSalt } = pbkdf2Init2(hash2, password, salt, opts);
       let prfW;
       const arr = new Uint8Array(4);
       const view = (0, utils_js_1.createView)(arr);
@@ -12669,8 +18426,8 @@ var require_pbkdf22 = __commonJS({
       return pbkdf2Output2(PRF, PRFSalt, DK, prfW, u);
     }
     exports.pbkdf2 = pbkdf23;
-    async function pbkdf2Async(hash3, password, salt, opts) {
-      const { c, dkLen, asyncTick, DK, PRF, PRFSalt } = pbkdf2Init2(hash3, password, salt, opts);
+    async function pbkdf2Async(hash2, password, salt, opts) {
+      const { c, dkLen, asyncTick, DK, PRF, PRFSalt } = pbkdf2Init2(hash2, password, salt, opts);
       let prfW;
       const arr = new Uint8Array(4);
       const view = (0, utils_js_1.createView)(arr);
@@ -12957,22 +18714,22 @@ var require_sha22 = __commonJS({
     var __sha5122 = _sha5122;
     var locked2562 = false;
     var locked5122 = false;
-    function sha2564(_data) {
+    function sha2563(_data) {
       const data = (0, index_js_1.getBytes)(_data, "data");
       return (0, index_js_1.hexlify)(__sha2562(data));
     }
-    exports.sha256 = sha2564;
-    sha2564._ = _sha2562;
-    sha2564.lock = function() {
+    exports.sha256 = sha2563;
+    sha2563._ = _sha2562;
+    sha2563.lock = function() {
       locked2562 = true;
     };
-    sha2564.register = function(func) {
+    sha2563.register = function(func) {
       if (locked2562) {
         throw new Error("sha256 is locked");
       }
       __sha2562 = func;
     };
-    Object.freeze(sha2564);
+    Object.freeze(sha2563);
     function sha5122(_data) {
       const data = (0, index_js_1.getBytes)(_data, "data");
       return (0, index_js_1.hexlify)(__sha5122(data));
@@ -12988,7 +18745,7 @@ var require_sha22 = __commonJS({
       }
       __sha5122 = func;
     };
-    Object.freeze(sha2564);
+    Object.freeze(sha2563);
   }
 });
 
@@ -13002,14 +18759,14 @@ var require_utils4 = __commonJS({
     var _0n8 = BigInt(0);
     var _1n8 = BigInt(1);
     var _2n7 = BigInt(2);
-    var u8a4 = (a) => a instanceof Uint8Array;
+    var u8a3 = (a) => a instanceof Uint8Array;
     var hexes3 = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0"));
-    function bytesToHex3(bytes3) {
-      if (!u8a4(bytes3))
+    function bytesToHex3(bytes2) {
+      if (!u8a3(bytes2))
         throw new Error("Uint8Array expected");
       let hex = "";
-      for (let i = 0; i < bytes3.length; i++) {
-        hex += hexes3[bytes3[i]];
+      for (let i = 0; i < bytes2.length; i++) {
+        hex += hexes3[bytes2[i]];
       }
       return hex;
     }
@@ -13043,14 +18800,14 @@ var require_utils4 = __commonJS({
       return array2;
     }
     exports.hexToBytes = hexToBytes3;
-    function bytesToNumberBE2(bytes3) {
-      return hexToNumber2(bytesToHex3(bytes3));
+    function bytesToNumberBE2(bytes2) {
+      return hexToNumber2(bytesToHex3(bytes2));
     }
     exports.bytesToNumberBE = bytesToNumberBE2;
-    function bytesToNumberLE2(bytes3) {
-      if (!u8a4(bytes3))
+    function bytesToNumberLE2(bytes2) {
+      if (!u8a3(bytes2))
         throw new Error("Uint8Array expected");
-      return hexToNumber2(bytesToHex3(Uint8Array.from(bytes3).reverse()));
+      return hexToNumber2(bytesToHex3(Uint8Array.from(bytes2).reverse()));
     }
     exports.bytesToNumberLE = bytesToNumberLE2;
     function numberToBytesBE2(n, len) {
@@ -13073,7 +18830,7 @@ var require_utils4 = __commonJS({
         } catch (e) {
           throw new Error(`${title} must be valid hex string, got "${hex}". Cause: ${e}`);
         }
-      } else if (u8a4(hex)) {
+      } else if (u8a3(hex)) {
         res = Uint8Array.from(hex);
       } else {
         throw new Error(`${title} must be hex string or Uint8Array`);
@@ -13088,7 +18845,7 @@ var require_utils4 = __commonJS({
       const r = new Uint8Array(arrays.reduce((sum, a) => sum + a.length, 0));
       let pad = 0;
       arrays.forEach((a) => {
-        if (!u8a4(a))
+        if (!u8a3(a))
           throw new Error("Uint8Array expected");
         r.set(a, pad);
         pad += a.length;
@@ -13105,12 +18862,12 @@ var require_utils4 = __commonJS({
       return true;
     }
     exports.equalBytes = equalBytes2;
-    function utf8ToBytes5(str) {
+    function utf8ToBytes4(str) {
       if (typeof str !== "string")
         throw new Error(`utf8ToBytes expected string, got ${typeof str}`);
       return new Uint8Array(new TextEncoder().encode(str));
     }
-    exports.utf8ToBytes = utf8ToBytes5;
+    exports.utf8ToBytes = utf8ToBytes4;
     function bitLen2(n) {
       let len;
       for (len = 0; n > _0n8; n >>= _1n8, len += 1)
@@ -13258,11 +19015,11 @@ var require_modular = __commonJS({
       return res;
     }
     exports.pow2 = pow22;
-    function invert2(number5, modulo) {
-      if (number5 === _0n8 || modulo <= _0n8) {
-        throw new Error(`invert: expected positive integers, got n=${number5} mod=${modulo}`);
+    function invert2(number4, modulo) {
+      if (number4 === _0n8 || modulo <= _0n8) {
+        throw new Error(`invert: expected positive integers, got n=${number4} mod=${modulo}`);
       }
-      let a = mod2(number5, modulo);
+      let a = mod2(number4, modulo);
       let b = modulo;
       let x = _0n8, y = _1n8, u = _1n8, v = _0n8;
       while (a !== _0n8) {
@@ -13438,7 +19195,7 @@ var require_modular = __commonJS({
       return { nBitLength: _nBitLength, nByteLength };
     }
     exports.nLength = nLength2;
-    function Field2(ORDER, bitLen2, isLE4 = false, redef = {}) {
+    function Field2(ORDER, bitLen2, isLE3 = false, redef = {}) {
       if (ORDER <= _0n8)
         throw new Error(`Expected Field ORDER > 0, got ${ORDER}`);
       const { nBitLength: BITS, nByteLength: BYTES } = nLength2(ORDER, bitLen2);
@@ -13479,11 +19236,11 @@ var require_modular = __commonJS({
         // TODO: do we really need constant cmov?
         // We don't have const-time bigints anyway, so probably will be not very useful
         cmov: (a, b, c) => c ? b : a,
-        toBytes: (num) => isLE4 ? (0, utils_js_1.numberToBytesLE)(num, BYTES) : (0, utils_js_1.numberToBytesBE)(num, BYTES),
-        fromBytes: (bytes3) => {
-          if (bytes3.length !== BYTES)
-            throw new Error(`Fp.fromBytes: expected ${BYTES}, got ${bytes3.length}`);
-          return isLE4 ? (0, utils_js_1.bytesToNumberLE)(bytes3) : (0, utils_js_1.bytesToNumberBE)(bytes3);
+        toBytes: (num) => isLE3 ? (0, utils_js_1.numberToBytesLE)(num, BYTES) : (0, utils_js_1.numberToBytesBE)(num, BYTES),
+        fromBytes: (bytes2) => {
+          if (bytes2.length !== BYTES)
+            throw new Error(`Fp.fromBytes: expected ${BYTES}, got ${bytes2.length}`);
+          return isLE3 ? (0, utils_js_1.bytesToNumberLE)(bytes2) : (0, utils_js_1.bytesToNumberBE)(bytes2);
         }
       });
       return Object.freeze(f2);
@@ -13503,13 +19260,13 @@ var require_modular = __commonJS({
       return Fp2.isOdd(root) ? Fp2.neg(root) : root;
     }
     exports.FpSqrtEven = FpSqrtEven;
-    function hashToPrivateScalar(hash3, groupOrder, isLE4 = false) {
-      hash3 = (0, utils_js_1.ensureBytes)("privateHash", hash3);
-      const hashLen = hash3.length;
+    function hashToPrivateScalar(hash2, groupOrder, isLE3 = false) {
+      hash2 = (0, utils_js_1.ensureBytes)("privateHash", hash2);
+      const hashLen = hash2.length;
       const minLen = nLength2(groupOrder).nByteLength + 8;
       if (minLen < 24 || hashLen < minLen || hashLen > 1024)
         throw new Error(`hashToPrivateScalar: expected ${minLen}-1024 bytes of input, got ${hashLen}`);
-      const num = isLE4 ? (0, utils_js_1.bytesToNumberLE)(hash3) : (0, utils_js_1.bytesToNumberBE)(hash3);
+      const num = isLE3 ? (0, utils_js_1.bytesToNumberLE)(hash2) : (0, utils_js_1.bytesToNumberBE)(hash2);
       return mod2(num, groupOrder - _1n8) + _1n8;
     }
     exports.hashToPrivateScalar = hashToPrivateScalar;
@@ -13525,15 +19282,15 @@ var require_modular = __commonJS({
       return length + Math.ceil(length / 2);
     }
     exports.getMinHashLength = getMinHashLength2;
-    function mapHashToField2(key, fieldOrder, isLE4 = false) {
+    function mapHashToField2(key, fieldOrder, isLE3 = false) {
       const len = key.length;
       const fieldLen = getFieldBytesLength2(fieldOrder);
       const minLen = getMinHashLength2(fieldOrder);
       if (len < 16 || len < minLen || len > 1024)
         throw new Error(`expected ${minLen}-1024 bytes of input, got ${len}`);
-      const num = isLE4 ? (0, utils_js_1.bytesToNumberBE)(key) : (0, utils_js_1.bytesToNumberLE)(key);
+      const num = isLE3 ? (0, utils_js_1.bytesToNumberBE)(key) : (0, utils_js_1.bytesToNumberLE)(key);
       const reduced = mod2(num, fieldOrder - _1n8) + _1n8;
-      return isLE4 ? (0, utils_js_1.numberToBytesLE)(reduced, fieldLen) : (0, utils_js_1.numberToBytesBE)(reduced, fieldLen);
+      return isLE3 ? (0, utils_js_1.numberToBytesLE)(reduced, fieldLen) : (0, utils_js_1.numberToBytesBE)(reduced, fieldLen);
     }
     exports.mapHashToField = mapHashToField2;
   }
@@ -13766,12 +19523,12 @@ var require_weierstrass = __commonJS({
     function weierstrassPoints2(opts) {
       const CURVE = validatePointOpts2(opts);
       const { Fp: Fp2 } = CURVE;
-      const toBytes3 = CURVE.toBytes || ((_c, point, _isCompressed) => {
+      const toBytes2 = CURVE.toBytes || ((_c, point, _isCompressed) => {
         const a = point.toAffine();
         return ut.concatBytes(Uint8Array.from([4]), Fp2.toBytes(a.x), Fp2.toBytes(a.y));
       });
-      const fromBytes = CURVE.fromBytes || ((bytes3) => {
-        const tail = bytes3.subarray(1);
+      const fromBytes = CURVE.fromBytes || ((bytes2) => {
+        const tail = bytes2.subarray(1);
         const x = Fp2.fromBytes(tail.subarray(0, Fp2.BYTES));
         const y = Fp2.fromBytes(tail.subarray(Fp2.BYTES, 2 * Fp2.BYTES));
         return { x, y };
@@ -14134,7 +19891,7 @@ var require_weierstrass = __commonJS({
         }
         toRawBytes(isCompressed = true) {
           this.assertValidity();
-          return toBytes3(Point2, this, isCompressed);
+          return toBytes2(Point2, this, isCompressed);
         }
         toHex(isCompressed = true) {
           return ut.bytesToHex(this.toRawBytes(isCompressed));
@@ -14192,10 +19949,10 @@ var require_weierstrass = __commonJS({
             return cat(Uint8Array.from([4]), x, Fp2.toBytes(a.y));
           }
         },
-        fromBytes(bytes3) {
-          const len = bytes3.length;
-          const head = bytes3[0];
-          const tail = bytes3.subarray(1);
+        fromBytes(bytes2) {
+          const len = bytes2.length;
+          const head = bytes2[0];
+          const tail = bytes2.subarray(1);
           if (len === compressedLen && (head === 2 || head === 3)) {
             const x = ut.bytesToNumberBE(tail);
             if (!isValidFieldElement(x))
@@ -14217,9 +19974,9 @@ var require_weierstrass = __commonJS({
         }
       });
       const numToNByteStr = (num) => ut.bytesToHex(ut.numberToBytesBE(num, CURVE.nByteLength));
-      function isBiggerThanHalfOrder(number5) {
+      function isBiggerThanHalfOrder(number4) {
         const HALF = CURVE_ORDER >> _1n8;
-        return number5 > HALF;
+        return number4 > HALF;
       }
       function normalizeS(s) {
         return isBiggerThanHalfOrder(s) ? modN(-s) : s;
@@ -14349,13 +20106,13 @@ var require_weierstrass = __commonJS({
         const b = Point2.fromHex(publicB);
         return b.multiply(normPrivateKeyToScalar(privateA)).toRawBytes(isCompressed);
       }
-      const bits2int = CURVE.bits2int || function(bytes3) {
-        const num = ut.bytesToNumberBE(bytes3);
-        const delta = bytes3.length * 8 - CURVE.nBitLength;
+      const bits2int = CURVE.bits2int || function(bytes2) {
+        const num = ut.bytesToNumberBE(bytes2);
+        const delta = bytes2.length * 8 - CURVE.nBitLength;
         return delta > 0 ? num >> BigInt(delta) : num;
       };
-      const bits2int_modN = CURVE.bits2int_modN || function(bytes3) {
-        return modN(bits2int(bytes3));
+      const bits2int_modN = CURVE.bits2int_modN || function(bytes2) {
+        return modN(bits2int(bytes2));
       };
       const ORDER_MASK = ut.bitMask(CURVE.nBitLength);
       function int2octets(num) {
@@ -14368,13 +20125,13 @@ var require_weierstrass = __commonJS({
       function prepSig(msgHash, privateKey, opts = defaultSigOpts) {
         if (["recovered", "canonical"].some((k) => k in opts))
           throw new Error("sign() legacy options not supported");
-        const { hash: hash3, randomBytes: randomBytes6 } = CURVE;
+        const { hash: hash2, randomBytes: randomBytes6 } = CURVE;
         let { lowS, prehash, extraEntropy: ent } = opts;
         if (lowS == null)
           lowS = true;
         msgHash = (0, utils_js_1.ensureBytes)("msgHash", msgHash);
         if (prehash)
-          msgHash = (0, utils_js_1.ensureBytes)("prehashed msgHash", hash3(msgHash));
+          msgHash = (0, utils_js_1.ensureBytes)("prehashed msgHash", hash2(msgHash));
         const h1int = bits2int_modN(msgHash);
         const d = normPrivateKeyToScalar(privateKey);
         const seedArgs = [int2octets(d), int2octets(h1int)];
@@ -14664,7 +20421,7 @@ var require_hash_to_curve = __commonJS({
         k: "isSafeInteger",
         hash: "hash"
       });
-      const { p, k, m, hash: hash3, expand, DST: _DST } = options;
+      const { p, k, m, hash: hash2, expand, DST: _DST } = options;
       isBytes2(msg);
       isNum(count);
       const DST = validateDST(_DST);
@@ -14673,9 +20430,9 @@ var require_hash_to_curve = __commonJS({
       const len_in_bytes = count * m * L;
       let prb;
       if (expand === "xmd") {
-        prb = expand_message_xmd(msg, DST, len_in_bytes, hash3);
+        prb = expand_message_xmd(msg, DST, len_in_bytes, hash2);
       } else if (expand === "xof") {
-        prb = expand_message_xof(msg, DST, len_in_bytes, k, hash3);
+        prb = expand_message_xof(msg, DST, len_in_bytes, k, hash2);
       } else if (expand === "_internal_pass") {
         prb = msg;
       } else {
@@ -14742,16 +20499,16 @@ var require_shortw_utils = __commonJS({
     var hmac_1 = require_hmac2();
     var utils_1 = require_utils3();
     var weierstrass_js_1 = require_weierstrass();
-    function getHash2(hash3) {
+    function getHash2(hash2) {
       return {
-        hash: hash3,
-        hmac: (key, ...msgs) => (0, hmac_1.hmac)(hash3, key, (0, utils_1.concatBytes)(...msgs)),
+        hash: hash2,
+        hmac: (key, ...msgs) => (0, hmac_1.hmac)(hash2, key, (0, utils_1.concatBytes)(...msgs)),
         randomBytes: utils_1.randomBytes
       };
     }
     exports.getHash = getHash2;
     function createCurve2(curveDef, defHash) {
-      const create = (hash3) => (0, weierstrass_js_1.weierstrass)({ ...curveDef, ...getHash2(hash3) });
+      const create = (hash2) => (0, weierstrass_js_1.weierstrass)({ ...curveDef, ...getHash2(hash2) });
       return Object.freeze({ ...create(defHash), create });
     }
     exports.createCurve = createCurve2;
@@ -15362,18 +21119,18 @@ var require_signature = __commonJS({
           return new _Signature(_guard4, index_js_1.ZeroHash, index_js_1.ZeroHash, 27);
         }
         if (typeof sig === "string") {
-          const bytes3 = (0, index_js_2.getBytes)(sig, "signature");
-          if (bytes3.length === 64) {
-            const r2 = (0, index_js_2.hexlify)(bytes3.slice(0, 32));
-            const s2 = bytes3.slice(32, 64);
+          const bytes2 = (0, index_js_2.getBytes)(sig, "signature");
+          if (bytes2.length === 64) {
+            const r2 = (0, index_js_2.hexlify)(bytes2.slice(0, 32));
+            const s2 = bytes2.slice(32, 64);
             const v2 = s2[0] & 128 ? 28 : 27;
             s2[0] &= 127;
             return new _Signature(_guard4, r2, (0, index_js_2.hexlify)(s2), v2);
           }
-          if (bytes3.length === 65) {
-            const r2 = (0, index_js_2.hexlify)(bytes3.slice(0, 32));
-            const s2 = (0, index_js_2.hexlify)(bytes3.slice(32, 64));
-            const v2 = _Signature.getNormalizedV(bytes3[64]);
+          if (bytes2.length === 65) {
+            const r2 = (0, index_js_2.hexlify)(bytes2.slice(0, 32));
+            const s2 = (0, index_js_2.hexlify)(bytes2.slice(32, 64));
+            const v2 = _Signature.getNormalizedV(bytes2[64]);
             return new _Signature(_guard4, r2, s2, v2);
           }
           assertError(false, "invalid raw signature length");
@@ -15390,9 +21147,9 @@ var require_signature = __commonJS({
           }
           if (yParityAndS != null) {
             assertError((0, index_js_2.isHexString)(yParityAndS, 32), "invalid yParityAndS");
-            const bytes3 = (0, index_js_2.getBytes)(yParityAndS);
-            bytes3[0] &= 127;
-            return (0, index_js_2.hexlify)(bytes3);
+            const bytes2 = (0, index_js_2.getBytes)(yParityAndS);
+            bytes2[0] &= 127;
+            return (0, index_js_2.hexlify)(bytes2);
           }
           assertError(false, "missing s");
         })(sig.s, sig.yParityAndS);
@@ -15542,18 +21299,18 @@ var require_signing_key = __commonJS({
        *    //_result:
        */
       static computePublicKey(key, compressed) {
-        let bytes3 = (0, index_js_1.getBytes)(key, "key");
-        if (bytes3.length === 32) {
-          const pubKey = secp256k1_1.secp256k1.getPublicKey(bytes3, !!compressed);
+        let bytes2 = (0, index_js_1.getBytes)(key, "key");
+        if (bytes2.length === 32) {
+          const pubKey = secp256k1_1.secp256k1.getPublicKey(bytes2, !!compressed);
           return (0, index_js_1.hexlify)(pubKey);
         }
-        if (bytes3.length === 64) {
+        if (bytes2.length === 64) {
           const pub = new Uint8Array(65);
           pub[0] = 4;
-          pub.set(bytes3, 1);
-          bytes3 = pub;
+          pub.set(bytes2, 1);
+          bytes2 = pub;
         }
-        const point = secp256k1_1.secp256k1.ProjectivePoint.fromHex(bytes3);
+        const point = secp256k1_1.secp256k1.ProjectivePoint.fromHex(bytes2);
         return (0, index_js_1.hexlify)(point.toRawBytes(compressed));
       }
       /**
@@ -17105,7 +22862,7 @@ var require_tuple = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.TupleCoder = void 0;
-    var properties_js_1 = require_properties2();
+    var properties_js_1 = require_properties3();
     var typed_js_1 = require_typed();
     var abstract_coder_js_1 = require_abstract_coder();
     var array_js_1 = require_array();
@@ -17322,12 +23079,12 @@ var require_transaction = __commonJS({
       };
       return { blobToKzgCommitment, computeBlobKzgProof };
     }
-    function getVersionedHash2(version3, hash3) {
+    function getVersionedHash2(version3, hash2) {
       let versioned = version3.toString(16);
       while (versioned.length < 2) {
         versioned = "0" + versioned;
       }
-      versioned += (0, index_js_2.sha256)(hash3).substring(4);
+      versioned += (0, index_js_2.sha256)(hash2).substring(4);
       return "0x" + versioned;
     }
     function handleAddress2(value) {
@@ -18357,13 +24114,13 @@ var require_transaction = __commonJS({
         return this.toString();
       }
       toString() {
-        const output3 = [];
+        const output2 = [];
         const add = (key) => {
           let value = this[key];
           if (typeof value === "string") {
             value = JSON.stringify(value);
           }
-          output3.push(`${key}: ${value}`);
+          output2.push(`${key}: ${value}`);
         };
         if (this.type) {
           add("type");
@@ -18378,7 +24135,7 @@ var require_transaction = __commonJS({
         }
         if (this.signature) {
           add("from");
-          output3.push(`signature: ${this.signature.toString()}`);
+          output2.push(`signature: ${this.signature.toString()}`);
         }
         const auths = this.authorizationList;
         if (auths) {
@@ -18397,9 +24154,9 @@ var require_transaction = __commonJS({
             }
             outputAuths.push(`Authorization { ${o.join(", ")} }`);
           }
-          output3.push(`authorizations: [ ${outputAuths.join(", ")} ]`);
+          output2.push(`authorizations: [ ${outputAuths.join(", ")} ]`);
         }
-        return `Transaction { ${output3.join(", ")} }`;
+        return `Transaction { ${output2.join(", ")} }`;
       }
       /**
        *  Create a **Transaction** from a serialized transaction or a
@@ -18556,7 +24313,7 @@ var require_authorization2 = __commonJS({
 });
 
 // node_modules/ethers/lib.commonjs/hash/id.js
-var require_id2 = __commonJS({
+var require_id3 = __commonJS({
   "node_modules/ethers/lib.commonjs/hash/id.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
@@ -18579,10 +24336,10 @@ var require_dist2 = __commonJS({
     var COMPRESSED$1 = "AEEUdwmgDS8BxQKKAP4BOgDjATAAngDUAIMAoABoAOAAagCOAEQAhABMAHIAOwA9ACsANgAmAGIAHgAuACgAJwAXAC0AGgAjAB8ALwAUACkAEgAeAAkAGwARABkAFgA5ACgALQArADcAFQApABAAHgAiABAAGgAeABMAGAUhBe8BFxREN8sF2wC5AK5HAW8ArQkDzQCuhzc3NzcBP68NEfMABQdHBuw5BV8FYAA9MzkI9r4ZBg7QyQAWA9CeOwLNCjcCjqkChuA/lm+RAsXTAoP6ASfnEQDytQFJAjWVCkeXAOsA6godAB/cwdAUE0WlBCN/AQUCQRjFD/MRBjHxDQSJbw0jBzUAswBxme+tnIcAYwabAysG8QAjAEMMmxcDqgPKQyDXCMMxA7kUQwD3NXOrAKmFIAAfBC0D3x4BJQDBGdUFAhEgVD8JnwmQJiNWYUzrg0oAGwAUAB0AFnNcACkAFgBP9h3gPfsDOWDKneY2ChglX1UDYD30ABsAFAAdABZzIGRAnwDD8wAjAEEMzRbDqgMB2sAFYwXqAtCnAsS4AwpUJKRtFHsadUz9AMMVbwLpABM1NJEX0ZkCgYMBEyMAxRVvAukAEzUBUFAtmUwSAy4DBTER33EftQHfSwB5MxJ/AjkWKQLzL8E/cwBB6QH9LQDPDtO9ASNriQC5DQANAwCK21EFI91zHwCoL9kBqQcHBwcHKzUDowBvAQohPvU3fAQgHwCyAc8CKQMA5zMSezr7ULgFmDp/LzVQBgEGAi8FYQVgt8AFcTtlQhpCWEmfe5tmZ6IAExsDzQ8t+X8rBKtTAltbAn0jsy8Bl6utPWMDTR8Ei2kRANkDBrNHNysDBzECQWUAcwFpJ3kAiyUhAJ0BUb8AL3EfAbfNAz81KUsFWwF3YQZtAm0A+VEfAzEJDQBRSQCzAQBlAHsAM70GD/v3IZWHBwARKQAxALsjTwHZAeMPEzmXgIHwABIAGQA8AEUAQDt3gdvIEGcQZAkGTRFMdEIVEwK0D64L7REdDNkq09PgADSxB/MDWwfzA1sDWwfzB/MDWwfzA1sDWwNbA1scEvAi28gQZw9QBHUFlgWTBN4IiyZREYkHMAjaVBV0JhxPA00BBCMtSSQ7mzMTJUpMFE0LCAQ2SmyvfUADTzGzVP2QqgPTMlc5dAkGHnkSqAAyD3skNb1OhnpPcagKU0+2tYdJak5vAsY6sEAACikJm2/Dd1YGRRAfJ6kQ+ww3AbkBPw3xS9wE9QY/BM0fgRkdD9GVoAipLeEM8SbnLqWAXiP5KocF8Uv4POELUVFsD10LaQnnOmeBUgMlAREijwrhDT0IcRD3Cs1vDekRSQc9A9lJngCpBwULFR05FbkmFGKwCw05ewb/GvoLkyazEy17AAXXGiUGUQEtGwMA0y7rhbRaNVwgT2MGBwspI8sUrFAkDSlAu3hMGh8HGSWtApVDdEqLUToelyH6PEENai4XUYAH+TwJGVMLhTyiRq9FEhHWPpE9TCJNTDAEOYMsMyePCdMPiQy9fHYBXQklCbUMdRM1ERs3yQg9Bx0xlygnGQglRplgngT7owP3E9UDDwVDCUUHFwO5HDETMhUtBRGBKNsC9zbZLrcCk1aEARsFzw8pH+MQVEfkDu0InwJpA4cl7wAxFSUAGyKfCEdnAGOP3FMJLs8Iy2pwI3gDaxTrZRF3B5UOWwerHDcVwxzlcMxeD4YMKKezCV8BeQmdAWME5wgNNV+MpCBFZ1eLXBifIGVBQ14AAjUMaRWjRMGHfAKPD28SHwE5AXcHPQ0FAnsR8RFvEJkI74YINbkz/DopBFMhhyAVCisDU2zSCysm/Qz8bQGnEmYDEDRBd/Jnr2C6KBgBBx0yyUFkIfULlk/RDKAaxRhGVDIZ6AfDA/ca9yfuQVsGAwOnBxc6UTPyBMELbQiPCUMATQ6nGwfbGG4KdYzUATWPAbudA1uVhwJzkwY7Bw8Aaw+LBX3pACECqwinAAkA0wNbAD0CsQehAB0AiUUBQQMrMwEl6QKTA5cINc8BmTMB9y0EH8cMGQD7O25OAsO1AoBuZqYF4VwCkgJNOQFRKQQJUktVA7N15QDfAE8GF+NLARmvTs8e50cB43MvAMsA/wAJOQcJRQHRAfdxALsBYws1Caa3uQFR7S0AhwAZbwHbAo0A4QA5AIP1AVcAUQVd/QXXAlNNARU1HC9bZQG/AyMBNwERAH0Gz5GpzQsjBHEH1wIQHxXlAu8yB7kFAyLjE9FCyQK94lkAMhoKPAqrCqpgX2Q3CjV2PVQAEh+sPss/UgVVO1c7XDtXO1w7VztcO1c7XDtXO1wDm8Pmw+YKcF9JYe8Mqg3YRMw6TRPfYFVgNhPMLbsUxRXSJVoZQRrAJwkl6FUNDwgt12Y0CDA0eRfAAEMpbINFY4oeNApPHOtTlVT8LR8AtUumM7MNsBsZREQFS3XxYi4WEgomAmSFAmJGX1GzAV83JAKh+wJonAJmDQKfiDgfDwJmPwJmKgRyBIMDfxcDfpY5Cjl7GzmGOicnAmwhAjI6OA4CbcsCbbLzjgM3a0kvAWsA4gDlAE4JB5wMkQECD8YAEbkCdzMCdqZDAnlPRwJ4viFg30WyRvcCfEMCeswCfQ0CfPRIBEiBZygALxlJXEpfGRtK0ALRBQLQ0EsrA4hTA4fqRMmRNgLypV0HAwOyS9JMMSkH001QTbMCi0MCitzFHwshR2sJuwKOOwKOYESbhQKO3QKOYHxRuFM5AQ5S2FSJApP/ApMQAO0AIFUiVbNV1AosHymZijLleGpFPz0Cl6MC77ZYJawAXSkClpMCloCgAK1ZsFoNhVEAPwKWuQKWUlxIXNUCmc8CmWhczl0LHQKcnznGOqECnBoCn58CnryOACETNS4TAp31Ap6WALlBYThh8wKe1wKgcgGtAp6jIwKeUqljzGQrKS8CJ7MCJoICoP8CoFDbAqYzAqXSAqgDAIECp/ZogGi1AAdNaiBq1QKs5wKssgKtawKtBgJXIQJV4AKx5dsDH1JsmwKywRECsuwbbORtZ21MYwMl0QK2YD9DbpQDKUkCuGICuUsZArkue3A6cOUCvR0DLbYDMhUCvoxyBgMzdQK+HnMmc1MCw88CwwhzhnRPOUl05AM8qwEDPJ4DPcMCxYACxksCxhSNAshtVQLISALJUwLJMgJkoQLd1nh9ZXiyeSlL1AMYp2cGAmH4GfeVKHsPXpZevxUCz28Cz3AzT1fW9xejAMqxAs93AS3uA04Wfk8JAtwrAtuOAtJTA1JgA1NjAQUDVZCAjUMEzxrxZEl5A4LSg5EC2ssC2eKEFIRNp0ADhqkAMwNkEoZ1Xf0AWQLfaQLevHd7AuIz7RgB8zQrAfSfAfLWiwLr9wLpdH0DAur9AuroAP1LAb0C7o0C66CWrpcHAu5DA4XkmH1w5HGlAvMHAG0DjhqZlwL3FwORcgOSiwL3nAL53QL4apogmq+/O5siA52HAv7+AR8APZ8gAZ+3AwWRA6ZuA6bdANXJAwZuoYyiCQ0DDE0BEwEjB3EGZb1rCQC/BG/DFY8etxEAG3k9ACcDNxJRA42DAWcrJQCM8wAlAOanC6OVCLsGI6fJBgCvBRnDBvElRUYFFoAFcD9GSDNCKUK8X3kZX8QAls0FOgCQVCGbwTsuYDoZutcONxjOGJHJ/gVfBWAFXwVgBWsFYAVfBWAFXwVgBV8FYAVfBWBOHQjfjW8KCgoKbF7xMwTRA7kGN8PDAMMEr8MA70gxFroFTj5xPnhCR0K+X30/X/AAWBkzswCNBsxzzASm70aCRS4rDDMeLz49fnXfcsH5GcoscQFz13Y4HwVnBXLJycnACNdRYwgICAqEXoWTxgA7P4kACxbZBu21Kw0AjMsTAwkVAOVtJUUsJ1JCuULESUArXy9gPi9AKwnJRQYKTD9LPoA+iT54PnkCkULEUUpDX9NWV3JVEjQAc1w3A3IBE3YnX+g7QiMJb6MKaiszRCUuQrNCxDPMCcwEX9EWJzYREBEEBwIHKn6l33JCNVIfybPJtAltydPUCmhBZw/tEKsZAJOVJU1CLRuxbUHOQAo7P0s+eEJHHA8SJVRPdGM0NVrpvBoKhfUlM0JHHGUQUhEWO1xLSj8MO0ucNAqJIzVCRxv9EFsqKyA4OQgNj2nwZgp5ZNFgE2A1K3YHS2AhQQojJmC7DgpzGG1WYFUZCQYHZO9gHWCdYIVgu2BTYJlwFh8GvRbcXbG8YgtDHrMBwzPVyQonHQgkCyYBgQJ0Ajc4nVqIAwGSCsBPIgDsK3SWEtIVBa5N8gGjAo+kVwVIZwD/AEUSCDweX4ITrRQsJ8K3TwBXFDwEAB0TvzVcAtoTS20RIwDgVgZ9BBImYgA5AL4Coi8LFnezOkCnIQFjAY4KBAPh9RcGsgZSBsEAJctdsWIRu2kTkQstRw7DAcMBKgpPBGIGMDAwKCYnKTQaLg4AKRSVAFwCdl+YUZ0JdicFD3lPAdt1F9ZZKCGxuE3yBxkFVGcA/wBFEgiCBwAOLHQSjxOtQDg1z7deFRMAZ8QTAGtKb1ApIiPHADkAvgKiLy1DFtYCmBiDAlDDWNB0eo7fpaMO/aEVRRv0ATEQZBIODyMEAc8JQhCbDRgzFD4TAEMAu9YBCgCsAOkAm5I3ABwAYxvONnR+MhXJAxgKQyxL2+kkJhMbhQKDBMkSsvF0AD9BNQ6uQC7WqSQHwxEAEEIu1hkhAH2z4iQPwyJPHNWpdyYBRSpnJALzoBAEVPPsH20MxA0CCEQKRgAFyAtFAlMNwwjEDUQJRArELtapMg7DDZgJIw+TGukEIwvDFkMAqAtDEMMMBhioe+QAO3MMRAACrgnEBSPY9Q0FDnbSBoMAB8MSYxkSxAEJAPIJAAB8FWMOFtMc/HcXwxhDAC7DAvOowwAewwJdKDKHAAHDAALrFUQVwwAbwyvzpWMWv8wA/ABpAy++bcYDUKPD0KhDCwKmJ1MAAmMA5+UZwxAagwipBRL/eADfw6fDGOMCGsOjk3l6BwOpo4sAEsMOGxMAA5sAbcMOAAvDp0MJGkMDwgipnNIPAwfIqUMGAOGDAAPzABXDAAcDAAnDAGmTABrDAA7DChjDjnEWAwABYwAOcwAuUyYABsMAF8MIKQANUgC6wy4AA8MADqMq8wCyYgAcIwAB8wqpAAXOCx0V4wAHowBCwwEKAGnDAAuDAB3DAAjDCakABdIAbqcZ3QCZCCkABdIAAAFDAAfjAB2jCCkABqIACYMAGzMAbSMA5sOIAAhjAAhDABTDBAkpAAbSAOOTAAlDC6kOzPtnAAdDAG6kQFAATwAKwwwAA0MACbUDPwAHIwAZgwACE6cDAAojAApDAAoDp/MGwwAJIwADEwAQQwgAFEMAEXMAD5MADfMADcMAGRMOFiMAFUMAbqMWuwHDAMIAE0MLAGkzEgDhUwACQwAEWgAXgwUjAAbYABjDBSYBgzBaAEFNALcQBxUMegAwMngBrA0IZgJ0KxQHBREPd1N0ZzKRJwaIHAZqNT4DqQq8BwngAB4DAwt2AX56T1ocKQNXAh1GATQGC3tOxYNagkgAMQA5CQADAQEAWxLjAIOYNAEzAH7tFRk6TglSAF8NAAlYAQ+S1ACAQwQorQBiAN4dAJ1wPyeTANVzuQDX3AIeEMp9eyMgXiUAEdkBkJizKltbVVAaRMqRAAEAhyQ/SDEz6BmfVwB6ATEsOClKIRcDOF0E/832AFNt5AByAnkCRxGCOs94NjXdAwINGBonDBwPALW2AwICAgAAAAAAAAYDBQMDARrUAwAtAAAAAgEGBgYGBgYFBQUFBQUEBQYHCAkEBQUFBQQAAAICAAAAIgCNAJAAlT0A6gC7ANwApEQAwgCyAK0AqADuAKYA2gCjAOcBCAEDAMcAgQBiANIA1AEDAN4A8gCQAKkBMQDqAN8A3AsBCQ8yO9ra2tq8xuLT1tRJOB0BUgFcNU0BWgFpAWgBWwFMUUlLbhMBUxsNEAs6PhMOACcUKy0vMj5AQENDQ0RFFEYGJFdXV1dZWVhZL1pbXVxcI2NnZ2ZoZypsbnZ1eHh4eHh4enp6enp6enp6enp8fH18e2IARPIASQCaAHgAMgBm+ACOAFcAVwA3AnbvAIsABfj4AGQAk/IAnwBPAGIAZP//sACFAIUAaQBWALEAJAC2AIMCQAJDAPwA5wD+AP4A6AD/AOkA6QDoAOYALwJ7AVEBQAE+AVQBPgE+AT4BOQE4ATgBOAEcAVgXADEQCAEAUx8SHgsdHhYAjgCWAKYAUQBqIAIxAHYAbwCXAxUDJzIDIUlGTzEAkQJPAMcCVwKkAMAClgKWApYClgKWApYCiwKWApYClgKWApYClgKVApUCmAKgApcClgKWApQClAKUApQCkgKVAnUB1AKXAp8ClgKWApUeAIETBQD+DQOfAmECOh8BVBg9AuIZEjMbAU4/G1WZAXusRAFpYQEFA0FPAQYAmTEeIJdyADFoAHEANgCRA5zMk/C2jGINwjMWygIZCaXdfDILBCs5dAE7YnQBugDlhoiHhoiGiYqKhouOjIaNkI6Ij4qQipGGkoaThpSSlYaWhpeKmIaZhpqGm4aci52QnoqfhuIC4XTpAt90AIp0LHSoAIsAdHQEQwRABEIERQRDBEkERgRBBEcESQRIBEQERgRJAJ5udACrA490ALxuAQ10ANFZdHQA13QCFHQA/mJ0AP4BIQD+APwA/AD9APwDhGZ03ASMK23HAP4A/AD8AP0A/CR0dACRYnQA/gCRASEA/gCRAvQA/gCRA4RmdNwEjCttxyR0AP9idAEhAP4A/gD8APwA/QD8AP8A/AD8AP0A/AOEZnTcBIwrbcckdHQAkWJ0ASEA/gCRAP4AkQL0AP4AkQOEZnTcBIwrbcckdAJLAT50AlIBQXQCU8l0dAJfdHQDpgL0A6YDpgOnA6cDpwOnA4RmdNwEjCttxyR0dACRYnQBIQOmAJEDpgCRAvQDpgCRA4RmdNwEjCttxyR0BDh0AJEEOQCRDpU5dSgCADR03gV2CwArdAEFAM5iCnR0AF1iAAYcOgp0dACRCnQAXAEIwWZ0CnRmdHQAkWZ0CnRmdEXgAFF03gp0dEY0tlT2u3SOAQTwscwhjZZKrhYcBSfFp9XNbKiVDOD2b+cpe4/Z17mQnbtzzhaeQtE2GGj0IDNTjRUSyTxxw/RPHW/+vS7d1NfRt9z9QPZg4X7QFfhCnkvgNPIItOsC2eV6hPannZNHlZ9xrwZXIMOlu3jSoQSq78WEjwLjw1ELSlF1aBvfzwk5ZX7AUvQzjPQKbDuQ+sm4wNOp4A6AdVuRS0t1y/DZpg4R6m7FNjM9HgvW7Bi88zaMjOo6lM8wtBBdj8LP4ylv3zCXPhebMKJc066o9sF71oFW/8JXu86HJbwDID5lzw5GWLR/LhT0Qqnp2JQxNZNfcbLIzPy+YypqRm/lBmGmex+82+PisxUumSeJkALIT6rJezxMH+CTJmQtt5uwTVbL3ptmjDUQzlSIvWi8Tl7ng1NpuRn1Ng4n14Qc+3Iil7OwkvNWogLSPkn3pihIFytyIGmMhOe3n1tWsuMy9BdKyqF4Z3v2SgggTL9KVvMXPnCbRe+oOuFFP3HejBG/w9gvmfNYvg6JuWia2lcSSN1uIjBktzoIazOHPJZ7kKHPz8mRWVdW3lA8WGF9dQF6Bm673boov3BUWDU2JNcahR23GtfHKLOz/viZ+rYnZFaIznXO67CYEJ1fXuTRpZhYZkKe54xeoagkNGLs+NTZHE0rX45/XvQ2RGADX6vcAvdxIUBV27wxGm2zjZo4X3ILgAlrOFheuZ6wtsvaIj4yLY7qqawlliaIcrz2G+c3vscAnCkCuMzMmZvMfu9lLwTvfX+3cVSyPdN9ZwgDZhfjRgNJcLiJ67b9xx8JHswprbiE3v9UphotAPIgnXVIN5KmMc0piXhc6cChPnN+MRhG9adtdttQTTwSIpl8I4/j//d3sz1326qTBTpPRM/Hgh3kzqEXs8ZAk4ErQhNO8hzrQ0DLkWMA/N+91tn2MdOJnWC2FCZehkQrwzwbKOjhvZsbM95QoeL9skYyMf4srVPVJSgg7pOLUtr/n9eT99oe9nLtFRpjA9okV2Kj8h9k5HaC0oivRD8VyXkJ81tcd4fHNXPCfloIQasxsuO18/46dR2jgul/UIet2G0kRvnyONMKhHs6J26FEoqSqd+rfYjeEGwHWVDpX1fh1jBBcKGMqRepju9Y00mDVHC+Xdij/j44rKfvfjGinNs1jO/0F3jB83XCDINN/HB84axlP+3E/klktRo+vl3U/aiyMJbIodE1XSsDn6UAzIoMtUObY2+k/4gY/l+AkZJ5Sj2vQrkyLm3FoxjhDX+31UXBFf9XrAH31fFqoBmDEZvhvvpnZ87N+oZEu7U9O/nnk+QWj3x8uyoRbEnf+O5UMr9i0nHP38IF5AvzrBW8YWBUR0mIAzIvndQq9N3v/Jto3aPjPXUPl8ASdPPyAp7jENf8bk7VMM9ol9XGmlBmeDMuGqt+WzuL6CXAxXjIhCPM5vACchgMJ/8XBGLO/D1isVvGhwwHHr1DLaI5mn2Jr/b1pUD90uciDaS8cXNDzCWvNmT/PhQe5e8nTnnnkt8Ds/SIjibcum/fqDhKopxAY8AkSrPn+IGDEKOO+U3XOP6djFs2H5N9+orhOahiQk5KnEUWa+CzkVzhp8bMHRbg81qhjjXuIKbHjSLSIBKWqockGtKinY+z4/RdBUF6pcc3JmnlxVcNgrI4SEzKUZSwcD2QCyxzKve+gAmg6ZuSRkpPFa6mfThu7LJNu3H5K42uCpNvPAsoedolKV/LHe/eJ+BbaG5MG0NaSGVPRUmNFMFFSSpXEcXwbVh7UETOZZtoVNRGOIbbkig3McEtR68cG0RZAoJevWYo7Dg/lZ1CQzblWeUvVHmr8fY4Nqd9JJiH/zEX24mJviH60fAyFr0A3c4bC1j3yZU60VgJxXn8JgJXLUIsiBnmKmMYz+7yBQFBvqb2eYnuW59joZBf56/wXvWIR4R8wTmV80i1mZy+S4+BUES+hzjk0uXpC///z/IlqHZ1monzlXp8aCfhGKMti73FI1KbL1q6IKO4fuBuZ59gagjn5xU79muMpHXg6S+e+gDM/U9BKLHbl9l6o8czQKl4RUkJJiqftQG2i3BMg/TQlUYFkJDYBOOvAugYuzYSDnZbDDd/aSd9x0Oe6F+bJcHfl9+gp6L5/TgA+BdFFovbfCrQ40s5vMPw8866pNX8zyFGeFWdxIpPVp9Rg1UPOVFbFZrvaFq/YAzHQgqMWpahMYfqHpmwXfHL1/kpYmGuHFwT55mQu0dylfNuq2Oq0hTMCPwqfxnuBIPLXfci4Y1ANy+1CUipQxld/izVh16WyG2Q0CQQ9NqtAnx1HCHwDj7sYxOSB0wopZSnOzxQOcExmxrVTF2BkOthVpGfuhaGECfCJpJKpjnihY+xOT2QJxN61+9K6QSqtv2Shr82I3jgJrqBg0wELFZPjvHpvzTtaJnLK6Vb97Yn933koO/saN7fsjwNKzp4l2lJVx2orjCGzC/4ZL4zCver6aQYtC5sdoychuFE6ufOiog+VWi5UDkbmvmtah/3aArEBIi39s5ILUnlFLgilcGuz9CQshEY7fw2ouoILAYPVT/gyAIq3TFAIwVsl+ktkRz/qGfnCDGrm5gsl/l9QdvCWGsjPz3dU7XuqKfdUrr/6XIgjp4rey6AJBmCmUJMjITHVdFb5m1p+dLMCL8t55zD42cmftmLEJC0Da04YiRCVUBLLa8D071/N5UBNBXDh0LFsmhV/5B5ExOB4j3WVG/S3lfK5o+V6ELHvy6RR9n4ac+VsK4VE4yphPvV+kG9FegTBH4ZRXL2HytUHCduJazB/KykjfetYxOXTLws267aGOd+I+JhKP//+VnXmS90OD/jvLcVu0asyqcuYN1mSb6XTlCkqv1vigZPIYwNF/zpWcT1GR/6aEIRjkh0yhg4LXJfaGobYJTY4JI58KiAKgmmgAKWdl5nYCeLqavRJGQNuYuZtZFGx+IkI4w4NS2xwbetNMunOjBu/hmKCI/w7tfiiyUd//4rbTeWt4izBY8YvGIN6vyKYmP/8X8wHKCeN+WRcKM70+tXKNGyevU9H2Dg5BsljnTf8YbsJ1TmMs74Ce2XlHisleguhyeg44rQOHZuw/6HTkhnnurK2d62q6yS7210SsAIaR+jXMQA+svkrLpsUY+F30Uw89uOdGAR6vo4FIME0EfVVeHTu6eKicfhSqOeXJhbftcd08sWEnNUL1C9fnprTgd83IMut8onVUF0hvqzZfHduPjbjwEXIcoYmy+P6tcJZHmeOv6VrvEdkHDJecjHuHeWANe79VG662qTjA/HCvumVv3qL+LrOcpqGps2ZGwQdFJ7PU4iuyRlBrwfO+xnPyr47s2cXVbWzAyznDiBGjCM3ksxjjqM62GE9C8f5U38kB3VjtabKp/nRdvMESPGDG90bWRLAt1Qk5DyLuazRR1YzdC1c+hZXvAWV8xA72S4A8B67vjVhbba3MMop293FeEXpe7zItMWrJG/LOH9ByOXmYnNJfjmfuX9KbrpgLOba4nZ+fl8Gbdv/ihv+6wFGKHCYrVwmhFC0J3V2bn2tIB1wCc1CST3d3X2OyxhguXcs4sm679UngzofuSeBewMFJboIQHbUh/m2JhW2hG9DIvG2t7yZIzKBTz9wBtnNC+2pCRYhSIuQ1j8xsz5VvqnyUIthvuoyyu7fNIrg/KQUVmGQaqkqZk/Vx5b33/gsEs8yX7SC1J+NV4icz6bvIE7C5G6McBaI8rVg56q5QBJWxn/87Q1sPK4+sQa8fLU5gXo4paaq4cOcQ4wR0VBHPGjKh+UlPCbA1nLXyEUX45qZ8J7/Ln4FPJE2TdzD0Z8MLSNQiykMMmSyOCiFfy84Rq60emYB2vD09KjYwsoIpeDcBDTElBbXxND72yhd9pC/1CMid/5HUMvAL27OtcIJDzNKpRPNqPOpyt2aPGz9QWIs9hQ9LiX5s8m9hjTUu/f7MyIatjjd+tSfQ3ufZxPpmJhTaBtZtKLUcfOCUqADuO+QoH8B9v6U+P0HV1GLQmtoNFTb3s74ivZgjES0qfK+8RdGgBbcCMSy8eBvh98+et1KIFqSe1KQPyXULBMTsIYnysIwiZBJYdI20vseV+wuJkcqGemehKjaAb9L57xZm3g2zX0bZ2xk/fU+bCo7TlnbW7JuF1YdURo/2Gw7VclDG1W7LOtas2LX4upifZ/23rzpsnY/ALfRgrcWP5hYmV9VxVOQA1fZvp9F2UNU+7d7xRyVm5wiLp3/0dlV7vdw1PMiZrbDAYzIVqEjRY2YU03sJhPnlwIPcZUG5ltL6S8XCxU1eYS5cjr34veBmXAvy7yN4ZjArIG0dfD/5UpBNlX1ZPoxJOwyqRi3wQWtOzd4oNKh0LkoTm8cwqgIfKhqqGOhwo71I+zXnMemTv2B2AUzABWyFztGgGULjDDzWYwJUVBTjKCn5K2QGMK1CQT7SzziOjo+BhAmqBjzuc3xYym2eedGeOIRJVyTwDw37iCMe4g5Vbnsb5ZBdxOAnMT7HU4DHpxWGuQ7GeiY30Cpbvzss55+5Km1YsbD5ea3NI9QNYIXol5apgSu9dZ8f8xS5dtHpido5BclDuLWY4lhik0tbJa07yJhH0BOyEut/GRbYTS6RfiTYWGMCkNpfSHi7HvdiTglEVHKZXaVhezH4kkXiIvKopYAlPusftpE4a5IZwvw1x/eLvoDIh/zpo9FiQInsTb2SAkKHV42XYBjpJDg4374XiVb3ws4qM0s9eSQ5HzsMU4OZJKuopFjBM+dAZEl8RUMx5uU2N486Kr141tVsGQfGjORYMCJAMsxELeNT4RmWjRcpdTGBwcx6XN9drWqPmJzcrGrH4+DRc7+n1w3kPZwu0BkNr6hQrqgo7JTB9A5kdJ/H7P4cWBMwsmuixAzJB3yrQpnGIq90lxAXLzDCdn1LPibsRt7rHNjgQBklRgPZ8vTbjXdgXrTWQsK5MdrXXQVPp0Rinq3frzZKJ0qD6Qhc40VzAraUXlob1gvkhK3vpmHgI6FRlQZNx6eRqkp0zy4AQlX813fAPtL3jMRaitGFFjo0zmErloC+h+YYdVQ6k4F/epxAoF0BmqEoKNTt6j4vQZNQ2BoqF9Vj53TOIoNmDiu9Xp15RkIgQIGcoLpfoIbenzpGUAtqFJp5W+LLnx38jHeECTJ/navKY1NWfN0sY1T8/pB8kIH3DU3DX+u6W3YwpypBMYOhbSxGjq84RZ84fWJow8pyHqn4S/9J15EcCMsXqrfwyd9mhiu3+rEo9pPpoJkdZqHjra4NvzFwuThNKy6hao/SlLw3ZADUcUp3w3SRVfW2rhl80zOgTYnKE0Hs2qp1J6H3xqPqIkvUDRMFDYyRbsFI3M9MEyovPk8rlw7/0a81cDVLmBsR2ze2pBuKb23fbeZC0uXoIvDppfTwIDxk1Oq2dGesGc+oJXWJLGkOha3CX+DUnzgAp9HGH9RsPZN63Hn4RMA5eSVhPHO+9RcRb/IOgtW31V1Q5IPGtoxPjC+MEJbVlIMYADd9aHYWUIQKopuPOHmoqSkubnAKnzgKHqgIOfW5RdAgotN6BN+O2ZYHkuemLnvQ8U9THVrS1RtLmKbcC7PeeDsYznvqzeg6VCNwmr0Yyx1wnLjyT84BZz3EJyCptD3yeueAyDWIs0L2qs/VQ3HUyqfrja0V1LdDzqAikeWuV4sc7RLIB69jEIBjCkyZedoUHqCrOvShVzyd73OdrJW0hPOuQv2qOoHDc9xVb6Yu6uq3Xqp2ZaH46A7lzevbxQEmfrzvAYSJuZ4WDk1Hz3QX1LVdiUK0EvlAGAYlG3Md30r7dcPN63yqBCIj25prpvZP0nI4+EgWoFG95V596CurXpKRBGRjQlHCvy5Ib/iW8nZJWwrET3mgd6mEhfP4KCuaLjopWs7h+MdXFdIv8dHQJgg1xi1eYqB0uDYjxwVmri0Sv5XKut/onqapC+FQiC2C1lvYJ9MVco6yDYsS3AANUfMtvtbYI2hfwZatiSsnoUeMZd34GVjkMMKA+XnjJpXgRW2SHTZplVowPmJsvXy6w3cfO1AK2dvtZEKTkC/TY9LFiKHCG0DnrMQdGm2lzlBHM9iEYynH2UcVMhUEjsc0oDBTgo2ZSQ1gzkAHeWeBXYFjYLuuf8yzTCy7/RFR81WDjXMbq2BOH5dURnxo6oivmxL3cKzKInlZkD31nvpHB9Kk7GfcfE1t+1V64b9LtgeJGlpRFxQCAqWJ5DoY77ski8gsOEOr2uywZaoO/NGa0X0y1pNQHBi3b2SUGNpcZxDT7rLbBf1FSnQ8guxGW3W+36BW0gBje4DOz6Ba6SVk0xiKgt+q2JOFyr4SYfnu+Ic1QZYIuwHBrgzr6UvOcSCzPTOo7D6IC4ISeS7zkl4h+2VoeHpnG/uWR3+ysNgPcOIXQbv0n4mr3BwQcdKJxgPSeyuP/z1Jjg4e9nUvoXegqQVIE30EHx5GHv+FAVUNTowYDJgyFhf5IvlYmEqRif6+WN1MkEJmDcQITx9FX23a4mxy1AQRsOHO/+eImX9l8EMJI3oPWzVXxSOeHU1dUWYr2uAA7AMb+vAEZSbU3qob9ibCyXeypEMpZ6863o6QPqlqGHZkuWABSTVNd4cOh9hv3qEpSx2Zy/DJMP6cItEmiBJ5PFqQnDEIt3NrA3COlOSgz43D7gpNFNJ5MBh4oFzhDPiglC2ypsNU4ISywY2erkyb1NC3Qh/IfWj0eDgZI4/ln8WPfBsT3meTjq1Uqt1E7Zl/qftqkx6aM9KueMCekSnMrcHj1CqTWWzEzPsZGcDe3Ue4Ws+XFYVxNbOFF8ezkvQGR6ZOtOLU2lQEnMBStx47vE6Pb7AYMBRj2OOfZXfisjJnpTfSNjo6sZ6qSvNxZNmDeS7Gk3yYyCk1HtKN2UnhMIjOXUzAqDv90lx9O/q/AT1ZMnit5XQe9wmQxnE/WSH0CqZ9/2Hy+Sfmpeg8RwsHI5Z8kC8H293m/LHVVM/BA7HaTJYg5Enk7M/xWpq0192ACfBai2LA/qrCjCr6Dh1BIMzMXINBmX96MJ5Hn2nxln/RXPFhwHxUmSV0EV2V0jm86/dxxuYSU1W7sVkEbN9EzkG0QFwPhyHKyb3t+Fj5WoUUTErcazE/N6EW6Lvp0d//SDPj7EV9UdJN+Amnf3Wwk3A0SlJ9Z00yvXZ7n3z70G47Hfsow8Wq1JXcfwnA+Yxa5mFsgV464KKP4T31wqIgzFPd3eCe3j5ory5fBF2hgCFyVFrLzI9eetNXvM7oQqyFgDo4CTp/hDV9NMX9JDHQ/nyHTLvZLNLF6ftn2OxjGm8+PqOwhxnPHWipkE/8wbtyri80Sr7pMNkQGMfo4ZYK9OcCC4ESVFFbLMIvlxSoRqWie0wxqnLfcLSXMSpMMQEJYDVObYsXIQNv4TGNwjq1kvT1UOkicTrG3IaBZ3XdScS3u8sgeZPVpOLkbiF940FjbCeNRINNvDbd01EPBrTCPpm12m43ze1bBB59Ia6Ovhnur/Nvx3IxwSWol+3H2qfCJR8df6aQf4v6WiONxkK+IqT4pKQrZK/LplgDI/PJZbOep8dtbV7oCr6CgfpWa8NczOkPx81iSHbsNhVSJBOtrLIMrL31LK9TqHqAbAHe0RLmmV806kRLDLNEhUEJfm9u0sxpkL93Zgd6rw+tqBfTMi59xqXHLXSHwSbSBl0EK0+loECOPtrl+/nsaFe197di4yUgoe4jKoAJDXc6DGDjrQOoFDWZJ9HXwt8xDrQP+7aRwWKWI1GF8s8O4KzxWBBcwnl3vnl1Oez3oh6Ea1vjR7/z7DDTrFtqU2W/KAEzAuXDNZ7MY73MF216dzdSbWmUp4lcm7keJfWaMHgut9x5C9mj66Z0lJ+yhsjVvyiWrfk1lzPOTdhG15Y7gQlXtacvI7qv/XNSscDwqkgwHT/gUsD5yB7LdRRvJxQGYINn9hTpodKFVSTPrtGvyQw+HlRFXIkodErAGu9Iy1YpfSPc3jkFh5CX3lPxv7aqjE/JAfTIpEjGb/H7MO0e2vsViSW1qa/Lmi4/n4DEI3g7lYrcanspDfEpKkdV1OjSLOy0BCUqVoECaB55vs06rXl4jqmLsPsFM/7vYJ0vrBhDCm/00A/H81l1uekJ/6Lml3Hb9+NKiLqATJmDpyzfYZFHumEjC662L0Bwkxi7E9U4cQA0XMVDuMYAIeLMPgQaMVOd8fmt5SflFIfuBoszeAw7ow5gXPE2Y/yBc/7jExARUf/BxIHQBF5Sn3i61w4z5xJdCyO1F1X3+3ax+JSvMeZ7S6QSKp1Fp/sjYz6Z+VgCZzibGeEoujryfMulH7Rai5kAft9ebcW50DyJr2uo2z97mTWIu45YsSnNSMrrNUuG1XsYBtD9TDYzQffKB87vWbkM4EbPAFgoBV4GQS+vtFDUqOFAoi1nTtmIOvg38N4hT2Sn8r8clmBCXspBlMBYTnrqFJGBT3wZOzAyJDre9dHH7+x7qaaKDOB4UQALD5ecS0DE4obubQEiuJZ0EpBVpLuYcce8Aa4PYd/V4DLDAJBYKQPCWTcrEaZ5HYbJi11Gd6hjGom1ii18VHYnG28NKpkz2UKVPxlhYSp8uZr367iOmoy7zsxehW9wzcy2zG0a80PBMCRQMb32hnaHeOR8fnNDzZhaNYhkOdDsBUZ3loDMa1YP0uS0cjUP3b/6DBlqmZOeNABDsLl5BI5QJups8uxAuWJdkUB/pO6Zax6tsg7fN5mjjDgMGngO+DPcKqiHIDbFIGudxtPTIyDi9SFMKBDcfdGQRv41q1AqmxgkVfJMnP8w/Bc7N9/TR6C7mGObFqFkIEom8sKi2xYqJLTCHK7cxzaZvqODo22c3wisBCP4HeAgcRbNPAsBkNRhSmD48dHupdBRw4mIvtS5oeF6zeT1KMCyhMnmhpkFAGWnGscoNkwvQ8ZM5lE/vgTHFYL99OuNxdFBxTEDd5v2qLR8y9WkXsWgG6kZNndFG+pO/UAkOCipqIhL3hq7cRSdrCq7YhUsTocEcnaFa6nVkhnSeRYUA1YO0z5itF9Sly3VlxYDw239TJJH6f3EUfYO5lb7bcFcz8Bp7Oo8QmnsUHOz/fagVUBtKEw1iT88j+aKkv8cscKNkMxjYr8344D1kFoZ7/td1W6LCNYN594301tUGRmFjAzeRg5vyoM1F6+bJZ/Q54jN/k8SFd3DxPTYaAUsivsBfgTn7Mx8H2SpPt4GOdYRnEJOH6jHM2p6SgB0gzIRq6fHxGMmSmqaPCmlfwxiuloaVIitLGN8wie2CDWhkzLoCJcODh7KIOAqbHEvXdUxaS4TTTs07Clzj/6GmVs9kiZDerMxEnhUB6QQPlcfqkG9882RqHoLiHGBoHfQuXIsAG8GTAtao2KVwRnvvam8jo1e312GQAKWEa4sUVEAMG4G6ckcONDwRcg1e2D3+ohXgY4UAWF8wHKQMrSnzCgfFpsxh+aHXMGtPQroQasRY4U6UdG0rz1Vjbka0MekOGRZQEvqQFlxseFor8zWFgHek3v29+WqN6gaK5gZOTOMZzpQIC1201LkMCXild3vWXSc5UX9xcFYfbRPzGFa1FDcPfPB/jUEq/FeGt419CI3YmBlVoHsa4KdcwQP5ZSwHHhFJ7/Ph/Rap/4vmG91eDwPP0lDfCDRCLszTqfzM71xpmiKi2HwS4WlqvGNwtvwF5Dqpn6KTq8ax00UMPkxDcZrEEEsIvHiUXXEphdb4GB4FymlPwBz4Gperqq5pW7TQ6/yNRhW8VT5NhuP0udlxo4gILq5ZxAZk8ZGh3g4CqxJlPKY7AQxupfUcVpWT5VItp1+30UqoyP4wWsRo3olRRgkWZZ2ZN6VC3OZFeXB8NbnUrSdikNptD1QiGuKkr8EmSR/AK9Rw+FF3s5uwuPbvHGiPeFOViltMK7AUaOsq9+x9cndk3iJEE5LKZRlWJbKOZweROzmPNVPkjE3K/TyA57Rs68TkZ3MR8akKpm7cFjnjPd/DdkWjgYoKHSr5Wu5ssoBYU4acRs5g2DHxUmdq8VXOXRbunD8QN0LhgkssgahcdoYsNvuXGUK/KXD/7oFb+VGdhqIn02veuM5bLudJOc2Ky0GMaG4W/xWBxIJcL7yliJOXOpx0AkBqUgzlDczmLT4iILXDxxtRR1oZa2JWFgiAb43obrJnG/TZC2KSK2wqOzRZTXavZZFMb1f3bXvVaNaK828w9TO610gk8JNf3gMfETzXXsbcvRGCG9JWQZ6+cDPqc4466Yo2RcKH+PILeKOqtnlbInR3MmBeGG3FH10yzkybuqEC2HSQwpA0An7d9+73BkDUTm30bZmoP/RGbgFN+GrCOfADgqr0WbI1a1okpFms8iHYw9hm0zUvlEMivBRxModrbJJ+9/p3jUdQQ9BCtQdxnOGrT5dzRUmw0593/mbRSdBg0nRvRZM5/E16m7ZHmDEtWhwvfdZCZ8J8M12W0yRMszXamWfQTwIZ4ayYktrnscQuWr8idp3PjT2eF/jmtdhIfcpMnb+IfZY2FebW6UY/AK3jP4u3Tu4zE4qlnQgLFbM19EBIsNf7KhjdbqQ/D6yiDb+NlEi2SKD+ivXVUK8ib0oBo366gXkR8ZxGjpJIDcEgZPa9TcYe0TIbiPl/rPUQDu3XBJ9X/GNq3FAUsKsll57DzaGMrjcT+gctp+9MLYXCq+sqP81eVQ0r9lt+gcQfZbACRbEjvlMskztZG8gbC8Qn9tt26Q7y7nDrbZq/LEz7kR6Jc6pg3N9rVX8Y5MJrGlML9p9lU4jbTkKqCveeZUJjHB03m2KRKR2TytoFkTXOLg7keU1s1lrPMQJpoOKLuAAC+y1HlJucU6ysB5hsXhvSPPLq5J7JtnqHKZ4vYjC4Vy8153QY+6780xDuGARsGbOs1WqzH0QS765rnSKEbbKlkO8oI/VDwUd0is13tKpqILu1mDJFNy/iJAWcvDgjxvusIT+PGz3ST/J9r9Mtfd0jpaGeiLYIqXc7DiHSS8TcjFVksi66PEkxW1z6ujbLLUGNNYnzOWpH8BZGK4bCK7iR+MbIv8ncDAz1u4StN3vTTzewr9IQjk9wxFxn+6N1ddKs0vffJiS08N3a4G1SVrlZ97Q/M+8G9fe5AP6d9/Qq4WRnORVhofPIKEdCr3llspUfE0oKIIYoByBRPh+bX1HLS3JWGJRhIvE1aW4NTd8ePi4Z+kXb+Z8snYfSNcqijhAgVsx4RCM54cXUiYkjeBmmC4ajOHrChoELscJJC7+9jjMjw5BagZKlgRMiSNYz7h7vvZIoQqbtQmspc0cUk1G/73iXtSpROl5wtLgQi0mW2Ex8i3WULhcggx6E1LMVHUsdc9GHI1PH3U2Ko0PyGdn9KdVOLm7FPBui0i9a0HpA60MsewVE4z8CAt5d401Gv6zXlIT5Ybit1VIA0FCs7wtvYreru1fUyW3oLAZ/+aTnZrOcYRNVA8spoRtlRoWflsRClFcgzkqiHOrf0/SVw+EpVaFlJ0g4Kxq1MMOmiQdpMNpte8lMMQqm6cIFXlnGbfJllysKDi+0JJMotkqgIxOSQgU9dn/lWkeVf8nUm3iwX2Nl3WDw9i6AUK3vBAbZZrcJpDQ/N64AVwjT07Jef30GSSmtNu2WlW7YoyW2FlWfZFQUwk867EdLYKk9VG6JgEnBiBxkY7LMo4YLQJJlAo9l/oTvJkSARDF/XtyAzM8O2t3eT/iXa6wDN3WewNmQHdPfsxChU/KtLG2Mn8i4ZqKdSlIaBZadxJmRzVS/o4yA65RTSViq60oa395Lqw0pzY4SipwE0SXXsKV+GZraGSkr/RW08wPRvqvSUkYBMA9lPx4m24az+IHmCbXA+0faxTRE9wuGeO06DIXa6QlKJ3puIyiuAVfPr736vzo2pBirS+Vxel3TMm3JKhz9o2ZoRvaFVpIkykb0Hcm4oHFBMcNSNj7/4GJt43ogonY2Vg4nsDQIWxAcorpXACzgBqQPjYsE/VUpXpwNManEru4NwMCFPkXvMoqvoeLN3qyu/N1eWEHttMD65v19l/0kH2mR35iv/FI+yjoHJ9gPMz67af3Mq/BoWXqu3rphiWMXVkmnPSEkpGpUI2h1MThideGFEOK6YZHPwYzMBvpNC7+ZHxPb7epfefGyIB4JzO9DTNEYnDLVVHdQyvOEVefrk6Uv5kTQYVYWWdqrdcIl7yljwwIWdfQ/y+2QB3eR/qxYObuYyB4gTbo2in4PzarU1sO9nETkmj9/AoxDA+JM3GMqQtJR4jtduHtnoCLxd1gQUscHRB/MoRYIEsP2pDZ9KvHgtlk1iTbWWbHhohwFEYX7y51fUV2nuUmnoUcqnWIQAAgl9LTVX+Bc0QGNEhChxHR4YjfE51PUdGfsSFE6ck7BL3/hTf9jLq4G1IafINxOLKeAtO7quulYvH5YOBc+zX7CrMgWnW47/jfRsWnJjYYoE7xMfWV2HN2iyIqLI";
     var FENCED = /* @__PURE__ */ new Map([[8217, "apostrophe"], [8260, "fraction slash"], [12539, "middle dot"]]);
     var NSM_MAX = 4;
-    function decode_arithmetic(bytes3) {
+    function decode_arithmetic(bytes2) {
       let pos = 0;
       function u16() {
-        return bytes3[pos++] << 8 | bytes3[pos++];
+        return bytes2[pos++] << 8 | bytes2[pos++];
       }
       let symbol_count = u16();
       let total = 1;
@@ -18597,7 +24354,7 @@ var require_dist2 = __commonJS({
       let read_buffer = 0;
       function read_bit() {
         if (read_width == 0) {
-          read_buffer = read_buffer << 8 | bytes3[pos++];
+          read_buffer = read_buffer << 8 | bytes2[pos++];
           read_width = 8;
         }
         return read_buffer >> --read_width & 1;
@@ -18645,11 +24402,11 @@ var require_dist2 = __commonJS({
       return symbols.map((x) => {
         switch (x - offset) {
           case 3:
-            return offset + 65792 + (bytes3[pos_payload++] << 16 | bytes3[pos_payload++] << 8 | bytes3[pos_payload++]);
+            return offset + 65792 + (bytes2[pos_payload++] << 16 | bytes2[pos_payload++] << 8 | bytes2[pos_payload++]);
           case 2:
-            return offset + 256 + (bytes3[pos_payload++] << 8 | bytes3[pos_payload++]);
+            return offset + 256 + (bytes2[pos_payload++] << 8 | bytes2[pos_payload++]);
           case 1:
-            return offset + bytes3[pos_payload++];
+            return offset + bytes2[pos_payload++];
           default:
             return x - 1;
         }
@@ -19182,9 +24939,9 @@ var require_dist2 = __commonJS({
     }
     function ens_beautify(name) {
       let labels = split3(name, nfc, (x) => x);
-      for (let { type, output: output3, error: error2 } of labels) {
+      for (let { type, output: output2, error: error2 } of labels) {
         if (error2) break;
-        if (type !== "Greek") array_replace(output3, 958, 926);
+        if (type !== "Greek") array_replace(output2, 958, 926);
       }
       return flatten(labels);
     }
@@ -19291,12 +25048,12 @@ var require_dist2 = __commonJS({
       return groups;
     }
     function flatten(split4) {
-      return split4.map(({ input, error: error2, output: output3 }) => {
+      return split4.map(({ input, error: error2, output: output2 }) => {
         if (error2) {
           let msg = error2.message;
           throw new Error(split4.length == 1 ? msg : `Invalid label ${bidi_qq(safe_str_from_cps(input, 63))}: ${msg}`);
         }
-        return str_from_cps(output3);
+        return str_from_cps(output2);
       }).join(STOP_CH);
     }
     function error_disallowed(cp) {
@@ -19523,21 +25280,21 @@ var require_namehash = __commonJS({
       return comp;
     }
     function ensNameSplit(name) {
-      const bytes3 = (0, index_js_2.toUtf8Bytes)(ensNormalize(name));
+      const bytes2 = (0, index_js_2.toUtf8Bytes)(ensNormalize(name));
       const comps = [];
       if (name.length === 0) {
         return comps;
       }
       let last = 0;
-      for (let i = 0; i < bytes3.length; i++) {
-        const d = bytes3[i];
+      for (let i = 0; i < bytes2.length; i++) {
+        const d = bytes2[i];
         if (d === 46) {
-          comps.push(checkComponent(bytes3.slice(last, i)));
+          comps.push(checkComponent(bytes2.slice(last, i)));
           last = i + 1;
         }
       }
-      (0, index_js_2.assertArgument)(last < bytes3.length, "invalid ENS name; empty component", "name", name);
-      comps.push(checkComponent(bytes3.slice(last)));
+      (0, index_js_2.assertArgument)(last < bytes2.length, "invalid ENS name; empty component", "name", name);
+      comps.push(checkComponent(bytes2.slice(last)));
       return comps;
     }
     function ensNormalize(name) {
@@ -19575,10 +25332,10 @@ var require_namehash = __commonJS({
       (0, index_js_2.assertArgument)(length <= 255, "DNS encoded label cannot exceed 255", "length", length);
       return (0, index_js_2.hexlify)((0, index_js_2.concat)(ensNameSplit(name).map((comp) => {
         (0, index_js_2.assertArgument)(comp.length <= length, `label ${JSON.stringify(name)} exceeds ${length} bytes`, "name", name);
-        const bytes3 = new Uint8Array(comp.length + 1);
-        bytes3.set(comp, 1);
-        bytes3[0] = bytes3.length - 1;
-        return bytes3;
+        const bytes2 = new Uint8Array(comp.length + 1);
+        bytes2.set(comp, 1);
+        bytes2[0] = bytes2.length - 1;
+        return bytes2;
       }))) + "00";
     }
     exports.dnsEncode = dnsEncode;
@@ -19713,7 +25470,7 @@ var require_typed_data = __commonJS({
     var index_js_2 = require_crypto2();
     var index_js_3 = require_transaction2();
     var index_js_4 = require_utils2();
-    var id_js_1 = require_id2();
+    var id_js_1 = require_id3();
     var padding2 = new Uint8Array(32);
     padding2.fill(0);
     var BN__12 = BigInt(-1);
@@ -19721,12 +25478,12 @@ var require_typed_data = __commonJS({
     var BN_14 = BigInt(1);
     var BN_MAX_UINT2562 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
     function hexPadRight2(value) {
-      const bytes3 = (0, index_js_4.getBytes)(value);
-      const padOffset = bytes3.length % 32;
+      const bytes2 = (0, index_js_4.getBytes)(value);
+      const padOffset = bytes2.length % 32;
       if (padOffset) {
-        return (0, index_js_4.concat)([bytes3, padding2.slice(padOffset)]);
+        return (0, index_js_4.concat)([bytes2, padding2.slice(padOffset)]);
       }
-      return (0, index_js_4.hexlify)(bytes3);
+      return (0, index_js_4.hexlify)(bytes2);
     }
     var hexTrue2 = (0, index_js_4.toBeHex)(BN_14, 32);
     var hexFalse2 = (0, index_js_4.toBeHex)(BN_08, 32);
@@ -19769,9 +25526,9 @@ var require_typed_data = __commonJS({
         (0, index_js_4.assertArgument)(false, `invalid domain value "verifyingContract"`, "domain.verifyingContract", value);
       },
       salt: function(value) {
-        const bytes3 = (0, index_js_4.getBytes)(value, "domain.salt");
-        (0, index_js_4.assertArgument)(bytes3.length === 32, `invalid domain value "salt"`, "domain.salt", value);
-        return (0, index_js_4.hexlify)(bytes3);
+        const bytes2 = (0, index_js_4.getBytes)(value, "domain.salt");
+        (0, index_js_4.assertArgument)(bytes2.length === 32, `invalid domain value "salt"`, "domain.salt", value);
+        return (0, index_js_4.hexlify)(bytes2);
       }
     };
     function getBaseEncoder2(type) {
@@ -19796,8 +25553,8 @@ var require_typed_data = __commonJS({
           const width = parseInt(match[1]);
           (0, index_js_4.assertArgument)(width !== 0 && width <= 32 && match[1] === String(width), "invalid bytes width", "type", type);
           return function(value) {
-            const bytes3 = (0, index_js_4.getBytes)(value);
-            (0, index_js_4.assertArgument)(bytes3.length === width, `invalid length for ${type}`, "value", value);
+            const bytes2 = (0, index_js_4.getBytes)(value);
+            (0, index_js_4.assertArgument)(bytes2.length === width, `invalid length for ${type}`, "value", value);
             return hexPadRight2(value);
           };
         }
@@ -20202,7 +25959,7 @@ var require_hash = __commonJS({
     Object.defineProperty(exports, "verifyAuthorization", { enumerable: true, get: function() {
       return authorization_js_1.verifyAuthorization;
     } });
-    var id_js_1 = require_id2();
+    var id_js_1 = require_id3();
     Object.defineProperty(exports, "id", { enumerable: true, get: function() {
       return id_js_1.id;
     } });
@@ -21556,16 +27313,16 @@ var require_abi_coder = __commonJS({
       let revert = null;
       if (data) {
         message = "execution reverted";
-        const bytes3 = (0, index_js_3.getBytes)(data);
+        const bytes2 = (0, index_js_3.getBytes)(data);
         data = (0, index_js_3.hexlify)(data);
-        if (bytes3.length === 0) {
+        if (bytes2.length === 0) {
           message += " (no data present; likely require(false) occurred";
           reason = "require(false)";
-        } else if (bytes3.length % 32 !== 4) {
+        } else if (bytes2.length % 32 !== 4) {
           message += " (could not decode reason; invalid data length)";
-        } else if ((0, index_js_3.hexlify)(bytes3.slice(0, 4)) === "0x08c379a0") {
+        } else if ((0, index_js_3.hexlify)(bytes2.slice(0, 4)) === "0x08c379a0") {
           try {
-            reason = abiCoder.decode(["string"], bytes3.slice(4))[0];
+            reason = abiCoder.decode(["string"], bytes2.slice(4))[0];
             revert = {
               signature: "Error(string)",
               name: "Error",
@@ -21575,9 +27332,9 @@ var require_abi_coder = __commonJS({
           } catch (error2) {
             message += " (could not decode reason; invalid string data)";
           }
-        } else if ((0, index_js_3.hexlify)(bytes3.slice(0, 4)) === "0x4e487b71") {
+        } else if ((0, index_js_3.hexlify)(bytes2.slice(0, 4)) === "0x4e487b71") {
           try {
-            const code = Number(abiCoder.decode(["uint256"], bytes3.slice(4))[0]);
+            const code = Number(abiCoder.decode(["uint256"], bytes2.slice(4))[0]);
             revert = {
               signature: "Panic(uint256)",
               name: "Panic",
@@ -21715,11 +27472,11 @@ var require_bytes32 = __commonJS({
     exports.decodeBytes32String = exports.encodeBytes32String = void 0;
     var index_js_1 = require_utils2();
     function encodeBytes32String(text) {
-      const bytes3 = (0, index_js_1.toUtf8Bytes)(text);
-      if (bytes3.length > 31) {
+      const bytes2 = (0, index_js_1.toUtf8Bytes)(text);
+      if (bytes2.length > 31) {
         throw new Error("bytes32 string must be less than 32 bytes");
       }
-      return (0, index_js_1.zeroPadBytes)(bytes3, 32);
+      return (0, index_js_1.zeroPadBytes)(bytes2, 32);
     }
     exports.encodeBytes32String = encodeBytes32String;
     function decodeBytes32String(_bytes) {
@@ -21893,8 +27650,8 @@ var require_interface = __commonJS({
       /**
        *  @_ignore:
        */
-      constructor(hash3) {
-        (0, index_js_3.defineProperties)(this, { hash: hash3, _isIndexed: true });
+      constructor(hash2) {
+        (0, index_js_3.defineProperties)(this, { hash: hash2, _isIndexed: true });
       }
     };
     exports.Indexed = Indexed;
@@ -22465,16 +28222,16 @@ var require_interface = __commonJS({
           fragment = f2;
         }
         let message = "invalid length for result data";
-        const bytes3 = (0, index_js_3.getBytesCopy)(data);
-        if (bytes3.length % 32 === 0) {
+        const bytes2 = (0, index_js_3.getBytesCopy)(data);
+        if (bytes2.length % 32 === 0) {
           try {
-            return this.#abiCoder.decode(fragment.outputs, bytes3);
+            return this.#abiCoder.decode(fragment.outputs, bytes2);
           } catch (error2) {
             message = "could not decode result data";
           }
         }
         (0, index_js_3.assert)(false, message, "BAD_DATA", {
-          value: (0, index_js_3.hexlify)(bytes3),
+          value: (0, index_js_3.hexlify)(bytes2),
           info: { method: fragment.name, signature: fragment.format() }
         });
       }
@@ -23151,7 +28908,7 @@ var require_provider = __commonJS({
        *  Returns a JSON-friendly value.
        */
       toJSON() {
-        const { baseFeePerGas, difficulty, extraData, gasLimit, gasUsed, hash: hash3, miner, prevRandao, nonce, number: number5, parentHash, parentBeaconBlockRoot, stateRoot, receiptsRoot, timestamp, transactions } = this;
+        const { baseFeePerGas, difficulty, extraData, gasLimit, gasUsed, hash: hash2, miner, prevRandao, nonce, number: number4, parentHash, parentBeaconBlockRoot, stateRoot, receiptsRoot, timestamp, transactions } = this;
         return {
           _type: "Block",
           baseFeePerGas: toJson(baseFeePerGas),
@@ -23161,11 +28918,11 @@ var require_provider = __commonJS({
           gasUsed: toJson(gasUsed),
           blobGasUsed: toJson(this.blobGasUsed),
           excessBlobGas: toJson(this.excessBlobGas),
-          hash: hash3,
+          hash: hash2,
           miner,
           prevRandao,
           nonce,
-          number: number5,
+          number: number4,
           parentHash,
           timestamp,
           parentBeaconBlockRoot,
@@ -23212,16 +28969,16 @@ var require_provider = __commonJS({
         if (typeof indexOrHash === "number") {
           tx = this.#transactions[indexOrHash];
         } else {
-          const hash3 = indexOrHash.toLowerCase();
+          const hash2 = indexOrHash.toLowerCase();
           for (const v of this.#transactions) {
             if (typeof v === "string") {
-              if (v !== hash3) {
+              if (v !== hash2) {
                 continue;
               }
               tx = v;
               break;
             } else {
-              if (v.hash !== hash3) {
+              if (v.hash !== hash2) {
                 continue;
               }
               tx = v;
@@ -23550,7 +29307,7 @@ var require_provider = __commonJS({
           to,
           from,
           contractAddress,
-          hash: hash3,
+          hash: hash2,
           index,
           blockHash,
           blockNumber,
@@ -23572,7 +29329,7 @@ var require_provider = __commonJS({
           blobGasUsed: toJson(this.blobGasUsed),
           blobGasPrice: toJson(this.blobGasPrice),
           gasUsed: toJson(this.gasUsed),
-          hash: hash3,
+          hash: hash2,
           index,
           logs,
           logsBloom,
@@ -23805,7 +29562,7 @@ var require_provider = __commonJS({
        *  Returns a JSON-compatible representation of this transaction.
        */
       toJSON() {
-        const { blockNumber, blockHash, index, hash: hash3, type, to, from, nonce, data, signature, accessList, blobVersionedHashes } = this;
+        const { blockNumber, blockHash, index, hash: hash2, type, to, from, nonce, data, signature, accessList, blobVersionedHashes } = this;
         return {
           _type: "TransactionResponse",
           accessList,
@@ -23817,7 +29574,7 @@ var require_provider = __commonJS({
           from,
           gasLimit: toJson(this.gasLimit),
           gasPrice: toJson(this.gasPrice),
-          hash: hash3,
+          hash: hash2,
           maxFeePerGas: toJson(this.maxFeePerGas),
           maxPriorityFeePerGas: toJson(this.maxPriorityFeePerGas),
           maxFeePerBlobGas: toJson(this.maxFeePerBlobGas),
@@ -23924,8 +29681,8 @@ var require_provider = __commonJS({
             if (block == null) {
               return;
             }
-            for (const hash3 of block) {
-              if (hash3 === this.hash) {
+            for (const hash2 of block) {
+              if (hash2 === this.hash) {
                 return;
               }
             }
@@ -25016,7 +30773,7 @@ var require_contract = __commonJS({
       /**
        *  @_ignore:
        */
-      async queryTransaction(hash3) {
+      async queryTransaction(hash2) {
         throw new Error("@TODO");
       }
       /*
@@ -25318,17 +31075,17 @@ var require_factory = __commonJS({
       /**
        *  Create a new **ContractFactory** from the standard Solidity JSON output.
        */
-      static fromSolidity(output3, runner) {
-        (0, index_js_3.assertArgument)(output3 != null, "bad compiler output", "output", output3);
-        if (typeof output3 === "string") {
-          output3 = JSON.parse(output3);
+      static fromSolidity(output2, runner) {
+        (0, index_js_3.assertArgument)(output2 != null, "bad compiler output", "output", output2);
+        if (typeof output2 === "string") {
+          output2 = JSON.parse(output2);
         }
-        const abi = output3.abi;
+        const abi = output2.abi;
         let bytecode = "";
-        if (output3.bytecode) {
-          bytecode = output3.bytecode;
-        } else if (output3.evm && output3.evm.bytecode) {
-          bytecode = output3.evm.bytecode;
+        if (output2.bytecode) {
+          bytecode = output2.bytecode;
+        } else if (output2.evm && output2.evm.bytecode) {
+          bytecode = output2.evm.bytecode;
         }
         return new this(abi, bytecode, runner);
       }
@@ -25727,9 +31484,9 @@ var require_ens_resolver = __commonJS({
                   try {
                     linkage.push({ type: "!metadata", value: response.bodyText });
                   } catch (error3) {
-                    const bytes3 = response.body;
-                    if (bytes3) {
-                      linkage.push({ type: "!metadata", value: (0, index_js_5.hexlify)(bytes3) });
+                    const bytes2 = response.body;
+                    if (bytes2) {
+                      linkage.push({ type: "!metadata", value: (0, index_js_5.hexlify)(bytes2) });
                     }
                     return { url: null, linkage };
                   }
@@ -25821,7 +31578,7 @@ var require_ens_resolver = __commonJS({
 });
 
 // node_modules/ethers/lib.commonjs/providers/format.js
-var require_format3 = __commonJS({
+var require_format5 = __commonJS({
   "node_modules/ethers/lib.commonjs/providers/format.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
@@ -26093,7 +31850,7 @@ var require_plugins_network = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FetchUrlFeeDataNetworkPlugin = exports.FeeDataNetworkPlugin = exports.EnsPlugin = exports.GasCostPlugin = exports.NetworkPlugin = void 0;
-    var properties_js_1 = require_properties2();
+    var properties_js_1 = require_properties3();
     var index_js_1 = require_utils2();
     var EnsAddress = "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e";
     var NetworkPlugin = class _NetworkPlugin {
@@ -26785,9 +32542,9 @@ var require_subscriber_polling = __commonJS({
        *  Create a new **PollingTransactionSubscriber** attached to
        *  %%provider%%, listening for %%hash%%.
        */
-      constructor(provider, hash3) {
+      constructor(provider, hash2) {
         super(provider);
-        this.#hash = hash3;
+        this.#hash = hash2;
       }
       async _poll(blockNumber, provider) {
         const tx = await provider.getTransactionReceipt(this.#hash);
@@ -26882,7 +32639,7 @@ var require_abstract_provider = __commonJS({
     var index_js_5 = require_transaction2();
     var index_js_6 = require_utils2();
     var ens_resolver_js_1 = require_ens_resolver();
-    var format_js_1 = require_format3();
+    var format_js_1 = require_format5();
     var network_js_1 = require_network();
     var provider_js_1 = require_provider();
     var subscriber_polling_js_1 = require_subscriber_polling();
@@ -26963,8 +32720,8 @@ var require_abstract_provider = __commonJS({
         }
       }
       if ((0, index_js_6.isHexString)(_event, 32)) {
-        const hash3 = _event.toLowerCase();
-        return { type: "transaction", tag: getTag("tx", { hash: hash3 }), hash: hash3 };
+        const hash2 = _event.toLowerCase();
+        return { type: "transaction", tag: getTag("tx", { hash: hash2 }), hash: hash2 };
       }
       if (_event.orphan) {
         const event = _event;
@@ -27575,7 +33332,7 @@ var require_abstract_provider = __commonJS({
       }
       // Write
       async broadcastTransaction(signedTx) {
-        const { blockNumber, hash: hash3, network } = await (0, index_js_6.resolveProperties)({
+        const { blockNumber, hash: hash2, network } = await (0, index_js_6.resolveProperties)({
           blockNumber: this.getBlockNumber(),
           hash: this._perform({
             method: "broadcastTransaction",
@@ -27584,7 +33341,7 @@ var require_abstract_provider = __commonJS({
           network: this.getNetwork()
         });
         const tx = index_js_5.Transaction.from(signedTx);
-        if (tx.hash !== hash3) {
+        if (tx.hash !== hash2) {
           throw new Error("@TODO: the returned hash did not match");
         }
         return this._wrapTransactionResponse(tx, network).replaceableTransaction(blockNumber);
@@ -27618,26 +33375,26 @@ var require_abstract_provider = __commonJS({
         }
         return this._wrapBlock(params, network);
       }
-      async getTransaction(hash3) {
+      async getTransaction(hash2) {
         const { network, params } = await (0, index_js_6.resolveProperties)({
           network: this.getNetwork(),
-          params: this.#perform({ method: "getTransaction", hash: hash3 })
+          params: this.#perform({ method: "getTransaction", hash: hash2 })
         });
         if (params == null) {
           return null;
         }
         return this._wrapTransactionResponse(params, network);
       }
-      async getTransactionReceipt(hash3) {
+      async getTransactionReceipt(hash2) {
         const { network, params } = await (0, index_js_6.resolveProperties)({
           network: this.getNetwork(),
-          params: this.#perform({ method: "getTransactionReceipt", hash: hash3 })
+          params: this.#perform({ method: "getTransactionReceipt", hash: hash2 })
         });
         if (params == null) {
           return null;
         }
         if (params.gasPrice == null && params.effectiveGasPrice == null) {
-          const tx = await this.#perform({ method: "getTransaction", hash: hash3 });
+          const tx = await this.#perform({ method: "getTransaction", hash: hash2 });
           if (tx == null) {
             throw new Error("report this; could not find tx or effectiveGasPrice");
           }
@@ -27645,10 +33402,10 @@ var require_abstract_provider = __commonJS({
         }
         return this._wrapTransactionReceipt(params, network);
       }
-      async getTransactionResult(hash3) {
+      async getTransactionResult(hash2) {
         const { result } = await (0, index_js_6.resolveProperties)({
           network: this.getNetwork(),
-          result: this.#perform({ method: "getTransactionResult", hash: hash3 })
+          result: this.#perform({ method: "getTransactionResult", hash: hash2 })
         });
         if (result == null) {
           return null;
@@ -27722,16 +33479,16 @@ var require_abstract_provider = __commonJS({
         }
         return null;
       }
-      async waitForTransaction(hash3, _confirms, timeout) {
+      async waitForTransaction(hash2, _confirms, timeout) {
         const confirms = _confirms != null ? _confirms : 1;
         if (confirms === 0) {
-          return this.getTransactionReceipt(hash3);
+          return this.getTransactionReceipt(hash2);
         }
         return new Promise(async (resolve2, reject) => {
           let timer = null;
           const listener = (async (blockNumber) => {
             try {
-              const receipt = await this.getTransactionReceipt(hash3);
+              const receipt = await this.getTransactionReceipt(hash2);
               if (receipt != null) {
                 if (blockNumber - receipt.blockNumber + 1 >= confirms) {
                   resolve2(receipt);
@@ -28096,9 +33853,9 @@ var require_abstract_provider = __commonJS({
     exports.AbstractProvider = AbstractProvider;
     function _parseString(result, start) {
       try {
-        const bytes3 = _parseBytes(result, start);
-        if (bytes3) {
-          return (0, index_js_6.toUtf8String)(bytes3);
+        const bytes2 = _parseBytes(result, start);
+        if (bytes2) {
+          return (0, index_js_6.toUtf8String)(bytes2);
         }
       } catch (error2) {
       }
@@ -28723,13 +34480,13 @@ var require_provider_jsonrpc = __commonJS({
       }
       async sendTransaction(tx) {
         const blockNumber = await this.provider.getBlockNumber();
-        const hash3 = await this.sendUncheckedTransaction(tx);
+        const hash2 = await this.sendUncheckedTransaction(tx);
         return await new Promise((resolve2, reject) => {
           const timeouts = [1e3, 100];
           let invalids = 0;
           const checkTx = async () => {
             try {
-              const tx2 = await this.provider.getTransaction(hash3);
+              const tx2 = await this.provider.getTransaction(hash2);
               if (tx2 != null) {
                 resolve2(tx2.replaceableTransaction(blockNumber));
                 return;
@@ -28739,7 +34496,7 @@ var require_provider_jsonrpc = __commonJS({
                 if (error2.info == null) {
                   error2.info = {};
                 }
-                error2.info.sendTransactionHash = hash3;
+                error2.info.sendTransactionHash = hash2;
                 reject(error2);
                 return;
               }
@@ -28748,7 +34505,7 @@ var require_provider_jsonrpc = __commonJS({
                 if (error2.info == null) {
                   error2.info = {};
                 }
-                error2.info.sendTransactionHash = hash3;
+                error2.info.sendTransactionHash = hash2;
                 if (invalids > 10) {
                   reject(error2);
                   return;
@@ -28837,8 +34594,8 @@ var require_provider_jsonrpc = __commonJS({
                 break;
               }
               batch.push(payloads.shift());
-              const bytes3 = JSON.stringify(batch.map((p) => p.payload));
-              if (bytes3.length > this.#options.batchMaxSize) {
+              const bytes2 = JSON.stringify(batch.map((p) => p.payload));
+              if (bytes2.length > this.#options.batchMaxSize) {
                 payloads.unshift(batch.pop());
                 break;
               }
@@ -30422,9 +36179,9 @@ var require_buffer_util = __commonJS({
       }
       return target;
     }
-    function _mask(source, mask2, output3, offset, length) {
+    function _mask(source, mask2, output2, offset, length) {
       for (let i = 0; i < length; i++) {
-        output3[offset + i] = source[i] ^ mask2[i & 3];
+        output2[offset + i] = source[i] ^ mask2[i & 3];
       }
     }
     function _unmask(buffer, mask2) {
@@ -30462,9 +36219,9 @@ var require_buffer_util = __commonJS({
     if (!process.env.WS_NO_BUFFER_UTIL) {
       try {
         const bufferUtil = __require("bufferutil");
-        module.exports.mask = function(source, mask2, output3, offset, length) {
-          if (length < 48) _mask(source, mask2, output3, offset, length);
-          else bufferUtil.mask(source, mask2, output3, offset, length);
+        module.exports.mask = function(source, mask2, output2, offset, length) {
+          if (length < 48) _mask(source, mask2, output2, offset, length);
+          else bufferUtil.mask(source, mask2, output2, offset, length);
         };
         module.exports.unmask = function(buffer, mask2) {
           if (buffer.length < 32) _unmask(buffer, mask2);
@@ -30908,7 +36665,7 @@ var require_permessage_deflate = __commonJS({
 });
 
 // node_modules/ws/lib/validation.js
-var require_validation2 = __commonJS({
+var require_validation3 = __commonJS({
   "node_modules/ws/lib/validation.js"(exports, module) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
@@ -31118,7 +36875,7 @@ var require_receiver = __commonJS({
       kWebSocket
     } = require_constants2();
     var { concat: concat2, toArrayBuffer, unmask } = require_buffer_util();
-    var { isValidStatusCode, isValidUTF8 } = require_validation2();
+    var { isValidStatusCode, isValidUTF8 } = require_validation3();
     var FastBuffer = Buffer[Symbol.species];
     var GET_INFO = 0;
     var GET_PAYLOAD_LENGTH_16 = 1;
@@ -31704,7 +37461,7 @@ var require_sender = __commonJS({
     var { randomFillSync } = __require("crypto");
     var PerMessageDeflate = require_permessage_deflate();
     var { EMPTY_BUFFER } = require_constants2();
-    var { isValidStatusCode } = require_validation2();
+    var { isValidStatusCode } = require_validation3();
     var { mask: applyMask, toBuffer } = require_buffer_util();
     var kByteLength = Symbol("kByteLength");
     var maskBuffer = Buffer.alloc(4);
@@ -32349,7 +38106,7 @@ var require_extension = __commonJS({
   "node_modules/ws/lib/extension.js"(exports, module) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
-    var { tokenChars } = require_validation2();
+    var { tokenChars } = require_validation3();
     function push(dest, name, elem) {
       if (dest[name] === void 0) dest[name] = [elem];
       else dest[name].push(elem);
@@ -33461,7 +39218,7 @@ var require_subprotocol = __commonJS({
   "node_modules/ws/lib/subprotocol.js"(exports, module) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
-    var { tokenChars } = require_validation2();
+    var { tokenChars } = require_validation3();
     function parse3(header) {
       const protocols = /* @__PURE__ */ new Set();
       let start = -1;
@@ -36443,10 +42200,10 @@ var require_aes = __commonJS({
     var U22 = [0, 185469197, 370938394, 487725847, 741876788, 657861945, 975451694, 824852259, 1483753576, 1400783205, 1315723890, 1164071807, 1950903388, 2135319889, 1649704518, 1767536459, 2967507152, 3152976349, 2801566410, 2918353863, 2631447780, 2547432937, 2328143614, 2177544179, 3901806776, 3818836405, 4270639778, 4118987695, 3299409036, 3483825537, 3535072918, 3652904859, 2077965243, 1893020342, 1841768865, 1724457132, 1474502543, 1559041666, 1107234197, 1257309336, 598438867, 681933534, 901210569, 1052338372, 261314535, 77422314, 428819965, 310463728, 3409685355, 3224740454, 3710368113, 3593056380, 3875770207, 3960309330, 4045380933, 4195456072, 2471224067, 2554718734, 2237133081, 2388260884, 3212035895, 3028143674, 2842678573, 2724322336, 4138563181, 4255350624, 3769721975, 3955191162, 3667219033, 3516619604, 3431546947, 3347532110, 2933734917, 2782082824, 3099667487, 3016697106, 2196052529, 2313884476, 2499348523, 2683765030, 1179510461, 1296297904, 1347548327, 1533017514, 1786102409, 1635502980, 2087309459, 2003294622, 507358933, 355706840, 136428751, 53458370, 839224033, 957055980, 605657339, 790073846, 2373340630, 2256028891, 2607439820, 2422494913, 2706270690, 2856345839, 3075636216, 3160175349, 3573941694, 3725069491, 3273267108, 3356761769, 4181598602, 4063242375, 4011996048, 3828103837, 1033297158, 915985419, 730517276, 545572369, 296679730, 446754879, 129166120, 213705253, 1709610350, 1860738147, 1945798516, 2029293177, 1239331162, 1120974935, 1606591296, 1422699085, 4148292826, 4233094615, 3781033664, 3931371469, 3682191598, 3497509347, 3446004468, 3328955385, 2939266226, 2755636671, 3106780840, 2988687269, 2198438022, 2282195339, 2501218972, 2652609425, 1201765386, 1286567175, 1371368976, 1521706781, 1805211710, 1620529459, 2105887268, 1988838185, 533804130, 350174575, 164439672, 46346101, 870912086, 954669403, 636813900, 788204353, 2358957921, 2274680428, 2592523643, 2441661558, 2695033685, 2880240216, 3065962831, 3182487618, 3572145929, 3756299780, 3270937875, 3388507166, 4174560061, 4091327024, 4006521127, 3854606378, 1014646705, 930369212, 711349675, 560487590, 272786309, 457992840, 106852767, 223377554, 1678381017, 1862534868, 1914052035, 2031621326, 1211247597, 1128014560, 1580087799, 1428173050, 32283319, 182621114, 401639597, 486441376, 768917123, 651868046, 1003007129, 818324884, 1503449823, 1385356242, 1333838021, 1150208456, 1973745387, 2125135846, 1673061617, 1756818940, 2970356327, 3120694122, 2802849917, 2887651696, 2637442643, 2520393566, 2334669897, 2149987652, 3917234703, 3799141122, 4284502037, 4100872472, 3309594171, 3460984630, 3545789473, 3629546796, 2050466060, 1899603969, 1814803222, 1730525723, 1443857720, 1560382517, 1075025698, 1260232239, 575138148, 692707433, 878443390, 1062597235, 243256656, 91341917, 409198410, 325965383, 3403100636, 3252238545, 3704300486, 3620022987, 3874428392, 3990953189, 4042459122, 4227665663, 2460449204, 2578018489, 2226875310, 2411029155, 3198115200, 3046200461, 2827177882, 2743944855];
     var U32 = [0, 218828297, 437656594, 387781147, 875313188, 958871085, 775562294, 590424639, 1750626376, 1699970625, 1917742170, 2135253587, 1551124588, 1367295589, 1180849278, 1265195639, 3501252752, 3720081049, 3399941250, 3350065803, 3835484340, 3919042237, 4270507174, 4085369519, 3102249176, 3051593425, 2734591178, 2952102595, 2361698556, 2177869557, 2530391278, 2614737639, 3145456443, 3060847922, 2708326185, 2892417312, 2404901663, 2187128086, 2504130317, 2555048196, 3542330227, 3727205754, 3375740769, 3292445032, 3876557655, 3926170974, 4246310725, 4027744588, 1808481195, 1723872674, 1910319033, 2094410160, 1608975247, 1391201670, 1173430173, 1224348052, 59984867, 244860394, 428169201, 344873464, 935293895, 984907214, 766078933, 547512796, 1844882806, 1627235199, 2011214180, 2062270317, 1507497298, 1423022939, 1137477952, 1321699145, 95345982, 145085239, 532201772, 313773861, 830661914, 1015671571, 731183368, 648017665, 3175501286, 2957853679, 2807058932, 2858115069, 2305455554, 2220981195, 2474404304, 2658625497, 3575528878, 3625268135, 3473416636, 3254988725, 3778151818, 3963161475, 4213447064, 4130281361, 3599595085, 3683022916, 3432737375, 3247465558, 3802222185, 4020912224, 4172763771, 4122762354, 3201631749, 3017672716, 2764249623, 2848461854, 2331590177, 2280796200, 2431590963, 2648976442, 104699613, 188127444, 472615631, 287343814, 840019705, 1058709744, 671593195, 621591778, 1852171925, 1668212892, 1953757831, 2037970062, 1514790577, 1463996600, 1080017571, 1297403050, 3673637356, 3623636965, 3235995134, 3454686199, 4007360968, 3822090177, 4107101658, 4190530515, 2997825956, 3215212461, 2830708150, 2779915199, 2256734592, 2340947849, 2627016082, 2443058075, 172466556, 122466165, 273792366, 492483431, 1047239e3, 861968209, 612205898, 695634755, 1646252340, 1863638845, 2013908262, 1963115311, 1446242576, 1530455833, 1277555970, 1093597963, 1636604631, 1820824798, 2073724613, 1989249228, 1436590835, 1487645946, 1337376481, 1119727848, 164948639, 81781910, 331544205, 516552836, 1039717051, 821288114, 669961897, 719700128, 2973530695, 3157750862, 2871682645, 2787207260, 2232435299, 2283490410, 2667994737, 2450346104, 3647212047, 3564045318, 3279033885, 3464042516, 3980931627, 3762502690, 4150144569, 4199882800, 3070356634, 3121275539, 2904027272, 2686254721, 2200818878, 2384911031, 2570832044, 2486224549, 3747192018, 3528626907, 3310321856, 3359936201, 3950355702, 3867060991, 4049844452, 4234721005, 1739656202, 1790575107, 2108100632, 1890328081, 1402811438, 1586903591, 1233856572, 1149249077, 266959938, 48394827, 369057872, 418672217, 1002783846, 919489135, 567498868, 752375421, 209336225, 24197544, 376187827, 459744698, 945164165, 895287692, 574624663, 793451934, 1679968233, 1764313568, 2117360635, 1933530610, 1343127501, 1560637892, 1243112415, 1192455638, 3704280881, 3519142200, 3336358691, 3419915562, 3907448597, 3857572124, 4075877127, 4294704398, 3029510009, 3113855344, 2927934315, 2744104290, 2159976285, 2377486676, 2594734927, 2544078150];
     var U42 = [0, 151849742, 303699484, 454499602, 607398968, 758720310, 908999204, 1059270954, 1214797936, 1097159550, 1517440620, 1400849762, 1817998408, 1699839814, 2118541908, 2001430874, 2429595872, 2581445614, 2194319100, 2345119218, 3034881240, 3186202582, 2801699524, 2951971274, 3635996816, 3518358430, 3399679628, 3283088770, 4237083816, 4118925222, 4002861748, 3885750714, 1002142683, 850817237, 698445255, 548169417, 529487843, 377642221, 227885567, 77089521, 1943217067, 2061379749, 1640576439, 1757691577, 1474760595, 1592394909, 1174215055, 1290801793, 2875968315, 2724642869, 3111247143, 2960971305, 2405426947, 2253581325, 2638606623, 2487810577, 3808662347, 3926825029, 4044981591, 4162096729, 3342319475, 3459953789, 3576539503, 3693126241, 1986918061, 2137062819, 1685577905, 1836772287, 1381620373, 1532285339, 1078185097, 1229899655, 1040559837, 923313619, 740276417, 621982671, 439452389, 322734571, 137073913, 19308535, 3871163981, 4021308739, 4104605777, 4255800159, 3263785589, 3414450555, 3499326569, 3651041127, 2933202493, 2815956275, 3167684641, 3049390895, 2330014213, 2213296395, 2566595609, 2448830231, 1305906550, 1155237496, 1607244650, 1455525988, 1776460110, 1626319424, 2079897426, 1928707164, 96392454, 213114376, 396673818, 514443284, 562755902, 679998e3, 865136418, 983426092, 3708173718, 3557504664, 3474729866, 3323011204, 4180808110, 4030667424, 3945269170, 3794078908, 2507040230, 2623762152, 2272556026, 2390325492, 2975484382, 3092726480, 2738905026, 2857194700, 3973773121, 3856137295, 4274053469, 4157467219, 3371096953, 3252932727, 3673476453, 3556361835, 2763173681, 2915017791, 3064510765, 3215307299, 2156299017, 2307622919, 2459735317, 2610011675, 2081048481, 1963412655, 1846563261, 1729977011, 1480485785, 1362321559, 1243905413, 1126790795, 878845905, 1030690015, 645401037, 796197571, 274084841, 425408743, 38544885, 188821243, 3613494426, 3731654548, 3313212038, 3430322568, 4082475170, 4200115116, 3780097726, 3896688048, 2668221674, 2516901860, 2366882550, 2216610296, 3141400786, 2989552604, 2837966542, 2687165888, 1202797690, 1320957812, 1437280870, 1554391400, 1669664834, 1787304780, 1906247262, 2022837584, 265905162, 114585348, 499347990, 349075736, 736970802, 585122620, 972512814, 821712160, 2595684844, 2478443234, 2293045232, 2174754046, 3196267988, 3079546586, 2895723464, 2777952454, 3537852828, 3687994002, 3234156416, 3385345166, 4142626212, 4293295786, 3841024952, 3992742070, 174567692, 57326082, 410887952, 292596766, 777231668, 660510266, 1011452712, 893681702, 1108339068, 1258480242, 1343618912, 1494807662, 1715193156, 1865862730, 1948373848, 2100090966, 2701949495, 2818666809, 3004591147, 3122358053, 2235061775, 2352307457, 2535604243, 2653899549, 3915653703, 3764988233, 4219352155, 4067639125, 3444575871, 3294430577, 3746175075, 3594982253, 836553431, 953270745, 600235211, 718002117, 367585007, 484830689, 133361907, 251657213, 2041877159, 1891211689, 1806599355, 1654886325, 1568718495, 1418573201, 1335535747, 1184342925];
-    function convertToInt322(bytes3) {
+    function convertToInt322(bytes2) {
       const result = [];
-      for (let i = 0; i < bytes3.length; i += 4) {
-        result.push(bytes3[i] << 24 | bytes3[i + 1] << 16 | bytes3[i + 2] << 8 | bytes3[i + 3]);
+      for (let i = 0; i < bytes2.length; i += 4) {
+        result.push(bytes2[i] << 24 | bytes2[i + 1] << 16 | bytes2[i + 2] << 8 | bytes2[i + 3]);
       }
       return result;
     }
@@ -37402,8 +43159,8 @@ var require_hdwallet = __commonJS({
     function encodeBase58Check2(_value) {
       const value = (0, index_js_4.getBytes)(_value);
       const check2 = (0, index_js_4.dataSlice)((0, index_js_1.sha256)((0, index_js_1.sha256)(value)), 0, 4);
-      const bytes3 = (0, index_js_4.concat)([value, check2]);
-      return (0, index_js_4.encodeBase58)(bytes3);
+      const bytes2 = (0, index_js_4.concat)([value, check2]);
+      return (0, index_js_4.encodeBase58)(bytes2);
     }
     var _guard4 = {};
     function ser_I2(index, chainCode, publicKey, privateKey) {
@@ -37622,14 +43379,14 @@ var require_hdwallet = __commonJS({
        *  or full HD Node ([[HDNodeWallet) respectively.
        */
       static fromExtendedKey(extendedKey) {
-        const bytes3 = (0, index_js_4.toBeArray)((0, index_js_4.decodeBase58)(extendedKey));
-        (0, index_js_4.assertArgument)(bytes3.length === 82 || encodeBase58Check2(bytes3.slice(0, 78)) === extendedKey, "invalid extended key", "extendedKey", "[ REDACTED ]");
-        const depth = bytes3[4];
-        const parentFingerprint = (0, index_js_4.hexlify)(bytes3.slice(5, 9));
-        const index = parseInt((0, index_js_4.hexlify)(bytes3.slice(9, 13)).substring(2), 16);
-        const chainCode = (0, index_js_4.hexlify)(bytes3.slice(13, 45));
-        const key = bytes3.slice(45, 78);
-        switch ((0, index_js_4.hexlify)(bytes3.slice(0, 4))) {
+        const bytes2 = (0, index_js_4.toBeArray)((0, index_js_4.decodeBase58)(extendedKey));
+        (0, index_js_4.assertArgument)(bytes2.length === 82 || encodeBase58Check2(bytes2.slice(0, 78)) === extendedKey, "invalid extended key", "extendedKey", "[ REDACTED ]");
+        const depth = bytes2[4];
+        const parentFingerprint = (0, index_js_4.hexlify)(bytes2.slice(5, 9));
+        const index = parseInt((0, index_js_4.hexlify)(bytes2.slice(9, 13)).substring(2), 16);
+        const chainCode = (0, index_js_4.hexlify)(bytes2.slice(13, 45));
+        const key = bytes2.slice(45, 78);
+        switch ((0, index_js_4.hexlify)(bytes2.slice(0, 4))) {
           // Public Key
           case "0x0488b21e":
           case "0x043587cf": {
@@ -38628,7 +44385,7 @@ var require_lang_zh = __commonJS({
       let deltaOffset = 0;
       for (let i = 0; i < 2048; i++) {
         const s = style.indexOf(data[i * 3]);
-        const bytes3 = [
+        const bytes2 = [
           228 + (s >> 2),
           128 + codes.indexOf(data[i * 3 + 1]),
           128 + codes.indexOf(data[i * 3 + 2])
@@ -38636,10 +44393,10 @@ var require_lang_zh = __commonJS({
         if (locale === "zh_tw") {
           const common = s % 4;
           for (let i2 = common; i2 < 3; i2++) {
-            bytes3[i2] = codes.indexOf(deltaData[deltaOffset++]) + (i2 == 0 ? 228 : 128);
+            bytes2[i2] = codes.indexOf(deltaData[deltaOffset++]) + (i2 == 0 ? 228 : 128);
           }
         }
-        wordlist2.push((0, index_js_2.toUtf8String)(new Uint8Array(bytes3)));
+        wordlist2.push((0, index_js_2.toUtf8String)(new Uint8Array(bytes2)));
       }
       const checksum2 = (0, index_js_1.id)(wordlist2.join("\n") + "\n");
       if (checksum2 !== Checks[locale]) {
@@ -48364,7 +54121,7 @@ var require_iterate = __commonJS({
     module.exports = iterate;
     function iterate(list, iterator, state, callback) {
       var key = state["keyedList"] ? state["keyedList"][state.index] : state.index;
-      state.jobs[key] = runJob(iterator, key, list[key], function(error2, output3) {
+      state.jobs[key] = runJob(iterator, key, list[key], function(error2, output2) {
         if (!(key in state.jobs)) {
           return;
         }
@@ -48372,7 +54129,7 @@ var require_iterate = __commonJS({
         if (error2) {
           abort(state);
         } else {
-          state.results[key] = output3;
+          state.results[key] = output2;
         }
         callback(error2, state.results);
       });
@@ -48554,7 +54311,7 @@ var require_range = __commonJS({
 });
 
 // node_modules/es-errors/ref.js
-var require_ref2 = __commonJS({
+var require_ref3 = __commonJS({
   "node_modules/es-errors/ref.js"(exports, module) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
@@ -48581,7 +54338,7 @@ var require_type = __commonJS({
 });
 
 // node_modules/es-errors/uri.js
-var require_uri2 = __commonJS({
+var require_uri3 = __commonJS({
   "node_modules/es-errors/uri.js"(exports, module) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
@@ -48660,11 +54417,11 @@ var require_sign = __commonJS({
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     var $isNaN = require_isNaN();
-    module.exports = function sign(number5) {
-      if ($isNaN(number5) || number5 === 0) {
-        return number5;
+    module.exports = function sign(number4) {
+      if ($isNaN(number4) || number4 === 0) {
+        return number4;
       }
-      return number5 < 0 ? -1 : 1;
+      return number4 < 0 ? -1 : 1;
     };
   }
 });
@@ -48818,7 +54575,7 @@ var require_implementation = __commonJS({
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     var ERROR_MESSAGE = "Function.prototype.bind called on incompatible ";
-    var toStr3 = Object.prototype.toString;
+    var toStr2 = Object.prototype.toString;
     var max = Math.max;
     var funcType = "[object Function]";
     var concatty = function concatty2(a, b) {
@@ -48850,7 +54607,7 @@ var require_implementation = __commonJS({
     };
     module.exports = function bind2(that) {
       var target = this;
-      if (typeof target !== "function" || toStr3.apply(target) !== funcType) {
+      if (typeof target !== "function" || toStr2.apply(target) !== funcType) {
         throw new TypeError(ERROR_MESSAGE + target);
       }
       var args2 = slicy(arguments, 1);
@@ -49032,10 +54789,10 @@ var require_get_intrinsic = __commonJS({
     var $Error = require_es_errors();
     var $EvalError = require_eval();
     var $RangeError = require_range();
-    var $ReferenceError = require_ref2();
+    var $ReferenceError = require_ref3();
     var $SyntaxError = require_syntax();
     var $TypeError = require_type();
-    var $URIError = require_uri2();
+    var $URIError = require_uri3();
     var abs = require_abs();
     var floor = require_floor();
     var max = require_max();
@@ -49262,8 +55019,8 @@ var require_get_intrinsic = __commonJS({
         throw new $SyntaxError("invalid intrinsic syntax, expected opening `%`");
       }
       var result = [];
-      $replace(string3, rePropName, function(match, number5, quote, subString) {
-        result[result.length] = quote ? $replace(subString, reEscapeChar, "$1") : number5 || match;
+      $replace(string3, rePropName, function(match, number4, quote, subString) {
+        result[result.length] = quote ? $replace(subString, reEscapeChar, "$1") : number4 || match;
       });
       return result;
     };
@@ -49870,12 +55627,12 @@ var require_common = __commonJS({
       createDebug.skips = [];
       createDebug.formatters = {};
       function selectColor(namespace) {
-        let hash3 = 0;
+        let hash2 = 0;
         for (let i = 0; i < namespace.length; i++) {
-          hash3 = (hash3 << 5) - hash3 + namespace.charCodeAt(i);
-          hash3 |= 0;
+          hash2 = (hash2 << 5) - hash2 + namespace.charCodeAt(i);
+          hash2 |= 0;
         }
-        return createDebug.colors[Math.abs(hash3) % createDebug.colors.length];
+        return createDebug.colors[Math.abs(hash2) % createDebug.colors.length];
       }
       createDebug.selectColor = selectColor;
       function createDebug(namespace) {
@@ -53074,9 +58831,9 @@ var require_axios = __commonJS({
         const bytesThreshold = maxRate / divider;
         const minChunkSize = internals.minChunkSize !== false ? Math.max(internals.minChunkSize, bytesThreshold * 0.01) : 0;
         const pushChunk = (_chunk, _callback) => {
-          const bytes3 = Buffer.byteLength(_chunk);
-          internals.bytesSeen += bytes3;
-          internals.bytes += bytes3;
+          const bytes2 = Buffer.byteLength(_chunk);
+          internals.bytesSeen += bytes2;
+          internals.bytes += bytes2;
           internals.isCaptured && this.emit("progress", internals.bytesSeen);
           if (this.push(_chunk)) {
             process.nextTick(_callback);
@@ -53455,7 +59212,7 @@ var require_axios = __commonJS({
     }
     function speedometer(samplesCount, min) {
       samplesCount = samplesCount || 10;
-      const bytes3 = new Array(samplesCount);
+      const bytes2 = new Array(samplesCount);
       const timestamps = new Array(samplesCount);
       let head = 0;
       let tail = 0;
@@ -53467,12 +59224,12 @@ var require_axios = __commonJS({
         if (!firstSampleTS) {
           firstSampleTS = now;
         }
-        bytes3[head] = chunkLength;
+        bytes2[head] = chunkLength;
         timestamps[head] = now;
         let i = tail;
         let bytesCount = 0;
         while (i !== head) {
-          bytesCount += bytes3[i++];
+          bytesCount += bytes2[i++];
           i = i % samplesCount;
         }
         head = (head + 1) % samplesCount;
@@ -53598,32 +59355,32 @@ var require_axios = __commonJS({
           }
         }
         const groups = Math.floor(effectiveLen / 4);
-        const bytes4 = groups * 3 - (pad || 0);
-        return bytes4 > 0 ? bytes4 : 0;
+        const bytes3 = groups * 3 - (pad || 0);
+        return bytes3 > 0 ? bytes3 : 0;
       }
       if (typeof Buffer !== "undefined" && typeof Buffer.byteLength === "function") {
         return Buffer.byteLength(body, "utf8");
       }
-      let bytes3 = 0;
+      let bytes2 = 0;
       for (let i = 0, len = body.length; i < len; i++) {
         const c = body.charCodeAt(i);
         if (c < 128) {
-          bytes3 += 1;
+          bytes2 += 1;
         } else if (c < 2048) {
-          bytes3 += 2;
+          bytes2 += 2;
         } else if (c >= 55296 && c <= 56319 && i + 1 < len) {
           const next = body.charCodeAt(i + 1);
           if (next >= 56320 && next <= 57343) {
-            bytes3 += 4;
+            bytes2 += 4;
             i++;
           } else {
-            bytes3 += 3;
+            bytes2 += 3;
           }
         } else {
-          bytes3 += 3;
+          bytes2 += 3;
         }
       }
-      return bytes3;
+      return bytes2;
     }
     var zlibOptions = {
       flush: zlib.constants.Z_SYNC_FLUSH,
@@ -54815,7 +60572,7 @@ var require_axios = __commonJS({
     };
     var trackStream = (stream2, chunkSize, onProgress, onFinish) => {
       const iterator2 = readBytes(stream2, chunkSize);
-      let bytes3 = 0;
+      let bytes2 = 0;
       let done;
       let _onFinish = (e) => {
         if (!done) {
@@ -54837,7 +60594,7 @@ var require_axios = __commonJS({
             }
             let len = value.byteLength;
             if (onProgress) {
-              let loadedBytes = bytes3 += len;
+              let loadedBytes = bytes2 += len;
               onProgress(loadedBytes);
             }
             controller.enqueue(new Uint8Array(value));
@@ -56153,7 +61910,7 @@ var require_managed = __commonJS({
 });
 
 // dist/types/index.js
-var require_types2 = __commonJS({
+var require_types3 = __commonJS({
   "dist/types/index.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
@@ -56188,7 +61945,7 @@ var require_types2 = __commonJS({
 });
 
 // dist/utils/errors.js
-var require_errors3 = __commonJS({
+var require_errors4 = __commonJS({
   "dist/utils/errors.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
@@ -56345,8 +62102,8 @@ var require_client = __commonJS({
     exports.GdexApiClient = void 0;
     var axios_1 = __importDefault2(require_axios());
     var axios_retry_1 = __importDefault2(require_cjs());
-    var types_1 = require_types2();
-    var errors_1 = require_errors3();
+    var types_1 = require_types3();
+    var errors_1 = require_errors4();
     var browserSession_1 = require_browserSession();
     var DEFAULT_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
     var DEFAULT_API_URL = "https://trade-api.gemach.io/v1";
@@ -57357,7 +63114,7 @@ var require_chains = __commonJS({
     exports.chainSupportsDex = chainSupportsDex;
     exports.getSupportedChains = getSupportedChains;
     var common_1 = require_common2();
-    var errors_1 = require_errors3();
+    var errors_1 = require_errors4();
     exports.CHAIN_CONFIGS = {
       // ── Solana ───────────────────────────────────────────────────────────────
       solana: {
@@ -57687,7 +63444,7 @@ var require_chains = __commonJS({
 });
 
 // dist/utils/validation.js
-var require_validation3 = __commonJS({
+var require_validation4 = __commonJS({
   "dist/utils/validation.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
@@ -57707,7 +63464,7 @@ var require_validation3 = __commonJS({
     exports.validateRequired = validateRequired;
     var ethers_1 = require_lib2();
     var chains_1 = require_chains();
-    var errors_1 = require_errors3();
+    var errors_1 = require_errors4();
     var EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
     var BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
     var SUI_ADDRESS_RE = /^0x[0-9a-fA-F]{64}$/;
@@ -57721,15 +63478,15 @@ var require_validation3 = __commonJS({
           return -1;
         n = n * 58n + BigInt(digit);
       }
-      let bytes3 = 0;
+      let bytes2 = 0;
       while (n > 0n) {
         n >>= 8n;
-        bytes3++;
+        bytes2++;
       }
       let leadingZeros = 0;
       while (leadingZeros < value.length && value[leadingZeros] === "1")
         leadingZeros++;
-      return bytes3 + leadingZeros;
+      return bytes2 + leadingZeros;
     }
     function isSolanaPublicKey(value) {
       if (value.length < 32 || value.length > 44)
@@ -57943,8 +63700,8 @@ var require_portfolio2 = __commonJS({
     exports.getTradeHistory = getTradeHistory;
     var ethers_1 = require_lib2();
     var Endpoints = __importStar2(require_endpoints());
-    var validation_1 = require_validation3();
-    var errors_1 = require_errors3();
+    var validation_1 = require_validation4();
+    var errors_1 = require_errors4();
     var chains_1 = require_chains();
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
     exports.MANAGED_READ_CHAIN_IDS = /* @__PURE__ */ new Set([
@@ -58231,10 +63988,10 @@ var require_spotTrade = __commonJS({
     exports.waitForTrade = waitForTrade;
     var ethers_1 = require_lib2();
     var Endpoints = __importStar2(require_endpoints());
-    var validation_1 = require_validation3();
+    var validation_1 = require_validation4();
     var chains_1 = require_chains();
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
-    var errors_1 = require_errors3();
+    var errors_1 = require_errors4();
     var common_1 = require_common2();
     var portfolio_1 = require_portfolio2();
     exports.MANAGED_BUY_CHAIN_IDS = /* @__PURE__ */ new Set([
@@ -58283,8 +64040,8 @@ var require_spotTrade = __commonJS({
           throw new errors_1.GdexValidationError("purchase_v2 always spends the native token; use buyWithUsdc to pay with USDC", "inputToken");
         }
       } else {
-        const output3 = params.outputToken;
-        if (output3 !== void 0 && !isNativeToken(output3, chain)) {
+        const output2 = params.outputToken;
+        if (output2 !== void 0 && !isNativeToken(output2, chain)) {
           throw new errors_1.GdexValidationError("sell_v2 always receives the native token; use sellToUsdc to receive USDC", "outputToken");
         }
       }
@@ -58463,9 +64220,9 @@ var require_spotTrade = __commonJS({
       const status = str(state.status);
       if (status)
         out.status = status;
-      const hash3 = str(state.hash);
-      if (hash3)
-        out.hash = hash3;
+      const hash2 = str(state.hash);
+      if (hash2)
+        out.hash = hash2;
       const tokenAmount = str(state.tokenAmount);
       if (tokenAmount)
         out.tokenAmount = tokenAmount;
@@ -58549,8 +64306,8 @@ var require_hlCopyTrade2 = __commonJS({
     exports.resumeHlCopyTrade = resumeHlCopyTrade;
     var Endpoints = __importStar2(require_endpoints());
     var common_1 = require_common2();
-    var errors_1 = require_errors3();
-    var validation_1 = require_validation3();
+    var errors_1 = require_errors4();
+    var validation_1 = require_validation4();
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
     function normalizeAddressArg(arg) {
       if (typeof arg === "string")
@@ -59190,11 +64947,11 @@ var require_dist4 = __commonJS({
       };
     }
     // @__NO_SIDE_EFFECTS__
-    function bytes3(requirement, message$1) {
+    function bytes2(requirement, message$1) {
       return {
         kind: "validation",
         type: "bytes",
-        reference: bytes3,
+        reference: bytes2,
         async: false,
         expects: `${requirement}`,
         requirement,
@@ -59652,11 +65409,11 @@ var require_dist4 = __commonJS({
       adler32: 8
     };
     // @__NO_SIDE_EFFECTS__
-    function hash3(types, message$1) {
+    function hash2(types, message$1) {
       return {
         kind: "validation",
         type: "hash",
-        reference: hash3,
+        reference: hash2,
         expects: null,
         async: false,
         requirement: RegExp(types.map((type) => `^[a-fA-F0-9]{${HASH_LENGTHS[type]}}$`).join("|"), "u"),
@@ -60706,14 +66463,14 @@ var require_dist4 = __commonJS({
         reference: rawTransform,
         async: false,
         "~run"(dataset, config$1) {
-          const output3 = action({
+          const output2 = action({
             dataset,
             config: config$1,
             addIssue: (info) => _addIssue(this, info?.label ?? "input", dataset, config$1, info),
             NEVER: null
           });
           if (dataset.issues) dataset.typed = false;
-          else dataset.value = output3;
+          else dataset.value = output2;
           return dataset;
         }
       };
@@ -60726,14 +66483,14 @@ var require_dist4 = __commonJS({
         reference: rawTransformAsync,
         async: true,
         async "~run"(dataset, config$1) {
-          const output3 = await action({
+          const output2 = await action({
             dataset,
             config: config$1,
             addIssue: (info) => _addIssue(this, info?.label ?? "input", dataset, config$1, info),
             NEVER: null
           });
           if (dataset.issues) dataset.typed = false;
-          else dataset.value = output3;
+          else dataset.value = output2;
           return dataset;
         }
       };
@@ -60940,12 +66697,12 @@ var require_dist4 = __commonJS({
         async: false,
         "~run"(dataset, config$2) {
           try {
-            const output3 = JSON.stringify(dataset.value, this.config?.replacer, this.config?.space);
-            if (output3 === void 0) {
+            const output2 = JSON.stringify(dataset.value, this.config?.replacer, this.config?.space);
+            if (output2 === void 0) {
               _addIssue(this, "JSON", dataset, config$2);
               dataset.typed = false;
             }
-            dataset.value = output3;
+            dataset.value = output2;
           } catch (error2) {
             if (error2 instanceof Error) {
               _addIssue(this, "JSON", dataset, config$2, { received: `"${error2.message}"` });
@@ -62818,11 +68575,11 @@ var require_dist4 = __commonJS({
       };
     }
     // @__NO_SIDE_EFFECTS__
-    function number5(message$1) {
+    function number4(message$1) {
       return {
         kind: "schema",
         type: "number",
-        reference: number5,
+        reference: number4,
         expects: "number",
         async: false,
         message: message$1,
@@ -64689,7 +70446,7 @@ var require_dist4 = __commonJS({
     exports.blob = blob;
     exports.boolean = boolean3;
     exports.brand = brand;
-    exports.bytes = bytes3;
+    exports.bytes = bytes2;
     exports.cache = cache;
     exports.cacheAsync = cacheAsync;
     exports.check = check2;
@@ -64754,7 +70511,7 @@ var require_dist4 = __commonJS({
     exports.graphemes = graphemes;
     exports.gtValue = gtValue;
     exports.guard = guard;
-    exports.hash = hash3;
+    exports.hash = hash2;
     exports.hexColor = hexColor;
     exports.hexadecimal = hexadecimal;
     exports.imei = imei;
@@ -64838,7 +70595,7 @@ var require_dist4 = __commonJS({
     exports.nullableAsync = nullableAsync;
     exports.nullish = nullish2;
     exports.nullishAsync = nullishAsync;
-    exports.number = number5;
+    exports.number = number4;
     exports.object = object3;
     exports.objectAsync = objectAsync;
     exports.objectWithRest = objectWithRest;
@@ -66163,7 +71920,7 @@ var require_mod4 = __commonJS({
 });
 
 // node_modules/@nktkas/hyperliquid/script/utils/_format.js
-var require_format4 = __commonJS({
+var require_format6 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/utils/_format.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
@@ -66327,7 +72084,7 @@ var require_schemas = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Percent = exports.Cloid = exports.Address = exports.Hex = exports.UnsignedInteger = exports.Integer = exports.Decimal = exports.UnsignedDecimal = void 0;
     var v = __importStar2(require_dist4());
-    var _format_js_1 = require_format4();
+    var _format_js_1 = require_format6();
     exports.UnsignedDecimal = (() => {
       return v.pipe(
         v.union([v.string(), v.number()]),
@@ -66515,13 +72272,13 @@ function anumber(n, title = "") {
   }
 }
 function abytes(value, length, title = "") {
-  const bytes3 = isBytes(value);
+  const bytes2 = isBytes(value);
   const len = value?.length;
   const needsLen = length !== void 0;
-  if (!bytes3 || needsLen && len !== length) {
+  if (!bytes2 || needsLen && len !== length) {
     const prefix = title && `"${title}" `;
     const ofLen = needsLen ? ` of length ${length}` : "";
-    const got = bytes3 ? `length=${len}` : `type=${typeof value}`;
+    const got = bytes2 ? `length=${len}` : `type=${typeof value}`;
     throw new Error(prefix + "expected Uint8Array" + ofLen + ", got " + got);
   }
   return value;
@@ -66574,13 +72331,13 @@ function byteSwap32(arr) {
   }
   return arr;
 }
-function bytesToHex(bytes3) {
-  abytes(bytes3);
+function bytesToHex(bytes2) {
+  abytes(bytes2);
   if (hasHexBuiltin)
-    return bytes3.toHex();
+    return bytes2.toHex();
   let hex = "";
-  for (let i = 0; i < bytes3.length; i++) {
-    hex += hexes[bytes3[i]];
+  for (let i = 0; i < bytes2.length; i++) {
+    hex += hexes[bytes2[i]];
   }
   return hex;
 }
@@ -66863,9 +72620,9 @@ var init_sha3 = __esm({
           throw new Error("XOF is not possible for this instance");
         return this.writeInto(out);
       }
-      xof(bytes3) {
-        anumber(bytes3);
-        return this.xofInto(new Uint8Array(bytes3));
+      xof(bytes2) {
+        anumber(bytes2);
+        return this.xofInto(new Uint8Array(bytes2));
       }
       digestInto(out) {
         aoutput(out, this);
@@ -66946,13 +72703,13 @@ var require_concat = __commonJS({
       for (const buffer of buffers) {
         length += buffer.length;
       }
-      const output3 = new Uint8Array(length);
+      const output2 = new Uint8Array(length);
       let index = 0;
       for (const buffer of buffers) {
-        output3.set(buffer, index);
+        output2.set(buffer, index);
         index += buffer.length;
       }
-      return output3;
+      return output2;
     }
   }
 });
@@ -67315,14 +73072,14 @@ var require_mod5 = __commonJS({
       const vaultBytes = vaultAddress ? (0, utils_js_1.hexToBytes)(vaultAddress.slice(2)) : new Uint8Array();
       const expiresMarker = expiresAfter !== void 0 ? new Uint8Array([0]) : new Uint8Array();
       const expiresBytes = expiresAfter !== void 0 ? toUint64Bytes(expiresAfter) : new Uint8Array();
-      const bytes3 = (0, utils_js_1.concatBytes)(actionBytes, nonceBytes, vaultMarker, vaultBytes, expiresMarker, expiresBytes);
-      const hash3 = (0, sha3_js_1.keccak_256)(bytes3);
-      return `0x${(0, utils_js_1.bytesToHex)(hash3)}`;
+      const bytes2 = (0, utils_js_1.concatBytes)(actionBytes, nonceBytes, vaultMarker, vaultBytes, expiresMarker, expiresBytes);
+      const hash2 = (0, sha3_js_1.keccak_256)(bytes2);
+      return `0x${(0, utils_js_1.bytesToHex)(hash2)}`;
     }
     function toUint64Bytes(n) {
-      const bytes3 = new Uint8Array(8);
-      new DataView(bytes3.buffer).setBigUint64(0, BigInt(n));
-      return bytes3;
+      const bytes2 = new Uint8Array(8);
+      new DataView(bytes2.buffer).setBigUint64(0, BigInt(n));
+      return bytes2;
     }
     function largeIntToBigInt(obj) {
       if (typeof obj === "number" && Number.isInteger(obj) && (obj >= 4294967296 || obj < -2147483648)) {
@@ -67664,7 +73421,7 @@ var require_semaphore = __commonJS({
 });
 
 // node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/_base/errors.js
-var require_errors4 = __commonJS({
+var require_errors5 = __commonJS({
   "node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/_base/errors.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
@@ -67782,7 +73539,7 @@ var require_execute = __commonJS({
     var _schemas_js_1 = require_schemas();
     var _nonce_js_1 = require_nonce();
     var _semaphore_js_1 = require_semaphore();
-    var errors_js_1 = require_errors4();
+    var errors_js_1 = require_errors5();
     async function executeL1Action(config2, action, options) {
       const { transport: transport2 } = config2;
       const leader = getLeader(config2);
@@ -74428,7 +80185,7 @@ var require_client2 = __commonJS({
       }
     };
     exports.ExchangeClient = ExchangeClient;
-    var errors_js_1 = require_errors4();
+    var errors_js_1 = require_errors5();
     Object.defineProperty(exports, "ApiRequestError", { enumerable: true, get: function() {
       return errors_js_1.ApiRequestError;
     } });
@@ -84281,17 +90038,17 @@ var require_utils6 = __commonJS({
     exports.u8 = u82;
     exports.u32 = u323;
     exports.clean = clean2;
-    exports.createView = createView4;
-    exports.rotr = rotr4;
+    exports.createView = createView3;
+    exports.rotr = rotr3;
     exports.rotl = rotl4;
     exports.byteSwap = byteSwap2;
     exports.byteSwap32 = byteSwap322;
     exports.bytesToHex = bytesToHex3;
     exports.hexToBytes = hexToBytes3;
     exports.asyncLoop = asyncLoop3;
-    exports.utf8ToBytes = utf8ToBytes5;
+    exports.utf8ToBytes = utf8ToBytes4;
     exports.bytesToUtf8 = bytesToUtf8;
-    exports.toBytes = toBytes3;
+    exports.toBytes = toBytes2;
     exports.kdfInputToBytes = kdfInputToBytes2;
     exports.concatBytes = concatBytes4;
     exports.checkOpts = checkOpts3;
@@ -84343,10 +90100,10 @@ var require_utils6 = __commonJS({
         arrays[i].fill(0);
       }
     }
-    function createView4(arr) {
+    function createView3(arr) {
       return new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
     }
-    function rotr4(word, shift) {
+    function rotr3(word, shift) {
       return word << 32 - shift | word >>> shift;
     }
     function rotl4(word, shift) {
@@ -84370,13 +90127,13 @@ var require_utils6 = __commonJS({
       typeof Uint8Array.from([]).toHex === "function" && typeof Uint8Array.fromHex === "function"
     ))();
     var hexes3 = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0"));
-    function bytesToHex3(bytes3) {
-      abytes2(bytes3);
+    function bytesToHex3(bytes2) {
+      abytes2(bytes2);
       if (hasHexBuiltin2)
-        return bytes3.toHex();
+        return bytes2.toHex();
       let hex = "";
-      for (let i = 0; i < bytes3.length; i++) {
-        hex += hexes3[bytes3[i]];
+      for (let i = 0; i < bytes2.length; i++) {
+        hex += hexes3[bytes2[i]];
       }
       return hex;
     }
@@ -84425,23 +90182,23 @@ var require_utils6 = __commonJS({
         ts += diff;
       }
     }
-    function utf8ToBytes5(str) {
+    function utf8ToBytes4(str) {
       if (typeof str !== "string")
         throw new Error("string expected");
       return new Uint8Array(new TextEncoder().encode(str));
     }
-    function bytesToUtf8(bytes3) {
-      return new TextDecoder().decode(bytes3);
+    function bytesToUtf8(bytes2) {
+      return new TextDecoder().decode(bytes2);
     }
-    function toBytes3(data) {
+    function toBytes2(data) {
       if (typeof data === "string")
-        data = utf8ToBytes5(data);
+        data = utf8ToBytes4(data);
       abytes2(data);
       return data;
     }
     function kdfInputToBytes2(data) {
       if (typeof data === "string")
-        data = utf8ToBytes5(data);
+        data = utf8ToBytes4(data);
       abytes2(data);
       return data;
     }
@@ -84466,11 +90223,11 @@ var require_utils6 = __commonJS({
       const merged = Object.assign(defaults, opts);
       return merged;
     }
-    var Hash3 = class {
+    var Hash2 = class {
     };
-    exports.Hash = Hash3;
+    exports.Hash = Hash2;
     function createHasher2(hashCons) {
-      const hashC = (msg) => hashCons().update(toBytes3(msg)).digest();
+      const hashC = (msg) => hashCons().update(toBytes2(msg)).digest();
       const tmp = hashCons();
       hashC.outputLen = tmp.outputLen;
       hashC.blockLen = tmp.blockLen;
@@ -84478,7 +90235,7 @@ var require_utils6 = __commonJS({
       return hashC;
     }
     function createOptHasher(hashCons) {
-      const hashC = (msg, opts) => hashCons(opts).update(toBytes3(msg)).digest();
+      const hashC = (msg, opts) => hashCons(opts).update(toBytes2(msg)).digest();
       const tmp = hashCons({});
       hashC.outputLen = tmp.outputLen;
       hashC.blockLen = tmp.blockLen;
@@ -84486,7 +90243,7 @@ var require_utils6 = __commonJS({
       return hashC;
     }
     function createXOFer(hashCons) {
-      const hashC = (msg, opts) => hashCons(opts).update(toBytes3(msg)).digest();
+      const hashC = (msg, opts) => hashCons(opts).update(toBytes2(msg)).digest();
       const tmp = hashCons({});
       hashC.outputLen = tmp.outputLen;
       hashC.blockLen = tmp.blockLen;
@@ -84582,13 +90339,13 @@ var require_utils7 = __commonJS({
       return value;
     }
     function _abytes2(value, length, title = "") {
-      const bytes3 = (0, utils_js_1.isBytes)(value);
+      const bytes2 = (0, utils_js_1.isBytes)(value);
       const len = value?.length;
       const needsLen = length !== void 0;
-      if (!bytes3 || needsLen && len !== length) {
+      if (!bytes2 || needsLen && len !== length) {
         const prefix = title && `"${title}" `;
         const ofLen = needsLen ? ` of length ${length}` : "";
-        const got = bytes3 ? `length=${len}` : `type=${typeof value}`;
+        const got = bytes2 ? `length=${len}` : `type=${typeof value}`;
         throw new Error(prefix + "expected Uint8Array" + ofLen + ", got " + got);
       }
       return value;
@@ -84602,12 +90359,12 @@ var require_utils7 = __commonJS({
         throw new Error("hex string expected, got " + typeof hex);
       return hex === "" ? _0n8 : BigInt("0x" + hex);
     }
-    function bytesToNumberBE2(bytes3) {
-      return hexToNumber2((0, utils_js_1.bytesToHex)(bytes3));
+    function bytesToNumberBE2(bytes2) {
+      return hexToNumber2((0, utils_js_1.bytesToHex)(bytes2));
     }
-    function bytesToNumberLE2(bytes3) {
-      (0, utils_js_1.abytes)(bytes3);
-      return hexToNumber2((0, utils_js_1.bytesToHex)(Uint8Array.from(bytes3).reverse()));
+    function bytesToNumberLE2(bytes2) {
+      (0, utils_js_1.abytes)(bytes2);
+      return hexToNumber2((0, utils_js_1.bytesToHex)(Uint8Array.from(bytes2).reverse()));
     }
     function numberToBytesBE2(n, len) {
       return (0, utils_js_1.hexToBytes)(n.toString(16).padStart(len * 2, "0"));
@@ -84644,8 +90401,8 @@ var require_utils7 = __commonJS({
         diff |= a[i] ^ b[i];
       return diff === 0;
     }
-    function copyBytes(bytes3) {
-      return Uint8Array.from(bytes3);
+    function copyBytes(bytes2) {
+      return Uint8Array.from(bytes2);
     }
     function asciiToBytes(ascii) {
       return Uint8Array.from(ascii, (c, i) => {
@@ -84845,12 +90602,12 @@ var require_modular2 = __commonJS({
       }
       return res;
     }
-    function invert2(number5, modulo) {
-      if (number5 === _0n8)
+    function invert2(number4, modulo) {
+      if (number4 === _0n8)
         throw new Error("invert: expected non-zero number");
       if (modulo <= _0n8)
         throw new Error("invert: expected positive modulus, got " + modulo);
-      let a = mod2(number5, modulo);
+      let a = mod2(number4, modulo);
       let b = modulo;
       let x = _0n8, y = _1n8, u = _1n8, v = _0n8;
       while (a !== _0n8) {
@@ -85058,7 +90815,7 @@ var require_modular2 = __commonJS({
       const nByteLength = Math.ceil(_nBitLength / 8);
       return { nBitLength: _nBitLength, nByteLength };
     }
-    function Field2(ORDER, bitLenOrOpts, isLE4 = false, opts = {}) {
+    function Field2(ORDER, bitLenOrOpts, isLE3 = false, opts = {}) {
       if (ORDER <= _0n8)
         throw new Error("invalid field: expected ORDER > 0, got " + ORDER);
       let _nbitLength = void 0;
@@ -85066,7 +90823,7 @@ var require_modular2 = __commonJS({
       let modFromBytes = false;
       let allowedLengths = void 0;
       if (typeof bitLenOrOpts === "object" && bitLenOrOpts != null) {
-        if (opts.sqrt || isLE4)
+        if (opts.sqrt || isLE3)
           throw new Error("cannot specify opts in two arguments");
         const _opts = bitLenOrOpts;
         if (_opts.BITS)
@@ -85074,7 +90831,7 @@ var require_modular2 = __commonJS({
         if (_opts.sqrt)
           _sqrt = _opts.sqrt;
         if (typeof _opts.isLE === "boolean")
-          isLE4 = _opts.isLE;
+          isLE3 = _opts.isLE;
         if (typeof _opts.modFromBytes === "boolean")
           modFromBytes = _opts.modFromBytes;
         allowedLengths = _opts.allowedLengths;
@@ -85090,7 +90847,7 @@ var require_modular2 = __commonJS({
       let sqrtP;
       const f2 = Object.freeze({
         ORDER,
-        isLE: isLE4,
+        isLE: isLE3,
         BITS,
         BYTES,
         MASK: (0, utils_ts_1.bitMask)(BITS),
@@ -85126,19 +90883,19 @@ var require_modular2 = __commonJS({
             sqrtP = FpSqrt2(ORDER);
           return sqrtP(f2, n);
         }),
-        toBytes: (num) => isLE4 ? (0, utils_ts_1.numberToBytesLE)(num, BYTES) : (0, utils_ts_1.numberToBytesBE)(num, BYTES),
-        fromBytes: (bytes3, skipValidation = true) => {
+        toBytes: (num) => isLE3 ? (0, utils_ts_1.numberToBytesLE)(num, BYTES) : (0, utils_ts_1.numberToBytesBE)(num, BYTES),
+        fromBytes: (bytes2, skipValidation = true) => {
           if (allowedLengths) {
-            if (!allowedLengths.includes(bytes3.length) || bytes3.length > BYTES) {
-              throw new Error("Field.fromBytes: expected " + allowedLengths + " bytes, got " + bytes3.length);
+            if (!allowedLengths.includes(bytes2.length) || bytes2.length > BYTES) {
+              throw new Error("Field.fromBytes: expected " + allowedLengths + " bytes, got " + bytes2.length);
             }
             const padded = new Uint8Array(BYTES);
-            padded.set(bytes3, isLE4 ? 0 : padded.length - bytes3.length);
-            bytes3 = padded;
+            padded.set(bytes2, isLE3 ? 0 : padded.length - bytes2.length);
+            bytes2 = padded;
           }
-          if (bytes3.length !== BYTES)
-            throw new Error("Field.fromBytes: expected " + BYTES + " bytes, got " + bytes3.length);
-          let scalar = isLE4 ? (0, utils_ts_1.bytesToNumberLE)(bytes3) : (0, utils_ts_1.bytesToNumberBE)(bytes3);
+          if (bytes2.length !== BYTES)
+            throw new Error("Field.fromBytes: expected " + BYTES + " bytes, got " + bytes2.length);
+          let scalar = isLE3 ? (0, utils_ts_1.bytesToNumberLE)(bytes2) : (0, utils_ts_1.bytesToNumberBE)(bytes2);
           if (modFromBytes)
             scalar = mod2(scalar, ORDER);
           if (!skipValidation) {
@@ -85167,13 +90924,13 @@ var require_modular2 = __commonJS({
       const root = Fp2.sqrt(elm);
       return Fp2.isOdd(root) ? Fp2.neg(root) : root;
     }
-    function hashToPrivateScalar(hash3, groupOrder, isLE4 = false) {
-      hash3 = (0, utils_ts_1.ensureBytes)("privateHash", hash3);
-      const hashLen = hash3.length;
+    function hashToPrivateScalar(hash2, groupOrder, isLE3 = false) {
+      hash2 = (0, utils_ts_1.ensureBytes)("privateHash", hash2);
+      const hashLen = hash2.length;
       const minLen = nLength2(groupOrder).nByteLength + 8;
       if (minLen < 24 || hashLen < minLen || hashLen > 1024)
         throw new Error("hashToPrivateScalar: expected " + minLen + "-1024 bytes of input, got " + hashLen);
-      const num = isLE4 ? (0, utils_ts_1.bytesToNumberLE)(hash3) : (0, utils_ts_1.bytesToNumberBE)(hash3);
+      const num = isLE3 ? (0, utils_ts_1.bytesToNumberLE)(hash2) : (0, utils_ts_1.bytesToNumberBE)(hash2);
       return mod2(num, groupOrder - _1n8) + _1n8;
     }
     function getFieldBytesLength2(fieldOrder) {
@@ -85186,15 +90943,15 @@ var require_modular2 = __commonJS({
       const length = getFieldBytesLength2(fieldOrder);
       return length + Math.ceil(length / 2);
     }
-    function mapHashToField2(key, fieldOrder, isLE4 = false) {
+    function mapHashToField2(key, fieldOrder, isLE3 = false) {
       const len = key.length;
       const fieldLen = getFieldBytesLength2(fieldOrder);
       const minLen = getMinHashLength2(fieldOrder);
       if (len < 16 || len < minLen || len > 1024)
         throw new Error("expected " + minLen + "-1024 bytes of input, got " + len);
-      const num = isLE4 ? (0, utils_ts_1.bytesToNumberLE)(key) : (0, utils_ts_1.bytesToNumberBE)(key);
+      const num = isLE3 ? (0, utils_ts_1.bytesToNumberLE)(key) : (0, utils_ts_1.bytesToNumberBE)(key);
       const reduced = mod2(num, fieldOrder - _1n8) + _1n8;
-      return isLE4 ? (0, utils_ts_1.numberToBytesLE)(reduced, fieldLen) : (0, utils_ts_1.numberToBytesBE)(reduced, fieldLen);
+      return isLE3 ? (0, utils_ts_1.numberToBytesLE)(reduced, fieldLen) : (0, utils_ts_1.numberToBytesBE)(reduced, fieldLen);
     }
   }
 });
@@ -85206,30 +90963,30 @@ var require_md = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.SHA512_IV = exports.SHA384_IV = exports.SHA224_IV = exports.SHA256_IV = exports.HashMD = void 0;
-    exports.setBigUint64 = setBigUint643;
-    exports.Chi = Chi3;
-    exports.Maj = Maj3;
+    exports.setBigUint64 = setBigUint642;
+    exports.Chi = Chi2;
+    exports.Maj = Maj2;
     var utils_ts_1 = require_utils6();
-    function setBigUint643(view, byteOffset, value, isLE4) {
+    function setBigUint642(view, byteOffset, value, isLE3) {
       if (typeof view.setBigUint64 === "function")
-        return view.setBigUint64(byteOffset, value, isLE4);
+        return view.setBigUint64(byteOffset, value, isLE3);
       const _32n3 = BigInt(32);
       const _u32_max = BigInt(4294967295);
       const wh = Number(value >> _32n3 & _u32_max);
       const wl = Number(value & _u32_max);
-      const h = isLE4 ? 4 : 0;
-      const l = isLE4 ? 0 : 4;
-      view.setUint32(byteOffset + h, wh, isLE4);
-      view.setUint32(byteOffset + l, wl, isLE4);
+      const h = isLE3 ? 4 : 0;
+      const l = isLE3 ? 0 : 4;
+      view.setUint32(byteOffset + h, wh, isLE3);
+      view.setUint32(byteOffset + l, wl, isLE3);
     }
-    function Chi3(a, b, c) {
+    function Chi2(a, b, c) {
       return a & b ^ ~a & c;
     }
-    function Maj3(a, b, c) {
+    function Maj2(a, b, c) {
       return a & b ^ a & c ^ b & c;
     }
     var HashMD = class extends utils_ts_1.Hash {
-      constructor(blockLen, outputLen, padOffset, isLE4) {
+      constructor(blockLen, outputLen, padOffset, isLE3) {
         super();
         this.finished = false;
         this.length = 0;
@@ -85238,7 +90995,7 @@ var require_md = __commonJS({
         this.blockLen = blockLen;
         this.outputLen = outputLen;
         this.padOffset = padOffset;
-        this.isLE = isLE4;
+        this.isLE = isLE3;
         this.buffer = new Uint8Array(blockLen);
         this.view = (0, utils_ts_1.createView)(this.buffer);
       }
@@ -85272,7 +91029,7 @@ var require_md = __commonJS({
         (0, utils_ts_1.aexists)(this);
         (0, utils_ts_1.aoutput)(out, this);
         this.finished = true;
-        const { buffer, view, blockLen, isLE: isLE4 } = this;
+        const { buffer, view, blockLen, isLE: isLE3 } = this;
         let { pos } = this;
         buffer[pos++] = 128;
         (0, utils_ts_1.clean)(this.buffer.subarray(pos));
@@ -85282,7 +91039,7 @@ var require_md = __commonJS({
         }
         for (let i = pos; i < blockLen; i++)
           buffer[i] = 0;
-        setBigUint643(view, blockLen - 8, BigInt(this.length * 8), isLE4);
+        setBigUint642(view, blockLen - 8, BigInt(this.length * 8), isLE3);
         this.process(view, 0);
         const oview = (0, utils_ts_1.createView)(out);
         const len = this.outputLen;
@@ -85293,7 +91050,7 @@ var require_md = __commonJS({
         if (outLen > state.length)
           throw new Error("_sha2: outputLen bigger than state");
         for (let i = 0; i < outLen; i++)
-          oview.setUint32(4 * i, state[i], isLE4);
+          oview.setUint32(4 * i, state[i], isLE3);
       }
       digest() {
         const { buffer, outputLen } = this;
@@ -85485,7 +91242,7 @@ var require_sha23 = __commonJS({
     var _md_ts_1 = require_md();
     var u64 = require_u642();
     var utils_ts_1 = require_utils6();
-    var SHA256_K3 = /* @__PURE__ */ Uint32Array.from([
+    var SHA256_K2 = /* @__PURE__ */ Uint32Array.from([
       1116352408,
       1899447441,
       3049323471,
@@ -85551,8 +91308,8 @@ var require_sha23 = __commonJS({
       3204031479,
       3329325298
     ]);
-    var SHA256_W3 = /* @__PURE__ */ new Uint32Array(64);
-    var SHA2563 = class extends _md_ts_1.HashMD {
+    var SHA256_W2 = /* @__PURE__ */ new Uint32Array(64);
+    var SHA2562 = class extends _md_ts_1.HashMD {
       constructor(outputLen = 32) {
         super(64, outputLen, 8, false);
         this.A = _md_ts_1.SHA256_IV[0] | 0;
@@ -85581,18 +91338,18 @@ var require_sha23 = __commonJS({
       }
       process(view, offset) {
         for (let i = 0; i < 16; i++, offset += 4)
-          SHA256_W3[i] = view.getUint32(offset, false);
+          SHA256_W2[i] = view.getUint32(offset, false);
         for (let i = 16; i < 64; i++) {
-          const W15 = SHA256_W3[i - 15];
-          const W2 = SHA256_W3[i - 2];
+          const W15 = SHA256_W2[i - 15];
+          const W2 = SHA256_W2[i - 2];
           const s0 = (0, utils_ts_1.rotr)(W15, 7) ^ (0, utils_ts_1.rotr)(W15, 18) ^ W15 >>> 3;
           const s1 = (0, utils_ts_1.rotr)(W2, 17) ^ (0, utils_ts_1.rotr)(W2, 19) ^ W2 >>> 10;
-          SHA256_W3[i] = s1 + SHA256_W3[i - 7] + s0 + SHA256_W3[i - 16] | 0;
+          SHA256_W2[i] = s1 + SHA256_W2[i - 7] + s0 + SHA256_W2[i - 16] | 0;
         }
         let { A, B, C, D, E, F, G, H } = this;
         for (let i = 0; i < 64; i++) {
           const sigma1 = (0, utils_ts_1.rotr)(E, 6) ^ (0, utils_ts_1.rotr)(E, 11) ^ (0, utils_ts_1.rotr)(E, 25);
-          const T12 = H + sigma1 + (0, _md_ts_1.Chi)(E, F, G) + SHA256_K3[i] + SHA256_W3[i] | 0;
+          const T12 = H + sigma1 + (0, _md_ts_1.Chi)(E, F, G) + SHA256_K2[i] + SHA256_W2[i] | 0;
           const sigma0 = (0, utils_ts_1.rotr)(A, 2) ^ (0, utils_ts_1.rotr)(A, 13) ^ (0, utils_ts_1.rotr)(A, 22);
           const T22 = sigma0 + (0, _md_ts_1.Maj)(A, B, C) | 0;
           H = G;
@@ -85615,15 +91372,15 @@ var require_sha23 = __commonJS({
         this.set(A, B, C, D, E, F, G, H);
       }
       roundClean() {
-        (0, utils_ts_1.clean)(SHA256_W3);
+        (0, utils_ts_1.clean)(SHA256_W2);
       }
       destroy() {
         this.set(0, 0, 0, 0, 0, 0, 0, 0);
         (0, utils_ts_1.clean)(this.buffer);
       }
     };
-    exports.SHA256 = SHA2563;
-    var SHA224 = class extends SHA2563 {
+    exports.SHA256 = SHA2562;
+    var SHA224 = class extends SHA2562 {
       constructor() {
         super(28);
         this.A = _md_ts_1.SHA224_IV[0] | 0;
@@ -85937,7 +91694,7 @@ var require_sha23 = __commonJS({
       }
     };
     exports.SHA512_256 = SHA512_256;
-    exports.sha256 = (0, utils_ts_1.createHasher)(() => new SHA2563());
+    exports.sha256 = (0, utils_ts_1.createHasher)(() => new SHA2562());
     exports.sha224 = (0, utils_ts_1.createHasher)(() => new SHA224());
     exports.sha512 = (0, utils_ts_1.createHasher)(() => new SHA512());
     exports.sha384 = (0, utils_ts_1.createHasher)(() => new SHA384());
@@ -85954,25 +91711,25 @@ var require_hmac3 = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.hmac = exports.HMAC = void 0;
     var utils_ts_1 = require_utils6();
-    var HMAC3 = class extends utils_ts_1.Hash {
-      constructor(hash3, _key) {
+    var HMAC2 = class extends utils_ts_1.Hash {
+      constructor(hash2, _key) {
         super();
         this.finished = false;
         this.destroyed = false;
-        (0, utils_ts_1.ahash)(hash3);
+        (0, utils_ts_1.ahash)(hash2);
         const key = (0, utils_ts_1.toBytes)(_key);
-        this.iHash = hash3.create();
+        this.iHash = hash2.create();
         if (typeof this.iHash.update !== "function")
           throw new Error("Expected instance of class which extends utils.Hash");
         this.blockLen = this.iHash.blockLen;
         this.outputLen = this.iHash.outputLen;
         const blockLen = this.blockLen;
         const pad = new Uint8Array(blockLen);
-        pad.set(key.length > blockLen ? hash3.create().update(key).digest() : key);
+        pad.set(key.length > blockLen ? hash2.create().update(key).digest() : key);
         for (let i = 0; i < pad.length; i++)
           pad[i] ^= 54;
         this.iHash.update(pad);
-        this.oHash = hash3.create();
+        this.oHash = hash2.create();
         for (let i = 0; i < pad.length; i++)
           pad[i] ^= 54 ^ 92;
         this.oHash.update(pad);
@@ -86018,10 +91775,10 @@ var require_hmac3 = __commonJS({
         this.iHash.destroy();
       }
     };
-    exports.HMAC = HMAC3;
-    var hmac3 = (hash3, key, message) => new HMAC3(hash3, key).update(message).digest();
-    exports.hmac = hmac3;
-    exports.hmac.create = (hash3, key) => new HMAC3(hash3, key);
+    exports.HMAC = HMAC2;
+    var hmac2 = (hash2, key, message) => new HMAC2(hash2, key).update(message).digest();
+    exports.hmac = hmac2;
+    exports.hmac.create = (hash2, key) => new HMAC2(hash2, key);
   }
 });
 
@@ -86340,14 +92097,14 @@ var require_curve2 = __commonJS({
         ...{ p: curve.Fp.ORDER }
       });
     }
-    function createField(order, field, isLE4) {
+    function createField(order, field, isLE3) {
       if (field) {
         if (field.ORDER !== order)
           throw new Error("Field.ORDER must match order: Fp == p, Fn == n");
         (0, modular_ts_1.validateField)(field);
         return field;
       } else {
-        return (0, modular_ts_1.Field)(order, { isLE: isLE4 });
+        return (0, modular_ts_1.Field)(order, { isLE: isLE3 });
       }
     }
     function _createCurveFields(type, CURVE, curveOpts = {}, FpFnLE) {
@@ -86548,9 +92305,9 @@ var require_weierstrass2 = __commonJS({
       if (typeof key === "bigint") {
         num = key;
       } else {
-        let bytes3 = (0, utils_ts_1.ensureBytes)("private key", key);
+        let bytes2 = (0, utils_ts_1.ensureBytes)("private key", key);
         try {
-          num = Fn.fromBytes(bytes3);
+          num = Fn.fromBytes(bytes2);
         } catch (error2) {
           throw new Error(`invalid private key: expected ui8a of size ${expected}, got ${typeof key}`);
         }
@@ -86596,12 +92353,12 @@ var require_weierstrass2 = __commonJS({
           return (0, utils_ts_1.concatBytes)(Uint8Array.of(4), bx, Fp2.toBytes(y));
         }
       }
-      function pointFromBytes(bytes3) {
-        (0, utils_ts_1._abytes2)(bytes3, void 0, "Point");
+      function pointFromBytes(bytes2) {
+        (0, utils_ts_1._abytes2)(bytes2, void 0, "Point");
         const { publicKey: comp, publicKeyUncompressed: uncomp } = lengths;
-        const length = bytes3.length;
-        const head = bytes3[0];
-        const tail = bytes3.subarray(1);
+        const length = bytes2.length;
+        const head = bytes2[0];
+        const tail = bytes2.subarray(1);
         if (length === comp && (head === 2 || head === 3)) {
           const x = Fp2.fromBytes(tail);
           if (!Fp2.isValid(x))
@@ -86722,8 +92479,8 @@ var require_weierstrass2 = __commonJS({
             return Point2.ZERO;
           return new Point2(x, y, Fp2.ONE);
         }
-        static fromBytes(bytes3) {
-          const P = Point2.fromAffine(decodePoint((0, utils_ts_1._abytes2)(bytes3, void 0, "point")));
+        static fromBytes(bytes2) {
+          const P = Point2.fromAffine(decodePoint((0, utils_ts_1._abytes2)(bytes2, void 0, "point")));
           P.assertValidity();
           return P;
         }
@@ -87186,8 +92943,8 @@ var require_weierstrass2 = __commonJS({
       };
       return Object.freeze({ getPublicKey, getSharedSecret, keygen, Point: Point2, utils, lengths });
     }
-    function ecdsa(Point2, hash3, ecdsaOpts = {}) {
-      (0, utils_1.ahash)(hash3);
+    function ecdsa(Point2, hash2, ecdsaOpts = {}) {
+      (0, utils_1.ahash)(hash2);
       (0, utils_ts_1._validateObject)(ecdsaOpts, {}, {
         hmac: "function",
         lowS: "boolean",
@@ -87196,7 +92953,7 @@ var require_weierstrass2 = __commonJS({
         bits2int_modN: "function"
       });
       const randomBytes6 = ecdsaOpts.randomBytes || utils_ts_1.randomBytes;
-      const hmac3 = ecdsaOpts.hmac || ((key, ...msgs) => (0, hmac_js_1.hmac)(hash3, key, (0, utils_ts_1.concatBytes)(...msgs)));
+      const hmac2 = ecdsaOpts.hmac || ((key, ...msgs) => (0, hmac_js_1.hmac)(hash2, key, (0, utils_ts_1.concatBytes)(...msgs)));
       const { Fp: Fp2, Fn } = Point2;
       const { ORDER: CURVE_ORDER, BITS: fnBits } = Fn;
       const { keygen, getPublicKey, getSharedSecret, utils, lengths } = ecdh(Point2, ecdsaOpts);
@@ -87208,20 +92965,20 @@ var require_weierstrass2 = __commonJS({
         extraEntropy: false
       };
       const defaultSigOpts_format = "compact";
-      function isBiggerThanHalfOrder(number5) {
+      function isBiggerThanHalfOrder(number4) {
         const HALF = CURVE_ORDER >> _1n8;
-        return number5 > HALF;
+        return number4 > HALF;
       }
       function validateRS(title, num) {
         if (!Fn.isValidNot0(num))
           throw new Error(`invalid signature ${title}: out of range 1..Point.Fn.ORDER`);
         return num;
       }
-      function validateSigLength(bytes3, format) {
+      function validateSigLength(bytes2, format) {
         validateSigFormat(format);
         const size = lengths.signature;
         const sizer = format === "compact" ? size : format === "recovered" ? size + 1 : void 0;
-        return (0, utils_ts_1._abytes2)(bytes3, sizer, `${format} signature`);
+        return (0, utils_ts_1._abytes2)(bytes2, sizer, `${format} signature`);
       }
       class Signature2 {
         constructor(r, s, recovery) {
@@ -87231,21 +92988,21 @@ var require_weierstrass2 = __commonJS({
             this.recovery = recovery;
           Object.freeze(this);
         }
-        static fromBytes(bytes3, format = defaultSigOpts_format) {
-          validateSigLength(bytes3, format);
+        static fromBytes(bytes2, format = defaultSigOpts_format) {
+          validateSigLength(bytes2, format);
           let recid;
           if (format === "der") {
-            const { r: r2, s: s2 } = exports.DER.toSig((0, utils_ts_1._abytes2)(bytes3));
+            const { r: r2, s: s2 } = exports.DER.toSig((0, utils_ts_1._abytes2)(bytes2));
             return new Signature2(r2, s2);
           }
           if (format === "recovered") {
-            recid = bytes3[0];
+            recid = bytes2[0];
             format = "compact";
-            bytes3 = bytes3.subarray(1);
+            bytes2 = bytes2.subarray(1);
           }
           const L = Fn.BYTES;
-          const r = bytes3.subarray(0, L);
-          const s = bytes3.subarray(L, L * 2);
+          const r = bytes2.subarray(0, L);
+          const s = bytes2.subarray(L, L * 2);
           return new Signature2(Fn.fromBytes(r), Fn.fromBytes(s), recid);
         }
         static fromHex(hex, format) {
@@ -87322,15 +93079,15 @@ var require_weierstrass2 = __commonJS({
           return (0, utils_ts_1.bytesToHex)(this.toBytes("compact"));
         }
       }
-      const bits2int = ecdsaOpts.bits2int || function bits2int_def(bytes3) {
-        if (bytes3.length > 8192)
+      const bits2int = ecdsaOpts.bits2int || function bits2int_def(bytes2) {
+        if (bytes2.length > 8192)
           throw new Error("input is too large");
-        const num = (0, utils_ts_1.bytesToNumberBE)(bytes3);
-        const delta = bytes3.length * 8 - fnBits;
+        const num = (0, utils_ts_1.bytesToNumberBE)(bytes2);
+        const delta = bytes2.length * 8 - fnBits;
         return delta > 0 ? num >> BigInt(delta) : num;
       };
-      const bits2int_modN = ecdsaOpts.bits2int_modN || function bits2int_modN_def(bytes3) {
-        return Fn.create(bits2int(bytes3));
+      const bits2int_modN = ecdsaOpts.bits2int_modN || function bits2int_modN_def(bytes2) {
+        return Fn.create(bits2int(bytes2));
       };
       const ORDER_MASK = (0, utils_ts_1.bitMask)(fnBits);
       function int2octets(num) {
@@ -87339,7 +93096,7 @@ var require_weierstrass2 = __commonJS({
       }
       function validateMsgAndHash(message, prehash) {
         (0, utils_ts_1._abytes2)(message, void 0, "message");
-        return prehash ? (0, utils_ts_1._abytes2)(hash3(message), void 0, "prehashed message") : message;
+        return prehash ? (0, utils_ts_1._abytes2)(hash2(message), void 0, "prehashed message") : message;
       }
       function prepSig(message, privateKey, opts) {
         if (["recovered", "canonical"].some((k) => k in opts))
@@ -87380,7 +93137,7 @@ var require_weierstrass2 = __commonJS({
       function sign(message, secretKey, opts = {}) {
         message = (0, utils_ts_1.ensureBytes)("message", message);
         const { seed, k2sig } = prepSig(message, secretKey, opts);
-        const drbg = (0, utils_ts_1.createHmacDrbg)(hash3.outputLen, Fn.BYTES, hmac3);
+        const drbg = (0, utils_ts_1.createHmacDrbg)(hash2.outputLen, Fn.BYTES, hmac2);
         const sig = drbg(seed, k2sig);
         return sig;
       }
@@ -87454,7 +93211,7 @@ var require_weierstrass2 = __commonJS({
         verify,
         recoverPublicKey,
         Signature: Signature2,
-        hash: hash3
+        hash: hash2
       });
     }
     function weierstrassPoints2(c) {
@@ -87533,9 +93290,9 @@ var require_weierstrass2 = __commonJS({
       });
     }
     function weierstrass2(c) {
-      const { CURVE, curveOpts, hash: hash3, ecdsaOpts } = _ecdsa_legacy_opts_to_new(c);
+      const { CURVE, curveOpts, hash: hash2, ecdsaOpts } = _ecdsa_legacy_opts_to_new(c);
       const Point2 = weierstrassN(CURVE, curveOpts);
-      const signs = ecdsa(Point2, hash3, ecdsaOpts);
+      const signs = ecdsa(Point2, hash2, ecdsaOpts);
       return _ecdsa_new_output_to_legacy(c, signs);
     }
   }
@@ -87550,11 +93307,11 @@ var require_shortw_utils2 = __commonJS({
     exports.getHash = getHash2;
     exports.createCurve = createCurve2;
     var weierstrass_ts_1 = require_weierstrass2();
-    function getHash2(hash3) {
-      return { hash: hash3 };
+    function getHash2(hash2) {
+      return { hash: hash2 };
     }
     function createCurve2(curveDef, defHash) {
-      const create = (hash3) => (0, weierstrass_ts_1.weierstrass)({ ...curveDef, hash: hash3 });
+      const create = (hash2) => (0, weierstrass_ts_1.weierstrass)({ ...curveDef, hash: hash2 });
       return { ...create(defHash), create };
     }
   }
@@ -87645,7 +93402,7 @@ var require_hash_to_curve2 = __commonJS({
         k: "number",
         hash: "function"
       });
-      const { p, k, m, hash: hash3, expand, DST } = options;
+      const { p, k, m, hash: hash2, expand, DST } = options;
       if (!(0, utils_ts_1.isHash)(options.hash))
         throw new Error("expected valid hash");
       (0, utils_ts_1.abytes)(msg);
@@ -87655,9 +93412,9 @@ var require_hash_to_curve2 = __commonJS({
       const len_in_bytes = count * m * L;
       let prb;
       if (expand === "xmd") {
-        prb = expand_message_xmd(msg, DST, len_in_bytes, hash3);
+        prb = expand_message_xmd(msg, DST, len_in_bytes, hash2);
       } else if (expand === "xof") {
-        prb = expand_message_xof(msg, DST, len_in_bytes, k, hash3);
+        prb = expand_message_xof(msg, DST, len_in_bytes, k, hash2);
       } else if (expand === "_internal_pass") {
         prb = msg;
       } else {
@@ -88463,10 +94220,10 @@ var require_lib3 = __commonJS({
       anumber2(num);
       const _256 = 2 ** 8;
       return {
-        encode: (bytes3) => {
-          if (!isBytes2(bytes3))
+        encode: (bytes2) => {
+          if (!isBytes2(bytes2))
             throw new Error("radix.encode input should be Uint8Array");
-          return convertRadix(Array.from(bytes3), _256, num);
+          return convertRadix(Array.from(bytes2), _256, num);
         },
         decode: (digits) => {
           anumArr("radix.decode", digits);
@@ -88482,10 +94239,10 @@ var require_lib3 = __commonJS({
       if (/* @__PURE__ */ radix2carry(8, bits) > 32 || /* @__PURE__ */ radix2carry(bits, 8) > 32)
         throw new Error("radix2: carry overflow");
       return {
-        encode: (bytes3) => {
-          if (!isBytes2(bytes3))
+        encode: (bytes2) => {
+          if (!isBytes2(bytes2))
             throw new Error("radix2.encode input should be Uint8Array");
-          return convertRadix2(Array.from(bytes3), 8, bits, !revPadding);
+          return convertRadix2(Array.from(bytes2), 8, bits, !revPadding);
         },
         decode: (digits) => {
           anumArr("radix2.decode", digits);
@@ -88603,7 +94360,7 @@ var require_lib3 = __commonJS({
         return Uint8Array.from(res);
       }
     };
-    var createBase58check = (sha2564) => /* @__PURE__ */ chain(checksum2(4, (data) => sha2564(sha2564(data))), exports.base58);
+    var createBase58check = (sha2563) => /* @__PURE__ */ chain(checksum2(4, (data) => sha2563(sha2563(data))), exports.base58);
     exports.createBase58check = createBase58check;
     exports.base58check = exports.createBase58check;
     var BECH_ALPHABET = /* @__PURE__ */ chain(/* @__PURE__ */ alphabet("qpzry9x8gf2tvdw0s3jn54khce6mua7l"), /* @__PURE__ */ join3(""));
@@ -88684,8 +94441,8 @@ var require_lib3 = __commonJS({
         const { prefix, words: words2 } = decode2(str, false);
         return { prefix, words: words2, bytes: fromWords(words2) };
       }
-      function encodeFromBytes(prefix, bytes3) {
-        return encode(prefix, toWords(bytes3));
+      function encodeFromBytes(prefix, bytes2) {
+        return encode(prefix, toWords(bytes2));
       }
       return {
         encode,
@@ -88731,12 +94488,12 @@ var require_lib3 = __commonJS({
       base58xmr: exports.base58xmr
     };
     var coderTypeError = "Invalid encoding type. Available types: utf8, hex, base16, base32, base64, base64url, base58, base58xmr";
-    var bytesToString = (type, bytes3) => {
+    var bytesToString = (type, bytes2) => {
       if (typeof type !== "string" || !CODERS.hasOwnProperty(type))
         throw new TypeError(coderTypeError);
-      if (!isBytes2(bytes3))
+      if (!isBytes2(bytes2))
         throw new TypeError("bytesToString() expects Uint8Array");
-      return CODERS[type].encode(bytes3);
+      return CODERS[type].encode(bytes2);
     };
     exports.bytesToString = bytesToString;
     exports.str = exports.bytesToString;
@@ -88768,9 +94525,9 @@ var require_lib4 = __commonJS({
     var base_1 = require_lib3();
     var Point2 = secp256k1_1.secp256k1.ProjectivePoint;
     var base58check = (0, base_1.createBase58check)(sha2_1.sha256);
-    function bytesToNumber(bytes3) {
-      (0, utils_1.abytes)(bytes3);
-      const h = bytes3.length === 0 ? "0" : (0, utils_1.bytesToHex)(bytes3);
+    function bytesToNumber(bytes2) {
+      (0, utils_1.abytes)(bytes2);
+      const h = bytes2.length === 0 ? "0" : (0, utils_1.bytesToHex)(bytes2);
       return BigInt("0x" + h);
     }
     function numberToBytes(num) {
@@ -88966,15 +94723,15 @@ var require_lib4 = __commonJS({
           return this.deriveChild(index + 1);
         }
       }
-      sign(hash3) {
+      sign(hash2) {
         if (!this.privateKey) {
           throw new Error("No privateKey set!");
         }
-        (0, utils_1.abytes)(hash3, 32);
-        return secp256k1_1.secp256k1.sign(hash3, this.privKey).toCompactRawBytes();
+        (0, utils_1.abytes)(hash2, 32);
+        return secp256k1_1.secp256k1.sign(hash2, this.privKey).toCompactRawBytes();
       }
-      verify(hash3, signature) {
-        (0, utils_1.abytes)(hash3, 32);
+      verify(hash2, signature) {
+        (0, utils_1.abytes)(hash2, 32);
         (0, utils_1.abytes)(signature, 64);
         if (!this.publicKey) {
           throw new Error("No publicKey set!");
@@ -88985,7 +94742,7 @@ var require_lib4 = __commonJS({
         } catch (error2) {
           return false;
         }
-        return secp256k1_1.secp256k1.verify(sig, hash3, this.publicKey);
+        return secp256k1_1.secp256k1.verify(sig, hash2, this.publicKey);
       }
       wipePrivateData() {
         this.privKey = void 0;
@@ -89137,8 +94894,8 @@ var require_encoding = __commonJS({
     };
     exports.IntegerOutOfRangeError = IntegerOutOfRangeError;
     var InvalidBytesBooleanError = class extends base_js_1.BaseError {
-      constructor(bytes3) {
-        super(`Bytes value "${bytes3}" is not a valid boolean. The bytes array must contain a single byte of either a 0 or 1 value.`, {
+      constructor(bytes2) {
+        super(`Bytes value "${bytes2}" is not a valid boolean. The bytes array must contain a single byte of either a 0 or 1 value.`, {
           name: "InvalidBytesBooleanError"
         });
       }
@@ -89166,7 +94923,7 @@ var require_encoding = __commonJS({
 });
 
 // node_modules/viem/_cjs/errors/data.js
-var require_data3 = __commonJS({
+var require_data4 = __commonJS({
   "node_modules/viem/_cjs/errors/data.js"(exports) {
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
@@ -89203,7 +94960,7 @@ var require_pad = __commonJS({
     exports.pad = pad;
     exports.padHex = padHex;
     exports.padBytes = padBytes;
-    var data_js_1 = require_data3();
+    var data_js_1 = require_data4();
     function pad(hexOrBytes, { dir: dir2, size = 32 } = {}) {
       if (typeof hexOrBytes === "string")
         return padHex(hexOrBytes, { dir: dir2, size });
@@ -89221,19 +94978,19 @@ var require_pad = __commonJS({
         });
       return `0x${hex[dir2 === "right" ? "padEnd" : "padStart"](size * 2, "0")}`;
     }
-    function padBytes(bytes3, { dir: dir2, size = 32 } = {}) {
+    function padBytes(bytes2, { dir: dir2, size = 32 } = {}) {
       if (size === null)
-        return bytes3;
-      if (bytes3.length > size)
+        return bytes2;
+      if (bytes2.length > size)
         throw new data_js_1.SizeExceedsPaddingSizeError({
-          size: bytes3.length,
+          size: bytes2.length,
           targetSize: size,
           type: "bytes"
         });
       const paddedBytes = new Uint8Array(size);
       for (let i = 0; i < size; i++) {
         const padEnd = dir2 === "right";
-        paddedBytes[padEnd ? i : size - i - 1] = bytes3[padEnd ? i : bytes3.length - i - 1];
+        paddedBytes[padEnd ? i : size - i - 1] = bytes2[padEnd ? i : bytes2.length - i - 1];
       }
       return paddedBytes;
     }
@@ -89306,7 +95063,7 @@ var require_toBytes = __commonJS({
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.toBytes = toBytes3;
+    exports.toBytes = toBytes2;
     exports.boolToBytes = boolToBytes;
     exports.hexToBytes = hexToBytes3;
     exports.numberToBytes = numberToBytes;
@@ -89317,7 +95074,7 @@ var require_toBytes = __commonJS({
     var fromHex_js_1 = require_fromHex();
     var toHex_js_1 = require_toHex();
     var encoder = new TextEncoder();
-    function toBytes3(value, opts = {}) {
+    function toBytes2(value, opts = {}) {
       if (typeof value === "number" || typeof value === "bigint")
         return numberToBytes(value, opts);
       if (typeof value === "boolean")
@@ -89327,13 +95084,13 @@ var require_toBytes = __commonJS({
       return stringToBytes(value, opts);
     }
     function boolToBytes(value, opts = {}) {
-      const bytes3 = new Uint8Array(1);
-      bytes3[0] = Number(value);
+      const bytes2 = new Uint8Array(1);
+      bytes2[0] = Number(value);
       if (typeof opts.size === "number") {
-        (0, fromHex_js_1.assertSize)(bytes3, { size: opts.size });
-        return (0, pad_js_1.pad)(bytes3, { size: opts.size });
+        (0, fromHex_js_1.assertSize)(bytes2, { size: opts.size });
+        return (0, pad_js_1.pad)(bytes2, { size: opts.size });
       }
-      return bytes3;
+      return bytes2;
     }
     var charCodeMap = {
       zero: 48,
@@ -89362,28 +95119,28 @@ var require_toBytes = __commonJS({
       if (hexString.length % 2)
         hexString = `0${hexString}`;
       const length = hexString.length / 2;
-      const bytes3 = new Uint8Array(length);
+      const bytes2 = new Uint8Array(length);
       for (let index = 0, j = 0; index < length; index++) {
         const nibbleLeft = charCodeToBase16(hexString.charCodeAt(j++));
         const nibbleRight = charCodeToBase16(hexString.charCodeAt(j++));
         if (nibbleLeft === void 0 || nibbleRight === void 0) {
           throw new base_js_1.BaseError(`Invalid byte sequence ("${hexString[j - 2]}${hexString[j - 1]}" in "${hexString}").`);
         }
-        bytes3[index] = nibbleLeft * 16 + nibbleRight;
+        bytes2[index] = nibbleLeft * 16 + nibbleRight;
       }
-      return bytes3;
+      return bytes2;
     }
     function numberToBytes(value, opts) {
       const hex = (0, toHex_js_1.numberToHex)(value, opts);
       return hexToBytes3(hex);
     }
     function stringToBytes(value, opts = {}) {
-      const bytes3 = encoder.encode(value);
+      const bytes2 = encoder.encode(value);
       if (typeof opts.size === "number") {
-        (0, fromHex_js_1.assertSize)(bytes3, { size: opts.size });
-        return (0, pad_js_1.pad)(bytes3, { dir: "right", size: opts.size });
+        (0, fromHex_js_1.assertSize)(bytes2, { size: opts.size });
+        return (0, pad_js_1.pad)(bytes2, { dir: "right", size: opts.size });
       }
-      return bytes3;
+      return bytes2;
     }
   }
 });
@@ -89451,8 +95208,8 @@ var require_fromHex = __commonJS({
     }
     function hexToNumber2(hex, opts = {}) {
       const value = hexToBigInt(hex, opts);
-      const number5 = Number(value);
-      if (!Number.isSafeInteger(number5))
+      const number4 = Number(value);
+      if (!Number.isSafeInteger(number4))
         throw new encoding_js_1.IntegerOutOfRangeError({
           max: `${Number.MAX_SAFE_INTEGER}`,
           min: `${Number.MIN_SAFE_INTEGER}`,
@@ -89460,15 +95217,15 @@ var require_fromHex = __commonJS({
           size: opts.size,
           value: `${value}n`
         });
-      return number5;
+      return number4;
     }
     function hexToString(hex, opts = {}) {
-      let bytes3 = (0, toBytes_js_1.hexToBytes)(hex);
+      let bytes2 = (0, toBytes_js_1.hexToBytes)(hex);
       if (opts.size) {
-        assertSize(bytes3, { size: opts.size });
-        bytes3 = (0, trim_js_1.trim)(bytes3, { dir: "right" });
+        assertSize(bytes2, { size: opts.size });
+        bytes2 = (0, trim_js_1.trim)(bytes2, { dir: "right" });
       }
-      return new TextDecoder().decode(bytes3);
+      return new TextDecoder().decode(bytes2);
     }
   }
 });
@@ -89756,17 +95513,17 @@ var require_utils8 = __commonJS({
     exports.u8 = u82;
     exports.u32 = u323;
     exports.clean = clean2;
-    exports.createView = createView4;
-    exports.rotr = rotr4;
+    exports.createView = createView3;
+    exports.rotr = rotr3;
     exports.rotl = rotl4;
     exports.byteSwap = byteSwap2;
     exports.byteSwap32 = byteSwap322;
     exports.bytesToHex = bytesToHex3;
     exports.hexToBytes = hexToBytes3;
     exports.asyncLoop = asyncLoop3;
-    exports.utf8ToBytes = utf8ToBytes5;
+    exports.utf8ToBytes = utf8ToBytes4;
     exports.bytesToUtf8 = bytesToUtf8;
-    exports.toBytes = toBytes3;
+    exports.toBytes = toBytes2;
     exports.kdfInputToBytes = kdfInputToBytes2;
     exports.concatBytes = concatBytes4;
     exports.checkOpts = checkOpts3;
@@ -89818,10 +95575,10 @@ var require_utils8 = __commonJS({
         arrays[i].fill(0);
       }
     }
-    function createView4(arr) {
+    function createView3(arr) {
       return new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
     }
-    function rotr4(word, shift) {
+    function rotr3(word, shift) {
       return word << 32 - shift | word >>> shift;
     }
     function rotl4(word, shift) {
@@ -89845,13 +95602,13 @@ var require_utils8 = __commonJS({
       typeof Uint8Array.from([]).toHex === "function" && typeof Uint8Array.fromHex === "function"
     ))();
     var hexes3 = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0"));
-    function bytesToHex3(bytes3) {
-      abytes2(bytes3);
+    function bytesToHex3(bytes2) {
+      abytes2(bytes2);
       if (hasHexBuiltin2)
-        return bytes3.toHex();
+        return bytes2.toHex();
       let hex = "";
-      for (let i = 0; i < bytes3.length; i++) {
-        hex += hexes3[bytes3[i]];
+      for (let i = 0; i < bytes2.length; i++) {
+        hex += hexes3[bytes2[i]];
       }
       return hex;
     }
@@ -89900,23 +95657,23 @@ var require_utils8 = __commonJS({
         ts += diff;
       }
     }
-    function utf8ToBytes5(str) {
+    function utf8ToBytes4(str) {
       if (typeof str !== "string")
         throw new Error("string expected");
       return new Uint8Array(new TextEncoder().encode(str));
     }
-    function bytesToUtf8(bytes3) {
-      return new TextDecoder().decode(bytes3);
+    function bytesToUtf8(bytes2) {
+      return new TextDecoder().decode(bytes2);
     }
-    function toBytes3(data) {
+    function toBytes2(data) {
       if (typeof data === "string")
-        data = utf8ToBytes5(data);
+        data = utf8ToBytes4(data);
       abytes2(data);
       return data;
     }
     function kdfInputToBytes2(data) {
       if (typeof data === "string")
-        data = utf8ToBytes5(data);
+        data = utf8ToBytes4(data);
       abytes2(data);
       return data;
     }
@@ -89941,11 +95698,11 @@ var require_utils8 = __commonJS({
       const merged = Object.assign(defaults, opts);
       return merged;
     }
-    var Hash3 = class {
+    var Hash2 = class {
     };
-    exports.Hash = Hash3;
+    exports.Hash = Hash2;
     function createHasher2(hashCons) {
-      const hashC = (msg) => hashCons().update(toBytes3(msg)).digest();
+      const hashC = (msg) => hashCons().update(toBytes2(msg)).digest();
       const tmp = hashCons();
       hashC.outputLen = tmp.outputLen;
       hashC.blockLen = tmp.blockLen;
@@ -89953,7 +95710,7 @@ var require_utils8 = __commonJS({
       return hashC;
     }
     function createOptHasher(hashCons) {
-      const hashC = (msg, opts) => hashCons(opts).update(toBytes3(msg)).digest();
+      const hashC = (msg, opts) => hashCons(opts).update(toBytes2(msg)).digest();
       const tmp = hashCons({});
       hashC.outputLen = tmp.outputLen;
       hashC.blockLen = tmp.blockLen;
@@ -89961,7 +95718,7 @@ var require_utils8 = __commonJS({
       return hashC;
     }
     function createXOFer(hashCons) {
-      const hashC = (msg, opts) => hashCons(opts).update(toBytes3(msg)).digest();
+      const hashC = (msg, opts) => hashCons(opts).update(toBytes2(msg)).digest();
       const tmp = hashCons({});
       hashC.outputLen = tmp.outputLen;
       hashC.blockLen = tmp.blockLen;
@@ -89990,30 +95747,30 @@ var require_md2 = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.SHA512_IV = exports.SHA384_IV = exports.SHA224_IV = exports.SHA256_IV = exports.HashMD = void 0;
-    exports.setBigUint64 = setBigUint643;
-    exports.Chi = Chi3;
-    exports.Maj = Maj3;
+    exports.setBigUint64 = setBigUint642;
+    exports.Chi = Chi2;
+    exports.Maj = Maj2;
     var utils_ts_1 = require_utils8();
-    function setBigUint643(view, byteOffset, value, isLE4) {
+    function setBigUint642(view, byteOffset, value, isLE3) {
       if (typeof view.setBigUint64 === "function")
-        return view.setBigUint64(byteOffset, value, isLE4);
+        return view.setBigUint64(byteOffset, value, isLE3);
       const _32n3 = BigInt(32);
       const _u32_max = BigInt(4294967295);
       const wh = Number(value >> _32n3 & _u32_max);
       const wl = Number(value & _u32_max);
-      const h = isLE4 ? 4 : 0;
-      const l = isLE4 ? 0 : 4;
-      view.setUint32(byteOffset + h, wh, isLE4);
-      view.setUint32(byteOffset + l, wl, isLE4);
+      const h = isLE3 ? 4 : 0;
+      const l = isLE3 ? 0 : 4;
+      view.setUint32(byteOffset + h, wh, isLE3);
+      view.setUint32(byteOffset + l, wl, isLE3);
     }
-    function Chi3(a, b, c) {
+    function Chi2(a, b, c) {
       return a & b ^ ~a & c;
     }
-    function Maj3(a, b, c) {
+    function Maj2(a, b, c) {
       return a & b ^ a & c ^ b & c;
     }
     var HashMD = class extends utils_ts_1.Hash {
-      constructor(blockLen, outputLen, padOffset, isLE4) {
+      constructor(blockLen, outputLen, padOffset, isLE3) {
         super();
         this.finished = false;
         this.length = 0;
@@ -90022,7 +95779,7 @@ var require_md2 = __commonJS({
         this.blockLen = blockLen;
         this.outputLen = outputLen;
         this.padOffset = padOffset;
-        this.isLE = isLE4;
+        this.isLE = isLE3;
         this.buffer = new Uint8Array(blockLen);
         this.view = (0, utils_ts_1.createView)(this.buffer);
       }
@@ -90056,7 +95813,7 @@ var require_md2 = __commonJS({
         (0, utils_ts_1.aexists)(this);
         (0, utils_ts_1.aoutput)(out, this);
         this.finished = true;
-        const { buffer, view, blockLen, isLE: isLE4 } = this;
+        const { buffer, view, blockLen, isLE: isLE3 } = this;
         let { pos } = this;
         buffer[pos++] = 128;
         (0, utils_ts_1.clean)(this.buffer.subarray(pos));
@@ -90066,7 +95823,7 @@ var require_md2 = __commonJS({
         }
         for (let i = pos; i < blockLen; i++)
           buffer[i] = 0;
-        setBigUint643(view, blockLen - 8, BigInt(this.length * 8), isLE4);
+        setBigUint642(view, blockLen - 8, BigInt(this.length * 8), isLE3);
         this.process(view, 0);
         const oview = (0, utils_ts_1.createView)(out);
         const len = this.outputLen;
@@ -90077,7 +95834,7 @@ var require_md2 = __commonJS({
         if (outLen > state.length)
           throw new Error("_sha2: outputLen bigger than state");
         for (let i = 0; i < outLen; i++)
-          oview.setUint32(4 * i, state[i], isLE4);
+          oview.setUint32(4 * i, state[i], isLE3);
       }
       digest() {
         const { buffer, outputLen } = this;
@@ -90269,7 +96026,7 @@ var require_sha24 = __commonJS({
     var _md_ts_1 = require_md2();
     var u64 = require_u643();
     var utils_ts_1 = require_utils8();
-    var SHA256_K3 = /* @__PURE__ */ Uint32Array.from([
+    var SHA256_K2 = /* @__PURE__ */ Uint32Array.from([
       1116352408,
       1899447441,
       3049323471,
@@ -90335,8 +96092,8 @@ var require_sha24 = __commonJS({
       3204031479,
       3329325298
     ]);
-    var SHA256_W3 = /* @__PURE__ */ new Uint32Array(64);
-    var SHA2563 = class extends _md_ts_1.HashMD {
+    var SHA256_W2 = /* @__PURE__ */ new Uint32Array(64);
+    var SHA2562 = class extends _md_ts_1.HashMD {
       constructor(outputLen = 32) {
         super(64, outputLen, 8, false);
         this.A = _md_ts_1.SHA256_IV[0] | 0;
@@ -90365,18 +96122,18 @@ var require_sha24 = __commonJS({
       }
       process(view, offset) {
         for (let i = 0; i < 16; i++, offset += 4)
-          SHA256_W3[i] = view.getUint32(offset, false);
+          SHA256_W2[i] = view.getUint32(offset, false);
         for (let i = 16; i < 64; i++) {
-          const W15 = SHA256_W3[i - 15];
-          const W2 = SHA256_W3[i - 2];
+          const W15 = SHA256_W2[i - 15];
+          const W2 = SHA256_W2[i - 2];
           const s0 = (0, utils_ts_1.rotr)(W15, 7) ^ (0, utils_ts_1.rotr)(W15, 18) ^ W15 >>> 3;
           const s1 = (0, utils_ts_1.rotr)(W2, 17) ^ (0, utils_ts_1.rotr)(W2, 19) ^ W2 >>> 10;
-          SHA256_W3[i] = s1 + SHA256_W3[i - 7] + s0 + SHA256_W3[i - 16] | 0;
+          SHA256_W2[i] = s1 + SHA256_W2[i - 7] + s0 + SHA256_W2[i - 16] | 0;
         }
         let { A, B, C, D, E, F, G, H } = this;
         for (let i = 0; i < 64; i++) {
           const sigma1 = (0, utils_ts_1.rotr)(E, 6) ^ (0, utils_ts_1.rotr)(E, 11) ^ (0, utils_ts_1.rotr)(E, 25);
-          const T12 = H + sigma1 + (0, _md_ts_1.Chi)(E, F, G) + SHA256_K3[i] + SHA256_W3[i] | 0;
+          const T12 = H + sigma1 + (0, _md_ts_1.Chi)(E, F, G) + SHA256_K2[i] + SHA256_W2[i] | 0;
           const sigma0 = (0, utils_ts_1.rotr)(A, 2) ^ (0, utils_ts_1.rotr)(A, 13) ^ (0, utils_ts_1.rotr)(A, 22);
           const T22 = sigma0 + (0, _md_ts_1.Maj)(A, B, C) | 0;
           H = G;
@@ -90399,15 +96156,15 @@ var require_sha24 = __commonJS({
         this.set(A, B, C, D, E, F, G, H);
       }
       roundClean() {
-        (0, utils_ts_1.clean)(SHA256_W3);
+        (0, utils_ts_1.clean)(SHA256_W2);
       }
       destroy() {
         this.set(0, 0, 0, 0, 0, 0, 0, 0);
         (0, utils_ts_1.clean)(this.buffer);
       }
     };
-    exports.SHA256 = SHA2563;
-    var SHA224 = class extends SHA2563 {
+    exports.SHA256 = SHA2562;
+    var SHA224 = class extends SHA2562 {
       constructor() {
         super(28);
         this.A = _md_ts_1.SHA224_IV[0] | 0;
@@ -90721,7 +96478,7 @@ var require_sha24 = __commonJS({
       }
     };
     exports.SHA512_256 = SHA512_256;
-    exports.sha256 = (0, utils_ts_1.createHasher)(() => new SHA2563());
+    exports.sha256 = (0, utils_ts_1.createHasher)(() => new SHA2562());
     exports.sha224 = (0, utils_ts_1.createHasher)(() => new SHA224());
     exports.sha512 = (0, utils_ts_1.createHasher)(() => new SHA512());
     exports.sha384 = (0, utils_ts_1.createHasher)(() => new SHA384());
@@ -90738,25 +96495,25 @@ var require_hmac4 = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.hmac = exports.HMAC = void 0;
     var utils_ts_1 = require_utils8();
-    var HMAC3 = class extends utils_ts_1.Hash {
-      constructor(hash3, _key) {
+    var HMAC2 = class extends utils_ts_1.Hash {
+      constructor(hash2, _key) {
         super();
         this.finished = false;
         this.destroyed = false;
-        (0, utils_ts_1.ahash)(hash3);
+        (0, utils_ts_1.ahash)(hash2);
         const key = (0, utils_ts_1.toBytes)(_key);
-        this.iHash = hash3.create();
+        this.iHash = hash2.create();
         if (typeof this.iHash.update !== "function")
           throw new Error("Expected instance of class which extends utils.Hash");
         this.blockLen = this.iHash.blockLen;
         this.outputLen = this.iHash.outputLen;
         const blockLen = this.blockLen;
         const pad = new Uint8Array(blockLen);
-        pad.set(key.length > blockLen ? hash3.create().update(key).digest() : key);
+        pad.set(key.length > blockLen ? hash2.create().update(key).digest() : key);
         for (let i = 0; i < pad.length; i++)
           pad[i] ^= 54;
         this.iHash.update(pad);
-        this.oHash = hash3.create();
+        this.oHash = hash2.create();
         for (let i = 0; i < pad.length; i++)
           pad[i] ^= 54 ^ 92;
         this.oHash.update(pad);
@@ -90802,10 +96559,10 @@ var require_hmac4 = __commonJS({
         this.iHash.destroy();
       }
     };
-    exports.HMAC = HMAC3;
-    var hmac3 = (hash3, key, message) => new HMAC3(hash3, key).update(message).digest();
-    exports.hmac = hmac3;
-    exports.hmac.create = (hash3, key) => new HMAC3(hash3, key);
+    exports.HMAC = HMAC2;
+    var hmac2 = (hash2, key, message) => new HMAC2(hash2, key).update(message).digest();
+    exports.hmac = hmac2;
+    exports.hmac.create = (hash2, key) => new HMAC2(hash2, key);
   }
 });
 
@@ -90831,7 +96588,7 @@ var require_utils9 = __commonJS({
     exports.ensureBytes = ensureBytes2;
     exports.concatBytes = concatBytes4;
     exports.equalBytes = equalBytes2;
-    exports.utf8ToBytes = utf8ToBytes5;
+    exports.utf8ToBytes = utf8ToBytes4;
     exports.inRange = inRange;
     exports.aInRange = aInRange;
     exports.bitLen = bitLen2;
@@ -90867,13 +96624,13 @@ var require_utils9 = __commonJS({
       typeof Uint8Array.from([]).toHex === "function" && typeof Uint8Array.fromHex === "function"
     );
     var hexes3 = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0"));
-    function bytesToHex3(bytes3) {
-      abytes2(bytes3);
+    function bytesToHex3(bytes2) {
+      abytes2(bytes2);
       if (hasHexBuiltin2)
-        return bytes3.toHex();
+        return bytes2.toHex();
       let hex = "";
-      for (let i = 0; i < bytes3.length; i++) {
-        hex += hexes3[bytes3[i]];
+      for (let i = 0; i < bytes2.length; i++) {
+        hex += hexes3[bytes2[i]];
       }
       return hex;
     }
@@ -90908,12 +96665,12 @@ var require_utils9 = __commonJS({
       }
       return array2;
     }
-    function bytesToNumberBE2(bytes3) {
-      return hexToNumber2(bytesToHex3(bytes3));
+    function bytesToNumberBE2(bytes2) {
+      return hexToNumber2(bytesToHex3(bytes2));
     }
-    function bytesToNumberLE2(bytes3) {
-      abytes2(bytes3);
-      return hexToNumber2(bytesToHex3(Uint8Array.from(bytes3).reverse()));
+    function bytesToNumberLE2(bytes2) {
+      abytes2(bytes2);
+      return hexToNumber2(bytesToHex3(Uint8Array.from(bytes2).reverse()));
     }
     function numberToBytesBE2(n, len) {
       return hexToBytes3(n.toString(16).padStart(len * 2, "0"));
@@ -90965,7 +96722,7 @@ var require_utils9 = __commonJS({
         diff |= a[i] ^ b[i];
       return diff === 0;
     }
-    function utf8ToBytes5(str) {
+    function utf8ToBytes4(str) {
       if (typeof str !== "string")
         throw new Error("string expected");
       return new Uint8Array(new TextEncoder().encode(str));
@@ -91140,12 +96897,12 @@ var require_modular3 = __commonJS({
       }
       return res;
     }
-    function invert2(number5, modulo) {
-      if (number5 === _0n8)
+    function invert2(number4, modulo) {
+      if (number4 === _0n8)
         throw new Error("invert: expected non-zero number");
       if (modulo <= _0n8)
         throw new Error("invert: expected positive modulus, got " + modulo);
-      let a = mod2(number5, modulo);
+      let a = mod2(number4, modulo);
       let b = modulo;
       let x = _0n8, y = _1n8, u = _1n8, v = _0n8;
       while (a !== _0n8) {
@@ -91326,7 +97083,7 @@ var require_modular3 = __commonJS({
       const nByteLength = Math.ceil(_nBitLength / 8);
       return { nBitLength: _nBitLength, nByteLength };
     }
-    function Field2(ORDER, bitLen2, isLE4 = false, redef = {}) {
+    function Field2(ORDER, bitLen2, isLE3 = false, redef = {}) {
       if (ORDER <= _0n8)
         throw new Error("invalid field: expected ORDER > 0, got " + ORDER);
       const { nBitLength: BITS, nByteLength: BYTES } = nLength2(ORDER, bitLen2);
@@ -91335,7 +97092,7 @@ var require_modular3 = __commonJS({
       let sqrtP;
       const f2 = Object.freeze({
         ORDER,
-        isLE: isLE4,
+        isLE: isLE3,
         BITS,
         BYTES,
         MASK: (0, utils_ts_1.bitMask)(BITS),
@@ -91368,11 +97125,11 @@ var require_modular3 = __commonJS({
             sqrtP = FpSqrt2(ORDER);
           return sqrtP(f2, n);
         }),
-        toBytes: (num) => isLE4 ? (0, utils_ts_1.numberToBytesLE)(num, BYTES) : (0, utils_ts_1.numberToBytesBE)(num, BYTES),
-        fromBytes: (bytes3) => {
-          if (bytes3.length !== BYTES)
-            throw new Error("Field.fromBytes: expected " + BYTES + " bytes, got " + bytes3.length);
-          return isLE4 ? (0, utils_ts_1.bytesToNumberLE)(bytes3) : (0, utils_ts_1.bytesToNumberBE)(bytes3);
+        toBytes: (num) => isLE3 ? (0, utils_ts_1.numberToBytesLE)(num, BYTES) : (0, utils_ts_1.numberToBytesBE)(num, BYTES),
+        fromBytes: (bytes2) => {
+          if (bytes2.length !== BYTES)
+            throw new Error("Field.fromBytes: expected " + BYTES + " bytes, got " + bytes2.length);
+          return isLE3 ? (0, utils_ts_1.bytesToNumberLE)(bytes2) : (0, utils_ts_1.bytesToNumberBE)(bytes2);
         },
         // TODO: we don't need it here, move out to separate fn
         invertBatch: (lst) => FpInvertBatch2(f2, lst),
@@ -91394,13 +97151,13 @@ var require_modular3 = __commonJS({
       const root = Fp2.sqrt(elm);
       return Fp2.isOdd(root) ? Fp2.neg(root) : root;
     }
-    function hashToPrivateScalar(hash3, groupOrder, isLE4 = false) {
-      hash3 = (0, utils_ts_1.ensureBytes)("privateHash", hash3);
-      const hashLen = hash3.length;
+    function hashToPrivateScalar(hash2, groupOrder, isLE3 = false) {
+      hash2 = (0, utils_ts_1.ensureBytes)("privateHash", hash2);
+      const hashLen = hash2.length;
       const minLen = nLength2(groupOrder).nByteLength + 8;
       if (minLen < 24 || hashLen < minLen || hashLen > 1024)
         throw new Error("hashToPrivateScalar: expected " + minLen + "-1024 bytes of input, got " + hashLen);
-      const num = isLE4 ? (0, utils_ts_1.bytesToNumberLE)(hash3) : (0, utils_ts_1.bytesToNumberBE)(hash3);
+      const num = isLE3 ? (0, utils_ts_1.bytesToNumberLE)(hash2) : (0, utils_ts_1.bytesToNumberBE)(hash2);
       return mod2(num, groupOrder - _1n8) + _1n8;
     }
     function getFieldBytesLength2(fieldOrder) {
@@ -91413,15 +97170,15 @@ var require_modular3 = __commonJS({
       const length = getFieldBytesLength2(fieldOrder);
       return length + Math.ceil(length / 2);
     }
-    function mapHashToField2(key, fieldOrder, isLE4 = false) {
+    function mapHashToField2(key, fieldOrder, isLE3 = false) {
       const len = key.length;
       const fieldLen = getFieldBytesLength2(fieldOrder);
       const minLen = getMinHashLength2(fieldOrder);
       if (len < 16 || len < minLen || len > 1024)
         throw new Error("expected " + minLen + "-1024 bytes of input, got " + len);
-      const num = isLE4 ? (0, utils_ts_1.bytesToNumberLE)(key) : (0, utils_ts_1.bytesToNumberBE)(key);
+      const num = isLE3 ? (0, utils_ts_1.bytesToNumberLE)(key) : (0, utils_ts_1.bytesToNumberBE)(key);
       const reduced = mod2(num, fieldOrder - _1n8) + _1n8;
-      return isLE4 ? (0, utils_ts_1.numberToBytesLE)(reduced, fieldLen) : (0, utils_ts_1.numberToBytesBE)(reduced, fieldLen);
+      return isLE3 ? (0, utils_ts_1.numberToBytesLE)(reduced, fieldLen) : (0, utils_ts_1.numberToBytesBE)(reduced, fieldLen);
     }
   }
 });
@@ -91872,12 +97629,12 @@ var require_weierstrass3 = __commonJS({
       const CURVE = validatePointOpts2(opts);
       const { Fp: Fp2 } = CURVE;
       const Fn = (0, modular_ts_1.Field)(CURVE.n, CURVE.nBitLength);
-      const toBytes3 = CURVE.toBytes || ((_c, point, _isCompressed) => {
+      const toBytes2 = CURVE.toBytes || ((_c, point, _isCompressed) => {
         const a = point.toAffine();
         return (0, utils_ts_1.concatBytes)(Uint8Array.from([4]), Fp2.toBytes(a.x), Fp2.toBytes(a.y));
       });
-      const fromBytes = CURVE.fromBytes || ((bytes3) => {
-        const tail = bytes3.subarray(1);
+      const fromBytes = CURVE.fromBytes || ((bytes2) => {
+        const tail = bytes2.subarray(1);
         const x = Fp2.fromBytes(tail.subarray(0, Fp2.BYTES));
         const y = Fp2.fromBytes(tail.subarray(Fp2.BYTES, 2 * Fp2.BYTES));
         return { x, y };
@@ -92252,7 +98009,7 @@ var require_weierstrass3 = __commonJS({
         toRawBytes(isCompressed = true) {
           (0, utils_ts_1.abool)("isCompressed", isCompressed);
           this.assertValidity();
-          return toBytes3(Point2, this, isCompressed);
+          return toBytes2(Point2, this, isCompressed);
         }
         toHex(isCompressed = true) {
           (0, utils_ts_1.abool)("isCompressed", isCompressed);
@@ -92308,10 +98065,10 @@ var require_weierstrass3 = __commonJS({
             return cat(Uint8Array.from([4]), x, Fp2.toBytes(a.y));
           }
         },
-        fromBytes(bytes3) {
-          const len = bytes3.length;
-          const head = bytes3[0];
-          const tail = bytes3.subarray(1);
+        fromBytes(bytes2) {
+          const len = bytes2.length;
+          const head = bytes2[0];
+          const tail = bytes2.subarray(1);
           if (len === compressedLen && (head === 2 || head === 3)) {
             const x = (0, utils_ts_1.bytesToNumberBE)(tail);
             if (!(0, utils_ts_1.inRange)(x, _1n8, Fp2.ORDER))
@@ -92340,9 +98097,9 @@ var require_weierstrass3 = __commonJS({
           }
         }
       });
-      function isBiggerThanHalfOrder(number5) {
+      function isBiggerThanHalfOrder(number4) {
         const HALF = CURVE_ORDER >> _1n8;
-        return number5 > HALF;
+        return number4 > HALF;
       }
       function normalizeS(s) {
         return isBiggerThanHalfOrder(s) ? modN(-s) : s;
@@ -92480,15 +98237,15 @@ var require_weierstrass3 = __commonJS({
         const b = Point2.fromHex(publicB);
         return b.multiply(normPrivateKeyToScalar(privateA)).toRawBytes(isCompressed);
       }
-      const bits2int = CURVE.bits2int || function(bytes3) {
-        if (bytes3.length > 8192)
+      const bits2int = CURVE.bits2int || function(bytes2) {
+        if (bytes2.length > 8192)
           throw new Error("input is too large");
-        const num = (0, utils_ts_1.bytesToNumberBE)(bytes3);
-        const delta = bytes3.length * 8 - nBitLength;
+        const num = (0, utils_ts_1.bytesToNumberBE)(bytes2);
+        const delta = bytes2.length * 8 - nBitLength;
         return delta > 0 ? num >> BigInt(delta) : num;
       };
-      const bits2int_modN = CURVE.bits2int_modN || function(bytes3) {
-        return modN(bits2int(bytes3));
+      const bits2int_modN = CURVE.bits2int_modN || function(bytes2) {
+        return modN(bits2int(bytes2));
       };
       const ORDER_MASK = (0, utils_ts_1.bitMask)(nBitLength);
       function int2octets(num) {
@@ -92498,14 +98255,14 @@ var require_weierstrass3 = __commonJS({
       function prepSig(msgHash, privateKey, opts = defaultSigOpts) {
         if (["recovered", "canonical"].some((k) => k in opts))
           throw new Error("sign() legacy options not supported");
-        const { hash: hash3, randomBytes: randomBytes6 } = CURVE;
+        const { hash: hash2, randomBytes: randomBytes6 } = CURVE;
         let { lowS, prehash, extraEntropy: ent } = opts;
         if (lowS == null)
           lowS = true;
         msgHash = (0, utils_ts_1.ensureBytes)("msgHash", msgHash);
         validateSigVerOpts(opts);
         if (prehash)
-          msgHash = (0, utils_ts_1.ensureBytes)("prehashed msgHash", hash3(msgHash));
+          msgHash = (0, utils_ts_1.ensureBytes)("prehashed msgHash", hash2(msgHash));
         const h1int = bits2int_modN(msgHash);
         const d = normPrivateKeyToScalar(privateKey);
         const seedArgs = [int2octets(d), int2octets(h1int)];
@@ -92722,15 +98479,15 @@ var require_shortw_utils3 = __commonJS({
     var hmac_1 = require_hmac4();
     var utils_1 = require_utils8();
     var weierstrass_ts_1 = require_weierstrass3();
-    function getHash2(hash3) {
+    function getHash2(hash2) {
       return {
-        hash: hash3,
-        hmac: (key, ...msgs) => (0, hmac_1.hmac)(hash3, key, (0, utils_1.concatBytes)(...msgs)),
+        hash: hash2,
+        hmac: (key, ...msgs) => (0, hmac_1.hmac)(hash2, key, (0, utils_1.concatBytes)(...msgs)),
         randomBytes: utils_1.randomBytes
       };
     }
     function createCurve2(curveDef, defHash) {
-      const create = (hash3) => (0, weierstrass_ts_1.weierstrass)({ ...curveDef, ...getHash2(hash3) });
+      const create = (hash2) => (0, weierstrass_ts_1.weierstrass)({ ...curveDef, ...getHash2(hash2) });
       return { ...create(defHash), create };
     }
   }
@@ -92816,7 +98573,7 @@ var require_hash_to_curve3 = __commonJS({
         k: "isSafeInteger",
         hash: "hash"
       });
-      const { p, k, m, hash: hash3, expand, DST: _DST } = options;
+      const { p, k, m, hash: hash2, expand, DST: _DST } = options;
       (0, utils_ts_1.abytes)(msg);
       anum(count);
       const DST = typeof _DST === "string" ? (0, utils_ts_1.utf8ToBytes)(_DST) : _DST;
@@ -92825,9 +98582,9 @@ var require_hash_to_curve3 = __commonJS({
       const len_in_bytes = count * m * L;
       let prb;
       if (expand === "xmd") {
-        prb = expand_message_xmd(msg, DST, len_in_bytes, hash3);
+        prb = expand_message_xmd(msg, DST, len_in_bytes, hash2);
       } else if (expand === "xof") {
-        prb = expand_message_xof(msg, DST, len_in_bytes, k, hash3);
+        prb = expand_message_xof(msg, DST, len_in_bytes, k, hash2);
       } else if (expand === "_internal_pass") {
         prb = msg;
       } else {
@@ -93178,17 +98935,17 @@ var require_utils10 = __commonJS({
     exports.u8 = u82;
     exports.u32 = u323;
     exports.clean = clean2;
-    exports.createView = createView4;
-    exports.rotr = rotr4;
+    exports.createView = createView3;
+    exports.rotr = rotr3;
     exports.rotl = rotl4;
     exports.byteSwap = byteSwap2;
     exports.byteSwap32 = byteSwap322;
     exports.bytesToHex = bytesToHex3;
     exports.hexToBytes = hexToBytes3;
     exports.asyncLoop = asyncLoop3;
-    exports.utf8ToBytes = utf8ToBytes5;
+    exports.utf8ToBytes = utf8ToBytes4;
     exports.bytesToUtf8 = bytesToUtf8;
-    exports.toBytes = toBytes3;
+    exports.toBytes = toBytes2;
     exports.kdfInputToBytes = kdfInputToBytes2;
     exports.concatBytes = concatBytes4;
     exports.checkOpts = checkOpts3;
@@ -93240,10 +98997,10 @@ var require_utils10 = __commonJS({
         arrays[i].fill(0);
       }
     }
-    function createView4(arr) {
+    function createView3(arr) {
       return new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
     }
-    function rotr4(word, shift) {
+    function rotr3(word, shift) {
       return word << 32 - shift | word >>> shift;
     }
     function rotl4(word, shift) {
@@ -93267,13 +99024,13 @@ var require_utils10 = __commonJS({
       typeof Uint8Array.from([]).toHex === "function" && typeof Uint8Array.fromHex === "function"
     ))();
     var hexes3 = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0"));
-    function bytesToHex3(bytes3) {
-      abytes2(bytes3);
+    function bytesToHex3(bytes2) {
+      abytes2(bytes2);
       if (hasHexBuiltin2)
-        return bytes3.toHex();
+        return bytes2.toHex();
       let hex = "";
-      for (let i = 0; i < bytes3.length; i++) {
-        hex += hexes3[bytes3[i]];
+      for (let i = 0; i < bytes2.length; i++) {
+        hex += hexes3[bytes2[i]];
       }
       return hex;
     }
@@ -93322,23 +99079,23 @@ var require_utils10 = __commonJS({
         ts += diff;
       }
     }
-    function utf8ToBytes5(str) {
+    function utf8ToBytes4(str) {
       if (typeof str !== "string")
         throw new Error("string expected");
       return new Uint8Array(new TextEncoder().encode(str));
     }
-    function bytesToUtf8(bytes3) {
-      return new TextDecoder().decode(bytes3);
+    function bytesToUtf8(bytes2) {
+      return new TextDecoder().decode(bytes2);
     }
-    function toBytes3(data) {
+    function toBytes2(data) {
       if (typeof data === "string")
-        data = utf8ToBytes5(data);
+        data = utf8ToBytes4(data);
       abytes2(data);
       return data;
     }
     function kdfInputToBytes2(data) {
       if (typeof data === "string")
-        data = utf8ToBytes5(data);
+        data = utf8ToBytes4(data);
       abytes2(data);
       return data;
     }
@@ -93363,11 +99120,11 @@ var require_utils10 = __commonJS({
       const merged = Object.assign(defaults, opts);
       return merged;
     }
-    var Hash3 = class {
+    var Hash2 = class {
     };
-    exports.Hash = Hash3;
+    exports.Hash = Hash2;
     function createHasher2(hashCons) {
-      const hashC = (msg) => hashCons().update(toBytes3(msg)).digest();
+      const hashC = (msg) => hashCons().update(toBytes2(msg)).digest();
       const tmp = hashCons();
       hashC.outputLen = tmp.outputLen;
       hashC.blockLen = tmp.blockLen;
@@ -93375,7 +99132,7 @@ var require_utils10 = __commonJS({
       return hashC;
     }
     function createOptHasher(hashCons) {
-      const hashC = (msg, opts) => hashCons(opts).update(toBytes3(msg)).digest();
+      const hashC = (msg, opts) => hashCons(opts).update(toBytes2(msg)).digest();
       const tmp = hashCons({});
       hashC.outputLen = tmp.outputLen;
       hashC.blockLen = tmp.blockLen;
@@ -93383,7 +99140,7 @@ var require_utils10 = __commonJS({
       return hashC;
     }
     function createXOFer(hashCons) {
-      const hashC = (msg, opts) => hashCons(opts).update(toBytes3(msg)).digest();
+      const hashC = (msg, opts) => hashCons(opts).update(toBytes2(msg)).digest();
       const tmp = hashCons({});
       hashC.outputLen = tmp.outputLen;
       hashC.blockLen = tmp.blockLen;
@@ -93413,25 +99170,25 @@ var require_hmac5 = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.hmac = exports.HMAC = void 0;
     var utils_ts_1 = require_utils10();
-    var HMAC3 = class extends utils_ts_1.Hash {
-      constructor(hash3, _key) {
+    var HMAC2 = class extends utils_ts_1.Hash {
+      constructor(hash2, _key) {
         super();
         this.finished = false;
         this.destroyed = false;
-        (0, utils_ts_1.ahash)(hash3);
+        (0, utils_ts_1.ahash)(hash2);
         const key = (0, utils_ts_1.toBytes)(_key);
-        this.iHash = hash3.create();
+        this.iHash = hash2.create();
         if (typeof this.iHash.update !== "function")
           throw new Error("Expected instance of class which extends utils.Hash");
         this.blockLen = this.iHash.blockLen;
         this.outputLen = this.iHash.outputLen;
         const blockLen = this.blockLen;
         const pad = new Uint8Array(blockLen);
-        pad.set(key.length > blockLen ? hash3.create().update(key).digest() : key);
+        pad.set(key.length > blockLen ? hash2.create().update(key).digest() : key);
         for (let i = 0; i < pad.length; i++)
           pad[i] ^= 54;
         this.iHash.update(pad);
-        this.oHash = hash3.create();
+        this.oHash = hash2.create();
         for (let i = 0; i < pad.length; i++)
           pad[i] ^= 54 ^ 92;
         this.oHash.update(pad);
@@ -93477,10 +99234,10 @@ var require_hmac5 = __commonJS({
         this.iHash.destroy();
       }
     };
-    exports.HMAC = HMAC3;
-    var hmac3 = (hash3, key, message) => new HMAC3(hash3, key).update(message).digest();
-    exports.hmac = hmac3;
-    exports.hmac.create = (hash3, key) => new HMAC3(hash3, key);
+    exports.HMAC = HMAC2;
+    var hmac2 = (hash2, key, message) => new HMAC2(hash2, key).update(message).digest();
+    exports.hmac = hmac2;
+    exports.hmac.create = (hash2, key) => new HMAC2(hash2, key);
   }
 });
 
@@ -93494,8 +99251,8 @@ var require_pbkdf23 = __commonJS({
     exports.pbkdf2Async = pbkdf2Async;
     var hmac_ts_1 = require_hmac5();
     var utils_ts_1 = require_utils10();
-    function pbkdf2Init2(hash3, _password, _salt, _opts) {
-      (0, utils_ts_1.ahash)(hash3);
+    function pbkdf2Init2(hash2, _password, _salt, _opts) {
+      (0, utils_ts_1.ahash)(hash2);
       const opts = (0, utils_ts_1.checkOpts)({ dkLen: 32, asyncTick: 10 }, _opts);
       const { c, dkLen, asyncTick } = opts;
       (0, utils_ts_1.anumber)(c);
@@ -93506,7 +99263,7 @@ var require_pbkdf23 = __commonJS({
       const password = (0, utils_ts_1.kdfInputToBytes)(_password);
       const salt = (0, utils_ts_1.kdfInputToBytes)(_salt);
       const DK = new Uint8Array(dkLen);
-      const PRF = hmac_ts_1.hmac.create(hash3, password);
+      const PRF = hmac_ts_1.hmac.create(hash2, password);
       const PRFSalt = PRF._cloneInto().update(salt);
       return { c, dkLen, asyncTick, DK, PRF, PRFSalt };
     }
@@ -93518,8 +99275,8 @@ var require_pbkdf23 = __commonJS({
       (0, utils_ts_1.clean)(u);
       return DK;
     }
-    function pbkdf23(hash3, password, salt, opts) {
-      const { c, dkLen, DK, PRF, PRFSalt } = pbkdf2Init2(hash3, password, salt, opts);
+    function pbkdf23(hash2, password, salt, opts) {
+      const { c, dkLen, DK, PRF, PRFSalt } = pbkdf2Init2(hash2, password, salt, opts);
       let prfW;
       const arr = new Uint8Array(4);
       const view = (0, utils_ts_1.createView)(arr);
@@ -93537,8 +99294,8 @@ var require_pbkdf23 = __commonJS({
       }
       return pbkdf2Output2(PRF, PRFSalt, DK, prfW, u);
     }
-    async function pbkdf2Async(hash3, password, salt, opts) {
-      const { c, dkLen, asyncTick, DK, PRF, PRFSalt } = pbkdf2Init2(hash3, password, salt, opts);
+    async function pbkdf2Async(hash2, password, salt, opts) {
+      const { c, dkLen, asyncTick, DK, PRF, PRFSalt } = pbkdf2Init2(hash2, password, salt, opts);
       let prfW;
       const arr = new Uint8Array(4);
       const view = (0, utils_ts_1.createView)(arr);
@@ -93566,30 +99323,30 @@ var require_md3 = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.SHA512_IV = exports.SHA384_IV = exports.SHA224_IV = exports.SHA256_IV = exports.HashMD = void 0;
-    exports.setBigUint64 = setBigUint643;
-    exports.Chi = Chi3;
-    exports.Maj = Maj3;
+    exports.setBigUint64 = setBigUint642;
+    exports.Chi = Chi2;
+    exports.Maj = Maj2;
     var utils_ts_1 = require_utils10();
-    function setBigUint643(view, byteOffset, value, isLE4) {
+    function setBigUint642(view, byteOffset, value, isLE3) {
       if (typeof view.setBigUint64 === "function")
-        return view.setBigUint64(byteOffset, value, isLE4);
+        return view.setBigUint64(byteOffset, value, isLE3);
       const _32n3 = BigInt(32);
       const _u32_max = BigInt(4294967295);
       const wh = Number(value >> _32n3 & _u32_max);
       const wl = Number(value & _u32_max);
-      const h = isLE4 ? 4 : 0;
-      const l = isLE4 ? 0 : 4;
-      view.setUint32(byteOffset + h, wh, isLE4);
-      view.setUint32(byteOffset + l, wl, isLE4);
+      const h = isLE3 ? 4 : 0;
+      const l = isLE3 ? 0 : 4;
+      view.setUint32(byteOffset + h, wh, isLE3);
+      view.setUint32(byteOffset + l, wl, isLE3);
     }
-    function Chi3(a, b, c) {
+    function Chi2(a, b, c) {
       return a & b ^ ~a & c;
     }
-    function Maj3(a, b, c) {
+    function Maj2(a, b, c) {
       return a & b ^ a & c ^ b & c;
     }
     var HashMD = class extends utils_ts_1.Hash {
-      constructor(blockLen, outputLen, padOffset, isLE4) {
+      constructor(blockLen, outputLen, padOffset, isLE3) {
         super();
         this.finished = false;
         this.length = 0;
@@ -93598,7 +99355,7 @@ var require_md3 = __commonJS({
         this.blockLen = blockLen;
         this.outputLen = outputLen;
         this.padOffset = padOffset;
-        this.isLE = isLE4;
+        this.isLE = isLE3;
         this.buffer = new Uint8Array(blockLen);
         this.view = (0, utils_ts_1.createView)(this.buffer);
       }
@@ -93632,7 +99389,7 @@ var require_md3 = __commonJS({
         (0, utils_ts_1.aexists)(this);
         (0, utils_ts_1.aoutput)(out, this);
         this.finished = true;
-        const { buffer, view, blockLen, isLE: isLE4 } = this;
+        const { buffer, view, blockLen, isLE: isLE3 } = this;
         let { pos } = this;
         buffer[pos++] = 128;
         (0, utils_ts_1.clean)(this.buffer.subarray(pos));
@@ -93642,7 +99399,7 @@ var require_md3 = __commonJS({
         }
         for (let i = pos; i < blockLen; i++)
           buffer[i] = 0;
-        setBigUint643(view, blockLen - 8, BigInt(this.length * 8), isLE4);
+        setBigUint642(view, blockLen - 8, BigInt(this.length * 8), isLE3);
         this.process(view, 0);
         const oview = (0, utils_ts_1.createView)(out);
         const len = this.outputLen;
@@ -93653,7 +99410,7 @@ var require_md3 = __commonJS({
         if (outLen > state.length)
           throw new Error("_sha2: outputLen bigger than state");
         for (let i = 0; i < outLen; i++)
-          oview.setUint32(4 * i, state[i], isLE4);
+          oview.setUint32(4 * i, state[i], isLE3);
       }
       digest() {
         const { buffer, outputLen } = this;
@@ -93845,7 +99602,7 @@ var require_sha25 = __commonJS({
     var _md_ts_1 = require_md3();
     var u64 = require_u644();
     var utils_ts_1 = require_utils10();
-    var SHA256_K3 = /* @__PURE__ */ Uint32Array.from([
+    var SHA256_K2 = /* @__PURE__ */ Uint32Array.from([
       1116352408,
       1899447441,
       3049323471,
@@ -93911,8 +99668,8 @@ var require_sha25 = __commonJS({
       3204031479,
       3329325298
     ]);
-    var SHA256_W3 = /* @__PURE__ */ new Uint32Array(64);
-    var SHA2563 = class extends _md_ts_1.HashMD {
+    var SHA256_W2 = /* @__PURE__ */ new Uint32Array(64);
+    var SHA2562 = class extends _md_ts_1.HashMD {
       constructor(outputLen = 32) {
         super(64, outputLen, 8, false);
         this.A = _md_ts_1.SHA256_IV[0] | 0;
@@ -93941,18 +99698,18 @@ var require_sha25 = __commonJS({
       }
       process(view, offset) {
         for (let i = 0; i < 16; i++, offset += 4)
-          SHA256_W3[i] = view.getUint32(offset, false);
+          SHA256_W2[i] = view.getUint32(offset, false);
         for (let i = 16; i < 64; i++) {
-          const W15 = SHA256_W3[i - 15];
-          const W2 = SHA256_W3[i - 2];
+          const W15 = SHA256_W2[i - 15];
+          const W2 = SHA256_W2[i - 2];
           const s0 = (0, utils_ts_1.rotr)(W15, 7) ^ (0, utils_ts_1.rotr)(W15, 18) ^ W15 >>> 3;
           const s1 = (0, utils_ts_1.rotr)(W2, 17) ^ (0, utils_ts_1.rotr)(W2, 19) ^ W2 >>> 10;
-          SHA256_W3[i] = s1 + SHA256_W3[i - 7] + s0 + SHA256_W3[i - 16] | 0;
+          SHA256_W2[i] = s1 + SHA256_W2[i - 7] + s0 + SHA256_W2[i - 16] | 0;
         }
         let { A, B, C, D, E, F, G, H } = this;
         for (let i = 0; i < 64; i++) {
           const sigma1 = (0, utils_ts_1.rotr)(E, 6) ^ (0, utils_ts_1.rotr)(E, 11) ^ (0, utils_ts_1.rotr)(E, 25);
-          const T12 = H + sigma1 + (0, _md_ts_1.Chi)(E, F, G) + SHA256_K3[i] + SHA256_W3[i] | 0;
+          const T12 = H + sigma1 + (0, _md_ts_1.Chi)(E, F, G) + SHA256_K2[i] + SHA256_W2[i] | 0;
           const sigma0 = (0, utils_ts_1.rotr)(A, 2) ^ (0, utils_ts_1.rotr)(A, 13) ^ (0, utils_ts_1.rotr)(A, 22);
           const T22 = sigma0 + (0, _md_ts_1.Maj)(A, B, C) | 0;
           H = G;
@@ -93975,15 +99732,15 @@ var require_sha25 = __commonJS({
         this.set(A, B, C, D, E, F, G, H);
       }
       roundClean() {
-        (0, utils_ts_1.clean)(SHA256_W3);
+        (0, utils_ts_1.clean)(SHA256_W2);
       }
       destroy() {
         this.set(0, 0, 0, 0, 0, 0, 0, 0);
         (0, utils_ts_1.clean)(this.buffer);
       }
     };
-    exports.SHA256 = SHA2563;
-    var SHA224 = class extends SHA2563 {
+    exports.SHA256 = SHA2562;
+    var SHA224 = class extends SHA2562 {
       constructor() {
         super(28);
         this.A = _md_ts_1.SHA224_IV[0] | 0;
@@ -94297,7 +100054,7 @@ var require_sha25 = __commonJS({
       }
     };
     exports.SHA512_256 = SHA512_256;
-    exports.sha256 = (0, utils_ts_1.createHasher)(() => new SHA2563());
+    exports.sha256 = (0, utils_ts_1.createHasher)(() => new SHA2562());
     exports.sha224 = (0, utils_ts_1.createHasher)(() => new SHA224());
     exports.sha512 = (0, utils_ts_1.createHasher)(() => new SHA512());
     exports.sha384 = (0, utils_ts_1.createHasher)(() => new SHA384());
@@ -94591,9 +100348,9 @@ var require_sha32 = __commonJS({
           throw new Error("XOF is not possible for this instance");
         return this.writeInto(out);
       }
-      xof(bytes3) {
-        (0, utils_ts_1.anumber)(bytes3);
-        return this.xofInto(new Uint8Array(bytes3));
+      xof(bytes2) {
+        (0, utils_ts_1.anumber)(bytes2);
+        return this.xofInto(new Uint8Array(bytes2));
       }
       digestInto(out) {
         (0, utils_ts_1.aoutput)(out, this);
@@ -94654,10 +100411,10 @@ var require_keccak256 = __commonJS({
     var toHex_js_1 = require_toHex();
     function keccak2562(value, to_) {
       const to = to_ || "hex";
-      const bytes3 = (0, sha3_1.keccak_256)((0, isHex_js_1.isHex)(value, { strict: false }) ? (0, toBytes_js_1.toBytes)(value) : value);
+      const bytes2 = (0, sha3_1.keccak_256)((0, isHex_js_1.isHex)(value, { strict: false }) ? (0, toBytes_js_1.toBytes)(value) : value);
       if (to === "bytes")
-        return bytes3;
-      return (0, toHex_js_1.toHex)(bytes3);
+        return bytes2;
+      return (0, toHex_js_1.toHex)(bytes2);
     }
   }
 });
@@ -94680,13 +100437,13 @@ var require_getAddress = __commonJS({
       if (checksumAddressCache.has(`${address_}.${chainId}`))
         return checksumAddressCache.get(`${address_}.${chainId}`);
       const hexAddress = chainId ? `${chainId}${address_.toLowerCase()}` : address_.substring(2).toLowerCase();
-      const hash3 = (0, keccak256_js_1.keccak256)((0, toBytes_js_1.stringToBytes)(hexAddress), "bytes");
+      const hash2 = (0, keccak256_js_1.keccak256)((0, toBytes_js_1.stringToBytes)(hexAddress), "bytes");
       const address = (chainId ? hexAddress.substring(`${chainId}0x`.length) : hexAddress).split("");
       for (let i = 0; i < 40; i += 2) {
-        if (hash3[i >> 1] >> 4 >= 8 && address[i]) {
+        if (hash2[i >> 1] >> 4 >= 8 && address[i]) {
           address[i] = address[i].toUpperCase();
         }
-        if ((hash3[i >> 1] & 15) >= 8 && address[i + 1]) {
+        if ((hash2[i >> 1] & 15) >= 8 && address[i + 1]) {
           address[i + 1] = address[i + 1].toUpperCase();
         }
       }
@@ -94804,8 +100561,8 @@ var require_sign2 = __commonJS({
         throw new Error("must be a `true` or a hex value.");
       extraEntropy = entropy;
     }
-    async function sign({ hash: hash3, privateKey, to = "object" }) {
-      const { r, s, recovery } = secp256k1_1.secp256k1.sign(hash3.slice(2), privateKey.slice(2), {
+    async function sign({ hash: hash2, privateKey, to = "object" }) {
+      const { r, s, recovery } = secp256k1_1.secp256k1.sign(hash2.slice(2), privateKey.slice(2), {
         lowS: true,
         extraEntropy: (0, isHex_js_1.isHex)(extraEntropy, { strict: false }) ? (0, toBytes_js_1.hexToBytes)(extraEntropy) : extraEntropy
       });
@@ -94969,10 +100726,10 @@ var require_cursor2 = __commonJS({
         this.bytes[this.position] = byte;
         this.position++;
       },
-      pushBytes(bytes3) {
-        this.assertPosition(this.position + bytes3.length - 1);
-        this.bytes.set(bytes3, this.position);
-        this.position += bytes3.length;
+      pushBytes(bytes2) {
+        this.assertPosition(this.position + bytes2.length - 1);
+        this.bytes.set(bytes2, this.position);
+        this.position += bytes2.length;
       },
       pushUint8(value) {
         this.assertPosition(this.position);
@@ -95055,10 +100812,10 @@ var require_cursor2 = __commonJS({
           this.recursiveReadCount++;
       }
     };
-    function createCursor(bytes3, { recursiveReadLimit = 8192 } = {}) {
+    function createCursor(bytes2, { recursiveReadLimit = 8192 } = {}) {
       const cursor = Object.create(staticCursor);
-      cursor.bytes = bytes3;
-      cursor.dataView = new DataView(bytes3.buffer ?? bytes3, bytes3.byteOffset, bytes3.byteLength);
+      cursor.bytes = bytes2;
+      cursor.dataView = new DataView(bytes2.buffer ?? bytes2, bytes2.byteOffset, bytes2.byteLength);
       cursor.positionReadCount = /* @__PURE__ */ new Map();
       cursor.recursiveReadLimit = recursiveReadLimit;
       return cursor;
@@ -95079,24 +100836,24 @@ var require_toRlp = __commonJS({
     var cursor_js_1 = require_cursor2();
     var toBytes_js_1 = require_toBytes();
     var toHex_js_1 = require_toHex();
-    function toRlp(bytes3, to = "hex") {
-      const encodable = getEncodable(bytes3);
+    function toRlp(bytes2, to = "hex") {
+      const encodable = getEncodable(bytes2);
       const cursor = (0, cursor_js_1.createCursor)(new Uint8Array(encodable.length));
       encodable.encode(cursor);
       if (to === "hex")
         return (0, toHex_js_1.bytesToHex)(cursor.bytes);
       return cursor.bytes;
     }
-    function bytesToRlp(bytes3, to = "bytes") {
-      return toRlp(bytes3, to);
+    function bytesToRlp(bytes2, to = "bytes") {
+      return toRlp(bytes2, to);
     }
     function hexToRlp(hex, to = "hex") {
       return toRlp(hex, to);
     }
-    function getEncodable(bytes3) {
-      if (Array.isArray(bytes3))
-        return getEncodableList(bytes3.map((x) => getEncodable(x)));
-      return getEncodableBytes(bytes3);
+    function getEncodable(bytes2) {
+      if (Array.isArray(bytes2))
+        return getEncodableList(bytes2.map((x) => getEncodable(x)));
+      return getEncodableBytes(bytes2);
     }
     function getEncodableList(list) {
       const bodyLength = list.reduce((acc, x) => acc + x.length, 0);
@@ -95129,34 +100886,34 @@ var require_toRlp = __commonJS({
       };
     }
     function getEncodableBytes(bytesOrHex) {
-      const bytes3 = typeof bytesOrHex === "string" ? (0, toBytes_js_1.hexToBytes)(bytesOrHex) : bytesOrHex;
-      const sizeOfBytesLength = getSizeOfLength(bytes3.length);
+      const bytes2 = typeof bytesOrHex === "string" ? (0, toBytes_js_1.hexToBytes)(bytesOrHex) : bytesOrHex;
+      const sizeOfBytesLength = getSizeOfLength(bytes2.length);
       const length = (() => {
-        if (bytes3.length === 1 && bytes3[0] < 128)
+        if (bytes2.length === 1 && bytes2[0] < 128)
           return 1;
-        if (bytes3.length <= 55)
-          return 1 + bytes3.length;
-        return 1 + sizeOfBytesLength + bytes3.length;
+        if (bytes2.length <= 55)
+          return 1 + bytes2.length;
+        return 1 + sizeOfBytesLength + bytes2.length;
       })();
       return {
         length,
         encode(cursor) {
-          if (bytes3.length === 1 && bytes3[0] < 128) {
-            cursor.pushBytes(bytes3);
-          } else if (bytes3.length <= 55) {
-            cursor.pushByte(128 + bytes3.length);
-            cursor.pushBytes(bytes3);
+          if (bytes2.length === 1 && bytes2[0] < 128) {
+            cursor.pushBytes(bytes2);
+          } else if (bytes2.length <= 55) {
+            cursor.pushByte(128 + bytes2.length);
+            cursor.pushBytes(bytes2);
           } else {
             cursor.pushByte(128 + 55 + sizeOfBytesLength);
             if (sizeOfBytesLength === 1)
-              cursor.pushUint8(bytes3.length);
+              cursor.pushUint8(bytes2.length);
             else if (sizeOfBytesLength === 2)
-              cursor.pushUint16(bytes3.length);
+              cursor.pushUint16(bytes2.length);
             else if (sizeOfBytesLength === 3)
-              cursor.pushUint24(bytes3.length);
+              cursor.pushUint24(bytes2.length);
             else
-              cursor.pushUint32(bytes3.length);
-            cursor.pushBytes(bytes3);
+              cursor.pushUint32(bytes2.length);
+            cursor.pushBytes(bytes2);
           }
         }
       };
@@ -95190,7 +100947,7 @@ var require_hashAuthorization = __commonJS({
     function hashAuthorization2(parameters) {
       const { chainId, nonce, to } = parameters;
       const address = parameters.contractAddress ?? parameters.address;
-      const hash3 = (0, keccak256_js_1.keccak256)((0, concat_js_1.concatHex)([
+      const hash2 = (0, keccak256_js_1.keccak256)((0, concat_js_1.concatHex)([
         "0x05",
         (0, toRlp_js_1.toRlp)([
           chainId ? (0, toHex_js_1.numberToHex)(chainId) : "0x",
@@ -95199,8 +100956,8 @@ var require_hashAuthorization = __commonJS({
         ])
       ]));
       if (to === "bytes")
-        return (0, toBytes_js_1.hexToBytes)(hash3);
-      return hash3;
+        return (0, toBytes_js_1.hexToBytes)(hash2);
+      return hash2;
     }
   }
 });
@@ -95517,7 +101274,7 @@ var require_transaction3 = __commonJS({
     };
     exports.TransactionExecutionError = TransactionExecutionError;
     var TransactionNotFoundError = class extends base_js_1.BaseError {
-      constructor({ blockHash, blockNumber, blockTag, hash: hash3, index }) {
+      constructor({ blockHash, blockNumber, blockTag, hash: hash2, index }) {
         let identifier = "Transaction";
         if (blockTag && index !== void 0)
           identifier = `Transaction at block time "${blockTag}" at index "${index}"`;
@@ -95525,8 +101282,8 @@ var require_transaction3 = __commonJS({
           identifier = `Transaction at block hash "${blockHash}" at index "${index}"`;
         if (blockNumber && index !== void 0)
           identifier = `Transaction at block number "${blockNumber}" at index "${index}"`;
-        if (hash3)
-          identifier = `Transaction with hash "${hash3}"`;
+        if (hash2)
+          identifier = `Transaction with hash "${hash2}"`;
         super(`${identifier} could not be found.`, {
           name: "TransactionNotFoundError"
         });
@@ -95534,8 +101291,8 @@ var require_transaction3 = __commonJS({
     };
     exports.TransactionNotFoundError = TransactionNotFoundError;
     var TransactionReceiptNotFoundError = class extends base_js_1.BaseError {
-      constructor({ hash: hash3 }) {
-        super(`Transaction receipt with hash "${hash3}" could not be found. The Transaction may not be processed on a block yet.`, {
+      constructor({ hash: hash2 }) {
+        super(`Transaction receipt with hash "${hash2}" could not be found. The Transaction may not be processed on a block yet.`, {
           name: "TransactionReceiptNotFoundError"
         });
       }
@@ -95564,8 +101321,8 @@ var require_transaction3 = __commonJS({
     };
     exports.TransactionReceiptRevertedError = TransactionReceiptRevertedError;
     var WaitForTransactionReceiptTimeoutError = class extends base_js_1.BaseError {
-      constructor({ hash: hash3 }) {
-        super(`Timed out while waiting for transaction with hash "${hash3}" to be confirmed.`, { name: "WaitForTransactionReceiptTimeoutError" });
+      constructor({ hash: hash2 }) {
+        super(`Timed out while waiting for transaction with hash "${hash2}" to be confirmed.`, { name: "WaitForTransactionReceiptTimeoutError" });
       }
     };
     exports.WaitForTransactionReceiptTimeoutError = WaitForTransactionReceiptTimeoutError;
@@ -95667,17 +101424,17 @@ var require_sha2563 = __commonJS({
     "use strict";
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.sha256 = sha2564;
+    exports.sha256 = sha2563;
     var sha256_1 = require_sha2562();
     var isHex_js_1 = require_isHex();
     var toBytes_js_1 = require_toBytes();
     var toHex_js_1 = require_toHex();
-    function sha2564(value, to_) {
+    function sha2563(value, to_) {
       const to = to_ || "hex";
-      const bytes3 = (0, sha256_1.sha256)((0, isHex_js_1.isHex)(value, { strict: false }) ? (0, toBytes_js_1.toBytes)(value) : value);
+      const bytes2 = (0, sha256_1.sha256)((0, isHex_js_1.isHex)(value, { strict: false }) ? (0, toBytes_js_1.toBytes)(value) : value);
       if (to === "bytes")
-        return bytes3;
-      return (0, toHex_js_1.toHex)(bytes3);
+        return bytes2;
+      return (0, toHex_js_1.toHex)(bytes2);
     }
   }
 });
@@ -95776,8 +101533,8 @@ var require_blob2 = __commonJS({
     };
     exports.EmptyBlobError = EmptyBlobError;
     var InvalidVersionedHashSizeError = class extends base_js_1.BaseError {
-      constructor({ hash: hash3, size }) {
-        super(`Versioned hash "${hash3}" size is invalid.`, {
+      constructor({ hash: hash2, size }) {
+        super(`Versioned hash "${hash2}" size is invalid.`, {
           metaMessages: ["Expected: 32", `Received: ${size}`],
           name: "InvalidVersionedHashSizeError"
         });
@@ -95785,8 +101542,8 @@ var require_blob2 = __commonJS({
     };
     exports.InvalidVersionedHashSizeError = InvalidVersionedHashSizeError;
     var InvalidVersionedHashVersionError = class extends base_js_1.BaseError {
-      constructor({ hash: hash3, version: version3 }) {
-        super(`Versioned hash "${hash3}" version is invalid.`, {
+      constructor({ hash: hash2, version: version3 }) {
+        super(`Versioned hash "${hash2}" version is invalid.`, {
           metaMessages: [
             `Expected: ${kzg_js_1.versionedHashVersionKzg}`,
             `Received: ${version3}`
@@ -95830,10 +101587,10 @@ var require_toBlobs = __commonJS({
         const blob = (0, cursor_js_1.createCursor)(new Uint8Array(blob_js_1.bytesPerBlob));
         let size = 0;
         while (size < blob_js_1.fieldElementsPerBlob) {
-          const bytes3 = data.slice(position, position + (blob_js_1.bytesPerFieldElement - 1));
+          const bytes2 = data.slice(position, position + (blob_js_1.bytesPerFieldElement - 1));
           blob.pushByte(0);
-          blob.pushBytes(bytes3);
-          if (bytes3.length < 31) {
+          blob.pushBytes(bytes2);
+          if (bytes2.length < 31) {
             blob.pushByte(128);
             active = false;
             break;
@@ -96256,7 +102013,7 @@ var require_slice = __commonJS({
     exports.slice = slice;
     exports.sliceBytes = sliceBytes;
     exports.sliceHex = sliceHex;
-    var data_js_1 = require_data3();
+    var data_js_1 = require_data4();
     var isHex_js_1 = require_isHex();
     var size_js_1 = require_size();
     function slice(value, start, end, { strict } = {}) {
@@ -96343,14 +102100,14 @@ var require_assertTransaction = __commonJS({
       if (blobVersionedHashes) {
         if (blobVersionedHashes.length === 0)
           throw new blob_js_1.EmptyBlobError();
-        for (const hash3 of blobVersionedHashes) {
-          const size_ = (0, size_js_1.size)(hash3);
-          const version3 = (0, fromHex_js_1.hexToNumber)((0, slice_js_1.slice)(hash3, 0, 1));
+        for (const hash2 of blobVersionedHashes) {
+          const size_ = (0, size_js_1.size)(hash2);
+          const version3 = (0, fromHex_js_1.hexToNumber)((0, slice_js_1.slice)(hash2, 0, 1));
           if (size_ !== 32)
-            throw new blob_js_1.InvalidVersionedHashSizeError({ hash: hash3, size: size_ });
+            throw new blob_js_1.InvalidVersionedHashSizeError({ hash: hash2, size: size_ });
           if (version3 !== kzg_js_1.versionedHashVersionKzg)
             throw new blob_js_1.InvalidVersionedHashVersionError({
-              hash: hash3,
+              hash: hash2,
               version: version3
             });
         }
@@ -97667,8 +103424,8 @@ var require_privateKeyToAccount = __commonJS({
       const account = (0, toAccount_js_1.toAccount)({
         address,
         nonceManager,
-        async sign({ hash: hash3 }) {
-          return (0, sign_js_1.sign)({ hash: hash3, privateKey, to: "hex" });
+        async sign({ hash: hash2 }) {
+          return (0, sign_js_1.sign)({ hash: hash2, privateKey, to: "hex" });
         },
         async signAuthorization(authorization) {
           return (0, signAuthorization_js_1.signAuthorization)({ ...authorization, privateKey });
@@ -119095,8 +124852,8 @@ var require_perpTrade = __commonJS({
     exports.hlCancelAllOrders = hlCancelAllOrders;
     exports.hlUpdateLeverage = hlUpdateLeverage;
     var Endpoints = __importStar2(require_endpoints());
-    var validation_1 = require_validation3();
-    var errors_1 = require_errors3();
+    var validation_1 = require_validation4();
+    var errors_1 = require_errors4();
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
     var hlCopyTrade_1 = require_hlCopyTrade2();
     function normalizeCoin(coin) {
@@ -119623,8 +125380,8 @@ var require_limitOrders = __commonJS({
     exports.updateOrder = updateOrder;
     exports.cancelLimitOrder = cancelLimitOrder;
     var Endpoints = __importStar2(require_endpoints());
-    var validation_1 = require_validation3();
-    var errors_1 = require_errors3();
+    var validation_1 = require_validation4();
+    var errors_1 = require_errors4();
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
     async function getLimitOrders(client, params) {
       (0, validation_1.validateRequired)(params.userId, "userId");
@@ -119784,8 +125541,8 @@ var require_copyTrade2 = __commonJS({
     exports.resumeCopyTrade = resumeCopyTrade;
     var Endpoints = __importStar2(require_endpoints());
     var common_1 = require_common2();
-    var errors_1 = require_errors3();
-    var validation_1 = require_validation3();
+    var errors_1 = require_errors4();
+    var validation_1 = require_validation4();
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
     async function getCopyTradeWallets(client) {
       return client.get(Endpoints.COPY_TRADE_WALLETS);
@@ -120165,7 +125922,7 @@ var require_tokenInfo = __commonJS({
     exports.getTrendingTokens = getTrendingTokens;
     exports.getOHLCV = getOHLCV;
     var Endpoints = __importStar2(require_endpoints());
-    var validation_1 = require_validation3();
+    var validation_1 = require_validation4();
     var apiAliases_1 = require_apiAliases();
     var chains_1 = require_chains();
     async function getTokenDetails(client, params) {
@@ -120271,7 +126028,7 @@ var require_topTraders = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getTopTraders = getTopTraders;
     var Endpoints = __importStar2(require_endpoints());
-    var validation_1 = require_validation3();
+    var validation_1 = require_validation4();
     var apiAliases_1 = require_apiAliases();
     async function getTopTraders(client, params = {}) {
       if (params.chain !== void 0)
@@ -120345,8 +126102,8 @@ var require_bridge2 = __commonJS({
     exports.bridge = requestBridge;
     exports.getBridgeOrders = getBridgeOrders;
     var Endpoints = __importStar2(require_endpoints());
-    var validation_1 = require_validation3();
-    var errors_1 = require_errors3();
+    var validation_1 = require_validation4();
+    var errors_1 = require_errors4();
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
     var ethers_1 = require_lib2();
     function encodeBridgeData(amount, fromChainId, toChainId, nonce) {
@@ -120414,7 +126171,7 @@ var require_wallet3 = __commonJS({
     init_define_GDEX_SKILL_REGISTRY();
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getWalletInfo = getWalletInfo;
-    var errors_1 = require_errors3();
+    var errors_1 = require_errors4();
     var portfolio_1 = require_portfolio2();
     async function getWalletInfo(client, params) {
       if (params.chain === void 0)
@@ -120487,8 +126244,8 @@ var require_transfers = __commonJS({
     exports.transferToken = transferToken;
     var Endpoints = __importStar2(require_endpoints());
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
-    var validation_1 = require_validation3();
-    var errors_1 = require_errors3();
+    var validation_1 = require_validation4();
+    var errors_1 = require_errors4();
     function isStructured(req) {
       return typeof req.recipient === "string" && typeof req.amount === "string" && typeof req.managed === "object" && req.managed !== null;
     }
@@ -120603,8 +126360,8 @@ var require_usdc = __commonJS({
     var crypto_1 = __require("crypto");
     var Endpoints = __importStar2(require_endpoints());
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
-    var validation_1 = require_validation3();
-    var errors_1 = require_errors3();
+    var validation_1 = require_validation4();
+    var errors_1 = require_errors4();
     var SOLANA_CHAIN_ID2 = 622112261;
     function readQuery(creds2) {
       (0, validation_1.validateRequired)(creds2.apiKey, "apiKey");
@@ -120938,7 +126695,7 @@ var require_social = __commonJS({
     exports.importToken = importToken;
     var Endpoints = __importStar2(require_endpoints());
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
-    var validation_1 = require_validation3();
+    var validation_1 = require_validation4();
     async function addComment(client, params) {
       (0, validation_1.validateRequired)(params.tokenAddress, "tokenAddress");
       (0, validation_1.validateRequired)(params.message, "message");
@@ -121082,7 +126839,7 @@ var require_analytics = __commonJS({
     exports.getNativePrices = getNativePrices;
     exports.generatePnl = generatePnl;
     var Endpoints = __importStar2(require_endpoints());
-    var validation_1 = require_validation3();
+    var validation_1 = require_validation4();
     var apiAliases_1 = require_apiAliases();
     async function getWalletPerformance(client, params) {
       (0, validation_1.validateRequired)(params.walletAddress, "walletAddress");
@@ -121176,7 +126933,7 @@ var require_tokenDiscovery = __commonJS({
     exports.getTokenTrades = getTokenTrades;
     exports.getTokenImage = getTokenImage;
     var Endpoints = __importStar2(require_endpoints());
-    var validation_1 = require_validation3();
+    var validation_1 = require_validation4();
     var apiAliases_1 = require_apiAliases();
     function listQuery(params) {
       const q = { ...(0, apiAliases_1.buildChainAliases)(params.chain) };
@@ -121256,7 +127013,7 @@ var require_hlOutcomeMarkets = __commonJS({
     exports.validateOutcomeClose = validateOutcomeClose;
     exports.normalizeOutcomeAccount = normalizeOutcomeAccount;
     exports.normalizeOutcomeOrderResult = normalizeOutcomeOrderResult;
-    var errors_1 = require_errors3();
+    var errors_1 = require_errors4();
     exports.OUTCOME_ORDER_RULES = {
       /** Prices are probabilities strictly inside (0,1). */
       priceMin: 1e-5,
@@ -121975,8 +127732,8 @@ var require_hlOutcomes = __commonJS({
     exports.closeHlOutcomeOrder = closeHlOutcomeOrder;
     var axios_1 = __importDefault2(require_axios());
     var Endpoints = __importStar2(require_endpoints());
-    var validation_1 = require_validation3();
-    var errors_1 = require_errors3();
+    var validation_1 = require_validation4();
+    var errors_1 = require_errors4();
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
     var hlOutcomeMarkets_1 = require_hlOutcomeMarkets();
     var hlOutcomeVolume_1 = require_hlOutcomeVolume();
@@ -122261,7 +128018,7 @@ var require_hlReferral = __commonJS({
     exports.getHlReferralInfo = getHlReferralInfo;
     exports.requestHlReferralClaim = requestHlReferralClaim;
     var Endpoints = __importStar2(require_endpoints());
-    var validation_1 = require_validation3();
+    var validation_1 = require_validation4();
     async function getHlReferralInfo(client, params) {
       (0, validation_1.validateRequired)(params.userAddress, "userAddress");
       return client.get(Endpoints.HL_REF_INFO, { address: params.userAddress });
@@ -122321,7 +128078,7 @@ var require_trending = __commonJS({
     exports.registerTrending = registerTrending;
     exports.getTrendingBookingStatus = getTrendingBookingStatus;
     var Endpoints = __importStar2(require_endpoints());
-    var validation_1 = require_validation3();
+    var validation_1 = require_validation4();
     async function getTrendingList(client, params = {}) {
       const q = {};
       if (params.chain !== void 0)
@@ -122446,7 +128203,7 @@ var require_hlExtras = __commonJS({
     exports.getHlPositionsByAddress = getHlPositionsByAddress;
     exports.getHlAccountStateByAddress = getHlAccountStateByAddress;
     var Endpoints = __importStar2(require_endpoints());
-    var validation_1 = require_validation3();
+    var validation_1 = require_validation4();
     var gdexManagedCrypto_1 = require_gdexManagedCrypto();
     async function hlEnableTrading(client, req) {
       if ("computedData" in req) {
@@ -122564,7 +128321,7 @@ var require_auth = __commonJS({
     exports.oauthLogin = oauthLogin;
     exports.associateEmail = associateEmail;
     var Endpoints = __importStar2(require_endpoints());
-    var validation_1 = require_validation3();
+    var validation_1 = require_validation4();
     async function oauthLogin(client, params) {
       (0, validation_1.validateRequired)(params.idToken, "idToken");
       const body = { idToken: params.idToken };
@@ -122888,7 +128645,7 @@ var require_dist5 = __commonJS({
     Object.defineProperty(exports, "outcomeSideCoins", { enumerable: true, get: function() {
       return hlOutcomeVolume_2.outcomeSideCoins;
     } });
-    var errors_1 = require_errors3();
+    var errors_1 = require_errors4();
     Object.defineProperty(exports, "GdexError", { enumerable: true, get: function() {
       return errors_1.GdexError;
     } });
@@ -122980,7 +128737,7 @@ var require_dist5 = __commonJS({
     Object.defineProperty(exports, "generateEvmWallet", { enumerable: true, get: function() {
       return walletGeneration_2.generateEvmWallet;
     } });
-    var validation_1 = require_validation3();
+    var validation_1 = require_validation4();
     Object.defineProperty(exports, "validateAddress", { enumerable: true, get: function() {
       return validation_1.validateAddress;
     } });
@@ -124202,19 +129959,19 @@ var init_sdk = __esm({
 // mcp-server/src/index.ts
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/server/index.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/index.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v3/external.js
+// node_modules/zod/v3/external.js
 var external_exports = {};
 __export(external_exports, {
   BRAND: () => BRAND,
@@ -124327,16 +130084,16 @@ __export(external_exports, {
 });
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v3/errors.js
+// node_modules/zod/v3/errors.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v3/locales/en.js
+// node_modules/zod/v3/locales/en.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v3/ZodError.js
+// node_modules/zod/v3/ZodError.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v3/helpers/util.js
+// node_modules/zod/v3/helpers/util.js
 init_define_GDEX_SKILL_REGISTRY();
 var util;
 (function(util2) {
@@ -124471,7 +130228,7 @@ var getParsedType = (data) => {
   }
 };
 
-// mcp-server/node_modules/zod/v3/ZodError.js
+// node_modules/zod/v3/ZodError.js
 var ZodIssueCode = util.arrayToEnum([
   "invalid_type",
   "invalid_literal",
@@ -124589,7 +130346,7 @@ ZodError.create = (issues) => {
   return error2;
 };
 
-// mcp-server/node_modules/zod/v3/locales/en.js
+// node_modules/zod/v3/locales/en.js
 var errorMap = (issue2, _ctx) => {
   let message;
   switch (issue2.code) {
@@ -124692,7 +130449,7 @@ var errorMap = (issue2, _ctx) => {
 };
 var en_default = errorMap;
 
-// mcp-server/node_modules/zod/v3/errors.js
+// node_modules/zod/v3/errors.js
 var overrideErrorMap = en_default;
 function setErrorMap(map) {
   overrideErrorMap = map;
@@ -124701,7 +130458,7 @@ function getErrorMap() {
   return overrideErrorMap;
 }
 
-// mcp-server/node_modules/zod/v3/helpers/parseUtil.js
+// node_modules/zod/v3/helpers/parseUtil.js
 init_define_GDEX_SKILL_REGISTRY();
 var makeIssue = (params) => {
   const { data, path: path3, errorMaps, issueData } = params;
@@ -124812,10 +130569,10 @@ var isDirty = (x) => x.status === "dirty";
 var isValid = (x) => x.status === "valid";
 var isAsync = (x) => typeof Promise !== "undefined" && x instanceof Promise;
 
-// mcp-server/node_modules/zod/v3/types.js
+// node_modules/zod/v3/types.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v3/helpers/errorUtil.js
+// node_modules/zod/v3/helpers/errorUtil.js
 init_define_GDEX_SKILL_REGISTRY();
 var errorUtil;
 (function(errorUtil2) {
@@ -124823,7 +130580,7 @@ var errorUtil;
   errorUtil2.toString = (message) => typeof message === "string" ? message : message?.message;
 })(errorUtil || (errorUtil = {}));
 
-// mcp-server/node_modules/zod/v3/types.js
+// node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
   constructor(parent, value, path3, key) {
     this._cachedPath = [];
@@ -128271,13 +134028,13 @@ var coerce = {
 };
 var NEVER = INVALID;
 
-// mcp-server/node_modules/zod/v4/mini/external.js
+// node_modules/zod/v4/mini/external.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v4/core/index.js
+// node_modules/zod/v4/core/index.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v4/core/core.js
+// node_modules/zod/v4/core/core.js
 init_define_GDEX_SKILL_REGISTRY();
 var NEVER2 = Object.freeze({
   status: "aborted"
@@ -128338,13 +134095,13 @@ function config(newConfig) {
   return globalConfig;
 }
 
-// mcp-server/node_modules/zod/v4/core/parse.js
+// node_modules/zod/v4/core/parse.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v4/core/errors.js
+// node_modules/zod/v4/core/errors.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v4/core/util.js
+// node_modules/zod/v4/core/util.js
 var util_exports = {};
 __export(util_exports, {
   BIGINT_FORMAT_RANGES: () => BIGINT_FORMAT_RANGES,
@@ -128866,7 +134623,7 @@ var Class = class {
   }
 };
 
-// mcp-server/node_modules/zod/v4/core/errors.js
+// node_modules/zod/v4/core/errors.js
 var initializer = (inst, def) => {
   inst.name = "$ZodError";
   Object.defineProperty(inst, "_zod", {
@@ -128941,7 +134698,7 @@ function formatError(error2, _mapper) {
   return fieldErrors;
 }
 
-// mcp-server/node_modules/zod/v4/core/parse.js
+// node_modules/zod/v4/core/parse.js
 var _parse = (_Err) => (schema, value, _ctx, _params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: false }) : { async: false };
   const result = schema._zod.run({ value, issues: [] }, ctx);
@@ -128993,13 +134750,13 @@ var _safeParseAsync = (_Err) => async (schema, value, _ctx) => {
 };
 var safeParseAsync = /* @__PURE__ */ _safeParseAsync($ZodRealError);
 
-// mcp-server/node_modules/zod/v4/core/schemas.js
+// node_modules/zod/v4/core/schemas.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v4/core/checks.js
+// node_modules/zod/v4/core/checks.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v4/core/regexes.js
+// node_modules/zod/v4/core/regexes.js
 init_define_GDEX_SKILL_REGISTRY();
 var cuid = /^[cC][^\s-]{8,}$/;
 var cuid2 = /^[0-9a-z]+$/;
@@ -129058,7 +134815,7 @@ var _null = /null/i;
 var lowercase = /^[^A-Z]*$/;
 var uppercase = /^[^a-z]*$/;
 
-// mcp-server/node_modules/zod/v4/core/checks.js
+// node_modules/zod/v4/core/checks.js
 var $ZodCheck = /* @__PURE__ */ $constructor("$ZodCheck", (inst, def) => {
   var _a;
   inst._zod ?? (inst._zod = {});
@@ -129443,7 +135200,7 @@ var $ZodCheckOverwrite = /* @__PURE__ */ $constructor("$ZodCheckOverwrite", (ins
   };
 });
 
-// mcp-server/node_modules/zod/v4/core/doc.js
+// node_modules/zod/v4/core/doc.js
 init_define_GDEX_SKILL_REGISTRY();
 var Doc = class {
   constructor(args2 = []) {
@@ -129480,7 +135237,7 @@ var Doc = class {
   }
 };
 
-// mcp-server/node_modules/zod/v4/core/versions.js
+// node_modules/zod/v4/core/versions.js
 init_define_GDEX_SKILL_REGISTRY();
 var version = {
   major: 4,
@@ -129488,7 +135245,7 @@ var version = {
   patch: 0
 };
 
-// mcp-server/node_modules/zod/v4/core/schemas.js
+// node_modules/zod/v4/core/schemas.js
 var $ZodType = /* @__PURE__ */ $constructor("$ZodType", (inst, def) => {
   var _a;
   inst ?? (inst = {});
@@ -130509,9 +136266,9 @@ var $ZodTransform = /* @__PURE__ */ $constructor("$ZodTransform", (inst, def) =>
   inst._zod.parse = (payload, _ctx) => {
     const _out = def.transform(payload.value, payload);
     if (_ctx.async) {
-      const output3 = _out instanceof Promise ? _out : Promise.resolve(_out);
-      return output3.then((output4) => {
-        payload.value = output4;
+      const output2 = _out instanceof Promise ? _out : Promise.resolve(_out);
+      return output2.then((output3) => {
+        payload.value = output3;
         return payload;
       });
     }
@@ -130726,7 +136483,7 @@ function handleRefineResult(result, payload, input, inst) {
   }
 }
 
-// mcp-server/node_modules/zod/v4/locales/en.js
+// node_modules/zod/v4/locales/en.js
 init_define_GDEX_SKILL_REGISTRY();
 var parsedType = (data) => {
   const t = typeof data;
@@ -130845,7 +136602,7 @@ function en_default2() {
   };
 }
 
-// mcp-server/node_modules/zod/v4/core/registries.js
+// node_modules/zod/v4/core/registries.js
 init_define_GDEX_SKILL_REGISTRY();
 var $output = Symbol("ZodOutput");
 var $input = Symbol("ZodInput");
@@ -130896,7 +136653,7 @@ function registry() {
 }
 var globalRegistry = /* @__PURE__ */ registry();
 
-// mcp-server/node_modules/zod/v4/core/api.js
+// node_modules/zod/v4/core/api.js
 init_define_GDEX_SKILL_REGISTRY();
 function _string(Class2, params) {
   return new Class2({
@@ -131336,7 +137093,7 @@ function _refine(Class2, fn, _params) {
   return schema;
 }
 
-// mcp-server/node_modules/zod/v4/core/to-json-schema.js
+// node_modules/zod/v4/core/to-json-schema.js
 init_define_GDEX_SKILL_REGISTRY();
 var JSONSchemaGenerator = class {
   constructor(params) {
@@ -132104,10 +137861,10 @@ function isTransforming(_schema, _ctx) {
   throw new Error(`Unknown schema type: ${def.type}`);
 }
 
-// mcp-server/node_modules/zod/v4/mini/parse.js
+// node_modules/zod/v4/mini/parse.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v4/mini/schemas.js
+// node_modules/zod/v4/mini/schemas.js
 init_define_GDEX_SKILL_REGISTRY();
 var ZodMiniType = /* @__PURE__ */ $constructor("ZodMiniType", (inst, def) => {
   if (!inst._zod)
@@ -132154,7 +137911,7 @@ function object(shape, params) {
   return new ZodMiniObject(def);
 }
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
 function isZ4Schema(s) {
   const schema = s;
   return !!schema._zod;
@@ -132298,19 +138055,19 @@ function getLiteralValue(schema) {
   return void 0;
 }
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/types.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/types.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v4/classic/external.js
+// node_modules/zod/v4/classic/external.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v4/classic/schemas.js
+// node_modules/zod/v4/classic/schemas.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v4/classic/checks.js
+// node_modules/zod/v4/classic/checks.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v4/classic/iso.js
+// node_modules/zod/v4/classic/iso.js
 var iso_exports2 = {};
 __export(iso_exports2, {
   ZodISODate: () => ZodISODate,
@@ -132352,10 +138109,10 @@ function duration2(params) {
   return _isoDuration(ZodISODuration, params);
 }
 
-// mcp-server/node_modules/zod/v4/classic/parse.js
+// node_modules/zod/v4/classic/parse.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod/v4/classic/errors.js
+// node_modules/zod/v4/classic/errors.js
 init_define_GDEX_SKILL_REGISTRY();
 var initializer2 = (inst, issues) => {
   $ZodError.init(inst, issues);
@@ -132390,13 +138147,13 @@ var ZodRealError = $constructor("ZodError", initializer2, {
   Parent: Error
 });
 
-// mcp-server/node_modules/zod/v4/classic/parse.js
+// node_modules/zod/v4/classic/parse.js
 var parse2 = /* @__PURE__ */ _parse(ZodRealError);
 var parseAsync2 = /* @__PURE__ */ _parseAsync(ZodRealError);
 var safeParse3 = /* @__PURE__ */ _safeParse(ZodRealError);
 var safeParseAsync3 = /* @__PURE__ */ _safeParseAsync(ZodRealError);
 
-// mcp-server/node_modules/zod/v4/classic/schemas.js
+// node_modules/zod/v4/classic/schemas.js
 var ZodType2 = /* @__PURE__ */ $constructor("ZodType", (inst, def) => {
   $ZodType.init(inst, def);
   inst.def = def;
@@ -132848,14 +138605,14 @@ var ZodTransform = /* @__PURE__ */ $constructor("ZodTransform", (inst, def) => {
         payload.issues.push(util_exports.issue(_issue));
       }
     };
-    const output3 = def.transform(payload.value, payload);
-    if (output3 instanceof Promise) {
-      return output3.then((output4) => {
-        payload.value = output4;
+    const output2 = def.transform(payload.value, payload);
+    if (output2 instanceof Promise) {
+      return output2.then((output3) => {
+        payload.value = output3;
         return payload;
       });
     }
-    payload.value = output3;
+    payload.value = output2;
     return payload;
   };
 });
@@ -133007,10 +138764,10 @@ function preprocess(fn, schema) {
   return pipe(transform(fn), schema);
 }
 
-// mcp-server/node_modules/zod/v4/classic/external.js
+// node_modules/zod/v4/classic/external.js
 config(en_default2());
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/types.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/types.js
 var LATEST_PROTOCOL_VERSION = "2025-11-25";
 var SUPPORTED_PROTOCOL_VERSIONS = [LATEST_PROTOCOL_VERSION, "2025-06-18", "2025-03-26", "2024-11-05", "2024-10-07"];
 var RELATED_TASK_META_KEY = "io.modelcontextprotocol/related-task";
@@ -133020,10 +138777,9 @@ var ProgressTokenSchema = union([string2(), number2().int()]);
 var CursorSchema = string2();
 var TaskCreationParamsSchema = looseObject({
   /**
-   * Time in milliseconds to keep task results available after completion.
-   * If null, the task has unlimited lifetime until manually cleaned up.
+   * Requested duration in milliseconds to retain task from creation.
    */
-  ttl: union([number2(), _null3()]).optional(),
+  ttl: number2().optional(),
   /**
    * Time in milliseconds to wait between task status requests.
    */
@@ -133323,7 +139079,11 @@ var ClientCapabilitiesSchema = object2({
   /**
    * Present if the client supports task creation.
    */
-  tasks: ClientTasksCapabilitySchema.optional()
+  tasks: ClientTasksCapabilitySchema.optional(),
+  /**
+   * Extensions that the client supports. Keys are extension identifiers (vendor-prefix/extension-name).
+   */
+  extensions: record(string2(), AssertObjectSchema).optional()
 });
 var InitializeRequestParamsSchema = BaseRequestParamsSchema.extend({
   /**
@@ -133384,7 +139144,11 @@ var ServerCapabilitiesSchema = object2({
   /**
    * Present if the server supports task creation.
    */
-  tasks: ServerTasksCapabilitySchema.optional()
+  tasks: ServerTasksCapabilitySchema.optional(),
+  /**
+   * Extensions that the server supports. Keys are extension identifiers (vendor-prefix/extension-name).
+   */
+  extensions: record(string2(), AssertObjectSchema).optional()
 });
 var InitializeResultSchema = ResultSchema.extend({
   /**
@@ -133576,6 +139340,12 @@ var ResourceSchema = object2({
    * The MIME type of this resource, if known.
    */
   mimeType: optional(string2()),
+  /**
+   * The size of the raw resource content, in bytes (i.e., before base64 encoding or any tokenization), if known.
+   *
+   * This can be used by Hosts to display file sizes and estimate context window usage.
+   */
+  size: optional(number2()),
   /**
    * Optional annotations for the client.
    */
@@ -134528,19 +140298,19 @@ var UrlElicitationRequiredError = class extends McpError {
   }
 };
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/interfaces.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/interfaces.js
 init_define_GDEX_SKILL_REGISTRY();
 function isTerminal(status) {
   return status === "completed" || status === "failed" || status === "cancelled";
 }
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-json-schema-compat.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-json-schema-compat.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/index.js
+// node_modules/zod-to-json-schema/dist/esm/index.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/Options.js
+// node_modules/zod-to-json-schema/dist/esm/Options.js
 init_define_GDEX_SKILL_REGISTRY();
 var ignoreOverride = Symbol("Let zodToJsonSchema decide on which parser to use");
 var defaultOptions = {
@@ -134575,7 +140345,7 @@ var getDefaultOptions = (options) => typeof options === "string" ? {
   ...options
 };
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/Refs.js
+// node_modules/zod-to-json-schema/dist/esm/Refs.js
 init_define_GDEX_SKILL_REGISTRY();
 var getRefs = (options) => {
   const _options = getDefaultOptions(options);
@@ -134597,7 +140367,7 @@ var getRefs = (options) => {
   };
 };
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/errorMessages.js
+// node_modules/zod-to-json-schema/dist/esm/errorMessages.js
 init_define_GDEX_SKILL_REGISTRY();
 function addErrorMessage(res, key, errorMessage, refs) {
   if (!refs?.errorMessages)
@@ -134614,7 +140384,7 @@ function setResponseValueAndErrors(res, key, value, errorMessage, refs) {
   addErrorMessage(res, key, errorMessage, refs);
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/getRelativePath.js
+// node_modules/zod-to-json-schema/dist/esm/getRelativePath.js
 init_define_GDEX_SKILL_REGISTRY();
 var getRelativePath = (pathA, pathB) => {
   let i = 0;
@@ -134625,13 +140395,13 @@ var getRelativePath = (pathA, pathB) => {
   return [(pathA.length - i).toString(), ...pathB.slice(i)].join("/");
 };
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parseDef.js
+// node_modules/zod-to-json-schema/dist/esm/parseDef.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/selectParser.js
+// node_modules/zod-to-json-schema/dist/esm/selectParser.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/any.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/any.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseAnyDef(refs) {
   if (refs.target !== "openAi") {
@@ -134648,7 +140418,7 @@ function parseAnyDef(refs) {
   };
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/array.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/array.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseArrayDef(def, refs) {
   const res = {
@@ -134673,7 +140443,7 @@ function parseArrayDef(def, refs) {
   return res;
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/bigint.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/bigint.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseBigintDef(def, refs) {
   const res = {
@@ -134720,7 +140490,7 @@ function parseBigintDef(def, refs) {
   return res;
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/boolean.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/boolean.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseBooleanDef() {
   return {
@@ -134728,19 +140498,19 @@ function parseBooleanDef() {
   };
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/branded.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/branded.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseBrandedDef(_def, refs) {
   return parseDef(_def.type._def, refs);
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/catch.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/catch.js
 init_define_GDEX_SKILL_REGISTRY();
 var parseCatchDef = (def, refs) => {
   return parseDef(def.innerType._def, refs);
 };
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/date.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/date.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseDateDef(def, refs, overrideDateStrategy) {
   const strategy = overrideDateStrategy ?? refs.dateStrategy;
@@ -134800,7 +140570,7 @@ var integerDateParser = (def, refs) => {
   return res;
 };
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/default.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/default.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseDefaultDef(_def, refs) {
   return {
@@ -134809,13 +140579,13 @@ function parseDefaultDef(_def, refs) {
   };
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/effects.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/effects.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseEffectsDef(_def, refs) {
   return refs.effectStrategy === "input" ? parseDef(_def.schema._def, refs) : parseAnyDef(refs);
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/enum.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/enum.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseEnumDef(def) {
   return {
@@ -134824,7 +140594,7 @@ function parseEnumDef(def) {
   };
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/intersection.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/intersection.js
 init_define_GDEX_SKILL_REGISTRY();
 var isJsonSchema7AllOfType = (type) => {
   if ("type" in type && type.type === "string")
@@ -134867,7 +140637,7 @@ function parseIntersectionDef(def, refs) {
   } : void 0;
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/literal.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/literal.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseLiteralDef(def, refs) {
   const parsedType2 = typeof def.value;
@@ -134888,13 +140658,13 @@ function parseLiteralDef(def, refs) {
   };
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/map.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/map.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/record.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/record.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/string.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/string.js
 init_define_GDEX_SKILL_REGISTRY();
 var emojiRegex2 = void 0;
 var zodPatterns = {
@@ -135220,7 +140990,7 @@ function stringifyRegExpWithFlags(regex, refs) {
   return pattern;
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/record.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/record.js
 function parseRecordDef(def, refs) {
   if (refs.target === "openAi") {
     console.warn("Warning: OpenAI may not support records in schemas! Try an array of key-value pairs instead.");
@@ -135272,7 +141042,7 @@ function parseRecordDef(def, refs) {
   return schema;
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/map.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/map.js
 function parseMapDef(def, refs) {
   if (refs.mapStrategy === "record") {
     return parseRecordDef(def, refs);
@@ -135297,7 +141067,7 @@ function parseMapDef(def, refs) {
   };
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/nativeEnum.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/nativeEnum.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseNativeEnumDef(def) {
   const object3 = def.values;
@@ -135312,7 +141082,7 @@ function parseNativeEnumDef(def) {
   };
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/never.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/never.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseNeverDef(refs) {
   return refs.target === "openAi" ? void 0 : {
@@ -135323,7 +141093,7 @@ function parseNeverDef(refs) {
   };
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/null.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/null.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseNullDef(refs) {
   return refs.target === "openApi3" ? {
@@ -135334,10 +141104,10 @@ function parseNullDef(refs) {
   };
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/nullable.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/nullable.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/union.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/union.js
 init_define_GDEX_SKILL_REGISTRY();
 var primitiveMappings = {
   ZodString: "string",
@@ -135406,7 +141176,7 @@ var asAnyOf = (def, refs) => {
   return anyOf.length ? { anyOf } : void 0;
 };
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/nullable.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/nullable.js
 function parseNullableDef(def, refs) {
   if (["ZodString", "ZodNumber", "ZodBigInt", "ZodBoolean", "ZodNull"].includes(def.innerType._def.typeName) && (!def.innerType._def.checks || !def.innerType._def.checks.length)) {
     if (refs.target === "openApi3") {
@@ -135438,7 +141208,7 @@ function parseNullableDef(def, refs) {
   return base && { anyOf: [base, { type: "null" }] };
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/number.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/number.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseNumberDef(def, refs) {
   const res = {
@@ -135488,7 +141258,7 @@ function parseNumberDef(def, refs) {
   return res;
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/object.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/object.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseObjectDef(def, refs) {
   const forceOptionalIntoNullable = refs.target === "openAi";
@@ -135559,7 +141329,7 @@ function safeIsOptional(schema) {
   }
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/optional.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/optional.js
 init_define_GDEX_SKILL_REGISTRY();
 var parseOptionalDef = (def, refs) => {
   if (refs.currentPath.toString() === refs.propertyPath?.toString()) {
@@ -135579,7 +141349,7 @@ var parseOptionalDef = (def, refs) => {
   } : parseAnyDef(refs);
 };
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/pipeline.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/pipeline.js
 init_define_GDEX_SKILL_REGISTRY();
 var parsePipelineDef = (def, refs) => {
   if (refs.pipeStrategy === "input") {
@@ -135600,13 +141370,13 @@ var parsePipelineDef = (def, refs) => {
   };
 };
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/promise.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/promise.js
 init_define_GDEX_SKILL_REGISTRY();
 function parsePromiseDef(def, refs) {
   return parseDef(def.type._def, refs);
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/set.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/set.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseSetDef(def, refs) {
   const items = parseDef(def.valueType._def, {
@@ -135627,7 +141397,7 @@ function parseSetDef(def, refs) {
   return schema;
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/tuple.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/tuple.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseTupleDef(def, refs) {
   if (def.rest) {
@@ -135656,7 +141426,7 @@ function parseTupleDef(def, refs) {
   }
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/undefined.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/undefined.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseUndefinedDef(refs) {
   return {
@@ -135664,19 +141434,19 @@ function parseUndefinedDef(refs) {
   };
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/unknown.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/unknown.js
 init_define_GDEX_SKILL_REGISTRY();
 function parseUnknownDef(refs) {
   return parseAnyDef(refs);
 }
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parsers/readonly.js
+// node_modules/zod-to-json-schema/dist/esm/parsers/readonly.js
 init_define_GDEX_SKILL_REGISTRY();
 var parseReadonlyDef = (def, refs) => {
   return parseDef(def.innerType._def, refs);
 };
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/selectParser.js
+// node_modules/zod-to-json-schema/dist/esm/selectParser.js
 var selectParser = (def, typeName, refs) => {
   switch (typeName) {
     case ZodFirstPartyTypeKind.ZodString:
@@ -135752,7 +141522,7 @@ var selectParser = (def, typeName, refs) => {
   }
 };
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parseDef.js
+// node_modules/zod-to-json-schema/dist/esm/parseDef.js
 function parseDef(def, refs, forceResolution = false) {
   const seenItem = refs.seen.get(def);
   if (refs.override) {
@@ -135808,10 +141578,10 @@ var addMeta = (def, refs, jsonSchema) => {
   return jsonSchema;
 };
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/parseTypes.js
+// node_modules/zod-to-json-schema/dist/esm/parseTypes.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/zod-to-json-schema/dist/esm/zodToJsonSchema.js
+// node_modules/zod-to-json-schema/dist/esm/zodToJsonSchema.js
 init_define_GDEX_SKILL_REGISTRY();
 var zodToJsonSchema = (schema, options) => {
   const refs = getRefs(options);
@@ -135874,7 +141644,7 @@ var zodToJsonSchema = (schema, options) => {
   return combined;
 };
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-json-schema-compat.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-json-schema-compat.js
 function mapMiniTarget(t) {
   if (!t)
     return "draft-7";
@@ -135916,7 +141686,7 @@ function parseWithCompat(schema, data) {
   return result.data;
 }
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js
 var DEFAULT_REQUEST_TIMEOUT_MSEC = 6e4;
 var Protocol = class {
   constructor(_options) {
@@ -136128,6 +141898,10 @@ var Protocol = class {
     this._progressHandlers.clear();
     this._taskProgressTokens.clear();
     this._pendingDebouncedNotifications.clear();
+    for (const info of this._timeoutInfo.values()) {
+      clearTimeout(info.timeoutId);
+    }
+    this._timeoutInfo.clear();
     for (const controller of this._requestHandlerAbortControllers.values()) {
       controller.abort();
     }
@@ -136258,7 +142032,9 @@ var Protocol = class {
         await capturedTransport?.send(errorResponse);
       }
     }).catch((error2) => this._onerror(new Error(`Failed to send response: ${error2}`))).finally(() => {
-      this._requestHandlerAbortControllers.delete(request.id);
+      if (this._requestHandlerAbortControllers.get(request.id) === abortController) {
+        this._requestHandlerAbortControllers.delete(request.id);
+      }
     });
   }
   _onprogress(notification) {
@@ -136864,7 +142640,7 @@ function mergeCapabilities(base, additional) {
   return result;
 }
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/validation/ajv-provider.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/validation/ajv-provider.js
 init_define_GDEX_SKILL_REGISTRY();
 var import_ajv = __toESM(require_ajv(), 1);
 var import_ajv_formats = __toESM(require_dist(), 1);
@@ -136933,7 +142709,7 @@ var AjvJsonSchemaValidator = class {
   }
 };
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
 init_define_GDEX_SKILL_REGISTRY();
 var ExperimentalServerTasks = class {
   constructor(_server) {
@@ -137147,7 +142923,7 @@ var ExperimentalServerTasks = class {
   }
 };
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/helpers.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/helpers.js
 init_define_GDEX_SKILL_REGISTRY();
 function assertToolsCallTaskCapability(requests, method, entityName) {
   if (!requests) {
@@ -137183,7 +142959,7 @@ function assertClientRequestTaskCapability(requests, method, entityName) {
   }
 }
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/server/index.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/index.js
 var Server = class extends Protocol {
   /**
    * Initializes this server with the given name and version information.
@@ -137563,7 +143339,7 @@ var Server = class extends Protocol {
   }
 };
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/server/completable.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/completable.js
 init_define_GDEX_SKILL_REGISTRY();
 var COMPLETABLE_SYMBOL = Symbol.for("mcp.completable");
 function isCompletable(schema) {
@@ -137578,10 +143354,10 @@ var McpZodTypeKind;
   McpZodTypeKind2["Completable"] = "McpCompletable";
 })(McpZodTypeKind || (McpZodTypeKind = {}));
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/uriTemplate.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/uriTemplate.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/toolNameValidation.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/toolNameValidation.js
 init_define_GDEX_SKILL_REGISTRY();
 var TOOL_NAME_REGEX = /^[A-Za-z0-9._-]{1,128}$/;
 function validateToolName(name) {
@@ -137640,7 +143416,7 @@ function validateAndWarnToolName(name) {
   return result.isValid;
 }
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/mcp-server.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/mcp-server.js
 init_define_GDEX_SKILL_REGISTRY();
 var ExperimentalMcpServerTasks = class {
   constructor(_mcpServer) {
@@ -137656,10 +143432,10 @@ var ExperimentalMcpServerTasks = class {
   }
 };
 
-// mcp-server/node_modules/zod/index.js
+// node_modules/zod/index.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js
 var McpServer = class {
   constructor(serverInfo, options) {
     this._registeredResources = {};
@@ -138283,6 +144059,9 @@ var McpServer = class {
           annotations = rest.shift();
         }
       } else if (typeof firstArg === "object" && firstArg !== null) {
+        if (Object.values(firstArg).some((v) => typeof v === "object" && v !== null)) {
+          throw new Error(`Tool ${name} expected a Zod schema or ToolAnnotations, but received an unrecognized object`);
+        }
         annotations = rest.shift();
       }
     }
@@ -138401,6 +144180,9 @@ function getZodSchemaObject(schema) {
   if (isZodRawShapeCompat(schema)) {
     return objectFromShape(schema);
   }
+  if (!isZodSchemaInstance(schema)) {
+    throw new Error("inputSchema must be a Zod schema or raw shape, received an unrecognized object");
+  }
   return schema;
 }
 function promptArgumentsFromSchema(schema) {
@@ -138445,11 +144227,11 @@ var EMPTY_COMPLETION_RESULT = {
   }
 };
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
 init_define_GDEX_SKILL_REGISTRY();
 import process2 from "node:process";
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/stdio.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/stdio.js
 init_define_GDEX_SKILL_REGISTRY();
 var ReadBuffer = class {
   append(chunk) {
@@ -138478,7 +144260,7 @@ function serializeMessage(message) {
   return JSON.stringify(message) + "\n";
 }
 
-// mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
 var StdioServerTransport = class {
   constructor(_stdin = process2.stdin, _stdout = process2.stdout) {
     this._stdin = _stdin;
@@ -141500,26 +147282,26 @@ import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
 
-// mcp-server/node_modules/ethers/lib.esm/ethers.js
+// node_modules/ethers/lib.esm/ethers.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/_version.js
+// node_modules/ethers/lib.esm/_version.js
 init_define_GDEX_SKILL_REGISTRY();
-var version2 = "6.17.0";
+var version2 = "6.16.0";
 
-// mcp-server/node_modules/ethers/lib.esm/utils/index.js
-init_define_GDEX_SKILL_REGISTRY();
-
-// mcp-server/node_modules/ethers/lib.esm/utils/base58.js
+// node_modules/ethers/lib.esm/utils/index.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/utils/data.js
+// node_modules/ethers/lib.esm/utils/base58.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/utils/errors.js
+// node_modules/ethers/lib.esm/utils/data.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/utils/properties.js
+// node_modules/ethers/lib.esm/utils/errors.js
+init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/ethers/lib.esm/utils/properties.js
 init_define_GDEX_SKILL_REGISTRY();
 function checkType(value, type, name) {
   const types = type.split("|").map((t) => t.trim());
@@ -141561,7 +147343,7 @@ function defineProperties(target, values, types) {
   }
 }
 
-// mcp-server/node_modules/ethers/lib.esm/utils/errors.js
+// node_modules/ethers/lib.esm/utils/errors.js
 function stringify(value, seen) {
   if (value == null) {
     return "null";
@@ -141698,7 +147480,7 @@ function assertPrivate(givenGuard, guard, className) {
   }
 }
 
-// mcp-server/node_modules/ethers/lib.esm/utils/data.js
+// node_modules/ethers/lib.esm/utils/data.js
 function _getBytes(value, name, copy) {
   if (value instanceof Uint8Array) {
     if (copy) {
@@ -141740,10 +147522,10 @@ function isBytesLike(value) {
 }
 var HexCharacters = "0123456789abcdef";
 function hexlify(data) {
-  const bytes3 = getBytes(data);
+  const bytes2 = getBytes(data);
   let result = "0x";
-  for (let i = 0; i < bytes3.length; i++) {
-    const v = bytes3[i];
+  for (let i = 0; i < bytes2.length; i++) {
+    const v = bytes2[i];
     result += HexCharacters[(v & 240) >> 4] + HexCharacters[v & 15];
   }
   return result;
@@ -141758,29 +147540,29 @@ function dataLength(data) {
   return getBytes(data).length;
 }
 function dataSlice(data, start, end) {
-  const bytes3 = getBytes(data);
-  if (end != null && end > bytes3.length) {
+  const bytes2 = getBytes(data);
+  if (end != null && end > bytes2.length) {
     assert2(false, "cannot slice beyond data bounds", "BUFFER_OVERRUN", {
-      buffer: bytes3,
-      length: bytes3.length,
+      buffer: bytes2,
+      length: bytes2.length,
       offset: end
     });
   }
-  return hexlify(bytes3.slice(start == null ? 0 : start, end == null ? bytes3.length : end));
+  return hexlify(bytes2.slice(start == null ? 0 : start, end == null ? bytes2.length : end));
 }
 function zeroPad(data, length, left) {
-  const bytes3 = getBytes(data);
-  assert2(length >= bytes3.length, "padding exceeds data length", "BUFFER_OVERRUN", {
-    buffer: new Uint8Array(bytes3),
+  const bytes2 = getBytes(data);
+  assert2(length >= bytes2.length, "padding exceeds data length", "BUFFER_OVERRUN", {
+    buffer: new Uint8Array(bytes2),
     length,
     offset: length + 1
   });
   const result = new Uint8Array(length);
   result.fill(0);
   if (left) {
-    result.set(bytes3, length - bytes3.length);
+    result.set(bytes2, length - bytes2.length);
   } else {
-    result.set(bytes3, 0);
+    result.set(bytes2, 0);
   }
   return hexlify(result);
 }
@@ -141788,7 +147570,7 @@ function zeroPadValue(data, length) {
   return zeroPad(data, length, true);
 }
 
-// mcp-server/node_modules/ethers/lib.esm/utils/maths.js
+// node_modules/ethers/lib.esm/utils/maths.js
 init_define_GDEX_SKILL_REGISTRY();
 var BN_0 = BigInt(0);
 var BN_1 = BigInt(1);
@@ -141947,7 +147729,7 @@ function toQuantity(value) {
   return "0x" + result;
 }
 
-// mcp-server/node_modules/ethers/lib.esm/utils/base58.js
+// node_modules/ethers/lib.esm/utils/base58.js
 var Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 var Lookup = null;
 function getAlpha(letter) {
@@ -141964,15 +147746,15 @@ function getAlpha(letter) {
 var BN_02 = BigInt(0);
 var BN_58 = BigInt(58);
 function encodeBase58(_value) {
-  const bytes3 = getBytes(_value);
-  let value = toBigInt(bytes3);
+  const bytes2 = getBytes(_value);
+  let value = toBigInt(bytes2);
   let result = "";
   while (value) {
     result = Alphabet[Number(value % BN_58)] + result;
     value /= BN_58;
   }
-  for (let i = 0; i < bytes3.length; i++) {
-    if (bytes3[i]) {
+  for (let i = 0; i < bytes2.length; i++) {
+    if (bytes2[i]) {
       break;
     }
     result = Alphabet[0] + result;
@@ -141988,16 +147770,16 @@ function decodeBase58(value) {
   return result;
 }
 
-// mcp-server/node_modules/ethers/lib.esm/utils/utf8.js
+// node_modules/ethers/lib.esm/utils/utf8.js
 init_define_GDEX_SKILL_REGISTRY();
-function errorFunc(reason, offset, bytes3, output3, badCodepoint) {
-  assertArgument(false, `invalid codepoint at offset ${offset}; ${reason}`, "bytes", bytes3);
+function errorFunc(reason, offset, bytes2, output2, badCodepoint) {
+  assertArgument(false, `invalid codepoint at offset ${offset}; ${reason}`, "bytes", bytes2);
 }
-function ignoreFunc(reason, offset, bytes3, output3, badCodepoint) {
+function ignoreFunc(reason, offset, bytes2, output2, badCodepoint) {
   if (reason === "BAD_PREFIX" || reason === "UNEXPECTED_CONTINUE") {
     let i = 0;
-    for (let o = offset + 1; o < bytes3.length; o++) {
-      if (bytes3[o] >> 6 !== 2) {
+    for (let o = offset + 1; o < bytes2.length; o++) {
+      if (bytes2[o] >> 6 !== 2) {
         break;
       }
       i++;
@@ -142005,18 +147787,18 @@ function ignoreFunc(reason, offset, bytes3, output3, badCodepoint) {
     return i;
   }
   if (reason === "OVERRUN") {
-    return bytes3.length - offset - 1;
+    return bytes2.length - offset - 1;
   }
   return 0;
 }
-function replaceFunc(reason, offset, bytes3, output3, badCodepoint) {
+function replaceFunc(reason, offset, bytes2, output2, badCodepoint) {
   if (reason === "OVERLONG") {
     assertArgument(typeof badCodepoint === "number", "invalid bad code point for replacement", "badCodepoint", badCodepoint);
-    output3.push(badCodepoint);
+    output2.push(badCodepoint);
     return 0;
   }
-  output3.push(65533);
-  return ignoreFunc(reason, offset, bytes3, output3, badCodepoint);
+  output2.push(65533);
+  return ignoreFunc(reason, offset, bytes2, output2, badCodepoint);
 }
 var Utf8ErrorFuncs = Object.freeze({
   error: errorFunc,
@@ -142055,7 +147837,7 @@ function toUtf8Bytes(str, form) {
   return new Uint8Array(result);
 }
 
-// mcp-server/node_modules/ethers/lib.esm/utils/rlp-decode.js
+// node_modules/ethers/lib.esm/utils/rlp-decode.js
 init_define_GDEX_SKILL_REGISTRY();
 function hexlifyByte(value) {
   let result = value.toString(16);
@@ -142130,7 +147912,7 @@ function decodeRlp(_data) {
   return decoded.result;
 }
 
-// mcp-server/node_modules/ethers/lib.esm/utils/rlp-encode.js
+// node_modules/ethers/lib.esm/utils/rlp-encode.js
 init_define_GDEX_SKILL_REGISTRY();
 function arrayifyInteger(value) {
   const result = [];
@@ -142175,13 +147957,13 @@ function encodeRlp(object3) {
   return result;
 }
 
-// mcp-server/node_modules/ethers/lib.esm/utils/uuid.js
+// node_modules/ethers/lib.esm/utils/uuid.js
 init_define_GDEX_SKILL_REGISTRY();
 function uuidV4(randomBytes6) {
-  const bytes3 = getBytes(randomBytes6, "randomBytes");
-  bytes3[6] = bytes3[6] & 15 | 64;
-  bytes3[8] = bytes3[8] & 63 | 128;
-  const value = hexlify(bytes3);
+  const bytes2 = getBytes(randomBytes6, "randomBytes");
+  bytes2[6] = bytes2[6] & 15 | 64;
+  bytes2[8] = bytes2[8] & 63 | 128;
+  const value = hexlify(bytes2);
   return [
     value.substring(2, 10),
     value.substring(10, 14),
@@ -142191,23 +147973,23 @@ function uuidV4(randomBytes6) {
   ].join("-");
 }
 
-// mcp-server/node_modules/ethers/lib.esm/address/index.js
+// node_modules/ethers/lib.esm/address/index.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/address/address.js
+// node_modules/ethers/lib.esm/address/address.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/index.js
+// node_modules/ethers/lib.esm/crypto/index.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/hmac.js
+// node_modules/ethers/lib.esm/crypto/hmac.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/crypto.js
+// node_modules/ethers/lib.esm/crypto/crypto.js
 init_define_GDEX_SKILL_REGISTRY();
 import { createHash, createHmac, pbkdf2Sync, randomBytes as randomBytes3 } from "crypto";
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/hmac.js
+// node_modules/ethers/lib.esm/crypto/hmac.js
 var locked = false;
 var _computeHmac = function(algorithm, key, data) {
   return createHmac(algorithm, key).update(data).digest();
@@ -142230,13 +148012,13 @@ computeHmac.register = function(func) {
 };
 Object.freeze(computeHmac);
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/keccak.js
+// node_modules/ethers/lib.esm/crypto/keccak.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/node_modules/@noble/hashes/esm/sha3.js
+// node_modules/@noble/hashes/esm/sha3.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/node_modules/@noble/hashes/esm/_assert.js
+// node_modules/@noble/hashes/esm/_assert.js
 init_define_GDEX_SKILL_REGISTRY();
 function number3(n) {
   if (!Number.isSafeInteger(n) || n < 0)
@@ -142248,11 +148030,11 @@ function bytes(b, ...lengths) {
   if (lengths.length > 0 && !lengths.includes(b.length))
     throw new Error(`Expected Uint8Array of length ${lengths}, not of length=${b.length}`);
 }
-function hash(hash3) {
-  if (typeof hash3 !== "function" || typeof hash3.create !== "function")
+function hash(hash2) {
+  if (typeof hash2 !== "function" || typeof hash2.create !== "function")
     throw new Error("Hash should be wrapped by utils.wrapConstructor");
-  number3(hash3.outputLen);
-  number3(hash3.blockLen);
+  number3(hash2.outputLen);
+  number3(hash2.blockLen);
 }
 function exists(instance, checkFinished = true) {
   if (instance.destroyed)
@@ -142268,7 +148050,7 @@ function output(out, instance) {
   }
 }
 
-// mcp-server/node_modules/ethers/node_modules/@noble/hashes/esm/_u64.js
+// node_modules/@noble/hashes/esm/_u64.js
 init_define_GDEX_SKILL_REGISTRY();
 var U32_MASK642 = /* @__PURE__ */ BigInt(2 ** 32 - 1);
 var _32n2 = /* @__PURE__ */ BigInt(32);
@@ -142291,8 +148073,15 @@ var rotlSL2 = (h, l, s) => l << s | h >>> 32 - s;
 var rotlBH2 = (h, l, s) => l << s - 32 | h >>> 64 - s;
 var rotlBL2 = (h, l, s) => h << s - 32 | l >>> 64 - s;
 
-// mcp-server/node_modules/ethers/node_modules/@noble/hashes/esm/utils.js
+// node_modules/@noble/hashes/esm/utils.js
 init_define_GDEX_SKILL_REGISTRY();
+
+// node_modules/@noble/hashes/esm/cryptoNode.js
+init_define_GDEX_SKILL_REGISTRY();
+import * as nc from "node:crypto";
+var crypto = nc && typeof nc === "object" && "webcrypto" in nc ? nc.webcrypto : void 0;
+
+// node_modules/@noble/hashes/esm/utils.js
 var u8a = (a) => a instanceof Uint8Array;
 var u322 = (arr) => new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
 var createView2 = (arr) => new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
@@ -142325,6 +148114,17 @@ function toBytes(data) {
     throw new Error(`expected Uint8Array, got ${typeof data}`);
   return data;
 }
+function concatBytes2(...arrays) {
+  const r = new Uint8Array(arrays.reduce((sum, a) => sum + a.length, 0));
+  let pad = 0;
+  arrays.forEach((a) => {
+    if (!u8a(a))
+      throw new Error("Uint8Array expected");
+    r.set(a, pad);
+    pad += a.length;
+  });
+  return r;
+}
 var Hash = class {
   // Safe version that clones internal state
   clone() {
@@ -142354,8 +148154,14 @@ function wrapXOFConstructorWithOpts(hashCons) {
   hashC.create = (opts) => hashCons(opts);
   return hashC;
 }
+function randomBytes4(bytesLength = 32) {
+  if (crypto && typeof crypto.getRandomValues === "function") {
+    return crypto.getRandomValues(new Uint8Array(bytesLength));
+  }
+  throw new Error("crypto.getRandomValues must be defined");
+}
 
-// mcp-server/node_modules/ethers/node_modules/@noble/hashes/esm/sha3.js
+// node_modules/@noble/hashes/esm/sha3.js
 var [SHA3_PI2, SHA3_ROTL2, _SHA3_IOTA2] = [[], [], []];
 var _0n2 = /* @__PURE__ */ BigInt(0);
 var _1n2 = /* @__PURE__ */ BigInt(1);
@@ -142488,9 +148294,9 @@ var Keccak2 = class _Keccak extends Hash {
       throw new Error("XOF is not possible for this instance");
     return this.writeInto(out);
   }
-  xof(bytes3) {
-    number3(bytes3);
-    return this.xofInto(new Uint8Array(bytes3));
+  xof(bytes2) {
+    number3(bytes2);
+    return this.xofInto(new Uint8Array(bytes2));
   }
   digestInto(out) {
     output(out, this);
@@ -142535,7 +148341,7 @@ var genShake2 = (suffix, blockLen, outputLen) => wrapXOFConstructorWithOpts((opt
 var shake1282 = /* @__PURE__ */ genShake2(31, 168, 128 / 8);
 var shake2562 = /* @__PURE__ */ genShake2(31, 136, 256 / 8);
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/keccak.js
+// node_modules/ethers/lib.esm/crypto/keccak.js
 var locked2 = false;
 var _keccak256 = function(data) {
   return keccak_2562(data);
@@ -142557,33 +148363,33 @@ keccak256.register = function(func) {
 };
 Object.freeze(keccak256);
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/ripemd160.js
+// node_modules/ethers/lib.esm/crypto/ripemd160.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/node_modules/@noble/hashes/esm/ripemd160.js
+// node_modules/@noble/hashes/esm/ripemd160.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/node_modules/@noble/hashes/esm/_sha2.js
+// node_modules/@noble/hashes/esm/_sha2.js
 init_define_GDEX_SKILL_REGISTRY();
-function setBigUint64(view, byteOffset, value, isLE4) {
+function setBigUint64(view, byteOffset, value, isLE3) {
   if (typeof view.setBigUint64 === "function")
-    return view.setBigUint64(byteOffset, value, isLE4);
+    return view.setBigUint64(byteOffset, value, isLE3);
   const _32n3 = BigInt(32);
   const _u32_max = BigInt(4294967295);
   const wh = Number(value >> _32n3 & _u32_max);
   const wl = Number(value & _u32_max);
-  const h = isLE4 ? 4 : 0;
-  const l = isLE4 ? 0 : 4;
-  view.setUint32(byteOffset + h, wh, isLE4);
-  view.setUint32(byteOffset + l, wl, isLE4);
+  const h = isLE3 ? 4 : 0;
+  const l = isLE3 ? 0 : 4;
+  view.setUint32(byteOffset + h, wh, isLE3);
+  view.setUint32(byteOffset + l, wl, isLE3);
 }
 var SHA2 = class extends Hash {
-  constructor(blockLen, outputLen, padOffset, isLE4) {
+  constructor(blockLen, outputLen, padOffset, isLE3) {
     super();
     this.blockLen = blockLen;
     this.outputLen = outputLen;
     this.padOffset = padOffset;
-    this.isLE = isLE4;
+    this.isLE = isLE3;
     this.finished = false;
     this.length = 0;
     this.pos = 0;
@@ -142620,7 +148426,7 @@ var SHA2 = class extends Hash {
     exists(this);
     output(out, this);
     this.finished = true;
-    const { buffer, view, blockLen, isLE: isLE4 } = this;
+    const { buffer, view, blockLen, isLE: isLE3 } = this;
     let { pos } = this;
     buffer[pos++] = 128;
     this.buffer.subarray(pos).fill(0);
@@ -142630,7 +148436,7 @@ var SHA2 = class extends Hash {
     }
     for (let i = pos; i < blockLen; i++)
       buffer[i] = 0;
-    setBigUint64(view, blockLen - 8, BigInt(this.length * 8), isLE4);
+    setBigUint64(view, blockLen - 8, BigInt(this.length * 8), isLE3);
     this.process(view, 0);
     const oview = createView2(out);
     const len = this.outputLen;
@@ -142641,7 +148447,7 @@ var SHA2 = class extends Hash {
     if (outLen > state.length)
       throw new Error("_sha2: outputLen bigger than state");
     for (let i = 0; i < outLen; i++)
-      oview.setUint32(4 * i, state[i], isLE4);
+      oview.setUint32(4 * i, state[i], isLE3);
   }
   digest() {
     const { buffer, outputLen } = this;
@@ -142664,7 +148470,7 @@ var SHA2 = class extends Hash {
   }
 };
 
-// mcp-server/node_modules/ethers/node_modules/@noble/hashes/esm/ripemd160.js
+// node_modules/@noble/hashes/esm/ripemd160.js
 var Rho = /* @__PURE__ */ new Uint8Array([7, 4, 13, 1, 10, 6, 15, 3, 12, 0, 9, 5, 2, 14, 11, 8]);
 var Id = /* @__PURE__ */ Uint8Array.from({ length: 16 }, (_, i) => i);
 var Pi = /* @__PURE__ */ Id.map((i) => (9 * i + 5) % 16);
@@ -142761,7 +148567,7 @@ var RIPEMD160 = class extends SHA2 {
 };
 var ripemd160 = /* @__PURE__ */ wrapConstructor(() => new RIPEMD160());
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/ripemd160.js
+// node_modules/ethers/lib.esm/crypto/ripemd160.js
 var locked3 = false;
 var _ripemd160 = function(data) {
   return ripemd160(data);
@@ -142783,7 +148589,7 @@ ripemd1602.register = function(func) {
 };
 Object.freeze(ripemd1602);
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/pbkdf2.js
+// node_modules/ethers/lib.esm/crypto/pbkdf2.js
 init_define_GDEX_SKILL_REGISTRY();
 var locked4 = false;
 var _pbkdf2 = function(password, salt, iterations, keylen, algo) {
@@ -142807,35 +148613,35 @@ pbkdf2.register = function(func) {
 };
 Object.freeze(pbkdf2);
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/random.js
+// node_modules/ethers/lib.esm/crypto/random.js
 init_define_GDEX_SKILL_REGISTRY();
 var locked5 = false;
 var _randomBytes = function(length) {
   return new Uint8Array(randomBytes3(length));
 };
 var __randomBytes = _randomBytes;
-function randomBytes4(length) {
+function randomBytes5(length) {
   return __randomBytes(length);
 }
-randomBytes4._ = _randomBytes;
-randomBytes4.lock = function() {
+randomBytes5._ = _randomBytes;
+randomBytes5.lock = function() {
   locked5 = true;
 };
-randomBytes4.register = function(func) {
+randomBytes5.register = function(func) {
   if (locked5) {
     throw new Error("randomBytes is locked");
   }
   __randomBytes = func;
 };
-Object.freeze(randomBytes4);
+Object.freeze(randomBytes5);
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/scrypt.js
+// node_modules/ethers/lib.esm/crypto/scrypt.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/node_modules/@noble/hashes/esm/scrypt.js
+// node_modules/@noble/hashes/esm/scrypt.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/node_modules/@noble/hashes/esm/sha256.js
+// node_modules/@noble/hashes/esm/sha256.js
 init_define_GDEX_SKILL_REGISTRY();
 var Chi = (a, b, c) => a & b ^ ~a & c;
 var Maj = (a, b, c) => a & b ^ a & c ^ b & c;
@@ -142988,30 +148794,30 @@ var SHA256 = class extends SHA2 {
 };
 var sha256 = /* @__PURE__ */ wrapConstructor(() => new SHA256());
 
-// mcp-server/node_modules/ethers/node_modules/@noble/hashes/esm/pbkdf2.js
+// node_modules/@noble/hashes/esm/pbkdf2.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/node_modules/@noble/hashes/esm/hmac.js
+// node_modules/@noble/hashes/esm/hmac.js
 init_define_GDEX_SKILL_REGISTRY();
 var HMAC = class extends Hash {
-  constructor(hash3, _key) {
+  constructor(hash2, _key) {
     super();
     this.finished = false;
     this.destroyed = false;
-    hash(hash3);
+    hash(hash2);
     const key = toBytes(_key);
-    this.iHash = hash3.create();
+    this.iHash = hash2.create();
     if (typeof this.iHash.update !== "function")
       throw new Error("Expected instance of class which extends utils.Hash");
     this.blockLen = this.iHash.blockLen;
     this.outputLen = this.iHash.outputLen;
     const blockLen = this.blockLen;
     const pad = new Uint8Array(blockLen);
-    pad.set(key.length > blockLen ? hash3.create().update(key).digest() : key);
+    pad.set(key.length > blockLen ? hash2.create().update(key).digest() : key);
     for (let i = 0; i < pad.length; i++)
       pad[i] ^= 54;
     this.iHash.update(pad);
-    this.oHash = hash3.create();
+    this.oHash = hash2.create();
     for (let i = 0; i < pad.length; i++)
       pad[i] ^= 54 ^ 92;
     this.oHash.update(pad);
@@ -143054,12 +148860,12 @@ var HMAC = class extends Hash {
     this.iHash.destroy();
   }
 };
-var hmac = (hash3, key, message) => new HMAC(hash3, key).update(message).digest();
-hmac.create = (hash3, key) => new HMAC(hash3, key);
+var hmac = (hash2, key, message) => new HMAC(hash2, key).update(message).digest();
+hmac.create = (hash2, key) => new HMAC(hash2, key);
 
-// mcp-server/node_modules/ethers/node_modules/@noble/hashes/esm/pbkdf2.js
-function pbkdf2Init(hash3, _password, _salt, _opts) {
-  hash(hash3);
+// node_modules/@noble/hashes/esm/pbkdf2.js
+function pbkdf2Init(hash2, _password, _salt, _opts) {
+  hash(hash2);
   const opts = checkOpts2({ dkLen: 32, asyncTick: 10 }, _opts);
   const { c, dkLen, asyncTick } = opts;
   number3(c);
@@ -143070,7 +148876,7 @@ function pbkdf2Init(hash3, _password, _salt, _opts) {
   const password = toBytes(_password);
   const salt = toBytes(_salt);
   const DK = new Uint8Array(dkLen);
-  const PRF = hmac.create(hash3, password);
+  const PRF = hmac.create(hash2, password);
   const PRFSalt = PRF._cloneInto().update(salt);
   return { c, dkLen, asyncTick, DK, PRF, PRFSalt };
 }
@@ -143082,8 +148888,8 @@ function pbkdf2Output(PRF, PRFSalt, DK, prfW, u) {
   u.fill(0);
   return DK;
 }
-function pbkdf22(hash3, password, salt, opts) {
-  const { c, dkLen, DK, PRF, PRFSalt } = pbkdf2Init(hash3, password, salt, opts);
+function pbkdf22(hash2, password, salt, opts) {
+  const { c, dkLen, DK, PRF, PRFSalt } = pbkdf2Init(hash2, password, salt, opts);
   let prfW;
   const arr = new Uint8Array(4);
   const view = createView2(arr);
@@ -143102,7 +148908,7 @@ function pbkdf22(hash3, password, salt, opts) {
   return pbkdf2Output(PRF, PRFSalt, DK, prfW, u);
 }
 
-// mcp-server/node_modules/ethers/node_modules/@noble/hashes/esm/scrypt.js
+// node_modules/@noble/hashes/esm/scrypt.js
 var rotl3 = (a, b) => a << b | a >>> 32 - b;
 function XorAndSalsa(prev, pi, input, ii, out, oi) {
   let y00 = prev[pi++] ^ input[ii++], y01 = prev[pi++] ^ input[ii++];
@@ -143278,7 +149084,7 @@ async function scryptAsync(password, salt, opts) {
   return scryptOutput(password, dkLen, B, V, tmp);
 }
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/scrypt.js
+// node_modules/ethers/lib.esm/crypto/scrypt.js
 var lockedSync = false;
 var lockedAsync = false;
 var _scryptAsync = async function(passwd, salt, N2, r, p, dkLen, onProgress) {
@@ -143322,7 +149128,7 @@ scryptSync.register = function(func) {
 };
 Object.freeze(scryptSync);
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/sha2.js
+// node_modules/ethers/lib.esm/crypto/sha2.js
 init_define_GDEX_SKILL_REGISTRY();
 var _sha256 = function(data) {
   return createHash("sha256").update(data).digest();
@@ -143365,366 +149171,16 @@ sha512.register = function(func) {
 };
 Object.freeze(sha2562);
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/signing-key.js
+// node_modules/ethers/lib.esm/crypto/signing-key.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/@noble/curves/esm/secp256k1.js
+// node_modules/@noble/curves/esm/secp256k1.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/@noble/curves/node_modules/@noble/hashes/esm/sha256.js
+// node_modules/@noble/curves/esm/abstract/modular.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/@noble/curves/node_modules/@noble/hashes/esm/_sha2.js
-init_define_GDEX_SKILL_REGISTRY();
-
-// mcp-server/node_modules/@noble/curves/node_modules/@noble/hashes/esm/_assert.js
-init_define_GDEX_SKILL_REGISTRY();
-function number4(n) {
-  if (!Number.isSafeInteger(n) || n < 0)
-    throw new Error(`Wrong positive integer: ${n}`);
-}
-function bytes2(b, ...lengths) {
-  if (!(b instanceof Uint8Array))
-    throw new Error("Expected Uint8Array");
-  if (lengths.length > 0 && !lengths.includes(b.length))
-    throw new Error(`Expected Uint8Array of length ${lengths}, not of length=${b.length}`);
-}
-function hash2(hash3) {
-  if (typeof hash3 !== "function" || typeof hash3.create !== "function")
-    throw new Error("Hash should be wrapped by utils.wrapConstructor");
-  number4(hash3.outputLen);
-  number4(hash3.blockLen);
-}
-function exists2(instance, checkFinished = true) {
-  if (instance.destroyed)
-    throw new Error("Hash instance has been destroyed");
-  if (checkFinished && instance.finished)
-    throw new Error("Hash#digest() has already been called");
-}
-function output2(out, instance) {
-  bytes2(out);
-  const min = instance.outputLen;
-  if (out.length < min) {
-    throw new Error(`digestInto() expects output buffer of length at least ${min}`);
-  }
-}
-
-// mcp-server/node_modules/@noble/curves/node_modules/@noble/hashes/esm/utils.js
-init_define_GDEX_SKILL_REGISTRY();
-
-// mcp-server/node_modules/@noble/curves/node_modules/@noble/hashes/esm/cryptoNode.js
-init_define_GDEX_SKILL_REGISTRY();
-import * as nc from "node:crypto";
-var crypto = nc && typeof nc === "object" && "webcrypto" in nc ? nc.webcrypto : void 0;
-
-// mcp-server/node_modules/@noble/curves/node_modules/@noble/hashes/esm/utils.js
-var u8a2 = (a) => a instanceof Uint8Array;
-var createView3 = (arr) => new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
-var rotr3 = (word, shift) => word << 32 - shift | word >>> shift;
-var isLE3 = new Uint8Array(new Uint32Array([287454020]).buffer)[0] === 68;
-if (!isLE3)
-  throw new Error("Non little-endian hardware is not supported");
-function utf8ToBytes3(str) {
-  if (typeof str !== "string")
-    throw new Error(`utf8ToBytes expected string, got ${typeof str}`);
-  return new Uint8Array(new TextEncoder().encode(str));
-}
-function toBytes2(data) {
-  if (typeof data === "string")
-    data = utf8ToBytes3(data);
-  if (!u8a2(data))
-    throw new Error(`expected Uint8Array, got ${typeof data}`);
-  return data;
-}
-function concatBytes2(...arrays) {
-  const r = new Uint8Array(arrays.reduce((sum, a) => sum + a.length, 0));
-  let pad = 0;
-  arrays.forEach((a) => {
-    if (!u8a2(a))
-      throw new Error("Uint8Array expected");
-    r.set(a, pad);
-    pad += a.length;
-  });
-  return r;
-}
-var Hash2 = class {
-  // Safe version that clones internal state
-  clone() {
-    return this._cloneInto();
-  }
-};
-var toStr2 = {}.toString;
-function wrapConstructor2(hashCons) {
-  const hashC = (msg) => hashCons().update(toBytes2(msg)).digest();
-  const tmp = hashCons();
-  hashC.outputLen = tmp.outputLen;
-  hashC.blockLen = tmp.blockLen;
-  hashC.create = () => hashCons();
-  return hashC;
-}
-function randomBytes5(bytesLength = 32) {
-  if (crypto && typeof crypto.getRandomValues === "function") {
-    return crypto.getRandomValues(new Uint8Array(bytesLength));
-  }
-  throw new Error("crypto.getRandomValues must be defined");
-}
-
-// mcp-server/node_modules/@noble/curves/node_modules/@noble/hashes/esm/_sha2.js
-function setBigUint642(view, byteOffset, value, isLE4) {
-  if (typeof view.setBigUint64 === "function")
-    return view.setBigUint64(byteOffset, value, isLE4);
-  const _32n3 = BigInt(32);
-  const _u32_max = BigInt(4294967295);
-  const wh = Number(value >> _32n3 & _u32_max);
-  const wl = Number(value & _u32_max);
-  const h = isLE4 ? 4 : 0;
-  const l = isLE4 ? 0 : 4;
-  view.setUint32(byteOffset + h, wh, isLE4);
-  view.setUint32(byteOffset + l, wl, isLE4);
-}
-var SHA22 = class extends Hash2 {
-  constructor(blockLen, outputLen, padOffset, isLE4) {
-    super();
-    this.blockLen = blockLen;
-    this.outputLen = outputLen;
-    this.padOffset = padOffset;
-    this.isLE = isLE4;
-    this.finished = false;
-    this.length = 0;
-    this.pos = 0;
-    this.destroyed = false;
-    this.buffer = new Uint8Array(blockLen);
-    this.view = createView3(this.buffer);
-  }
-  update(data) {
-    exists2(this);
-    const { view, buffer, blockLen } = this;
-    data = toBytes2(data);
-    const len = data.length;
-    for (let pos = 0; pos < len; ) {
-      const take = Math.min(blockLen - this.pos, len - pos);
-      if (take === blockLen) {
-        const dataView = createView3(data);
-        for (; blockLen <= len - pos; pos += blockLen)
-          this.process(dataView, pos);
-        continue;
-      }
-      buffer.set(data.subarray(pos, pos + take), this.pos);
-      this.pos += take;
-      pos += take;
-      if (this.pos === blockLen) {
-        this.process(view, 0);
-        this.pos = 0;
-      }
-    }
-    this.length += data.length;
-    this.roundClean();
-    return this;
-  }
-  digestInto(out) {
-    exists2(this);
-    output2(out, this);
-    this.finished = true;
-    const { buffer, view, blockLen, isLE: isLE4 } = this;
-    let { pos } = this;
-    buffer[pos++] = 128;
-    this.buffer.subarray(pos).fill(0);
-    if (this.padOffset > blockLen - pos) {
-      this.process(view, 0);
-      pos = 0;
-    }
-    for (let i = pos; i < blockLen; i++)
-      buffer[i] = 0;
-    setBigUint642(view, blockLen - 8, BigInt(this.length * 8), isLE4);
-    this.process(view, 0);
-    const oview = createView3(out);
-    const len = this.outputLen;
-    if (len % 4)
-      throw new Error("_sha2: outputLen should be aligned to 32bit");
-    const outLen = len / 4;
-    const state = this.get();
-    if (outLen > state.length)
-      throw new Error("_sha2: outputLen bigger than state");
-    for (let i = 0; i < outLen; i++)
-      oview.setUint32(4 * i, state[i], isLE4);
-  }
-  digest() {
-    const { buffer, outputLen } = this;
-    this.digestInto(buffer);
-    const res = buffer.slice(0, outputLen);
-    this.destroy();
-    return res;
-  }
-  _cloneInto(to) {
-    to || (to = new this.constructor());
-    to.set(...this.get());
-    const { blockLen, buffer, length, finished, destroyed, pos } = this;
-    to.length = length;
-    to.pos = pos;
-    to.finished = finished;
-    to.destroyed = destroyed;
-    if (length % blockLen)
-      to.buffer.set(buffer);
-    return to;
-  }
-};
-
-// mcp-server/node_modules/@noble/curves/node_modules/@noble/hashes/esm/sha256.js
-var Chi2 = (a, b, c) => a & b ^ ~a & c;
-var Maj2 = (a, b, c) => a & b ^ a & c ^ b & c;
-var SHA256_K2 = /* @__PURE__ */ new Uint32Array([
-  1116352408,
-  1899447441,
-  3049323471,
-  3921009573,
-  961987163,
-  1508970993,
-  2453635748,
-  2870763221,
-  3624381080,
-  310598401,
-  607225278,
-  1426881987,
-  1925078388,
-  2162078206,
-  2614888103,
-  3248222580,
-  3835390401,
-  4022224774,
-  264347078,
-  604807628,
-  770255983,
-  1249150122,
-  1555081692,
-  1996064986,
-  2554220882,
-  2821834349,
-  2952996808,
-  3210313671,
-  3336571891,
-  3584528711,
-  113926993,
-  338241895,
-  666307205,
-  773529912,
-  1294757372,
-  1396182291,
-  1695183700,
-  1986661051,
-  2177026350,
-  2456956037,
-  2730485921,
-  2820302411,
-  3259730800,
-  3345764771,
-  3516065817,
-  3600352804,
-  4094571909,
-  275423344,
-  430227734,
-  506948616,
-  659060556,
-  883997877,
-  958139571,
-  1322822218,
-  1537002063,
-  1747873779,
-  1955562222,
-  2024104815,
-  2227730452,
-  2361852424,
-  2428436474,
-  2756734187,
-  3204031479,
-  3329325298
-]);
-var IV2 = /* @__PURE__ */ new Uint32Array([
-  1779033703,
-  3144134277,
-  1013904242,
-  2773480762,
-  1359893119,
-  2600822924,
-  528734635,
-  1541459225
-]);
-var SHA256_W2 = /* @__PURE__ */ new Uint32Array(64);
-var SHA2562 = class extends SHA22 {
-  constructor() {
-    super(64, 32, 8, false);
-    this.A = IV2[0] | 0;
-    this.B = IV2[1] | 0;
-    this.C = IV2[2] | 0;
-    this.D = IV2[3] | 0;
-    this.E = IV2[4] | 0;
-    this.F = IV2[5] | 0;
-    this.G = IV2[6] | 0;
-    this.H = IV2[7] | 0;
-  }
-  get() {
-    const { A, B, C, D, E, F, G, H } = this;
-    return [A, B, C, D, E, F, G, H];
-  }
-  // prettier-ignore
-  set(A, B, C, D, E, F, G, H) {
-    this.A = A | 0;
-    this.B = B | 0;
-    this.C = C | 0;
-    this.D = D | 0;
-    this.E = E | 0;
-    this.F = F | 0;
-    this.G = G | 0;
-    this.H = H | 0;
-  }
-  process(view, offset) {
-    for (let i = 0; i < 16; i++, offset += 4)
-      SHA256_W2[i] = view.getUint32(offset, false);
-    for (let i = 16; i < 64; i++) {
-      const W15 = SHA256_W2[i - 15];
-      const W2 = SHA256_W2[i - 2];
-      const s0 = rotr3(W15, 7) ^ rotr3(W15, 18) ^ W15 >>> 3;
-      const s1 = rotr3(W2, 17) ^ rotr3(W2, 19) ^ W2 >>> 10;
-      SHA256_W2[i] = s1 + SHA256_W2[i - 7] + s0 + SHA256_W2[i - 16] | 0;
-    }
-    let { A, B, C, D, E, F, G, H } = this;
-    for (let i = 0; i < 64; i++) {
-      const sigma1 = rotr3(E, 6) ^ rotr3(E, 11) ^ rotr3(E, 25);
-      const T12 = H + sigma1 + Chi2(E, F, G) + SHA256_K2[i] + SHA256_W2[i] | 0;
-      const sigma0 = rotr3(A, 2) ^ rotr3(A, 13) ^ rotr3(A, 22);
-      const T22 = sigma0 + Maj2(A, B, C) | 0;
-      H = G;
-      G = F;
-      F = E;
-      E = D + T12 | 0;
-      D = C;
-      C = B;
-      B = A;
-      A = T12 + T22 | 0;
-    }
-    A = A + this.A | 0;
-    B = B + this.B | 0;
-    C = C + this.C | 0;
-    D = D + this.D | 0;
-    E = E + this.E | 0;
-    F = F + this.F | 0;
-    G = G + this.G | 0;
-    H = H + this.H | 0;
-    this.set(A, B, C, D, E, F, G, H);
-  }
-  roundClean() {
-    SHA256_W2.fill(0);
-  }
-  destroy() {
-    this.set(0, 0, 0, 0, 0, 0, 0, 0);
-    this.buffer.fill(0);
-  }
-};
-var sha2563 = /* @__PURE__ */ wrapConstructor2(() => new SHA2562());
-
-// mcp-server/node_modules/@noble/curves/esm/abstract/modular.js
-init_define_GDEX_SKILL_REGISTRY();
-
-// mcp-server/node_modules/@noble/curves/esm/abstract/utils.js
+// node_modules/@noble/curves/esm/abstract/utils.js
 var utils_exports2 = {};
 __export(utils_exports2, {
   bitGet: () => bitGet,
@@ -143744,21 +149200,21 @@ __export(utils_exports2, {
   numberToBytesLE: () => numberToBytesLE,
   numberToHexUnpadded: () => numberToHexUnpadded,
   numberToVarBytesBE: () => numberToVarBytesBE,
-  utf8ToBytes: () => utf8ToBytes4,
+  utf8ToBytes: () => utf8ToBytes3,
   validateObject: () => validateObject
 });
 init_define_GDEX_SKILL_REGISTRY();
 var _0n3 = BigInt(0);
 var _1n3 = BigInt(1);
 var _2n3 = BigInt(2);
-var u8a3 = (a) => a instanceof Uint8Array;
+var u8a2 = (a) => a instanceof Uint8Array;
 var hexes2 = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0"));
-function bytesToHex2(bytes3) {
-  if (!u8a3(bytes3))
+function bytesToHex2(bytes2) {
+  if (!u8a2(bytes2))
     throw new Error("Uint8Array expected");
   let hex = "";
-  for (let i = 0; i < bytes3.length; i++) {
-    hex += hexes2[bytes3[i]];
+  for (let i = 0; i < bytes2.length; i++) {
+    hex += hexes2[bytes2[i]];
   }
   return hex;
 }
@@ -143788,13 +149244,13 @@ function hexToBytes2(hex) {
   }
   return array2;
 }
-function bytesToNumberBE(bytes3) {
-  return hexToNumber(bytesToHex2(bytes3));
+function bytesToNumberBE(bytes2) {
+  return hexToNumber(bytesToHex2(bytes2));
 }
-function bytesToNumberLE(bytes3) {
-  if (!u8a3(bytes3))
+function bytesToNumberLE(bytes2) {
+  if (!u8a2(bytes2))
     throw new Error("Uint8Array expected");
-  return hexToNumber(bytesToHex2(Uint8Array.from(bytes3).reverse()));
+  return hexToNumber(bytesToHex2(Uint8Array.from(bytes2).reverse()));
 }
 function numberToBytesBE(n, len) {
   return hexToBytes2(n.toString(16).padStart(len * 2, "0"));
@@ -143813,7 +149269,7 @@ function ensureBytes(title, hex, expectedLength) {
     } catch (e) {
       throw new Error(`${title} must be valid hex string, got "${hex}". Cause: ${e}`);
     }
-  } else if (u8a3(hex)) {
+  } else if (u8a2(hex)) {
     res = Uint8Array.from(hex);
   } else {
     throw new Error(`${title} must be hex string or Uint8Array`);
@@ -143827,7 +149283,7 @@ function concatBytes3(...arrays) {
   const r = new Uint8Array(arrays.reduce((sum, a) => sum + a.length, 0));
   let pad = 0;
   arrays.forEach((a) => {
-    if (!u8a3(a))
+    if (!u8a2(a))
       throw new Error("Uint8Array expected");
     r.set(a, pad);
     pad += a.length;
@@ -143842,7 +149298,7 @@ function equalBytes(b1, b2) {
       return false;
   return true;
 }
-function utf8ToBytes4(str) {
+function utf8ToBytes3(str) {
   if (typeof str !== "string")
     throw new Error(`utf8ToBytes expected string, got ${typeof str}`);
   return new Uint8Array(new TextEncoder().encode(str));
@@ -143940,7 +149396,7 @@ function validateObject(object3, validators, optValidators = {}) {
   return object3;
 }
 
-// mcp-server/node_modules/@noble/curves/esm/abstract/modular.js
+// node_modules/@noble/curves/esm/abstract/modular.js
 var _0n4 = BigInt(0);
 var _1n4 = BigInt(1);
 var _2n4 = BigInt(2);
@@ -143976,11 +149432,11 @@ function pow2(x, power, modulo) {
   }
   return res;
 }
-function invert(number5, modulo) {
-  if (number5 === _0n4 || modulo <= _0n4) {
-    throw new Error(`invert: expected positive integers, got n=${number5} mod=${modulo}`);
+function invert(number4, modulo) {
+  if (number4 === _0n4 || modulo <= _0n4) {
+    throw new Error(`invert: expected positive integers, got n=${number4} mod=${modulo}`);
   }
-  let a = mod(number5, modulo);
+  let a = mod(number4, modulo);
   let b = modulo;
   let x = _0n4, y = _1n4, u = _1n4, v = _0n4;
   while (a !== _0n4) {
@@ -144135,7 +149591,7 @@ function nLength(n, nBitLength) {
   const nByteLength = Math.ceil(_nBitLength / 8);
   return { nBitLength: _nBitLength, nByteLength };
 }
-function Field(ORDER, bitLen2, isLE4 = false, redef = {}) {
+function Field(ORDER, bitLen2, isLE3 = false, redef = {}) {
   if (ORDER <= _0n4)
     throw new Error(`Expected Field ORDER > 0, got ${ORDER}`);
   const { nBitLength: BITS, nByteLength: BYTES } = nLength(ORDER, bitLen2);
@@ -144176,11 +149632,11 @@ function Field(ORDER, bitLen2, isLE4 = false, redef = {}) {
     // TODO: do we really need constant cmov?
     // We don't have const-time bigints anyway, so probably will be not very useful
     cmov: (a, b, c) => c ? b : a,
-    toBytes: (num) => isLE4 ? numberToBytesLE(num, BYTES) : numberToBytesBE(num, BYTES),
-    fromBytes: (bytes3) => {
-      if (bytes3.length !== BYTES)
-        throw new Error(`Fp.fromBytes: expected ${BYTES}, got ${bytes3.length}`);
-      return isLE4 ? bytesToNumberLE(bytes3) : bytesToNumberBE(bytes3);
+    toBytes: (num) => isLE3 ? numberToBytesLE(num, BYTES) : numberToBytesBE(num, BYTES),
+    fromBytes: (bytes2) => {
+      if (bytes2.length !== BYTES)
+        throw new Error(`Fp.fromBytes: expected ${BYTES}, got ${bytes2.length}`);
+      return isLE3 ? bytesToNumberLE(bytes2) : bytesToNumberBE(bytes2);
     }
   });
   return Object.freeze(f2);
@@ -144195,21 +149651,21 @@ function getMinHashLength(fieldOrder) {
   const length = getFieldBytesLength(fieldOrder);
   return length + Math.ceil(length / 2);
 }
-function mapHashToField(key, fieldOrder, isLE4 = false) {
+function mapHashToField(key, fieldOrder, isLE3 = false) {
   const len = key.length;
   const fieldLen = getFieldBytesLength(fieldOrder);
   const minLen = getMinHashLength(fieldOrder);
   if (len < 16 || len < minLen || len > 1024)
     throw new Error(`expected ${minLen}-1024 bytes of input, got ${len}`);
-  const num = isLE4 ? bytesToNumberBE(key) : bytesToNumberLE(key);
+  const num = isLE3 ? bytesToNumberBE(key) : bytesToNumberLE(key);
   const reduced = mod(num, fieldOrder - _1n4) + _1n4;
-  return isLE4 ? numberToBytesLE(reduced, fieldLen) : numberToBytesBE(reduced, fieldLen);
+  return isLE3 ? numberToBytesLE(reduced, fieldLen) : numberToBytesBE(reduced, fieldLen);
 }
 
-// mcp-server/node_modules/@noble/curves/esm/abstract/weierstrass.js
+// node_modules/@noble/curves/esm/abstract/weierstrass.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/@noble/curves/esm/abstract/curve.js
+// node_modules/@noble/curves/esm/abstract/curve.js
 init_define_GDEX_SKILL_REGISTRY();
 var _0n5 = BigInt(0);
 var _1n5 = BigInt(1);
@@ -144328,7 +149784,7 @@ function validateBasic(curve) {
   });
 }
 
-// mcp-server/node_modules/@noble/curves/esm/abstract/weierstrass.js
+// node_modules/@noble/curves/esm/abstract/weierstrass.js
 function validatePointOpts(curve) {
   const opts = validateBasic(curve);
   validateObject(opts, {
@@ -144415,12 +149871,12 @@ var _4n2 = BigInt(4);
 function weierstrassPoints(opts) {
   const CURVE = validatePointOpts(opts);
   const { Fp: Fp2 } = CURVE;
-  const toBytes3 = CURVE.toBytes || ((_c, point, _isCompressed) => {
+  const toBytes2 = CURVE.toBytes || ((_c, point, _isCompressed) => {
     const a = point.toAffine();
     return concatBytes3(Uint8Array.from([4]), Fp2.toBytes(a.x), Fp2.toBytes(a.y));
   });
-  const fromBytes = CURVE.fromBytes || ((bytes3) => {
-    const tail = bytes3.subarray(1);
+  const fromBytes = CURVE.fromBytes || ((bytes2) => {
+    const tail = bytes2.subarray(1);
     const x = Fp2.fromBytes(tail.subarray(0, Fp2.BYTES));
     const y = Fp2.fromBytes(tail.subarray(Fp2.BYTES, 2 * Fp2.BYTES));
     return { x, y };
@@ -144783,7 +150239,7 @@ function weierstrassPoints(opts) {
     }
     toRawBytes(isCompressed = true) {
       this.assertValidity();
-      return toBytes3(Point2, this, isCompressed);
+      return toBytes2(Point2, this, isCompressed);
     }
     toHex(isCompressed = true) {
       return bytesToHex2(this.toRawBytes(isCompressed));
@@ -144840,10 +150296,10 @@ function weierstrass(curveDef) {
         return cat(Uint8Array.from([4]), x, Fp2.toBytes(a.y));
       }
     },
-    fromBytes(bytes3) {
-      const len = bytes3.length;
-      const head = bytes3[0];
-      const tail = bytes3.subarray(1);
+    fromBytes(bytes2) {
+      const len = bytes2.length;
+      const head = bytes2[0];
+      const tail = bytes2.subarray(1);
       if (len === compressedLen && (head === 2 || head === 3)) {
         const x = bytesToNumberBE(tail);
         if (!isValidFieldElement(x))
@@ -144865,9 +150321,9 @@ function weierstrass(curveDef) {
     }
   });
   const numToNByteStr = (num) => bytesToHex2(numberToBytesBE(num, CURVE.nByteLength));
-  function isBiggerThanHalfOrder(number5) {
+  function isBiggerThanHalfOrder(number4) {
     const HALF = CURVE_ORDER >> _1n6;
-    return number5 > HALF;
+    return number4 > HALF;
   }
   function normalizeS(s) {
     return isBiggerThanHalfOrder(s) ? modN(-s) : s;
@@ -144997,13 +150453,13 @@ function weierstrass(curveDef) {
     const b = Point2.fromHex(publicB);
     return b.multiply(normPrivateKeyToScalar(privateA)).toRawBytes(isCompressed);
   }
-  const bits2int = CURVE.bits2int || function(bytes3) {
-    const num = bytesToNumberBE(bytes3);
-    const delta = bytes3.length * 8 - CURVE.nBitLength;
+  const bits2int = CURVE.bits2int || function(bytes2) {
+    const num = bytesToNumberBE(bytes2);
+    const delta = bytes2.length * 8 - CURVE.nBitLength;
     return delta > 0 ? num >> BigInt(delta) : num;
   };
-  const bits2int_modN = CURVE.bits2int_modN || function(bytes3) {
-    return modN(bits2int(bytes3));
+  const bits2int_modN = CURVE.bits2int_modN || function(bytes2) {
+    return modN(bits2int(bytes2));
   };
   const ORDER_MASK = bitMask(CURVE.nBitLength);
   function int2octets(num) {
@@ -145016,13 +150472,13 @@ function weierstrass(curveDef) {
   function prepSig(msgHash, privateKey, opts = defaultSigOpts) {
     if (["recovered", "canonical"].some((k) => k in opts))
       throw new Error("sign() legacy options not supported");
-    const { hash: hash3, randomBytes: randomBytes6 } = CURVE;
+    const { hash: hash2, randomBytes: randomBytes6 } = CURVE;
     let { lowS, prehash, extraEntropy: ent } = opts;
     if (lowS == null)
       lowS = true;
     msgHash = ensureBytes("msgHash", msgHash);
     if (prehash)
-      msgHash = ensureBytes("prehashed msgHash", hash3(msgHash));
+      msgHash = ensureBytes("prehashed msgHash", hash2(msgHash));
     const h1int = bits2int_modN(msgHash);
     const d = normPrivateKeyToScalar(privateKey);
     const seedArgs = [int2octets(d), int2octets(h1int)];
@@ -145120,89 +150576,21 @@ function weierstrass(curveDef) {
   };
 }
 
-// mcp-server/node_modules/@noble/curves/esm/_shortw_utils.js
+// node_modules/@noble/curves/esm/_shortw_utils.js
 init_define_GDEX_SKILL_REGISTRY();
-
-// mcp-server/node_modules/@noble/curves/node_modules/@noble/hashes/esm/hmac.js
-init_define_GDEX_SKILL_REGISTRY();
-var HMAC2 = class extends Hash2 {
-  constructor(hash3, _key) {
-    super();
-    this.finished = false;
-    this.destroyed = false;
-    hash2(hash3);
-    const key = toBytes2(_key);
-    this.iHash = hash3.create();
-    if (typeof this.iHash.update !== "function")
-      throw new Error("Expected instance of class which extends utils.Hash");
-    this.blockLen = this.iHash.blockLen;
-    this.outputLen = this.iHash.outputLen;
-    const blockLen = this.blockLen;
-    const pad = new Uint8Array(blockLen);
-    pad.set(key.length > blockLen ? hash3.create().update(key).digest() : key);
-    for (let i = 0; i < pad.length; i++)
-      pad[i] ^= 54;
-    this.iHash.update(pad);
-    this.oHash = hash3.create();
-    for (let i = 0; i < pad.length; i++)
-      pad[i] ^= 54 ^ 92;
-    this.oHash.update(pad);
-    pad.fill(0);
-  }
-  update(buf) {
-    exists2(this);
-    this.iHash.update(buf);
-    return this;
-  }
-  digestInto(out) {
-    exists2(this);
-    bytes2(out, this.outputLen);
-    this.finished = true;
-    this.iHash.digestInto(out);
-    this.oHash.update(out);
-    this.oHash.digestInto(out);
-    this.destroy();
-  }
-  digest() {
-    const out = new Uint8Array(this.oHash.outputLen);
-    this.digestInto(out);
-    return out;
-  }
-  _cloneInto(to) {
-    to || (to = Object.create(Object.getPrototypeOf(this), {}));
-    const { oHash, iHash, finished, destroyed, blockLen, outputLen } = this;
-    to = to;
-    to.finished = finished;
-    to.destroyed = destroyed;
-    to.blockLen = blockLen;
-    to.outputLen = outputLen;
-    to.oHash = oHash._cloneInto(to.oHash);
-    to.iHash = iHash._cloneInto(to.iHash);
-    return to;
-  }
-  destroy() {
-    this.destroyed = true;
-    this.oHash.destroy();
-    this.iHash.destroy();
-  }
-};
-var hmac2 = (hash3, key, message) => new HMAC2(hash3, key).update(message).digest();
-hmac2.create = (hash3, key) => new HMAC2(hash3, key);
-
-// mcp-server/node_modules/@noble/curves/esm/_shortw_utils.js
-function getHash(hash3) {
+function getHash(hash2) {
   return {
-    hash: hash3,
-    hmac: (key, ...msgs) => hmac2(hash3, key, concatBytes2(...msgs)),
-    randomBytes: randomBytes5
+    hash: hash2,
+    hmac: (key, ...msgs) => hmac(hash2, key, concatBytes2(...msgs)),
+    randomBytes: randomBytes4
   };
 }
 function createCurve(curveDef, defHash) {
-  const create = (hash3) => weierstrass({ ...curveDef, ...getHash(hash3) });
+  const create = (hash2) => weierstrass({ ...curveDef, ...getHash(hash2) });
   return Object.freeze({ ...create(defHash), create });
 }
 
-// mcp-server/node_modules/@noble/curves/esm/secp256k1.js
+// node_modules/@noble/curves/esm/secp256k1.js
 var secp256k1P = BigInt("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f");
 var secp256k1N = BigInt("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
 var _1n7 = BigInt(1);
@@ -145272,29 +150660,29 @@ var secp256k1 = createCurve({
       return { k1neg, k1, k2neg, k2 };
     }
   }
-}, sha2563);
+}, sha256);
 var _0n7 = BigInt(0);
 var Point = secp256k1.ProjectivePoint;
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/signature.js
+// node_modules/ethers/lib.esm/crypto/signature.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/constants/index.js
+// node_modules/ethers/lib.esm/constants/index.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/constants/addresses.js
+// node_modules/ethers/lib.esm/constants/addresses.js
 init_define_GDEX_SKILL_REGISTRY();
 var ZeroAddress = "0x0000000000000000000000000000000000000000";
 
-// mcp-server/node_modules/ethers/lib.esm/constants/hashes.js
+// node_modules/ethers/lib.esm/constants/hashes.js
 init_define_GDEX_SKILL_REGISTRY();
 var ZeroHash = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
-// mcp-server/node_modules/ethers/lib.esm/constants/strings.js
+// node_modules/ethers/lib.esm/constants/strings.js
 init_define_GDEX_SKILL_REGISTRY();
 var MessagePrefix = "Ethereum Signed Message:\n";
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/signature.js
+// node_modules/ethers/lib.esm/crypto/signature.js
 var BN_03 = BigInt(0);
 var BN_12 = BigInt(1);
 var BN_2 = BigInt(2);
@@ -145567,18 +150955,18 @@ var Signature = class _Signature {
       return new _Signature(_guard, ZeroHash, ZeroHash, 27);
     }
     if (typeof sig === "string") {
-      const bytes3 = getBytes(sig, "signature");
-      if (bytes3.length === 64) {
-        const r2 = hexlify(bytes3.slice(0, 32));
-        const s2 = bytes3.slice(32, 64);
+      const bytes2 = getBytes(sig, "signature");
+      if (bytes2.length === 64) {
+        const r2 = hexlify(bytes2.slice(0, 32));
+        const s2 = bytes2.slice(32, 64);
         const v2 = s2[0] & 128 ? 28 : 27;
         s2[0] &= 127;
         return new _Signature(_guard, r2, hexlify(s2), v2);
       }
-      if (bytes3.length === 65) {
-        const r2 = hexlify(bytes3.slice(0, 32));
-        const s2 = hexlify(bytes3.slice(32, 64));
-        const v2 = _Signature.getNormalizedV(bytes3[64]);
+      if (bytes2.length === 65) {
+        const r2 = hexlify(bytes2.slice(0, 32));
+        const s2 = hexlify(bytes2.slice(32, 64));
+        const v2 = _Signature.getNormalizedV(bytes2[64]);
         return new _Signature(_guard, r2, s2, v2);
       }
       assertError(false, "invalid raw signature length");
@@ -145595,9 +150983,9 @@ var Signature = class _Signature {
       }
       if (yParityAndS != null) {
         assertError(isHexString(yParityAndS, 32), "invalid yParityAndS");
-        const bytes3 = getBytes(yParityAndS);
-        bytes3[0] &= 127;
-        return hexlify(bytes3);
+        const bytes2 = getBytes(yParityAndS);
+        bytes2[0] &= 127;
+        return hexlify(bytes2);
       }
       assertError(false, "missing s");
     })(sig.s, sig.yParityAndS);
@@ -145634,7 +151022,7 @@ var Signature = class _Signature {
   }
 };
 
-// mcp-server/node_modules/ethers/lib.esm/crypto/signing-key.js
+// node_modules/ethers/lib.esm/crypto/signing-key.js
 var SigningKey = class _SigningKey {
   #privateKey;
   /**
@@ -145735,18 +151123,18 @@ var SigningKey = class _SigningKey {
    *    //_result:
    */
   static computePublicKey(key, compressed) {
-    let bytes3 = getBytes(key, "key");
-    if (bytes3.length === 32) {
-      const pubKey = secp256k1.getPublicKey(bytes3, !!compressed);
+    let bytes2 = getBytes(key, "key");
+    if (bytes2.length === 32) {
+      const pubKey = secp256k1.getPublicKey(bytes2, !!compressed);
       return hexlify(pubKey);
     }
-    if (bytes3.length === 64) {
+    if (bytes2.length === 64) {
       const pub = new Uint8Array(65);
       pub[0] = 4;
-      pub.set(bytes3, 1);
-      bytes3 = pub;
+      pub.set(bytes2, 1);
+      bytes2 = pub;
     }
-    const point = secp256k1.ProjectivePoint.fromHex(bytes3);
+    const point = secp256k1.ProjectivePoint.fromHex(bytes2);
     return hexlify(point.toRawBytes(compressed));
   }
   /**
@@ -145793,7 +151181,7 @@ var SigningKey = class _SigningKey {
   }
 };
 
-// mcp-server/node_modules/ethers/lib.esm/address/address.js
+// node_modules/ethers/lib.esm/address/address.js
 var BN_04 = BigInt(0);
 var BN_36 = BigInt(36);
 function getChecksumAddress(address) {
@@ -145876,7 +151264,7 @@ function getAddress(address) {
   assertArgument(false, "invalid address", "address", address);
 }
 
-// mcp-server/node_modules/ethers/lib.esm/address/checks.js
+// node_modules/ethers/lib.esm/address/checks.js
 init_define_GDEX_SKILL_REGISTRY();
 function isAddressable(value) {
   return value && typeof value.getAddress === "function";
@@ -145904,16 +151292,16 @@ function resolveAddress(target, resolver) {
   assertArgument(false, "unsupported addressable value", "target", target);
 }
 
-// mcp-server/node_modules/ethers/lib.esm/hash/index.js
+// node_modules/ethers/lib.esm/hash/index.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/hash/authorization.js
+// node_modules/ethers/lib.esm/hash/authorization.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/transaction/index.js
+// node_modules/ethers/lib.esm/transaction/index.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/transaction/accesslist.js
+// node_modules/ethers/lib.esm/transaction/accesslist.js
 init_define_GDEX_SKILL_REGISTRY();
 function accessSetify(addr, storageKeys) {
   return {
@@ -145947,7 +151335,7 @@ function accessListify(value) {
   return result;
 }
 
-// mcp-server/node_modules/ethers/lib.esm/transaction/authorization.js
+// node_modules/ethers/lib.esm/transaction/authorization.js
 init_define_GDEX_SKILL_REGISTRY();
 function authorizationify(auth) {
   return {
@@ -145958,7 +151346,7 @@ function authorizationify(auth) {
   };
 }
 
-// mcp-server/node_modules/ethers/lib.esm/transaction/address.js
+// node_modules/ethers/lib.esm/transaction/address.js
 init_define_GDEX_SKILL_REGISTRY();
 function computeAddress(key) {
   let pubkey;
@@ -145973,7 +151361,7 @@ function recoverAddress(digest, signature) {
   return computeAddress(SigningKey.recoverPublicKey(digest, signature));
 }
 
-// mcp-server/node_modules/ethers/lib.esm/transaction/transaction.js
+// node_modules/ethers/lib.esm/transaction/transaction.js
 init_define_GDEX_SKILL_REGISTRY();
 var BN_05 = BigInt(0);
 var BN_22 = BigInt(2);
@@ -146012,12 +151400,12 @@ function getKzgLibrary(kzg) {
   };
   return { blobToKzgCommitment, computeBlobKzgProof };
 }
-function getVersionedHash(version3, hash3) {
+function getVersionedHash(version3, hash2) {
   let versioned = version3.toString(16);
   while (versioned.length < 2) {
     versioned = "0" + versioned;
   }
-  versioned += sha2562(hash3).substring(4);
+  versioned += sha2562(hash2).substring(4);
   return "0x" + versioned;
 }
 function handleAddress(value) {
@@ -147047,13 +152435,13 @@ var Transaction = class _Transaction {
     return this.toString();
   }
   toString() {
-    const output3 = [];
+    const output2 = [];
     const add = (key) => {
       let value = this[key];
       if (typeof value === "string") {
         value = JSON.stringify(value);
       }
-      output3.push(`${key}: ${value}`);
+      output2.push(`${key}: ${value}`);
     };
     if (this.type) {
       add("type");
@@ -147068,7 +152456,7 @@ var Transaction = class _Transaction {
     }
     if (this.signature) {
       add("from");
-      output3.push(`signature: ${this.signature.toString()}`);
+      output2.push(`signature: ${this.signature.toString()}`);
     }
     const auths = this.authorizationList;
     if (auths) {
@@ -147087,9 +152475,9 @@ var Transaction = class _Transaction {
         }
         outputAuths.push(`Authorization { ${o.join(", ")} }`);
       }
-      output3.push(`authorizations: [ ${outputAuths.join(", ")} ]`);
+      output2.push(`authorizations: [ ${outputAuths.join(", ")} ]`);
     }
-    return `Transaction { ${output3.join(", ")} }`;
+    return `Transaction { ${output2.join(", ")} }`;
   }
   /**
    *  Create a **Transaction** from a serialized transaction or a
@@ -147183,7 +152571,7 @@ var Transaction = class _Transaction {
   }
 };
 
-// mcp-server/node_modules/ethers/lib.esm/hash/authorization.js
+// node_modules/ethers/lib.esm/hash/authorization.js
 function hashAuthorization(auth) {
   assertArgument(typeof auth.address === "string", "invalid address for hashAuthorization", "auth.address", auth);
   return keccak256(concat([
@@ -147196,13 +152584,13 @@ function hashAuthorization(auth) {
   ]));
 }
 
-// mcp-server/node_modules/ethers/lib.esm/hash/id.js
+// node_modules/ethers/lib.esm/hash/id.js
 init_define_GDEX_SKILL_REGISTRY();
 function id(value) {
   return keccak256(toUtf8Bytes(value));
 }
 
-// mcp-server/node_modules/ethers/lib.esm/hash/message.js
+// node_modules/ethers/lib.esm/hash/message.js
 init_define_GDEX_SKILL_REGISTRY();
 function hashMessage(message) {
   if (typeof message === "string") {
@@ -147215,7 +152603,7 @@ function hashMessage(message) {
   ]));
 }
 
-// mcp-server/node_modules/ethers/lib.esm/hash/typed-data.js
+// node_modules/ethers/lib.esm/hash/typed-data.js
 init_define_GDEX_SKILL_REGISTRY();
 var padding = new Uint8Array(32);
 padding.fill(0);
@@ -147224,12 +152612,12 @@ var BN_06 = BigInt(0);
 var BN_13 = BigInt(1);
 var BN_MAX_UINT256 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 function hexPadRight(value) {
-  const bytes3 = getBytes(value);
-  const padOffset = bytes3.length % 32;
+  const bytes2 = getBytes(value);
+  const padOffset = bytes2.length % 32;
   if (padOffset) {
-    return concat([bytes3, padding.slice(padOffset)]);
+    return concat([bytes2, padding.slice(padOffset)]);
   }
-  return hexlify(bytes3);
+  return hexlify(bytes2);
 }
 var hexTrue = toBeHex(BN_13, 32);
 var hexFalse = toBeHex(BN_06, 32);
@@ -147272,9 +152660,9 @@ var domainChecks = {
     assertArgument(false, `invalid domain value "verifyingContract"`, "domain.verifyingContract", value);
   },
   salt: function(value) {
-    const bytes3 = getBytes(value, "domain.salt");
-    assertArgument(bytes3.length === 32, `invalid domain value "salt"`, "domain.salt", value);
-    return hexlify(bytes3);
+    const bytes2 = getBytes(value, "domain.salt");
+    assertArgument(bytes2.length === 32, `invalid domain value "salt"`, "domain.salt", value);
+    return hexlify(bytes2);
   }
 };
 function getBaseEncoder(type) {
@@ -147299,8 +152687,8 @@ function getBaseEncoder(type) {
       const width = parseInt(match[1]);
       assertArgument(width !== 0 && width <= 32 && match[1] === String(width), "invalid bytes width", "type", type);
       return function(value) {
-        const bytes3 = getBytes(value);
-        assertArgument(bytes3.length === width, `invalid length for ${type}`, "value", value);
+        const bytes2 = getBytes(value);
+        assertArgument(bytes2.length === width, `invalid length for ${type}`, "value", value);
         return hexPadRight(value);
       };
     }
@@ -147684,7 +153072,7 @@ var TypedDataEncoder = class _TypedDataEncoder {
   }
 };
 
-// mcp-server/node_modules/ethers/lib.esm/providers/provider.js
+// node_modules/ethers/lib.esm/providers/provider.js
 init_define_GDEX_SKILL_REGISTRY();
 var BN_07 = BigInt(0);
 function copyRequest(req) {
@@ -147747,10 +153135,10 @@ function copyRequest(req) {
   return result;
 }
 
-// mcp-server/node_modules/ethers/lib.esm/providers/index.js
+// node_modules/ethers/lib.esm/providers/index.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/providers/abstract-signer.js
+// node_modules/ethers/lib.esm/providers/abstract-signer.js
 init_define_GDEX_SKILL_REGISTRY();
 function checkProvider(signer, operation) {
   if (signer.provider) {
@@ -147938,10 +153326,10 @@ var VoidSigner = class _VoidSigner extends AbstractSigner {
   }
 };
 
-// mcp-server/node_modules/ethers/lib.esm/wallet/index.js
+// node_modules/ethers/lib.esm/wallet/index.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/wallet/base-wallet.js
+// node_modules/ethers/lib.esm/wallet/base-wallet.js
 init_define_GDEX_SKILL_REGISTRY();
 var BaseWallet = class _BaseWallet extends AbstractSigner {
   /**
@@ -148051,16 +153439,16 @@ var BaseWallet = class _BaseWallet extends AbstractSigner {
   }
 };
 
-// mcp-server/node_modules/ethers/lib.esm/wallet/hdwallet.js
+// node_modules/ethers/lib.esm/wallet/hdwallet.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/wordlists/lang-en.js
+// node_modules/ethers/lib.esm/wordlists/lang-en.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/wordlists/wordlist-owl.js
+// node_modules/ethers/lib.esm/wordlists/wordlist-owl.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/ethers/lib.esm/wordlists/decode-owl.js
+// node_modules/ethers/lib.esm/wordlists/decode-owl.js
 init_define_GDEX_SKILL_REGISTRY();
 var subsChrs = " !#$%&'()*+,-./<=>?@[]^_`{|}~";
 var Word = /^[a-z]*$/i;
@@ -148103,7 +153491,7 @@ function decodeOwl(data) {
   return decode(data.substring(1 + 2 * subsChrs.length), data.substring(1, 1 + 2 * subsChrs.length));
 }
 
-// mcp-server/node_modules/ethers/lib.esm/wordlists/wordlist.js
+// node_modules/ethers/lib.esm/wordlists/wordlist.js
 init_define_GDEX_SKILL_REGISTRY();
 var Wordlist = class {
   locale;
@@ -148141,7 +153529,7 @@ var Wordlist = class {
   }
 };
 
-// mcp-server/node_modules/ethers/lib.esm/wordlists/wordlist-owl.js
+// node_modules/ethers/lib.esm/wordlists/wordlist-owl.js
 var WordlistOwl = class extends Wordlist {
   #data;
   #checksum;
@@ -148189,7 +153577,7 @@ var WordlistOwl = class extends Wordlist {
   }
 };
 
-// mcp-server/node_modules/ethers/lib.esm/wordlists/lang-en.js
+// node_modules/ethers/lib.esm/wordlists/lang-en.js
 var words = "0erleonalorenseinceregesticitStanvetearctssi#ch2Athck&tneLl0And#Il.yLeOutO=S|S%b/ra@SurdU'0Ce[Cid|CountCu'Hie=IdOu,-Qui*Ro[TT]T%T*[Tu$0AptDD-tD*[Ju,M.UltV<)Vi)0Rob-0FairF%dRaid0A(EEntRee0Ead0MRRp%tS!_rmBumCoholErtI&LLeyLowMo,O}PhaReadySoT Ways0A>urAz(gOngOuntU'd0Aly,Ch%Ci|G G!GryIm$K!Noun)Nu$O` Sw T&naTiqueXietyY1ArtOlogyPe?P!Pro=Ril1ChCt-EaEnaGueMMedM%MyOundR<+Re,Ri=RowTTefa@Ti,Tw%k0KPe@SaultSetSi,SumeThma0H!>OmTa{T&dT.udeTra@0Ct]D.Gu,NtTh%ToTumn0Era+OcadoOid0AkeA*AyEsomeFulKw?d0Is:ByChel%C#D+GL<)Lc#y~MbooN<aNn RRelyRga(R*lSeS-SketTt!3A^AnAutyCau'ComeEfF%eG(Ha=H(dLie=LowLtN^Nef./TrayTt Twe&Y#d3Cyc!DKeNdOlogyRdR`Tt _{AdeAmeAnketA,EakE[IndOodO[omOu'UeUrUsh_rdAtDyIlMbNeNusOkO,Rd R(gRrowSsTtomUn)XY_{etA(AndA[A=EadEezeI{Id+IefIghtIngIskOccoliOk&OnzeOomO` OwnUsh2Bb!DdyD+tFf$oIldLbLkL!tNd!Nk Rd&Rg R,SS(e[SyTt Y Zz:Bba+B(B!CtusGeKe~LmM aMpNN$N)lNdyNn#NoeNvasNy#Pab!P.$Pta(RRb#RdRgoRpetRryRtSeShS(o/!Su$TT$ogT^Teg%yTt!UghtU'Ut]Ve3Il(gL yM|NsusNturyRe$Rta(_irAlkAmp]An+AosApt Ar+A'AtEapE{Ee'EfErryE,I{&IefIldIm}yOi)Oo'R#-U{!UnkUrn0G?Nnam#Rc!Tiz&TyVil_imApArifyAwAyE<ErkEv I{I|IffImbIn-IpO{OgO'O`OudOwnUbUmpU, Ut^_^A,C#utDeFfeeIlInL!@L%LumnMb(eMeMf%tM-Mm#Mp<yNc tNdu@NfirmNg*[N}@Nsid NtrolNv()OkOlPp PyR$ReRnR*@/Tt#U^UntryUp!Ur'Us(V Yo>_{Ad!AftAmA}AshAt AwlAzyEamEd.EekEwI{etImeIspIt-OpO[Ou^OwdUci$UelUi'Umb!Un^UshYY,$2BeLtu*PPbo?dRiousRr|Rta(R=Sh]/omTe3C!:DMa+MpN)Ng R(gShUght WnY3AlBa>BrisCadeCemb CideCl(eC%a>C*a'ErF&'F(eFyG*eLayLiv M<dMi'Ni$Nti,NyP?tP&dPos.P`PutyRi=ScribeS tSignSkSpair/royTailTe@VelopVi)Vo>3AgramAlAm#dAryCeE'lEtFf G.$Gn.yLemmaNn NosaurRe@RtSag*eScov Sea'ShSmi[S%d Splay/<)V tVideV%)Zzy5Ct%Cum|G~Lph(Ma(Na>NkeyN%OrSeUb!Ve_ftAg#AmaA,-AwEamE[IftIllInkIpI=OpUmY2CkMbNeR(g/T^Ty1Arf1Nam-:G G!RlyRnR`Sily/Sy1HoOlogyOnomy0GeItUca>1F%t0G1GhtTh 2BowD E@r-Eg<tEm|Eph<tEvat%I>Se0B?kBodyBra)Er+Ot]PloyPow Pty0Ab!A@DD![D%'EmyErgyF%)Ga+G(eH<)JoyLi,OughR-hRollSu*T Ti*TryVelope1Isode0U$Uip0AA'OdeOs]R%Upt0CapeSayS&)Ta>0Ern$H-s1Id&)IlOkeOl=1A@Amp!Ce[Ch<+C.eCludeCu'Ecu>Erci'Hau,Hib.I!I,ItOt-P<dPe@Pi*Pla(Po'P*[T&dTra0EEbrow:Br-CeCultyDeIntI`~L'MeMilyMousNNcyNtasyRmSh]TT$Th TigueUltV%.e3Atu*Bru?yD $EEdElMa!N)/iv$T^V W3B Ct]EldGu*LeLmLt N$NdNeNg NishReRmR,Sc$ShTT}[X_gAmeAshAtAv%EeIghtIpOatO{O%Ow UidUshY_mCusGIlLd~owOdOtR)Re,R+tRkRtu}RumRw?dSsil/ UndX_gi!AmeEqu|EshI&dIn+OgOntO,OwnOz&U.2ElNNnyRna)RyTu*:D+tInLaxy~ yMePRa+Rba+Rd&Rl-Rm|SSpTeTh U+Ze3N $NiusN*Nt!Nu(e/u*2O,0AntFtGg!Ng RaffeRlVe_dAn)A*A[IdeImp'ObeOomOryO=OwUe_tDde[LdOdO'RillaSpelSsipV nWn_bA)A(AntApeA[Av.yEatE&IdIefItOc yOupOwUnt_rdE[IdeIltIt?N3M:B.IrLfMm M, NdPpyRb%RdRshR=,TVeWkZ?d3AdAl`ArtAvyD+hogIght~oLmetLpNRo3Dd&Gh~NtPRe/%y5BbyCkeyLdLeLiday~owMeNeyOdPeRnRr%R'Sp.$/TelUrV 5BGeM<Mb!M%Nd*dNgryNtRd!RryRtSb<d3Brid:1EOn0EaEntifyLe2N%e4LLeg$L}[0A+Ita>M&'Mu}Pa@Po'Pro=Pul'0ChCludeComeC*a'DexD-a>Do%Du,ryF<tFl-tF%mHa!H .Iti$Je@JuryMa>N Noc|PutQuiryS<eSe@SideSpi*/$lTa@T e,ToVe,V.eVol=3On0L<dOla>Sue0Em1Ory:CketGu?RZz3AlousAns~yWel9BInKeUr}yY5D+I)MpNg!Ni%Nk/:Ng?oo3EnEpT^upY3CkDD}yNdNgdomSsTT^&TeTt&Wi4EeIfeO{Ow:BBelB%Dd DyKeMpNgua+PtopR+T T(UghUndryVaWWnWsu.Y Zy3Ad AfArnA=Ctu*FtGG$G&dIsu*M#NdNg`NsOp?dSs#Tt Vel3ArB tyBr?yC&'FeFtGhtKeMbM.NkOnQuid/Tt!VeZ?d5AdAnB, C$CkG-NelyNgOpTt yUdUn+VeY$5CkyGga+Mb N?N^Xury3R-s:Ch(eDG-G}tIdIlInJ%KeMm$NNa+Nda>NgoNs]Nu$P!Rb!R^Rg(R(eRketRria+SkSs/ T^T i$ThTrixTt XimumZe3AdowAnAsu*AtCh<-D$DiaLodyLtMb M%yNt]NuRcyR+R.RryShSsa+T$Thod3Dd!DnightLk~]M-NdNimumN%Nu>Rac!Rr%S ySs/akeXXedXtu*5Bi!DelDifyMM|N.%NkeyN, N`OnR$ReRn(gSqu.oTh T]T%Unta(U'VeVie5ChFf(LeLtiplySc!SeumShroomS-/Tu$3Self/ yTh:I=MePk(Rrow/yT]Tu*3ArCkEdGati=G!@I` PhewR=/TTw%kUtr$V WsXt3CeGht5B!I'M(eeOd!Rm$R`SeTab!TeTh(gTi)VelW5C!?Mb R'T:K0EyJe@Li+Scu*S =Ta(Vious0CurE<Tob 0Or1FF Fi)T&2L1Ay0DI=Ymp-0It0CeEI#L(eLy1EnEraIn]Po'T]1An+B.Ch?dD D(?yG<I|Ig($Ph<0Tr-h0H 0Tdo%T TputTside0AlEnEr0NN 0Yg&0/ 0O}:CtDd!GeIrLa)LmNdaNelN-N` P RadeR|RkRrotRtySsT^ThTi|TrolTt nU'VeYm|3A)AnutArAs<tL-<NN$tyNcilOp!Pp Rfe@Rm.Rs#T2O}OtoRa'Ys-$0AnoCn-Ctu*E)GGe#~LotNkO} Pe/olT^Zza_)A}tA,-A>AyEa'Ed+U{UgUn+2EmEtIntL?LeLi)NdNyOlPul?Rt]S.]Ssib!/TatoTt yV tyWd W _@i)Ai'Ed-tEf Epa*Es|EttyEv|I)IdeIm?yIntI%.yIs#Iva>IzeOb!mO)[Odu)Of.OgramOje@Omo>OofOp tyOsp O>@OudOvide2Bl-Dd(g~LpL'Mpk(N^PilPpyR^a'R.yRpo'R'ShTZz!3Ramid:99Al.yAntumArt E,]I{ItIzO>:Bb.Cco#CeCkD?DioIlInI'~yMpN^NdomN+PidReTeTh V&WZ%3AdyAlAs#BelBuildC$lCei=CipeC%dCyc!Du)F!@F%mFu'G]G*tGul?Je@LaxLea'LiefLyMa(Memb M(dMo=Nd NewNtOp&PairPeatPla)P%tQui*ScueSemb!Si,Sour)Sp#'SultTi*T*atTurnUn]Ve$ViewW?d2Y`m0BBb#CeChDeD+F!GhtGidNgOtPp!SkTu$V$V 5AdA,BotBu,CketM<)OfOkieOmSeTa>UghUndU>Y$5Bb DeGLeNNwayR$:DDd!D}[FeIlLadLm#L#LtLu>MeMp!NdTisfyToshiU)Usa+VeY1A!AnA*Att E}HemeHoolI&)I[%sOrp]OutRapRe&RiptRub1AAr^As#AtC#dC*tCt]Cur.yEdEkGm|Le@~M(?Ni%N'Nt&)RiesRvi)Ss]Tt!TupV&_dowAftAllowA*EdEllEriffIeldIftI}IpIv O{OeOotOpOrtOuld O=RimpRugUff!Y0Bl(gCkDeE+GhtGnL|Lk~yLv Mil?Mp!N)NgR&/ Tua>XZe1A>Et^IIllInIrtUll0AbAmEepEnd I)IdeIghtImOg<OtOwUsh0AllArtI!OkeOo`0A{AkeApIffOw0ApCc Ci$CkDaFtL?Ldi LidLut]L=Me#eNgOnRryRtUlUndUpUr)U`0A)A*Ati$AwnEakEci$EedEllEndH eI)Id IkeInIr.L.OilOns%O#OrtOtRayReadR(gY0Ua*UeezeUir*l_b!AdiumAffA+AirsAmpAndArtA>AyEakEelEmEpE*oI{IllIngO{Oma^O}OolOryO=Ra>gyReetRikeR#gRugg!Ud|UffUmb!Y!0Bje@Bm.BwayC)[ChDd&Ff G?G+,ItMm NNnyN'tP PplyP*meReRfa)R+Rpri'RroundR=ySpe@/a(1AllowAmpApArmE?EetIftImIngIt^Ord1MbolMptomRup/em:B!Ck!GIlL|LkNkPeR+tSk/eTtooXi3A^Am~NN<tNnisNtRm/Xt_nkAtEmeEnE%yE*EyIngIsOughtReeRi=RowUmbUnd 0CketDeG LtMb MeNyPRedSsueT!5A,BaccoDayDdl EGe` I!tK&MatoM%rowNeNgueNightOlO`PP-Pp!R^RnadoRtoi'SsT$Uri,W?dW WnY_{AdeAff-Ag-A(Ansf ApAshA=lAyEatEeEndI$IbeI{Igg ImIpOphyOub!U{UeUlyUmpetU,U`Y2BeIt]Mb!NaN}lRkeyRnRt!1El=EntyI)InI,O1PeP-$:5Ly5B*lla0Ab!Awa*C!Cov D DoFairFoldHappyIf%mIqueItIv 'KnownLo{TilUsu$Veil1Da>GradeHoldOnP Set1B<Ge0A+EEdEfulE![U$0Il.y:C<tCuumGueLidL!yL=NNishP%Rious/Ult3H-!L=tNd%Ntu*NueRbRifyRs]RyS'lT <3Ab!Br<tCiousCt%yDeoEw~a+Nta+Ol(Rtu$RusSaS.Su$T$Vid5C$I)IdLc<oLumeTeYa+:GeG#ItLk~LnutNtRfa*RmRri%ShSp/eT VeY3Al`Ap#ArA'lA` BDd(gEk&dIrdLcome/T_!AtEatEelEnE*IpIsp 0DeD`FeLd~NNdowNeNgNkNn Nt ReSdomSeShT}[5LfM<Nd OdOlRdRkRldRryR`_pE{E,!I,I>Ong::Rd3Ar~ow9UUngU`:3BraRo9NeO";
 var checksum = "0x3c8acc1e7b08d8e76f9fda015ef48dc8c710a73cb7e0f77b2c18a9b5a7adde60";
 var wordlist = null;
@@ -148217,7 +153605,7 @@ var LangEn = class _LangEn extends WordlistOwl {
   }
 };
 
-// mcp-server/node_modules/ethers/lib.esm/wallet/mnemonic.js
+// node_modules/ethers/lib.esm/wallet/mnemonic.js
 init_define_GDEX_SKILL_REGISTRY();
 function getUpperMask(bits) {
   return (1 << bits) - 1 << 8 - bits & 255;
@@ -148368,13 +153756,13 @@ var Mnemonic = class _Mnemonic {
   }
 };
 
-// mcp-server/node_modules/ethers/lib.esm/wallet/json-keystore.js
+// node_modules/ethers/lib.esm/wallet/json-keystore.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/aes-js/lib.esm/index.js
+// node_modules/aes-js/lib.esm/index.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/aes-js/lib.esm/aes.js
+// node_modules/aes-js/lib.esm/aes.js
 init_define_GDEX_SKILL_REGISTRY();
 var __classPrivateFieldGet2 = function(receiver, state, kind, f2) {
   if (kind === "a" && !f2) throw new TypeError("Private accessor was defined without a getter");
@@ -148406,10 +153794,10 @@ var U1 = [0, 235474187, 470948374, 303765277, 941896748, 908933415, 607530554, 7
 var U2 = [0, 185469197, 370938394, 487725847, 741876788, 657861945, 975451694, 824852259, 1483753576, 1400783205, 1315723890, 1164071807, 1950903388, 2135319889, 1649704518, 1767536459, 2967507152, 3152976349, 2801566410, 2918353863, 2631447780, 2547432937, 2328143614, 2177544179, 3901806776, 3818836405, 4270639778, 4118987695, 3299409036, 3483825537, 3535072918, 3652904859, 2077965243, 1893020342, 1841768865, 1724457132, 1474502543, 1559041666, 1107234197, 1257309336, 598438867, 681933534, 901210569, 1052338372, 261314535, 77422314, 428819965, 310463728, 3409685355, 3224740454, 3710368113, 3593056380, 3875770207, 3960309330, 4045380933, 4195456072, 2471224067, 2554718734, 2237133081, 2388260884, 3212035895, 3028143674, 2842678573, 2724322336, 4138563181, 4255350624, 3769721975, 3955191162, 3667219033, 3516619604, 3431546947, 3347532110, 2933734917, 2782082824, 3099667487, 3016697106, 2196052529, 2313884476, 2499348523, 2683765030, 1179510461, 1296297904, 1347548327, 1533017514, 1786102409, 1635502980, 2087309459, 2003294622, 507358933, 355706840, 136428751, 53458370, 839224033, 957055980, 605657339, 790073846, 2373340630, 2256028891, 2607439820, 2422494913, 2706270690, 2856345839, 3075636216, 3160175349, 3573941694, 3725069491, 3273267108, 3356761769, 4181598602, 4063242375, 4011996048, 3828103837, 1033297158, 915985419, 730517276, 545572369, 296679730, 446754879, 129166120, 213705253, 1709610350, 1860738147, 1945798516, 2029293177, 1239331162, 1120974935, 1606591296, 1422699085, 4148292826, 4233094615, 3781033664, 3931371469, 3682191598, 3497509347, 3446004468, 3328955385, 2939266226, 2755636671, 3106780840, 2988687269, 2198438022, 2282195339, 2501218972, 2652609425, 1201765386, 1286567175, 1371368976, 1521706781, 1805211710, 1620529459, 2105887268, 1988838185, 533804130, 350174575, 164439672, 46346101, 870912086, 954669403, 636813900, 788204353, 2358957921, 2274680428, 2592523643, 2441661558, 2695033685, 2880240216, 3065962831, 3182487618, 3572145929, 3756299780, 3270937875, 3388507166, 4174560061, 4091327024, 4006521127, 3854606378, 1014646705, 930369212, 711349675, 560487590, 272786309, 457992840, 106852767, 223377554, 1678381017, 1862534868, 1914052035, 2031621326, 1211247597, 1128014560, 1580087799, 1428173050, 32283319, 182621114, 401639597, 486441376, 768917123, 651868046, 1003007129, 818324884, 1503449823, 1385356242, 1333838021, 1150208456, 1973745387, 2125135846, 1673061617, 1756818940, 2970356327, 3120694122, 2802849917, 2887651696, 2637442643, 2520393566, 2334669897, 2149987652, 3917234703, 3799141122, 4284502037, 4100872472, 3309594171, 3460984630, 3545789473, 3629546796, 2050466060, 1899603969, 1814803222, 1730525723, 1443857720, 1560382517, 1075025698, 1260232239, 575138148, 692707433, 878443390, 1062597235, 243256656, 91341917, 409198410, 325965383, 3403100636, 3252238545, 3704300486, 3620022987, 3874428392, 3990953189, 4042459122, 4227665663, 2460449204, 2578018489, 2226875310, 2411029155, 3198115200, 3046200461, 2827177882, 2743944855];
 var U3 = [0, 218828297, 437656594, 387781147, 875313188, 958871085, 775562294, 590424639, 1750626376, 1699970625, 1917742170, 2135253587, 1551124588, 1367295589, 1180849278, 1265195639, 3501252752, 3720081049, 3399941250, 3350065803, 3835484340, 3919042237, 4270507174, 4085369519, 3102249176, 3051593425, 2734591178, 2952102595, 2361698556, 2177869557, 2530391278, 2614737639, 3145456443, 3060847922, 2708326185, 2892417312, 2404901663, 2187128086, 2504130317, 2555048196, 3542330227, 3727205754, 3375740769, 3292445032, 3876557655, 3926170974, 4246310725, 4027744588, 1808481195, 1723872674, 1910319033, 2094410160, 1608975247, 1391201670, 1173430173, 1224348052, 59984867, 244860394, 428169201, 344873464, 935293895, 984907214, 766078933, 547512796, 1844882806, 1627235199, 2011214180, 2062270317, 1507497298, 1423022939, 1137477952, 1321699145, 95345982, 145085239, 532201772, 313773861, 830661914, 1015671571, 731183368, 648017665, 3175501286, 2957853679, 2807058932, 2858115069, 2305455554, 2220981195, 2474404304, 2658625497, 3575528878, 3625268135, 3473416636, 3254988725, 3778151818, 3963161475, 4213447064, 4130281361, 3599595085, 3683022916, 3432737375, 3247465558, 3802222185, 4020912224, 4172763771, 4122762354, 3201631749, 3017672716, 2764249623, 2848461854, 2331590177, 2280796200, 2431590963, 2648976442, 104699613, 188127444, 472615631, 287343814, 840019705, 1058709744, 671593195, 621591778, 1852171925, 1668212892, 1953757831, 2037970062, 1514790577, 1463996600, 1080017571, 1297403050, 3673637356, 3623636965, 3235995134, 3454686199, 4007360968, 3822090177, 4107101658, 4190530515, 2997825956, 3215212461, 2830708150, 2779915199, 2256734592, 2340947849, 2627016082, 2443058075, 172466556, 122466165, 273792366, 492483431, 1047239e3, 861968209, 612205898, 695634755, 1646252340, 1863638845, 2013908262, 1963115311, 1446242576, 1530455833, 1277555970, 1093597963, 1636604631, 1820824798, 2073724613, 1989249228, 1436590835, 1487645946, 1337376481, 1119727848, 164948639, 81781910, 331544205, 516552836, 1039717051, 821288114, 669961897, 719700128, 2973530695, 3157750862, 2871682645, 2787207260, 2232435299, 2283490410, 2667994737, 2450346104, 3647212047, 3564045318, 3279033885, 3464042516, 3980931627, 3762502690, 4150144569, 4199882800, 3070356634, 3121275539, 2904027272, 2686254721, 2200818878, 2384911031, 2570832044, 2486224549, 3747192018, 3528626907, 3310321856, 3359936201, 3950355702, 3867060991, 4049844452, 4234721005, 1739656202, 1790575107, 2108100632, 1890328081, 1402811438, 1586903591, 1233856572, 1149249077, 266959938, 48394827, 369057872, 418672217, 1002783846, 919489135, 567498868, 752375421, 209336225, 24197544, 376187827, 459744698, 945164165, 895287692, 574624663, 793451934, 1679968233, 1764313568, 2117360635, 1933530610, 1343127501, 1560637892, 1243112415, 1192455638, 3704280881, 3519142200, 3336358691, 3419915562, 3907448597, 3857572124, 4075877127, 4294704398, 3029510009, 3113855344, 2927934315, 2744104290, 2159976285, 2377486676, 2594734927, 2544078150];
 var U4 = [0, 151849742, 303699484, 454499602, 607398968, 758720310, 908999204, 1059270954, 1214797936, 1097159550, 1517440620, 1400849762, 1817998408, 1699839814, 2118541908, 2001430874, 2429595872, 2581445614, 2194319100, 2345119218, 3034881240, 3186202582, 2801699524, 2951971274, 3635996816, 3518358430, 3399679628, 3283088770, 4237083816, 4118925222, 4002861748, 3885750714, 1002142683, 850817237, 698445255, 548169417, 529487843, 377642221, 227885567, 77089521, 1943217067, 2061379749, 1640576439, 1757691577, 1474760595, 1592394909, 1174215055, 1290801793, 2875968315, 2724642869, 3111247143, 2960971305, 2405426947, 2253581325, 2638606623, 2487810577, 3808662347, 3926825029, 4044981591, 4162096729, 3342319475, 3459953789, 3576539503, 3693126241, 1986918061, 2137062819, 1685577905, 1836772287, 1381620373, 1532285339, 1078185097, 1229899655, 1040559837, 923313619, 740276417, 621982671, 439452389, 322734571, 137073913, 19308535, 3871163981, 4021308739, 4104605777, 4255800159, 3263785589, 3414450555, 3499326569, 3651041127, 2933202493, 2815956275, 3167684641, 3049390895, 2330014213, 2213296395, 2566595609, 2448830231, 1305906550, 1155237496, 1607244650, 1455525988, 1776460110, 1626319424, 2079897426, 1928707164, 96392454, 213114376, 396673818, 514443284, 562755902, 679998e3, 865136418, 983426092, 3708173718, 3557504664, 3474729866, 3323011204, 4180808110, 4030667424, 3945269170, 3794078908, 2507040230, 2623762152, 2272556026, 2390325492, 2975484382, 3092726480, 2738905026, 2857194700, 3973773121, 3856137295, 4274053469, 4157467219, 3371096953, 3252932727, 3673476453, 3556361835, 2763173681, 2915017791, 3064510765, 3215307299, 2156299017, 2307622919, 2459735317, 2610011675, 2081048481, 1963412655, 1846563261, 1729977011, 1480485785, 1362321559, 1243905413, 1126790795, 878845905, 1030690015, 645401037, 796197571, 274084841, 425408743, 38544885, 188821243, 3613494426, 3731654548, 3313212038, 3430322568, 4082475170, 4200115116, 3780097726, 3896688048, 2668221674, 2516901860, 2366882550, 2216610296, 3141400786, 2989552604, 2837966542, 2687165888, 1202797690, 1320957812, 1437280870, 1554391400, 1669664834, 1787304780, 1906247262, 2022837584, 265905162, 114585348, 499347990, 349075736, 736970802, 585122620, 972512814, 821712160, 2595684844, 2478443234, 2293045232, 2174754046, 3196267988, 3079546586, 2895723464, 2777952454, 3537852828, 3687994002, 3234156416, 3385345166, 4142626212, 4293295786, 3841024952, 3992742070, 174567692, 57326082, 410887952, 292596766, 777231668, 660510266, 1011452712, 893681702, 1108339068, 1258480242, 1343618912, 1494807662, 1715193156, 1865862730, 1948373848, 2100090966, 2701949495, 2818666809, 3004591147, 3122358053, 2235061775, 2352307457, 2535604243, 2653899549, 3915653703, 3764988233, 4219352155, 4067639125, 3444575871, 3294430577, 3746175075, 3594982253, 836553431, 953270745, 600235211, 718002117, 367585007, 484830689, 133361907, 251657213, 2041877159, 1891211689, 1806599355, 1654886325, 1568718495, 1418573201, 1335535747, 1184342925];
-function convertToInt32(bytes3) {
+function convertToInt32(bytes2) {
   const result = [];
-  for (let i = 0; i < bytes3.length; i += 4) {
-    result.push(bytes3[i] << 24 | bytes3[i + 1] << 16 | bytes3[i + 2] << 8 | bytes3[i + 3]);
+  for (let i = 0; i < bytes2.length; i += 4) {
+    result.push(bytes2[i] << 24 | bytes2[i + 1] << 16 | bytes2[i + 2] << 8 | bytes2[i + 3]);
   }
   return result;
 }
@@ -148537,7 +153925,7 @@ var AES = class _AES {
 };
 _AES_key = /* @__PURE__ */ new WeakMap(), _AES_Kd = /* @__PURE__ */ new WeakMap(), _AES_Ke = /* @__PURE__ */ new WeakMap();
 
-// mcp-server/node_modules/aes-js/lib.esm/mode.js
+// node_modules/aes-js/lib.esm/mode.js
 init_define_GDEX_SKILL_REGISTRY();
 var ModeOfOperation = class {
   constructor(name, key, cls) {
@@ -148551,7 +153939,7 @@ var ModeOfOperation = class {
   }
 };
 
-// mcp-server/node_modules/aes-js/lib.esm/mode-cbc.js
+// node_modules/aes-js/lib.esm/mode-cbc.js
 init_define_GDEX_SKILL_REGISTRY();
 var __classPrivateFieldSet3 = function(receiver, state, value, kind, f2) {
   if (kind === "m") throw new TypeError("Private method is not writable");
@@ -148615,7 +154003,7 @@ var CBC = class _CBC extends ModeOfOperation {
 };
 _CBC_iv = /* @__PURE__ */ new WeakMap(), _CBC_lastBlock = /* @__PURE__ */ new WeakMap();
 
-// mcp-server/node_modules/aes-js/lib.esm/mode-cfb.js
+// node_modules/aes-js/lib.esm/mode-cfb.js
 init_define_GDEX_SKILL_REGISTRY();
 var __classPrivateFieldGet4 = function(receiver, state, kind, f2) {
   if (kind === "a" && !f2) throw new TypeError("Private accessor was defined without a getter");
@@ -148632,7 +154020,7 @@ _CFB_iv = /* @__PURE__ */ new WeakMap(), _CFB_shiftRegister = /* @__PURE__ */ ne
   __classPrivateFieldGet4(this, _CFB_shiftRegister, "f").set(data.subarray(0, segmentSize), 16 - segmentSize);
 };
 
-// mcp-server/node_modules/aes-js/lib.esm/mode-ctr.js
+// node_modules/aes-js/lib.esm/mode-ctr.js
 init_define_GDEX_SKILL_REGISTRY();
 var __classPrivateFieldSet4 = function(receiver, state, value, kind, f2) {
   if (kind === "m") throw new TypeError("Private method is not writable");
@@ -148714,17 +154102,17 @@ var CTR = class _CTR extends ModeOfOperation {
 };
 _CTR_remaining = /* @__PURE__ */ new WeakMap(), _CTR_remainingIndex = /* @__PURE__ */ new WeakMap(), _CTR_counter = /* @__PURE__ */ new WeakMap();
 
-// mcp-server/node_modules/aes-js/lib.esm/mode-ecb.js
+// node_modules/aes-js/lib.esm/mode-ecb.js
 init_define_GDEX_SKILL_REGISTRY();
 
-// mcp-server/node_modules/aes-js/lib.esm/mode-ofb.js
+// node_modules/aes-js/lib.esm/mode-ofb.js
 init_define_GDEX_SKILL_REGISTRY();
 var _OFB_iv;
 var _OFB_lastPrecipher;
 var _OFB_lastPrecipherIndex;
 _OFB_iv = /* @__PURE__ */ new WeakMap(), _OFB_lastPrecipher = /* @__PURE__ */ new WeakMap(), _OFB_lastPrecipherIndex = /* @__PURE__ */ new WeakMap();
 
-// mcp-server/node_modules/aes-js/lib.esm/padding.js
+// node_modules/aes-js/lib.esm/padding.js
 init_define_GDEX_SKILL_REGISTRY();
 function pkcs7Strip(data) {
   if (data.length < 16) {
@@ -148743,7 +154131,7 @@ function pkcs7Strip(data) {
   return new Uint8Array(data.subarray(0, length));
 }
 
-// mcp-server/node_modules/ethers/lib.esm/wallet/utils.js
+// node_modules/ethers/lib.esm/wallet/utils.js
 init_define_GDEX_SKILL_REGISTRY();
 function looseArrayify(hexString) {
   if (typeof hexString === "string" && !hexString.startsWith("0x")) {
@@ -148823,7 +154211,7 @@ function spelunk(object3, _path) {
   return cur;
 }
 
-// mcp-server/node_modules/ethers/lib.esm/wallet/json-keystore.js
+// node_modules/ethers/lib.esm/wallet/json-keystore.js
 var defaultPath = "m/44'/60'/0'/0/0";
 function isKeystoreJson(json) {
   try {
@@ -148946,7 +154334,7 @@ async function decryptKeystoreJson(json, _password, progress) {
   return getAccount(data, key);
 }
 function getEncryptKdfParams(options) {
-  const salt = options.salt != null ? getBytes(options.salt, "options.salt") : randomBytes4(32);
+  const salt = options.salt != null ? getBytes(options.salt, "options.salt") : randomBytes5(32);
   let N2 = 1 << 17, r = 8, p = 1;
   if (options.scrypt) {
     if (options.scrypt.N) {
@@ -148966,9 +154354,9 @@ function getEncryptKdfParams(options) {
 }
 function _encryptKeystore(key, kdf, account, options) {
   const privateKey = getBytes(account.privateKey, "privateKey");
-  const iv = options.iv != null ? getBytes(options.iv, "options.iv") : randomBytes4(16);
+  const iv = options.iv != null ? getBytes(options.iv, "options.iv") : randomBytes5(16);
   assertArgument(iv.length === 16, "invalid options.iv length", "options.iv", options.iv);
-  const uuidRandom = options.uuid != null ? getBytes(options.uuid, "options.uuid") : randomBytes4(16);
+  const uuidRandom = options.uuid != null ? getBytes(options.uuid, "options.uuid") : randomBytes5(16);
   assertArgument(uuidRandom.length === 16, "invalid options.uuid length", "options.uuid", options.iv);
   const derivedKey = key.slice(0, 16);
   const macPrefix = key.slice(16, 32);
@@ -149002,7 +154390,7 @@ function _encryptKeystore(key, kdf, account, options) {
     const locale = account.mnemonic.locale || "en";
     const mnemonicKey = key.slice(32, 64);
     const entropy = getBytes(account.mnemonic.entropy, "account.mnemonic.entropy");
-    const mnemonicIv = randomBytes4(16);
+    const mnemonicIv = randomBytes5(16);
     const mnemonicAesCtr = new CTR(mnemonicKey, mnemonicIv);
     const mnemonicCiphertext = getBytes(mnemonicAesCtr.encrypt(entropy));
     const now = /* @__PURE__ */ new Date();
@@ -149039,7 +154427,7 @@ async function encryptKeystoreJson(account, password, options) {
   return _encryptKeystore(getBytes(key), kdf, account, options);
 }
 
-// mcp-server/node_modules/ethers/lib.esm/wallet/hdwallet.js
+// node_modules/ethers/lib.esm/wallet/hdwallet.js
 var defaultPath2 = "m/44'/60'/0'/0/0";
 var MasterSecret = new Uint8Array([66, 105, 116, 99, 111, 105, 110, 32, 115, 101, 101, 100]);
 var HardenedBit = 2147483648;
@@ -149059,8 +154447,8 @@ function zpad2(value, length) {
 function encodeBase58Check(_value) {
   const value = getBytes(_value);
   const check2 = dataSlice(sha2562(sha2562(value)), 0, 4);
-  const bytes3 = concat([value, check2]);
-  return encodeBase58(bytes3);
+  const bytes2 = concat([value, check2]);
+  return encodeBase58(bytes2);
 }
 var _guard3 = {};
 function ser_I(index, chainCode, publicKey, privateKey) {
@@ -149279,14 +154667,14 @@ var HDNodeWallet = class _HDNodeWallet extends BaseWallet {
    *  or full HD Node ([[HDNodeWallet) respectively.
    */
   static fromExtendedKey(extendedKey) {
-    const bytes3 = toBeArray(decodeBase58(extendedKey));
-    assertArgument(bytes3.length === 82 || encodeBase58Check(bytes3.slice(0, 78)) === extendedKey, "invalid extended key", "extendedKey", "[ REDACTED ]");
-    const depth = bytes3[4];
-    const parentFingerprint = hexlify(bytes3.slice(5, 9));
-    const index = parseInt(hexlify(bytes3.slice(9, 13)).substring(2), 16);
-    const chainCode = hexlify(bytes3.slice(13, 45));
-    const key = bytes3.slice(45, 78);
-    switch (hexlify(bytes3.slice(0, 4))) {
+    const bytes2 = toBeArray(decodeBase58(extendedKey));
+    assertArgument(bytes2.length === 82 || encodeBase58Check(bytes2.slice(0, 78)) === extendedKey, "invalid extended key", "extendedKey", "[ REDACTED ]");
+    const depth = bytes2[4];
+    const parentFingerprint = hexlify(bytes2.slice(5, 9));
+    const index = parseInt(hexlify(bytes2.slice(9, 13)).substring(2), 16);
+    const chainCode = hexlify(bytes2.slice(13, 45));
+    const key = bytes2.slice(45, 78);
+    switch (hexlify(bytes2.slice(0, 4))) {
       // Public Key
       case "0x0488b21e":
       case "0x043587cf": {
@@ -149316,7 +154704,7 @@ var HDNodeWallet = class _HDNodeWallet extends BaseWallet {
     if (wordlist2 == null) {
       wordlist2 = LangEn.wordlist();
     }
-    const mnemonic = Mnemonic.fromEntropy(randomBytes4(16), password, wordlist2);
+    const mnemonic = Mnemonic.fromEntropy(randomBytes5(16), password, wordlist2);
     return _HDNodeWallet.#fromSeed(mnemonic.computeSeed(), mnemonic).derivePath(path3);
   }
   /**
@@ -149462,7 +154850,7 @@ var HDNodeVoidWallet = class _HDNodeVoidWallet extends VoidSigner {
   }
 };
 
-// mcp-server/node_modules/ethers/lib.esm/wallet/json-crowdsale.js
+// node_modules/ethers/lib.esm/wallet/json-crowdsale.js
 init_define_GDEX_SKILL_REGISTRY();
 function isCrowdsaleJson(json) {
   try {
@@ -149492,7 +154880,7 @@ function decryptCrowdsaleJson(json, _password) {
   return { address, privateKey: id(seedHex) };
 }
 
-// mcp-server/node_modules/ethers/lib.esm/wallet/wallet.js
+// node_modules/ethers/lib.esm/wallet/wallet.js
 init_define_GDEX_SKILL_REGISTRY();
 function stall2(duration3) {
   return new Promise((resolve2) => {
@@ -150199,10 +155587,10 @@ async function executeTrade(deps, previewId, userApproved) {
       }
       const status = String(res.status ?? "").toLowerCase();
       const requestId = typeof res.requestId === "string" ? res.requestId : void 0;
-      const hash3 = typeof res.hash === "string" ? res.hash : void 0;
+      const hash2 = typeof res.hash === "string" ? res.hash : void 0;
       const order = (p.kind === "perp_close" ? res.order : res) ?? {};
       const state = status === "success" ? "filled" : status === "failed" || res.isSuccess === false || order.isSuccess === false ? "failed" : requestId || order.isSuccess === true ? "accepted" : "pending";
-      op = await saveOp(op, state, { requestId, hash: hash3, detail: { ...op.detail, response: res } }, void 0, deps.now());
+      op = await saveOp(op, state, { requestId, hash: hash2, detail: { ...op.detail, response: res } }, void 0, deps.now());
       break;
     } catch (err) {
       if (attempt === 0 && isSessionRejected(err)) {
@@ -150517,7 +155905,7 @@ server.tool(
       return { content: [{ type: "text", text: `No results found for "${query}". Available skills:
 ${listSkills(skills).map((s) => `- ${s.name}: ${s.description}`).join("\n")}` }] };
     }
-    const output3 = results.slice(0, 5).map((r) => {
+    const output2 = results.slice(0, 5).map((r) => {
       const matchSections = r.matches.slice(0, 3).join(", ");
       const files = r.skill.files.size > 0 ? `
 
@@ -150529,7 +155917,7 @@ Matching sections: ${matchSections}
 
 ${r.skill.content.slice(0, 1500)}${r.skill.content.length > 1500 ? "\n...(truncated)" : ""}${files}`;
     }).join("\n\n---\n\n");
-    return { content: [{ type: "text", text: output3 }] };
+    return { content: [{ type: "text", text: output2 }] };
   }
 );
 server.tool(
@@ -150784,7 +156172,6 @@ await server.connect(transport);
 @noble/hashes/utils.js:
 @noble/hashes/utils.js:
 @noble/hashes/utils.js:
-@noble/hashes/esm/utils.js:
 @noble/hashes/esm/utils.js:
   (*! noble-hashes - MIT License (c) 2022 Paul Miller (paulmillr.com) *)
 
