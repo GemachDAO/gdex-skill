@@ -147,7 +147,7 @@ cite figures that skill scripts printed. Every script run is logged with a sha25
 
 ## 🔌 MCP Server
 
-The GDEX MCP server exposes **154 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
+The GDEX MCP server exposes **155 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
 
 **Source code:** the server is implemented in this repository, in [`mcp-server/`](mcp-server). The entry point is [`mcp-server/src/index.ts`](mcp-server/src/index.ts) and the tool handlers are in [`mcp-server/src/tools/`](mcp-server/src/tools). The npm package `@gemachdao/gdex-mcp-server` is built from that directory by the release workflow. See [`mcp-server/README.md`](mcp-server/README.md) to run it from source or with the repo's `Dockerfile`.
 
@@ -227,7 +227,7 @@ Add to your client's MCP config:
 | `GDEX_API_KEY` | GDEX API key — auto-authenticates on startup | Optional |
 | `GDEX_API_URL` | Override API base URL (default: `https://trade-api.gemach.io/v1`) | Optional |
 
-### MCP Execution Tools (145 tools)
+### MCP Execution Tools (146 tools)
 
 | Category | Tools | Description |
 |----------|-------|-------------|
@@ -240,7 +240,7 @@ Add to your client's MCP config:
 | **Limit Orders** | `limit_buy`, `limit_sell`, `update_order`, `get_limit_orders` | Limit buy/sell with TP/SL, order management |
 | **Copy Trading (Solana)** | `get_copy_trade_wallets`, `get_copy_trade_custom_wallets`, `get_copy_trade_gems`, `get_copy_trade_dexes`, `get_copy_trade_list`, `get_copy_trade_tx_list`, `create_copy_trade`, `update_copy_trade` | Auto-mirror top Solana traders |
 | **Copy Trading (HL Perp)** | `get_hl_top_traders`, `get_hl_top_traders_by_pnl`, `get_hl_user_stats`, `get_hl_perp_dexes`, `get_hl_all_assets`, `get_hl_clearinghouse_state`, `get_hl_meta_and_asset_ctxs`, `get_hl_deposit_tokens`, `get_hl_copy_trade_list`, `get_hl_copy_trade_tx_list`, `create_hl_copy_trade`, `update_hl_copy_trade` | Copy HyperLiquid perp traders |
-| **Portfolio & Data** | `get_portfolio`, `get_balances`, `get_trade_history`, `get_token_details`, `get_trending_tokens`, `get_ohlcv`, `get_top_traders`, `get_wallet_info`, `generate_evm_wallet` | Cross-chain portfolio, market data, OHLCV candles |
+| **Portfolio & Data** | `get_portfolio`, `get_balances`, `get_trade_history`, `get_token_details`, `get_trending_tokens`, `get_ohlcv`, `get_top_traders`, `get_wallet_info`, `generate_evm_wallet`, `reverse_engineer_winners` | Cross-chain portfolio, market data, OHLCV candles |
 | **Bridge** | `estimate_bridge`, `execute_bridge`, `get_bridge_orders` | Cross-chain native token bridging |
 | **Unified USDC Wallet** | `usdc_get_balances`, `usdc_get_trade_quote`, `usdc_buy`, `usdc_sell`, `usdc_buy_with_native`, `usdc_retry_sell`, `usdc_get_funding_status`, `usdc_wait_for_trade`, `usdc_get_deferred_trade`, `usdc_get_pending_trades`, `usdc_get_convert_quote`, `usdc_convert_native`, `usdc_estimate_bridge`, `usdc_execute_bridge`, `usdc_get_bridge_status`, `usdc_get_bridge_orders` | One USDC balance across 7 chains; buy with USDC or native with automatic cross-chain funding and gas, live funding progress, sell to USDC, convert gas to USDC, bridge USDC |
 | **Managed Custody** | `managed_purchase`, `managed_sell`, `managed_trade_status`, `build_trade_payload` | Low-level encrypted trade submission |
