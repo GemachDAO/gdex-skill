@@ -106,6 +106,7 @@ describe('Spot Trade Tools', () => {
         version: 1, accountRef: ref, walletAddress: '0xControl', controlPrivateKey: '0x' + '33'.repeat(32),
         sessionPrivateKey: '0x' + '44'.repeat(32), sessionKey: '0x02' + '55'.repeat(32), apiKey: 'stored-key',
         source: 'generated', createdAt: 0, sessionAt: 0,
+        browserSession: { cookie: 'jwt', expiresAt: Date.now() + 3600_000 }, sessionUsedAt: Date.now(),
       }));
       const { server: wrapped, getTools: wrappedTools } = createMockServer();
       enableAccountRefs(wrapped);

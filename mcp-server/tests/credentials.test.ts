@@ -11,9 +11,16 @@ const home = await fs.mkdtemp(path.join(os.tmpdir(), 'gdex-home-'));
 process.env.GDEX_HOME = home;
 
 const signIn = jest.fn(async () => ({ address: 'managed' }));
+const setBrowserSession = jest.fn();
 const getUser = jest.fn(async ({ chainId }: { chainId: number }) => ({ address: chainId === 42161 ? '0xmanagedevm' : 'ManagedSol' }));
 jest.unstable_mockModule('../src/sdk.js', () => ({
-  getSdk: () => ({ signInWithComputedData: signIn, getManagedUser: getUser }),
+  getSdk: () => ({
+    signInWithComputedData: signIn,
+    getManagedUser: getUser,
+    getBrowserSession: () => ({ cookie: `jwt-${signIn.mock.calls.length}`, expiresAt: Date.now() + 8 * 3600_000 }),
+    setBrowserSession,
+    setSessionSigningKey: jest.fn(),
+  }),
   readEnv: (n: string) => process.env[n],
   handleToolCall: async (fn: () => Promise<unknown>) => {
     try { return { content: [{ type: 'text', text: JSON.stringify(await fn()) }] }; } catch (e) {
@@ -100,5 +107,22 @@ describe('account store', () => {
 
   it('rejects malformed refs (no path traversal)', async () => {
     await expect(cred.loadAccount('../../etc/passwd')).rejects.toThrow(/Invalid accountRef/);
+  });
+
+  it('restores the session cookie, and signs in again once it has idled out', async () => {
+    const { accountRef: ref } = await cred.connectAccount({ controlPrivateKey: KEY, source: 'key_file' });
+    const shape = { sessionPrivateKey: z.string() };
+    const before = signIn.mock.calls.length;
+    await cred.applyAccountRef({ accountRef: ref }, shape);
+    expect(signIn.mock.calls.length).toBe(before);
+    expect(setBrowserSession).toHaveBeenLastCalledWith(expect.objectContaining({ cookie: `jwt-${before}` }));
+
+    const file = path.join(home, 'accounts', `${ref}.json`);
+    const stored = JSON.parse(await fs.readFile(file, 'utf8'));
+    await fs.writeFile(file, JSON.stringify({ ...stored, sessionUsedAt: Date.now() - 31 * 60_000 }));
+    const filled = await cred.applyAccountRef({ accountRef: ref }, shape);
+    expect(signIn.mock.calls.length).toBe(before + 1);
+    expect(filled.sessionPrivateKey).not.toBe(stored.sessionPrivateKey);
+    expect(setBrowserSession).toHaveBeenLastCalledWith(expect.objectContaining({ cookie: `jwt-${before + 1}` }));
   });
 });

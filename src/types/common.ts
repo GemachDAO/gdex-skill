@@ -117,6 +117,13 @@ export interface GdexSkillConfig {
    * @default "GdexSkill/1.0.0"
    */
   userAgent?: string;
+
+  /**
+   * Origin sent with every request. The backend refuses logins, writes and
+   * private reads (403 SESSION_ORIGIN_DENIED) unless it is allow-listed.
+   * @default "https://gdex.pro"
+   */
+  origin?: string;
 }
 
 /**

@@ -21,6 +21,16 @@ import {
 } from '../utils/errors';
 import { AuthCredentials, AuthSession } from './auth';
 import * as Endpoints from './endpoints';
+import {
+  BrowserSessionState,
+  DEFAULT_CLIENT_ORIGIN,
+  SESSION_COOKIE,
+  browserRequestMessage,
+  browserRequestNonce,
+  requiresSignedRequest,
+  sessionCookieFromHeaders,
+  signBrowserRequest,
+} from './browserSession';
 
 /** Default SDK User-Agent — must match browser UA to pass Cloudflare / backend validation */
 const DEFAULT_USER_AGENT =
@@ -50,6 +60,8 @@ export class GdexApiClient {
   private readonly config: Required<GdexSkillConfig>;
   private session: AuthSession | null = null;
   private credentials: AuthCredentials | null = null;
+  private browserSession: BrowserSessionState | null = null;
+  private sessionSigningKey: string | null = null;
 
   /**
    * Normalize endpoint path so users can configure apiUrl with or without `/v1`.
@@ -80,6 +92,7 @@ export class GdexApiClient {
       maxRetries: config.maxRetries ?? DEFAULT_MAX_RETRIES,
       debug: config.debug ?? false,
       userAgent: config.userAgent ?? DEFAULT_USER_AGENT,
+      origin: config.origin ?? DEFAULT_CLIENT_ORIGIN,
     };
 
     this.http = axios.create({
@@ -92,6 +105,10 @@ export class GdexApiClient {
         'Accept-Language': 'en-US,en;q=0.9',
         'Accept-Encoding': 'gzip, deflate, br',
         'Connection': 'keep-alive',
+        // Required on every login, write and private read since backend PR #382.
+        'Origin': this.config.origin,
+        'Referer': `${this.config.origin}/`,
+        'X-Gdex-Client': 'web',
         ...(this.config.apiKey ? { 'Authorization': `Bearer ${this.config.apiKey}` } : {}),
       },
     });
@@ -117,6 +134,10 @@ export class GdexApiClient {
         if (this.session?.token) {
           reqConfig.headers['Authorization'] = `Bearer ${this.session.token}`;
         }
+        if (this.browserSession) {
+          reqConfig.headers['Cookie'] = `${SESSION_COOKIE}=${this.browserSession.cookie}`;
+        }
+        this.signIfRequired(reqConfig);
         if (this.config.debug) {
           console.debug(`[GdexSkill] → ${reqConfig.method?.toUpperCase()} ${reqConfig.url}`);
         }
@@ -128,6 +149,7 @@ export class GdexApiClient {
     // Response interceptor — normalize errors
     this.http.interceptors.response.use(
       (response: AxiosResponse) => {
+        this.captureSessionCookie(response.headers?.['set-cookie']);
         if (this.config.debug) {
           console.debug(`[GdexSkill] ← ${response.status} ${response.config.url}`);
         }
@@ -144,6 +166,11 @@ export class GdexApiClient {
           const detail = body?.message ?? body?.error ?? error.message;
           const message: string =
             body?.code !== undefined ? `${detail} (code ${body.code})` : detail;
+
+          this.captureSessionCookie(error.response?.headers?.['set-cookie']);
+          if (status === 401 && (body?.code as unknown) === 'SESSION_INVALID') {
+            this.browserSession = null;
+          }
 
           if (status === 401 || status === 403) {
             // No automatic re-auth on v1.1.0 — wallet-signing nonce/login is gone.
@@ -249,6 +276,62 @@ export class GdexApiClient {
   logout(): void {
     this.session = null;
     this.credentials = null;
+    this.browserSession = null;
+    this.sessionSigningKey = null;
+  }
+
+  // ── Browser session (backend PR #382) ───────────────────────────────────────
+
+  /**
+   * Current `gdex_session` cookie, captured automatically from the last login.
+   * Persist it with the session key so another process can reuse the session;
+   * it idles out after 30 minutes unused and expires 8 hours after login.
+   */
+  getBrowserSession(): BrowserSessionState | null {
+    return this.browserSession;
+  }
+
+  /** Restore a cookie saved by `getBrowserSession()`; `null` clears it. */
+  setBrowserSession(state: BrowserSessionState | string | null): void {
+    this.browserSession = typeof state === 'string' ? { cookie: state } : state;
+  }
+
+  /**
+   * Session private key used to sign `GET /v1/user` and private `/v1/agents/*`
+   * requests. It never leaves this process.
+   */
+  setSessionSigningKey(sessionPrivateKey: string | null): void {
+    this.sessionSigningKey = sessionPrivateKey;
+  }
+
+  private captureSessionCookie(setCookie: unknown): void {
+    const found = sessionCookieFromHeaders(setCookie);
+    if (found !== undefined) this.browserSession = found;
+  }
+
+  /**
+   * Add `X-Gdex-Nonce`/`X-Gdex-Signature`. Query params are folded into the
+   * URL first so the bytes on the wire are exactly the ones signed.
+   */
+  private signIfRequired(reqConfig: InternalAxiosRequestConfig): void {
+    const base = (reqConfig.baseURL ?? this.config.apiUrl).replace(/\/+$/, '');
+    const url = new URL(`${base}${reqConfig.url ?? ''}`);
+    if (!requiresSignedRequest(url.pathname) || !this.sessionSigningKey) return;
+    for (const [key, value] of Object.entries((reqConfig.params ?? {}) as Record<string, unknown>)) {
+      if (value !== undefined && value !== null) url.searchParams.append(key, String(value));
+    }
+    reqConfig.params = undefined;
+    reqConfig.url = `${url.pathname.slice(new URL(base).pathname.length)}${url.search}`;
+    const method = (reqConfig.method ?? 'get').toUpperCase();
+    const body = isSafeMethod(method) || reqConfig.data === undefined
+      ? null
+      : JSON.parse(JSON.stringify(reqConfig.data));
+    const nonce = browserRequestNonce();
+    reqConfig.headers['X-Gdex-Nonce'] = nonce;
+    reqConfig.headers['X-Gdex-Signature'] = signBrowserRequest(
+      browserRequestMessage(method, url, body, nonce),
+      this.sessionSigningKey
+    );
   }
 
   /**

@@ -525,7 +525,7 @@ const message = buildGdexSignInMessage(userId, nonce, sessionKey);
 const signature = /* wallet.signMessage(message) */;
 
 const signInPayload = buildGdexSignInComputedData({ apiKey, userId, sessionKey, nonce, signature });
-await skill.signInWithComputedData({ computedData: signInPayload.computedData, chainId: 622112261 }); // Solana; 1 for EVM/HL
+await skill.signInWithComputedData({ computedData: signInPayload.computedData, chainId: 622112261 }, { sessionPrivateKey }); // Solana; 1 for EVM/HL
 
 // 3. Trade
 const trade = buildGdexManagedTradeComputedData({
@@ -1368,7 +1368,7 @@ const signInPayload = buildGdexSignInComputedData({
 });
 await skill.signInWithComputedData({
   computedData: signInPayload.computedData, chainId: 42161,
-});
+}, { sessionPrivateKey });
 
 // 3. Deposit USDC (amount in smallest unit, uint64 chainId is handled by SDK)
 const computedData = buildHlComputedData({
