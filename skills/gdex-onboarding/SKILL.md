@@ -240,7 +240,7 @@ const sig = await wallet.signMessage(msg);
 const payload = buildGdexSignInComputedData({
   apiKey: GDEX_API_KEY_PRIMARY, userId: wallet.address, sessionKey, nonce, signature: sig,
 });
-await skill.signInWithComputedData({ computedData: payload.computedData, chainId: 1 });
+await skill.signInWithComputedData({ computedData: payload.computedData, chainId: 1 }, { sessionPrivateKey });
 ```
 
 ### 4. Key Rules for Autonomous Operation

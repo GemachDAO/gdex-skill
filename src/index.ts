@@ -24,6 +24,7 @@ import type { GeneratedEvmWallet } from './utils/walletGeneration';
 import { toBackendSlippage } from './utils/slippage';
 import { GdexApiClient } from './client';
 import { AuthCredentials, AuthSession } from './client/auth';
+import type { BrowserSessionState } from './client/browserSession';
 import * as Endpoints from './client/endpoints';
 import { GdexSkillConfig } from './types/common';
 import {
@@ -246,6 +247,13 @@ import type {
 // Types
 export type { GdexSkillConfig, TransactionResult, SupportedChain, NonEvmChain } from './types/common';
 export { ChainId, GdexErrorCode } from './types/common';
+export type { BrowserSessionState } from './client/browserSession';
+export {
+  canonicalJson,
+  browserRequestMessage,
+  signBrowserRequest,
+  SESSION_COOKIE,
+} from './client/browserSession';
 export type {
   BuyTokenParams,
   SellTokenParams,
@@ -748,8 +756,33 @@ export class GdexSkill {
    *
    * This matches the documented `/v1/sign_in` contract used by managed custody.
    */
-  async signInWithComputedData(params: GdexManagedSignInParams): Promise<Record<string, unknown>> {
-    return this.client.post<Record<string, unknown>>(Endpoints.AUTH_SIGN_IN, params);
+  async signInWithComputedData(
+    params: GdexManagedSignInParams,
+    options: { sessionPrivateKey?: string } = {}
+  ): Promise<Record<string, unknown>> {
+    // The response sets the gdex_session cookie; the client keeps it for later calls.
+    const res = await this.client.post<Record<string, unknown>>(Endpoints.AUTH_SIGN_IN, params);
+    if (options.sessionPrivateKey) this.client.setSessionSigningKey(options.sessionPrivateKey);
+    return res;
+  }
+
+  /**
+   * Session cookie from the last sign-in. Save it with the session key: a new
+   * process must restore both (`setBrowserSession` + `setSessionSigningKey`)
+   * or sign in again. Idles out after 30 min unused, expires 8 h after login.
+   */
+  getBrowserSession(): BrowserSessionState | null {
+    return this.client.getBrowserSession();
+  }
+
+  /** Restore a saved session cookie; `null` clears it. */
+  setBrowserSession(state: BrowserSessionState | string | null): void {
+    this.client.setBrowserSession(state);
+  }
+
+  /** Session private key used to sign `GET /v1/user` and agent requests locally. */
+  setSessionSigningKey(sessionPrivateKey: string | null): void {
+    this.client.setSessionSigningKey(sessionPrivateKey);
   }
 
   /**
