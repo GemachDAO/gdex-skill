@@ -126083,6 +126083,7 @@ var require_forensics2 = __commonJS({
     var hlCopyTrade_1 = require_hlCopyTrade2();
     var perpTrade_1 = require_perpTrade();
     var DEFAULT_MAX = 12;
+    var PULL_PACE_MS = 400;
     var AV_MIN = 5e4;
     var AV_MAX = 5e7;
     var TURNOVER_MAX = 20;
@@ -126599,6 +126600,9 @@ var require_forensics2 = __commonJS({
       counts.survivors_after_cheap = survivors.length;
       return { survivors, counts };
     }
+    function sleep(ms) {
+      return new Promise((resolve2) => setTimeout(resolve2, ms));
+    }
     function normalizeWatchAddr(value) {
       if (typeof value !== "string")
         return null;
@@ -126673,8 +126677,13 @@ var require_forensics2 = __commonJS({
       const picked = universe.slice(0, max);
       counts.pulled_n = picked.length;
       const records = [];
-      for (const entry of picked)
+      let first = true;
+      for (const entry of picked) {
+        if (!first)
+          await sleep(PULL_PACE_MS);
+        first = false;
         records.push(await pullWallet(client, entry));
+      }
       return decompose(records, counts);
     }
     function decompose(records, counts) {
