@@ -82,6 +82,9 @@ function validateFrontmatter(skillPath: string, content: string): ValidationResu
     errors.push('Field "description" should be at least 10 characters');
   } else if (frontmatter.description.length > 200) {
     errors.push('Field "description" should be at most 200 characters');
+  } else if (/:\s/.test(frontmatter.description)) {
+    // Unquoted ": " is invalid YAML: the skills CLI (npx skills add) skips the whole skill.
+    errors.push('Field "description" must not contain ": " (use a dash); strict YAML parsers reject it');
   }
 
   if (!extracted.body.trim()) {
