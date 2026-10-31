@@ -24,6 +24,7 @@ import {
   parseAmountUnits,
   deriveMaxSourceSpendRaw,
   buyGasHeadroomUsdc,
+  truncateDecimals,
 } from '@gemachdao/gdex-skill';
 import type { GdexSkill } from '@gemachdao/gdex-skill';
 import { connectAccount, gdexHome, loadAccount, type StoredAccount } from './credentials.js';
@@ -256,11 +257,6 @@ function formatUnits(raw: string, decimals: number): string {
   return frac ? `${whole}.${frac}` : whole;
 }
 
-function floorToDecimals(value: number, decimals: number): string {
-  const f = 10 ** decimals;
-  return (Math.floor(value * f) / f).toFixed(decimals);
-}
-
 function usdcDecimals(chainId: number): number {
   return chainId === 56 ? 18 : 6;
 }
@@ -477,7 +473,7 @@ async function previewWith(deps: IntentDeps, account: StoredAccount, accountRef:
     if (!Number.isFinite(price) || price <= 0) throw new GdexValidationError('limitPrice must be a positive number', 'limitPrice');
     const notional = intent.notionalUsd !== undefined ? Number(intent.notionalUsd) : Number(intent.marginUsd) * intent.leverage;
     if (!Number.isFinite(notional) || notional <= 0) throw new GdexValidationError('Amount must be a positive number', 'notionalUsd');
-    const size = floorToDecimals(notional / price, m.szDecimals);
+    const size = truncateDecimals(notional / price, m.szDecimals);
     const sizedNotional = Number(size) * price;
     if (Number(size) <= 0 || sizedNotional < HL_MIN_ORDER_USD) {
       throw new GdexValidationError(`Order too small: ${size} ${m.coin} ≈ $${sizedNotional.toFixed(2)}; GDEX requires at least $${HL_MIN_ORDER_USD}`, 'notionalUsd');

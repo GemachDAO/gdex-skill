@@ -82,6 +82,12 @@ describe('preview', () => {
     expect(b.terms).toMatchObject({ coin: 'xyz:TSLA', dex: 'xyz', size: '0.150', isLong: false, marginMode: 'isolated' });
   });
 
+  it('perp open: a notional that fits szDecimals exactly is not sized down a step', async () => {
+    // $15 at a $100,000 mark is exactly 0.00015 BTC; 0.00015 * 1e5 is 14.999999999999998 in floating point.
+    const p = await intent.previewTrade(deps, REF, { kind: 'perp_open', coin: 'BTC', side: 'long', notionalUsd: '15', leverage: 2 });
+    expect(p.terms).toMatchObject({ size: '0.00015', notionalUsd: '15.00' });
+  });
+
   it('perp close reads the live position on the managed wallet', async () => {
     const p = await intent.previewTrade(deps, REF, { kind: 'perp_close', coin: 'BTC' });
     expect(sdk.resolvePerpClose.mock.calls[0][0]).toMatchObject({ coin: 'BTC', positionAddress: '0xmanaged' });
