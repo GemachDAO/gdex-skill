@@ -26,6 +26,7 @@ import {
   generateGdexNonce,
   generateGdexSessionKeyPair,
 } from '@gemachdao/gdex-skill';
+import type { BrowserSessionState } from '@gemachdao/gdex-skill';
 import { getSdk, readEnv } from './sdk.js';
 
 const SOLANA_CHAIN_ID = 622112261;
@@ -43,6 +44,21 @@ export interface StoredAccount {
   createdAt: number;
   sessionAt: number;
   managed?: { evm?: string; solana?: string };
+  /** `gdex_session` cookie from sign-in; the backend requires it on private calls. */
+  browserSession?: BrowserSessionState;
+  /** Last time a tool used the session; the backend idles it out after 30 minutes. */
+  sessionUsedAt?: number;
+}
+
+/** Re-sign in before the backend's 30-minute idle timeout or 8-hour expiry can bite. */
+const SESSION_IDLE_MS = 25 * 60_000;
+const SESSION_EXPIRY_MARGIN_MS = 5 * 60_000;
+
+function sessionStale(a: StoredAccount, now = Date.now()): boolean {
+  const bs = a.browserSession;
+  if (!bs?.cookie) return true;
+  if (bs.expiresAt !== undefined && bs.expiresAt - now < SESSION_EXPIRY_MARGIN_MS) return true;
+  return now - (a.sessionUsedAt ?? a.sessionAt) > SESSION_IDLE_MS;
 }
 
 /** Public view of an account: never contains key material. */
@@ -150,7 +166,11 @@ export async function connectAccount(input: {
     nonce,
     signature: signature.replace(/^0x/, ''),
   });
-  await sdk.signInWithComputedData({ computedData: payload.computedData, chainId: SOLANA_CHAIN_ID });
+  await sdk.signInWithComputedData(
+    { computedData: payload.computedData, chainId: SOLANA_CHAIN_ID },
+    { sessionPrivateKey: kp.sessionPrivateKey }
+  );
+  const browserSession = sdk.getBrowserSession() ?? undefined;
 
   const data = buildGdexUserSessionData(kp.sessionKey, apiKey);
   const managed: StoredAccount['managed'] = {};
@@ -173,6 +193,8 @@ export async function connectAccount(input: {
     createdAt: existing?.createdAt ?? Date.now(),
     sessionAt: Date.now(),
     managed,
+    browserSession,
+    sessionUsedAt: Date.now(),
   };
   await save(account);
   return account;
@@ -206,7 +228,17 @@ export async function applyAccountRef(params: Record<string, unknown>, shape: Re
     }
     return rest;
   }
-  const a = await loadAccount(ref);
+  let a = await loadAccount(ref);
+  if (sessionStale(a)) {
+    a = await connectAccount({ controlPrivateKey: a.controlPrivateKey, source: a.source, apiKey: a.apiKey });
+  } else {
+    a.sessionUsedAt = Date.now();
+    await save(a);
+  }
+  // The SDK client is shared: point it at this account's session before the call.
+  const sdk = getSdk();
+  sdk.setBrowserSession(a.browserSession ?? null);
+  sdk.setSessionSigningKey(a.sessionPrivateKey);
   const fill: Record<string, unknown> = {
     sessionPrivateKey: a.sessionPrivateKey,
     privateKey: a.controlPrivateKey,

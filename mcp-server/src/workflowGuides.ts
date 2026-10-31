@@ -31,7 +31,7 @@ const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
 const nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));
 const signature = await control.signMessage(buildGdexSignInMessage(control.address, nonce, sessionKey));
 const signIn = buildGdexSignInComputedData({ apiKey, userId: control.address, sessionKey, nonce, signature });
-await skill.signInWithComputedData({ computedData: signIn.computedData, chainId: 1 }); // 1 = EVM/HL, 622112261 = Solana
+await skill.signInWithComputedData({ computedData: signIn.computedData, chainId: 1 }, { sessionPrivateKey }); // 1 = EVM/HL, 622112261 = Solana; the key keeps the gdex_session cookie and signs /v1/user
 
 // walletAddress is ALWAYS the control wallet, never the managed wallet (code 103 otherwise)
 const creds = { apiKey, walletAddress: control.address, sessionPrivateKey };

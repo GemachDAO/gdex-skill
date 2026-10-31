@@ -33,10 +33,11 @@ export function registerAuthTools(server: McpServer): void {
     {
       computedData: z.string().describe('AES-256-CBC encrypted sign-in payload'),
       chainId: z.union([z.number(), z.string()]).describe('Chain ID (622112261=Solana, 42161=Arbitrum for HL perps)'),
+      sessionPrivateKey: z.string().optional().describe('Session private key from generate_session_keypair; needed to sign /v1/user and private agent calls after sign-in'),
     },
-    async ({ computedData, chainId }) => handleToolCall(async () => {
+    async ({ computedData, chainId, sessionPrivateKey }) => handleToolCall(async () => {
       const sdk = getSdk();
-      return sdk.signInWithComputedData({ computedData, chainId: Number(chainId) });
+      return sdk.signInWithComputedData({ computedData, chainId: Number(chainId) }, { sessionPrivateKey });
     }),
   );
 
