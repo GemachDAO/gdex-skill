@@ -259,7 +259,11 @@ describe('outcome actions (mocked client)', () => {
       path === '/v1/hl/outcome_account' ? clone(accountFixture) : clone(liveFixture),
     );
     client.post = jest.fn().mockResolvedValue(resting);
+    // Pin the clock to fixture capture time; outcome 14315 expired 2026-10-20.
+    jest.spyOn(Date, 'now').mockReturnValue(NOW);
   });
+
+  afterEach(() => jest.restoreAllMocks());
 
   it('getHlOutcomeMarkets filters by state/query and reports totals', async () => {
     const r = await getHlOutcomeMarkets(client, { state: 'active', query: 'ETH', now: NOW });
