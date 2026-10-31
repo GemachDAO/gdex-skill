@@ -1,6 +1,6 @@
 {
   "name": "@gemachdao/gdex-skill",
-  "version": "5.2.0",
+  "version": "5.2.1",
   "description": "Cross-chain DeFi trading skill for AI agents — spot trading, perpetual futures, portfolio management, and token discovery on Solana, Sui, and 9 EVM chains.",
   "homepage": "https://github.com/GemachDAO/gdex-skill",
   "icon": "https://gdex.pro/favicon.ico",
