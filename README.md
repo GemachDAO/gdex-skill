@@ -147,7 +147,7 @@ cite figures that skill scripts printed. Every script run is logged with a sha25
 
 ## 🔌 MCP Server
 
-The GDEX MCP server exposes **155 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
+The GDEX MCP server exposes **157 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
 
 **Source code:** the server is implemented in this repository, in [`mcp-server/`](mcp-server). The entry point is [`mcp-server/src/index.ts`](mcp-server/src/index.ts) and the tool handlers are in [`mcp-server/src/tools/`](mcp-server/src/tools). The npm package `@gemachdao/gdex-mcp-server` is built from that directory by the release workflow. See [`mcp-server/README.md`](mcp-server/README.md) to run it from source or with the repo's `Dockerfile`.
 
@@ -181,7 +181,7 @@ Node.js **22 or newer**. The Hyperliquid client libraries need Node 22's built-i
 
 What is verified live versus offline, per chain and venue, is in [docs/AGENT-READINESS.md](docs/AGENT-READINESS.md).
 
-Agents should start with `gdex_status`, connect once with `gdex_connect`, then `gdex_preview_trade` → `gdex_execute_trade` (user-approved, or within the delegated policy in `~/.gdex/policies/<accountRef>.json`) → `gdex_operation`, and manage exits with `gdex_positions` / `gdex_manage_position`. Every tool carries read/write annotations. See the `gdex-agent-trading` skill.
+Agents should start with `gdex_status`, connect once with `gdex_connect`, add money with `gdex_add_funds` if it reports `unfunded`, then `gdex_preview_trade` → `gdex_execute_trade` (user-approved, or within the delegated policy in `~/.gdex/policies/<accountRef>.json`) → `gdex_operation`, and manage exits with `gdex_positions` / `gdex_manage_position` and withdrawals with `gdex_preview_withdraw`. Every tool carries read/write annotations. See the `gdex-agent-trading` skill.
 
 ### Connect an account (no secrets in chat)
 
@@ -227,11 +227,11 @@ Add to your client's MCP config:
 | `GDEX_API_KEY` | GDEX API key — auto-authenticates on startup | Optional |
 | `GDEX_API_URL` | Override API base URL (default: `https://trade-api.gemach.io/v1`) | Optional |
 
-### MCP Execution Tools (146 tools)
+### MCP Execution Tools (148 tools)
 
 | Category | Tools | Description |
 |----------|-------|-------------|
-| **Agent flow** | `gdex_status`, `gdex_preview_trade`, `gdex_execute_trade`, `gdex_operation`, `gdex_positions`, `gdex_manage_position` | Readiness, exact previews, execution within user approval or a delegated policy, operation tracking and recovery, positions and exits |
+| **Agent flow** | `gdex_status`, `gdex_add_funds`, `gdex_preview_trade`, `gdex_execute_trade`, `gdex_operation`, `gdex_positions`, `gdex_manage_position`, `gdex_preview_withdraw` | Funded/unfunded readiness, add money (Apple Pay, card or crypto) with credit confirmed from the wallet, exact previews (incl. total budgets), execution within user approval or a delegated policy, operation tracking and recovery, positions, exits and withdrawals |
 | **Auth** | `gdex_connect`, `gdex_accounts`, `gdex_disconnect`, `auth_login`, `generate_session_keypair`, `managed_sign_in`, `build_sign_in_payload` | API key login, session keys, managed custody sign-in |
 | **Spot Trading** | `buy_token`, `sell_token` | Buy/sell on Solana, Sui and 10 EVM chains (Ethereum, Base, Arbitrum, BSC and more) |
 | **Perp Trading** | `open_perp_position`, `place_perp_order`, `close_perp_position`, `close_all_positions`, `cancel_perp_order`, `cancel_all_perp_orders`, `set_leverage`, `perp_deposit`, `perp_withdraw` | Full HyperLiquid perpetual futures — long/short, TP/SL; leverage up to each market's cap (40x on core BTC) |

@@ -18,12 +18,12 @@ const LOCAL_DOCS = new Set([
 const LOCAL_READS = new Set(['generate_evm_wallet', 'generate_session_keypair', 'build_sign_in_payload', 'build_trade_payload', 'gdex_accounts']);
 
 /** Network reads that only look things up (quotes, status, watchers, previews). */
-const READ_PATTERN = /^(get_|usdc_get_|hl_outcomes$|hl_outcome_account$|hl_outcome_check_collateral$|hl_ref_info$|hl_builder_referral$|hl_tx_list$|hl_list_user_copy_pnl$|trending_list$|trending_options$|trending_booking_status$|managed_trade_status$|wait_for_trade$|usdc_wait_for_trade$|estimate_bridge$|usdc_estimate_bridge$|gdex_status$|gdex_positions$|gdex_preview_trade$|gdex_operation$|gdex_manage_position$|generate_pnl$)/;
+const READ_PATTERN = /^(get_|usdc_get_|hl_outcomes$|hl_outcome_account$|hl_outcome_check_collateral$|hl_ref_info$|hl_builder_referral$|hl_tx_list$|hl_list_user_copy_pnl$|trending_list$|trending_options$|trending_booking_status$|managed_trade_status$|wait_for_trade$|usdc_wait_for_trade$|estimate_bridge$|usdc_estimate_bridge$|gdex_status$|gdex_positions$|gdex_preview_trade$|gdex_operation$|gdex_manage_position$|gdex_preview_withdraw$|generate_pnl$)/;
 
 /** Writes that change account settings or social data but never move funds. */
 const NON_FINANCIAL_WRITES = new Set([
   'auth_login', 'oauth_login', 'managed_sign_in', 'gdex_connect', 'associate_email', 'hl_enable_trading',
-  'add_comment', 'vote_sentiment', 'change_watchlist', 'import_token',
+  'add_comment', 'vote_sentiment', 'change_watchlist', 'import_token', 'gdex_add_funds',
 ]);
 
 export function annotationsFor(name: string): ToolAnnotations {

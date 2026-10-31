@@ -233,7 +233,7 @@ For MCP-compatible agents (Claude, Cursor, VS Code):
 npx @gemachdao/gdex-mcp-server init --client claude
 ```
 
-That's it. Your agent now has access to 155 tools (146 execution + 9 documentation).
+That's it. Your agent now has access to 157 tools (148 execution + 9 documentation).
 
 ---
 

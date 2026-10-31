@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (just-works flow of funds)
+
+- **Honest readiness:** `gdex_status` reads live balances per account and reports `funded`, `unfunded`, `funding_pending` or `unreachable` with one next step. Unknown balances are never shown as zero or ready.
+- **Balance summary:** `gdex_positions` returns `summary`: cash per chain, Hyperliquid USDC (free vs. margin or on hold), in positions, pending and available to withdraw.
+- **`gdex_add_funds`:** Apple Pay or card through Meld (the provider gdex.pro uses), or a crypto deposit, bound to the account's GDEX wallet and USDC network. It returns a funding operation that `gdex_operation` follows to `credited` only once the USDC is in the wallet; a pending funding is resumed instead of asking for a second payment, and it expires after 48 h. Money leaving the wallet meanwhile does not hide or shrink the arrival. Meld does not pre-fill or lock the destination for non-partners, so the steps tell the user exactly what to enter.
+- **Total budgets:** `gdex_preview_trade { budget: "total" }` never signs more than the amount; routing comes out of the trade. A gas top-up is priced only when the destination has no gas, and the USDC already on the chain is used alone when bridging a small shortfall would cost more than it adds. Default (`"trade"`) previews now state the full signed cap as the **total maximum debit**.
+- **`gdex_preview_withdraw`:** USDC or native from a GDEX wallet to an address the user gives (gas and balance checked), or free Hyperliquid USDC to the Arbitrum GDEX wallet (1 USDC fee, arrival confirmed on Arbitrum). Withdrawals always need the user's approval; a delegated policy never covers them.
+- **Sell by share:** `gdex_manage_position` sell accepts `"all"`, `"half"` or `"25%"` of the live holding.
+- Bridge quotes are reused for 30 s and retried once after a pause (Relay rejects back-to-back quotes).
+
+Verified live 2026-10-20: a $3 total-budget GMAC buy on Ethereum bridged from Arbitrum (filled in 23 s, $1.86 debited), a 1 USDC Base withdrawal to the control wallet (confirmed on-chain), and a 2 USDC Hyperliquid withdrawal (1 USDC arrived on Arbitrum in ~4 min and an open crypto funding operation reported it as credited).
+
+### Fixed
+
+- `tests/actions/hlOutcomes.test.ts` failed once its live fixture's market expired on the wall clock; the mocked-client block now runs at the fixture's capture time.
+
 ### Fixed (backend browser-session hardening)
 
 - **Every sign-in and trade failed with 403 `SESSION_ORIGIN_DENIED`** after backend PR #382 (deployed 2026-10-28). The client now sends `X-Gdex-Client: web` and an allow-listed `Origin` (default `https://gdex.pro`, configurable with `origin`), captures the `gdex_session` cookie set by sign-in and sends it on every later call, and signs `GET /v1/user` and private `/v1/agents/*` requests with the session key (`X-Gdex-Nonce` / `X-Gdex-Signature`). Verified live: sign-in, signed `/v1/user`, and a write passing the session gate.
