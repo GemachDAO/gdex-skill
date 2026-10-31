@@ -24,6 +24,7 @@ import type { GeneratedEvmWallet } from './utils/walletGeneration';
 import { toBackendSlippage } from './utils/slippage';
 import { GdexApiClient } from './client';
 import { AuthCredentials, AuthSession } from './client/auth';
+import type { BrowserSessionState } from './client/browserSession';
 import * as Endpoints from './client/endpoints';
 import { GdexSkillConfig } from './types/common';
 import {
@@ -102,6 +103,7 @@ import {
 import { getPortfolio, getBalances, getTradeHistory, getTradingFunds } from './actions/portfolio';
 import { getTokenDetails, getTrendingTokens, getOHLCV } from './actions/tokenInfo';
 import { getTopTraders } from './actions/topTraders';
+import { reverseEngineerWinners } from './actions/forensics';
 import { estimateBridge, requestBridge, getBridgeOrders } from './actions/bridge';
 import { getWalletInfo } from './actions/wallet';
 
@@ -246,6 +248,13 @@ import type {
 // Types
 export type { GdexSkillConfig, TransactionResult, SupportedChain, NonEvmChain } from './types/common';
 export { ChainId, GdexErrorCode } from './types/common';
+export type { BrowserSessionState } from './client/browserSession';
+export {
+  canonicalJson,
+  browserRequestMessage,
+  signBrowserRequest,
+  SESSION_COOKIE,
+} from './client/browserSession';
 export type {
   BuyTokenParams,
   SellTokenParams,
@@ -372,6 +381,14 @@ export type {
   BridgeQuote,
 } from './types/bridge';
 export type { TopTrader, TopTradersParams, WalletInfo, WalletInfoParams } from './types/index';
+export type {
+  WinnerIntel,
+  WinnerScorecard,
+  WinnerUniverse,
+  AggregateFeature,
+  SkillComponents,
+  ReverseEngineerParams,
+} from './types/forensics';
 export type {
   GdexManagedSignInParams,
   GdexManagedUserQuery,
@@ -639,6 +656,7 @@ import type {
   BridgeOrdersResponse,
 } from './types/bridge';
 import type { TopTrader, TopTradersParams, WalletInfo, WalletInfoParams } from './types/index';
+import type { ReverseEngineerParams, WinnerIntel } from './types/forensics';
 import type {
   GdexManagedSignInParams,
   GdexManagedUserQuery,
@@ -748,8 +766,33 @@ export class GdexSkill {
    *
    * This matches the documented `/v1/sign_in` contract used by managed custody.
    */
-  async signInWithComputedData(params: GdexManagedSignInParams): Promise<Record<string, unknown>> {
-    return this.client.post<Record<string, unknown>>(Endpoints.AUTH_SIGN_IN, params);
+  async signInWithComputedData(
+    params: GdexManagedSignInParams,
+    options: { sessionPrivateKey?: string } = {}
+  ): Promise<Record<string, unknown>> {
+    // The response sets the gdex_session cookie; the client keeps it for later calls.
+    const res = await this.client.post<Record<string, unknown>>(Endpoints.AUTH_SIGN_IN, params);
+    if (options.sessionPrivateKey) this.client.setSessionSigningKey(options.sessionPrivateKey);
+    return res;
+  }
+
+  /**
+   * Session cookie from the last sign-in. Save it with the session key: a new
+   * process must restore both (`setBrowserSession` + `setSessionSigningKey`)
+   * or sign in again. Idles out after 30 min unused, expires 8 h after login.
+   */
+  getBrowserSession(): BrowserSessionState | null {
+    return this.client.getBrowserSession();
+  }
+
+  /** Restore a saved session cookie; `null` clears it. */
+  setBrowserSession(state: BrowserSessionState | string | null): void {
+    this.client.setBrowserSession(state);
+  }
+
+  /** Session private key used to sign `GET /v1/user` and agent requests locally. */
+  setSessionSigningKey(sessionPrivateKey: string | null): void {
+    this.client.setSessionSigningKey(sessionPrivateKey);
   }
 
   /**
@@ -1268,6 +1311,20 @@ export class GdexSkill {
   /** Clearinghouse state across all DEXes (no auth). */
   async getHlClearinghouseStateAll(userAddress: string): Promise<unknown> {
     return getHlClearinghouseStateAll(this.client, userAddress);
+  }
+
+  /**
+   * Reverse-engineer skill-proven HyperLiquid wallets into forensic patterns.
+   *
+   * Reads the month PnL leaderboard (plus any curated watchlist), pulls each
+   * wallet's fills, filters uncopyable market-makers, and returns skill-vs-luck
+   * scorecards, hold-time/sizing asymmetry, and prevalence-gated aggregate edges.
+   * READ-ONLY — never trades, settles, or moves funds.
+   *
+   * @param params - optional `watchlist` of wallet addresses and `max` pull cap.
+   */
+  async reverseEngineerWinners(params?: ReverseEngineerParams): Promise<WinnerIntel> {
+    return reverseEngineerWinners(this.client, params);
   }
 
   /** Open orders on a DEX (no auth). */

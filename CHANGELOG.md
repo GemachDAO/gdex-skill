@@ -23,6 +23,12 @@ Verified live 2026-10-20: a $3 total-budget GMAC buy on Ethereum bridged from Ar
 
 - `tests/actions/hlOutcomes.test.ts` failed once its live fixture's market expired on the wall clock; the mocked-client block now runs at the fixture's capture time.
 
+### Fixed (backend browser-session hardening)
+
+- **Every sign-in and trade failed with 403 `SESSION_ORIGIN_DENIED`** after backend PR #382 (deployed 2026-10-28). The client now sends `X-Gdex-Client: web` and an allow-listed `Origin` (default `https://gdex.pro`, configurable with `origin`), captures the `gdex_session` cookie set by sign-in and sends it on every later call, and signs `GET /v1/user` and private `/v1/agents/*` requests with the session key (`X-Gdex-Nonce` / `X-Gdex-Signature`). Verified live: sign-in, signed `/v1/user`, and a write passing the session gate.
+- New: `signInWithComputedData(params, { sessionPrivateKey })`, `getBrowserSession()` / `setBrowserSession()` to carry a session across processes, and `setSessionSigningKey()`. The cookie idles out after 30 minutes and expires after 8 hours; a session key saved before 2026-10-28 needs a new sign-in.
+- MCP server: `gdex_connect` stores the cookie with the account; tools using `accountRef` restore it and sign in again when it is stale.
+
 ### Fixed (agent-trading work order, phase 3)
 
 - **Standalone MCP perp tools were broken in 5.0.0.** `get_mark_price`, `get_account_state`, `get_perp_positions` and the other Hyperliquid reads failed in every `npx` install and the Docker image (`ERR_MODULE_NOT_FOUND`). The Hyperliquid libraries are now real dependencies of `@gemachdao/gdex-mcp-server` and are installed in the image. Verified from a clean `npm install` of the packed package on Node 22.

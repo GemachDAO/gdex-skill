@@ -1,13 +1,13 @@
 {
   "name": "gdex",
-  "version": "5.1.0",
+  "version": "5.2.0",
   "description": "GDEX (gdex.pro) agent skills and MCP server: spot swaps on Solana, Sui and EVM chains, HyperLiquid perps, copy trading, limit orders, bridging and portfolio reads.",
   "mcpServers": {
     "gdex": {
       "command": "npx",
       "args": [
         "-y",
-        "@gemachdao/gdex-mcp-server@5.1.0"
+        "@gemachdao/gdex-mcp-server@5.2.0"
       ]
     }
   },

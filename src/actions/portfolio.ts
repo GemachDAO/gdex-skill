@@ -217,6 +217,8 @@ export async function getTradingFunds(
   if (params.chain === undefined) throw new GdexValidationError('chain is required', 'chain');
   const chain = managedChain(params.chain);
   const auth = managedReadAuth(params);
+  // GET /v1/user must be signed with the session key (backend PR #382).
+  if (params.sessionPrivateKey) client.setSessionSigningKey(params.sessionPrivateKey);
   const res = await client.get<unknown>(Endpoints.USER_PROFILE, { ...auth, chainId: chain.id });
   if (!isObj(res) || typeof res.address !== 'string' || !res.address) {
     malformed(Endpoints.USER_PROFILE, 'expected { address, balance }', res);
