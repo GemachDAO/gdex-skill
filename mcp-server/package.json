@@ -1,6 +1,6 @@
 {
   "name": "@gemachdao/gdex-mcp-server",
-  "version": "4.11.4",
+  "version": "5.2.0",
   "mcpName": "io.github.GemachDAO/gdex-mcp-server",
   "description": "MCP server for GDEX (gdex.pro): trading execution and documentation tools for AI agents on Hyperliquid, Solana, Sui and 10 EVM chains",
   "type": "module",
@@ -35,6 +35,10 @@
     "url": "https://github.com/GemachDAO/gdex-skill",
     "directory": "mcp-server"
   },
+  "dependencies": {
+    "@gdexsdk/hyper-liquid-trader": "^1.1.1",
+    "@nktkas/hyperliquid": "^0.32.1"
+  },
   "devDependencies": {
     "@gemachdao/gdex-skill": "file:..",
     "@jest/globals": "^30.3.0",
@@ -47,6 +51,6 @@
     "zod": "^3.23.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   }
 }

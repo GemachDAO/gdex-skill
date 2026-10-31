@@ -46,7 +46,10 @@ describe('Copy Trade Tools', () => {
       expect(tools.has('get_copy_trade_tx_list')).toBe(true);
       expect(tools.has('create_copy_trade')).toBe(true);
       expect(tools.has('update_copy_trade')).toBe(true);
-      expect(tools.size).toBe(8);
+      for (const name of ['update_copy_trade_settings', 'pause_copy_trade', 'resume_copy_trade', 'delete_copy_trade']) {
+        expect(tools.has(name)).toBe(true);
+      }
+      expect(tools.size).toBe(12);
     });
   });
 
@@ -183,6 +186,49 @@ describe('Copy Trade Tools', () => {
       };
       const result = await expectMcpSuccess(tool.handler, params);
       expect(result).toEqual({ deleted: true });
+    });
+  });
+
+  describe('explicit controls', () => {
+    const ids = { apiKey: 'key', userId: '0xUser', sessionPrivateKey: '0xSk', copyTradeId: 'ct-1' };
+
+    it('pause_copy_trade maps to pauseCopyTrade and never to update/delete', async () => {
+      mockSdk.pauseCopyTrade.mockResolvedValue({ operation: 'pause', submitted: true, expectedIsActive: false });
+      const result = await expectMcpSuccess(getTools().get('pause_copy_trade')!.handler, ids);
+      expect(result.operation).toBe('pause');
+      expect(mockSdk.pauseCopyTrade).toHaveBeenCalledWith(ids);
+      expect(mockSdk.deleteCopyTrade).not.toHaveBeenCalled();
+      expect(mockSdk.updateCopyTrade).not.toHaveBeenCalled();
+    });
+
+    it('pause_copy_trade schema has no isDelete field', () => {
+      expect(Object.keys(getTools().get('pause_copy_trade')!.schema)).not.toContain('isDelete');
+    });
+
+    it('resume_copy_trade maps to resumeCopyTrade', async () => {
+      await expectMcpSuccess(getTools().get('resume_copy_trade')!.handler, ids);
+      expect(mockSdk.resumeCopyTrade).toHaveBeenCalledWith(ids);
+    });
+
+    it('delete_copy_trade says positions are not closed', async () => {
+      const tool = getTools().get('delete_copy_trade')!;
+      expect(tool.description).toMatch(/does NOT sell/i);
+      await expectMcpSuccess(tool.handler, ids);
+      expect(mockSdk.deleteCopyTrade).toHaveBeenCalledWith(ids);
+    });
+
+    it('update_copy_trade_settings maps to updateCopyTradeSettings', async () => {
+      await expectMcpSuccess(getTools().get('update_copy_trade_settings')!.handler, { ...ids, lossPercent: '20' });
+      expect(mockSdk.updateCopyTradeSettings).toHaveBeenCalledWith({ ...ids, lossPercent: '20' });
+    });
+
+    it('surfaces PAUSE_UNSUPPORTED errors', async () => {
+      mockSdk.pauseCopyTrade.mockRejectedValue(new Error('Cannot pause copy trade ct-1: PAUSE_UNSUPPORTED'));
+      await expectMcpError(getTools().get('pause_copy_trade')!.handler, ids, 'PAUSE_UNSUPPORTED');
+    });
+
+    it('update_copy_trade no longer claims isChangeStatus deletes', () => {
+      expect(getTools().get('update_copy_trade')!.description).toMatch(/TOGGLES/);
     });
   });
 });

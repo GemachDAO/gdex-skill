@@ -5,10 +5,11 @@
  *   POST /v1/transfer        — native token transfer       (ServiceMain.transfer)
  *   POST /v1/transfer_token  — ERC20 / SPL token transfer  (ServiceMain.transfer)
  *
- * Both endpoints accept encrypted `computedData` matching the managed custody
- * contract:
- *   ABI:     ['transfer', [recipient, amount, nonce]]
- *   sig msg: `transfer-${userId}-${data}`
+ * Both endpoints take `{ computedData, chainId }` (chainId is required,
+ * ENCRYPTED_PAYLOAD_WITH_CHAIN, ServiceMain.ts:2780-2790 and :2946-2956):
+ *   /transfer:       [recipient, amount(uint256), nonce], signed `transfer-${userId}-${data}`
+ *   /transfer_token: [tokenAddress, recipient, amount(uint256), nonce], signed `transfer_token-...`
+ * (decoder.ts:47-72). `amount` is raw base units.
  *
  * Each function accepts either:
  *   - a raw `{ computedData, chainId? }` payload built by the caller, or
@@ -21,7 +22,8 @@
 import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';
 import { buildTransferComputedData } from '../utils/gdexManagedCrypto';
-import { validateRequired } from '../utils/validation';
+import { parseRawAmount, validateRequired } from '../utils/validation';
+import { GdexValidationError } from '../utils/errors';
 
 /** Inputs required to build a transfer `computedData` payload internally. */
 export interface TransferManagedInputs {
@@ -45,11 +47,13 @@ export interface TransferRawRequest {
 export interface TransferStructuredRequest {
   /** Destination wallet address */
   recipient: string;
-  /** Decimal amount string, already scaled to token decimals */
+  /** Raw base-unit integer string (native decimals, or the token's decimals for transferToken) */
   amount: string;
+  /** Token to send. Required by transferToken; not allowed on transferNative. */
+  tokenAddress?: string;
   /** Managed-custody signing inputs */
   managed: TransferManagedInputs;
-  /** Optional chain identifier hint for the backend router */
+  /** Chain id. Required: the backend rejects a structured transfer without it. */
   chainId?: number | string;
 }
 
@@ -77,10 +81,18 @@ function isStructured(req: TransferRequest): req is TransferStructuredRequest {
  * Resolve any accepted request shape into the on-the-wire body
  * `{ computedData, chainId? }`.
  */
-function resolveTransferBody(req: TransferRequest): TransferRawRequest {
+function resolveTransferBody(req: TransferRequest, kind: 'native' | 'token'): TransferRawRequest {
   if (isStructured(req)) {
     validateRequired(req.recipient, 'recipient');
-    validateRequired(req.amount, 'amount');
+    // Checked before anything is signed: the amount is a uint256 slot in raw units.
+    parseRawAmount(req.amount, 'amount');
+    if (req.chainId === undefined || req.chainId === '') {
+      throw new GdexValidationError('chainId is required: the transfer endpoints reject a body without it', 'chainId');
+    }
+    if (kind === 'token') validateRequired(req.tokenAddress, 'tokenAddress');
+    if (kind === 'native' && req.tokenAddress) {
+      throw new GdexValidationError('tokenAddress is not used by transferNative; call transferToken', 'tokenAddress');
+    }
     validateRequired(req.managed?.apiKey, 'managed.apiKey');
     validateRequired(req.managed?.walletAddress, 'managed.walletAddress');
     validateRequired(req.managed?.sessionPrivateKey, 'managed.sessionPrivateKey');
@@ -93,11 +105,10 @@ function resolveTransferBody(req: TransferRequest): TransferRawRequest {
       userId: req.managed.userId,
       recipient: req.recipient,
       amount: req.amount,
+      ...(kind === 'token' ? { tokenAddress: req.tokenAddress } : {}),
       nonce: req.managed.nonce,
     });
-    const body: TransferRawRequest = { computedData };
-    if (req.chainId !== undefined) body.chainId = req.chainId;
-    return body;
+    return { computedData, chainId: req.chainId };
   }
 
   validateRequired(req.computedData, 'computedData');
@@ -120,7 +131,7 @@ export async function transferNative(
   client: GdexApiClient,
   req: TransferRequest,
 ): Promise<TransferResponse> {
-  const body = resolveTransferBody(req);
+  const body = resolveTransferBody(req, 'native');
   return client.post<TransferResponse>(Endpoints.TRANSFER_NATIVE, body);
 }
 
@@ -138,6 +149,6 @@ export async function transferToken(
   client: GdexApiClient,
   req: TransferRequest,
 ): Promise<TransferResponse> {
-  const body = resolveTransferBody(req);
+  const body = resolveTransferBody(req, 'token');
   return client.post<TransferResponse>(Endpoints.TRANSFER_TOKEN, body);
 }

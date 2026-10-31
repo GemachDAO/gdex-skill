@@ -87,6 +87,7 @@ GDEX uses a **multi-skill architecture** — agents load only the skills they ne
 
 | Skill | Description |
 |-------|-------------|
+| `gdex-agent-trading` | **Start here for agents:** status → connect → preview → execute within your authority → follow → exit |
 | `gdex-onboarding` | Platform overview, architecture, supported chains, quickstart |
 | `gdex-retailer-onboarding` | Retailer partner integrations — branded onboarding partners on the GDEX stack |
 | `gdex-authentication` | Managed-custody auth, encryption, session keys, API key login |
@@ -104,7 +105,7 @@ GDEX uses a **multi-skill architecture** — agents load only the skills they ne
 | `gdex-content-coins` | Zora content coins and creator coins on Base |
 | `gdex-copy-trading` | Copy trade create/delete, leaderboards, tx history, DEX list (Solana only for writes) |
 | `gdex-perp-copy-trading` | HL perp copy trading — top traders, create/manage configs, market data |
-| `gdex-hl-outcomes` | HyperLiquid outcome (event) markets — list, order, manage positions |
+| `gdex-hl-outcomes` | Hyperliquid HIP-4 outcome markets — discover, pick a side, limit order, cancel/exit, reconcile (no Polymarket/Kalshi) |
 | `gdex-hl-referral` | HyperLiquid referral info and reward claims |
 | `gdex-bridge` | Cross-chain bridging with quotes |
 | `gdex-usdc-wallet` | Unified USDC wallet — one USDC balance across chains, buy/sell in USDC, auto-bridge funding |
@@ -146,7 +147,7 @@ cite figures that skill scripts printed. Every script run is logged with a sha25
 
 ## 🔌 MCP Server
 
-The GDEX MCP server exposes **133 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
+The GDEX MCP server exposes **155 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
 
 **Source code:** the server is implemented in this repository, in [`mcp-server/`](mcp-server). The entry point is [`mcp-server/src/index.ts`](mcp-server/src/index.ts) and the tool handlers are in [`mcp-server/src/tools/`](mcp-server/src/tools). The npm package `@gemachdao/gdex-mcp-server` is built from that directory by the release workflow. See [`mcp-server/README.md`](mcp-server/README.md) to run it from source or with the repo's `Dockerfile`.
 
@@ -158,8 +159,10 @@ npx @gemachdao/gdex-mcp-server init --client claude   # → .mcp.json
 npx @gemachdao/gdex-mcp-server init --client cursor   # → .cursor/mcp.json
 npx @gemachdao/gdex-mcp-server init --client vscode   # → .vscode/mcp.json
 npx @gemachdao/gdex-mcp-server init --client codex    # → .codex/config.toml
-npx @gemachdao/gdex-mcp-server init --client opencode  # → .opencode/mcp.json
+npx @gemachdao/gdex-mcp-server init --client opencode  # → opencode.json ("mcp" section)
 ```
+
+`init` merges into an existing config: other MCP servers and settings are kept, the previous file is saved as `<file>.bak`, and rerunning is a no-op. If a different `gdex-mcp-server` entry is already there it is shown and left alone unless you pass `--force`; a config it can't parse is never modified.
 
 ### Claude Code plugin
 
@@ -169,6 +172,20 @@ npx @gemachdao/gdex-mcp-server init --client opencode  # → .opencode/mcp.json
 ```
 
 Installs every GDEX skill plus the MCP server (`npx -y @gemachdao/gdex-mcp-server`). The optional GDEX API key is kept in your system credential store.
+
+### Requirements
+
+Node.js **22 or newer**. The Hyperliquid client libraries need Node 22's built-in WebSocket; on Node 20 the perp tools fail.
+
+### Agent trading flow
+
+What is verified live versus offline, per chain and venue, is in [docs/AGENT-READINESS.md](docs/AGENT-READINESS.md).
+
+Agents should start with `gdex_status`, connect once with `gdex_connect`, then `gdex_preview_trade` → `gdex_execute_trade` (user-approved, or within the delegated policy in `~/.gdex/policies/<accountRef>.json`) → `gdex_operation`, and manage exits with `gdex_positions` / `gdex_manage_position`. Every tool carries read/write annotations. See the `gdex-agent-trading` skill.
+
+### Connect an account (no secrets in chat)
+
+Ask your agent to run `gdex_connect` with a key file on your machine, e.g. `gdex_connect { keyFile: "~/my-gdex-wallet.json" }` (JSON with `privateKey`), or `gdex_connect { create: true }` for a new wallet. The server signs in, stores the keys under `~/.gdex/accounts` (mode 0600) and returns an `accountRef`. Pass `accountRef` to any trading tool instead of `sessionPrivateKey`/`privateKey`. Never paste a private key or seed phrase into the chat. `gdex_accounts` lists connected accounts; `gdex_disconnect` forgets one.
 
 ### Codex (OpenAI)
 
@@ -210,11 +227,12 @@ Add to your client's MCP config:
 | `GDEX_API_KEY` | GDEX API key — auto-authenticates on startup | Optional |
 | `GDEX_API_URL` | Override API base URL (default: `https://trade-api.gemach.io/v1`) | Optional |
 
-### MCP Execution Tools (125 tools)
+### MCP Execution Tools (146 tools)
 
 | Category | Tools | Description |
 |----------|-------|-------------|
-| **Auth** | `auth_login`, `generate_session_keypair`, `managed_sign_in`, `build_sign_in_payload` | API key login, session keys, managed custody sign-in |
+| **Agent flow** | `gdex_status`, `gdex_preview_trade`, `gdex_execute_trade`, `gdex_operation`, `gdex_positions`, `gdex_manage_position` | Readiness, exact previews, execution within user approval or a delegated policy, operation tracking and recovery, positions and exits |
+| **Auth** | `gdex_connect`, `gdex_accounts`, `gdex_disconnect`, `auth_login`, `generate_session_keypair`, `managed_sign_in`, `build_sign_in_payload` | API key login, session keys, managed custody sign-in |
 | **Spot Trading** | `buy_token`, `sell_token` | Buy/sell on Solana, Sui and 10 EVM chains (Ethereum, Base, Arbitrum, BSC and more) |
 | **Perp Trading** | `open_perp_position`, `place_perp_order`, `close_perp_position`, `close_all_positions`, `cancel_perp_order`, `cancel_all_perp_orders`, `set_leverage`, `perp_deposit`, `perp_withdraw` | Full HyperLiquid perpetual futures — long/short, TP/SL; leverage up to each market's cap (40x on core BTC) |
 | **Perp Data** | `get_account_state`, `get_perp_positions`, `get_mark_price`, `get_all_mid_prices`, `get_usdc_balance`, `get_hl_open_orders`, `get_hl_trade_history`, `get_hl_spot_state`, `get_trader_leverage` | Real-time HyperLiquid account, positions, prices |
@@ -222,7 +240,7 @@ Add to your client's MCP config:
 | **Limit Orders** | `limit_buy`, `limit_sell`, `update_order`, `get_limit_orders` | Limit buy/sell with TP/SL, order management |
 | **Copy Trading (Solana)** | `get_copy_trade_wallets`, `get_copy_trade_custom_wallets`, `get_copy_trade_gems`, `get_copy_trade_dexes`, `get_copy_trade_list`, `get_copy_trade_tx_list`, `create_copy_trade`, `update_copy_trade` | Auto-mirror top Solana traders |
 | **Copy Trading (HL Perp)** | `get_hl_top_traders`, `get_hl_top_traders_by_pnl`, `get_hl_user_stats`, `get_hl_perp_dexes`, `get_hl_all_assets`, `get_hl_clearinghouse_state`, `get_hl_meta_and_asset_ctxs`, `get_hl_deposit_tokens`, `get_hl_copy_trade_list`, `get_hl_copy_trade_tx_list`, `create_hl_copy_trade`, `update_hl_copy_trade` | Copy HyperLiquid perp traders |
-| **Portfolio & Data** | `get_portfolio`, `get_balances`, `get_trade_history`, `get_token_details`, `get_trending_tokens`, `get_ohlcv`, `get_top_traders`, `get_wallet_info`, `generate_evm_wallet` | Cross-chain portfolio, market data, OHLCV candles |
+| **Portfolio & Data** | `get_portfolio`, `get_balances`, `get_trade_history`, `get_token_details`, `get_trending_tokens`, `get_ohlcv`, `get_top_traders`, `get_wallet_info`, `generate_evm_wallet`, `reverse_engineer_winners` | Cross-chain portfolio, market data, OHLCV candles |
 | **Bridge** | `estimate_bridge`, `execute_bridge`, `get_bridge_orders` | Cross-chain native token bridging |
 | **Unified USDC Wallet** | `usdc_get_balances`, `usdc_get_trade_quote`, `usdc_buy`, `usdc_sell`, `usdc_buy_with_native`, `usdc_retry_sell`, `usdc_get_funding_status`, `usdc_wait_for_trade`, `usdc_get_deferred_trade`, `usdc_get_pending_trades`, `usdc_get_convert_quote`, `usdc_convert_native`, `usdc_estimate_bridge`, `usdc_execute_bridge`, `usdc_get_bridge_status`, `usdc_get_bridge_orders` | One USDC balance across 7 chains; buy with USDC or native with automatic cross-chain funding and gas, live funding progress, sell to USDC, convert gas to USDC, bridge USDC |
 | **Managed Custody** | `managed_purchase`, `managed_sell`, `managed_trade_status`, `build_trade_payload` | Low-level encrypted trade submission |
@@ -231,12 +249,12 @@ Add to your client's MCP config:
 | **Token Import** | `import_token` | Add a custom token so it appears in details, balances and portfolio |
 | **Market Discovery & Analytics** | `get_newest_tokens`, `get_top_tokens`, `get_token_trades`, `get_token_image`, `get_native_prices`, `get_xstocks`, `get_zora_tokens`, `get_wallet_performance`, `get_nof1_analytics`, `generate_pnl` | New and top tokens, trades, prices, xStocks, Zora coins, wallet performance, NoF1 analytics, PnL generation |
 | **Livestream** | `get_currently_live`, `get_live_status`, `get_bigbuys` | Solana livestream tokens and big-buy alerts |
-| **HL Outcome Markets** | `hl_outcomes`, `get_hl_outcome_volumes`, `hl_outcome_account`, `hl_create_outcome_order`, `hl_cancel_outcome_order`, `hl_close_outcome_order` | HyperLiquid outcome (event) markets |
+| **HL Outcome Markets** | `hl_outcomes`, `get_hl_outcome_volumes`, `hl_outcome_account`, `hl_outcome_check_collateral`, `hl_create_outcome_order`, `hl_cancel_outcome_order`, `hl_close_outcome_order` | Hyperliquid HIP-4 outcome markets |
 | **HL Account & Referral** | `hl_enable_trading`, `hl_swap_collateral`, `hl_tx_list`, `hl_list_user_copy_pnl`, `hl_ref_info`, `hl_ref_claim`, `hl_builder_referral` | One-time HL enablement, HIP-3 collateral swaps, fills/orders, copy-trade PnL, referral rewards |
 | **Promotion & Partners** | `trending_list`, `trending_options`, `trending_register`, `trending_booking_status`, `get_retailers` | Paid trending slots and retailer partners |
 | **Account** | `oauth_login`, `associate_email` | Google sign-in and linking an email to a wallet |
 
-### MCP Documentation Tools (8 tools)
+### MCP Documentation Tools (9 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -248,6 +266,7 @@ Add to your client's MCP config:
 | `get_trading_guide` | Spot, perp, or limit trading guides |
 | `get_copy_trade_guide` | Copy trading guides (Solana / HL) |
 | `get_component_guide` | React UI component patterns |
+| `get_skill_file` | Read a file a skill ships with (e.g. `scripts/token_risk.py`) |
 
 ---
 
@@ -277,29 +296,38 @@ import { GdexSkill, GDEX_API_KEY_PRIMARY } from '@gemachdao/gdex-skill';
 // 1. Create skill instance
 const skill = new GdexSkill();
 
-// 2. Authenticate with pre-configured shared key — no wallet needed
+// 2. Authenticate with the pre-configured shared key (enough for read-only calls)
 skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
 
-// 3. Spot buy on Solana
+// 3. Trades need the managed-custody session from sign-in (see Managed-Custody Flow below):
+//    the control wallet signs once, the session key signs each trade.
+const creds = { apiKey: GDEX_API_KEY_PRIMARY, walletAddress: controlAddress, sessionPrivateKey };
+
+// 4. Spot buy on Base (0.01 ETH)
 const trade = await skill.buyToken({
-  chain: 'solana',
-  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
-  amount: '0.1',   // 0.1 SOL
+  chain: 8453,
+  tokenAddress: '0xTokenAddress',
+  amount: '0.01',
   slippage: 1,     // 1% max slippage
+  ...creds,
 });
 console.log('Trade submitted:', trade.jobId, '— status:', trade.status);
 
-// 4. Open a BTC 10× long on HyperLiquid
-const pos = await skill.openPerpPosition({
+// 5. Open a BTC 10× long on HyperLiquid (size is in BTC, not USD)
+const mark = await skill.getHlMarkPrice('BTC');
+const pos = await skill.hlCreateOrder({
   coin: 'BTC',
-  side: 'long',
-  sizeUsd: '1000',
+  isLong: true,
+  price: String(mark),
+  size: '0.001',
+  isMarket: true,
   leverage: 10,
-  takeProfitPrice: '110000',
-  stopLossPrice: '95000',
+  tpPrice: '110000',
+  slPrice: '95000',
+  ...creds,
 });
 
-// 5. Read-only endpoints need no auth
+// 6. Read-only endpoints need no auth
 const trending = await skill.getTrendingTokens({ chain: 'solana', period: '24h', limit: 5 });
 console.log('Trending:', trending.map(t => t.symbol).join(', '));
 ```
@@ -497,7 +525,7 @@ const message = buildGdexSignInMessage(userId, nonce, sessionKey);
 const signature = /* wallet.signMessage(message) */;
 
 const signInPayload = buildGdexSignInComputedData({ apiKey, userId, sessionKey, nonce, signature });
-await skill.signInWithComputedData({ computedData: signInPayload.computedData, chainId: 900 });
+await skill.signInWithComputedData({ computedData: signInPayload.computedData, chainId: 622112261 }, { sessionPrivateKey }); // Solana; 1 for EVM/HL
 
 // 3. Trade
 const trade = buildGdexManagedTradeComputedData({
@@ -508,7 +536,7 @@ const trade = buildGdexManagedTradeComputedData({
   sessionPrivateKey,
 });
 const result = await skill.submitManagedPurchase({
-  computedData: trade.computedData, chainId: 900, slippage: 1,
+  computedData: trade.computedData, chainId: 622112261, slippage: 1, // Solana (NOT 900)
 });
 
 // 4. Poll
@@ -533,9 +561,7 @@ if (result.requestId) {
 | `encodeLimitOrderData(action, params)` | ABI-encode limit order data (buy/sell/update schemas) |
 | `signLimitOrderMessage(action, userId, data, privKey)` | Sign limit order with session key |
 | `buildLimitOrderComputedData({...})` | Build encrypted limit order payload |
-| `encodeCopyTradeData(action, params)` | ABI-encode copy trade data (create: 12 fields, update: 16 fields, chainId is `uint256`) |
-| `signCopyTradeMessage(action, userId, data, privKey)` | Sign copy trade with session key |
-| `buildCopyTradeComputedData({...})` | Build encrypted copy trade payload |
+| `createCopyTrade(...)` / `updateCopyTrade(...)` | Copy trade payloads are ABI-encoded (create: 12 fields, update: 16 fields, chainId is `uint256`), signed and encrypted inside these `GdexSkill` methods; the encoders are not exported |
 | `buildEncryptedGdexPayload({...})` | Encrypt JSON `{userId, data, signature}` for `computedData` |
 | `encryptGdexComputedData(plaintext, apiKey)` | AES-256-CBC encrypt UTF-8 plaintext |
 | `encryptGdexHexData(hexData, apiKey)` | AES-256-CBC encrypt raw hex-decoded bytes |
@@ -596,52 +622,54 @@ await skill.sellToken({ chain: 'solana', tokenAddress: '...', amount: '50%' });
 
 > **Critical: HyperLiquid deposits/withdrawals/orders use a different crypto flow than spot trades.** See the [HL Managed-Custody Reference](#hl-managed-custody-reference) section below for exact specifications.
 
-#### `openPerpPosition(params)`
+Every perp write takes the managed-custody credentials `{ apiKey, walletAddress, sessionPrivateKey }`,
+where `walletAddress` is the **control** wallet that signed in (MCP: pass `accountRef` from `gdex_connect`).
+
+#### `hlCreateOrder(params)` — open (or add to) a position
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `coin` | `string` | | Asset symbol (e.g., `'BTC'`, `'ETH'`) |
-| `side` | `'long' \| 'short'` | | Direction |
-| `sizeUsd` | `string` | | Collateral in USD |
-| `leverage` | `number` | `5` | 1–50× |
-| `takeProfitPrice` | `string` | | Optional TP price |
-| `stopLossPrice` | `string` | | Optional SL price |
-| `marginMode` | `'cross' \| 'isolated'` | `'cross'` | Margin mode |
+| `coin` | `string` | | Asset symbol (e.g., `'BTC'`, `'ETH'`, builder markets as `'xyz:NVDA'`) |
+| `isLong` | `boolean` | | `true` long, `false` short |
+| `price` | `string` | | Limit price; for market orders the mark price (`'0'` resolves to mark) |
+| `size` | `string` | | Size in contracts (coin units), not USD. Min order value $11 |
+| `isMarket` | `boolean` | `true` | Market or limit |
+| `leverage` | `number` | HL default (20×) | 1–50×, sent as a top-level field with the order |
+| `tpPrice` / `slPrice` | `string` | `''` | Optional TP / SL price (`''` to skip) |
+| `reduceOnly` | `boolean` | `false` | Only reduce an existing position |
 
 ```typescript
-const pos = await skill.openPerpPosition({
-  coin: 'BTC', side: 'long', sizeUsd: '1000', leverage: 10,
-  takeProfitPrice: '110000', stopLossPrice: '95000',
+const pos = await skill.hlCreateOrder({
+  coin: 'BTC', isLong: true, price: String(await skill.getHlMarkPrice('BTC')), size: '0.001',
+  isMarket: true, leverage: 10, tpPrice: '110000', slPrice: '95000',
+  apiKey, walletAddress, sessionPrivateKey,
 });
 ```
 
 #### `closePerpPosition(params)`
 
+Reads the live position and closes it with a reduce-only market order on the opposite side.
+
 ```typescript
-await skill.closePerpPosition({ coin: 'BTC' });                  // close 100%
-await skill.closePerpPosition({ coin: 'ETH', closePercent: 50 }); // close 50%
+const creds = { apiKey, walletAddress, sessionPrivateKey };
+await skill.closePerpPosition({ coin: 'BTC', positionAddress: managedEvmAddress, ...creds });                // close 100%
+await skill.closePerpPosition({ coin: 'ETH', size: '0.05', positionAddress: managedEvmAddress, ...creds }); // partial close
 ```
 
 #### Other perp methods
 
 ```typescript
-await skill.setPerpLeverage({ coin: 'BTC', leverage: 20 });
-
-// Update leverage via HL managed-custody (explicit session-key signing)
-await skill.hlUpdateLeverage({
-  coin: 'BTC',
-  leverage: 40,
-  isCross: true,    // true = cross margin, false = isolated (default: true)
-  apiKey,
-  walletAddress,
-  sessionPrivateKey,
+// Deposit USDC to HyperLiquid from Arbitrum (human-readable amount, converted internally; min 10 USDC)
+await skill.perpDeposit({
+  tokenAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', // USDC on Arbitrum
+  amount: '10',
+  chainId: 42161,
+  apiKey, walletAddress, sessionPrivateKey,
 });
+await skill.perpWithdraw({ amount: '5', apiKey, walletAddress, sessionPrivateKey });
 
-// Deposit USDC to HyperLiquid (human-readable amount, converted internally)
-await skill.perpDeposit({ amount: '10' });   // deposit 10 USDC (minimum)
-await skill.perpWithdraw({ amount: '5' });    // withdraw 5 USDC
-
-const positions = await skill.getPerpPositions({ walletAddress: '0x...' });
+// Positions live on the managed EVM wallet
+const positions = await skill.getPerpPositions({ walletAddress: managedEvmAddress });
 // Each: { coin, side, size, entryPrice, markPrice, leverage, unrealizedPnl, liquidationPrice }
 ```
 
@@ -804,43 +832,37 @@ const result = await skill.createCopyTrade({
 // { isSuccess: true, message: 'created new copy trade successfully', allCopyTrades: [...] }
 ```
 
-#### Delete (computedData auth)
+#### Update / Pause / Resume / Delete (computedData auth)
 
 ```typescript
-// Delete a copy trade (isDelete: true)
-const deleteResult = await skill.updateCopyTrade({
-  apiKey: GDEX_API_KEY_PRIMARY,
-  userId: controlWalletAddress,
-  sessionPrivateKey,
-  chainId: 622112261,
-  copyTradeId: '<64-char-hex-id>',
-  traderWallet: 'SolanaTraderAddress',
-  copyTradeName: 'Alpha Trader',
-  buyMode: 1,
-  copyBuyAmount: '0.001',
-  lossPercent: '50',
-  profitPercent: '100',
-  isDelete: true,                    // permanently deletes the copy trade
-});
-// { isSuccess: true, message: 'Updated' }
+const ids = { apiKey: GDEX_API_KEY_PRIMARY, userId: controlWalletAddress, sessionPrivateKey, copyTradeId: '<64-char-hex-id>' };
+
+await skill.updateCopyTradeSettings({ ...ids, lossPercent: '40' }); // never deletes or pauses
+await skill.pauseCopyTrade(ids);   // isActive=false; no-op if already paused
+await skill.resumeCopyTrade(ids);  // isActive=true; no-op if already active
+await skill.deleteCopyTrade(ids);  // permanent
 ```
 
-> **WARNING:** Both `isDelete: true` and `isChangeStatus: true` permanently delete the copy trade.
-> There is no toggle/pause functionality on the current backend. Boolean fields use `''` for false
-> and `'1'` for true internally; string `'0'` is truthy in JS and will trigger deletion.
+Each reads the current config from `/copy_trade/list` first, because the backend
+rewrites every field on update and `isChangeStatus` is a relative toggle
+(`isActive = !existing.isActive`). Deleting removes the configuration only:
+positions it opened are **not** sold and their TP/SL limit orders are **not**
+cancelled. While paused the copier mirrors neither buys nor sells.
 
 #### Copy Trade ABI Reference
 
+Typed exactly as the backend decodes them (`src/shared/parser/evm/decoder.ts`):
+
 | Action | Fields | ABI Types |
 |---|---|---|
-| `create_copy_trade` | 12 | `['string','string','uint256','string'×9]` |
-| `update_copy_trade` | 16 | `['string','string','uint256','string'×13]` |
+| `create_copy_trade` | 12 | `string, string, uint64, string, uint64, string, bool, string, string, string, bool, uint64[]` |
+| `update_copy_trade` | 15 | `string, string, uint64, string, uint64, string, bool, string, string, string, bool, bool, string, bool, uint64[]` |
 
 **Create field order:** `[traderWallet, copyTradeName, chainId, gasPrice, buyMode, copyBuyAmount, isBuyExistingToken, lossPercent, profitPercent, nonce, copySell, excludedDexNumbers]`
 
-**Update field order:** `[traderWallet, copyTradeName, chainId, gasPrice, buyMode, copyBuyAmount, isBuyExistingToken, lossPercent, profitPercent, nonce, copySell, excludedDexNumbers, copyTradeId, isDelete, isChangeStatus, excludedProgramIds]`
+**Update field order:** `[traderWallet, copyTradeName, chainId, gasPrice, buyMode, copyBuyAmount, isBuyExistingToken, lossPercent, profitPercent, nonce, isDelete, isChangeStatus, copyTradeId, copySell, excludedDexNumbers]`
 
-> `chainId` at position 2 is `uint256`, all other fields are `string`. Nonce is auto-generated by the SDK.
+> SDK versions up to 4.12 encoded every field as a string; the backend then decoded `isDelete=true`, so every update deleted. Nonce is auto-generated by the SDK.
 
 ---
 
@@ -897,55 +919,44 @@ await skill.createHlCopyTrade({
   traderWallet: '0xTraderEvmAddress',
   copyTradeName: 'BTC Whale',
   copyMode: 1,                    // 1 = fixed USD, 2 = proportion
-  fixedAmountCostPerOrder: '50',  // $50 per copied trade
+  fixedAmountCostPerOrder: '50000000', // copyMode 1: raw USDC, 6 decimals ($50 per copied trade)
   lossPercent: '25',              // mandatory, > 0 and < 100
   profitPercent: '100',           // mandatory, > 0
   oppositeCopy: false,            // true = copy opposite direction
 });
 ```
 
-#### Update / Delete (computedData auth)
+#### Update / Pause / Resume / Delete (computedData auth)
 
 ```typescript
-// Update parameters
-await skill.updateHlCopyTrade({
-  apiKey, userId: controlWalletAddress, sessionPrivateKey,
-  copyTradeId: 'abc123...',
-  traderWallet: '0xTraderEvmAddress',
-  copyTradeName: 'Updated Name',
-  copyMode: 2, fixedAmountCostPerOrder: '0.5',
-  lossPercent: '30', profitPercent: '150',
-  oppositeCopy: true,
-});
+const ids = { apiKey, userId: controlWalletAddress, sessionPrivateKey, copyTradeId: 'abc123...' };
 
-// Delete permanently (use isDelete)
-await skill.updateHlCopyTrade({ ...existingParams, isDelete: true });
-
-// WARNING: isChangeStatus also PERMANENTLY DELETES (does NOT toggle)
-await skill.updateHlCopyTrade({ ...existingParams, isChangeStatus: true });
+await skill.updateHlCopyTradeSettings({ ...ids, copyMode: 2, fixedAmountCostPerOrder: '0.5', oppositeCopy: false });
+await skill.pauseHlCopyTrade(ids);   // isActive=false; copied positions stay open and stop following the trader's exits
+await skill.resumeHlCopyTrade(ids);
+await skill.deleteHlCopyTrade(ids);  // permanent; does NOT close positions or cancel their TP/SL
 ```
 
 #### HL Perp Copy Trade ABI Reference
 
 | Action | Fields | ABI Types |
 |---|---|---|
-| `hl_create` | 8 | `['string' × 8]` |
-| `hl_update` | 11 | `['string' × 11]` |
+| `hl_create` | 8 | `string, string, uint64, string, string, string, string, bool` |
+| `hl_update` | 11 | `string, string, uint64, string, string, string, string, bool, bool, string, bool` |
 
 **Create field order:** `[traderWallet, copyTradeName, copyMode, fixedAmountCostPerOrder, lossPercent, profitPercent, nonce, oppositeCopy]`
 
 **Update field order:** `[traderWallet, copyTradeName, copyMode, fixedAmountCostPerOrder, lossPercent, profitPercent, nonce, isDelete, isChangeStatus, copyTradeId, oppositeCopy]`
 
-> All fields are `string`. Boolean fields: `'1'` = true, `''` = false. Nonce auto-generated by SDK.
-> **Note:** `copyMode` and `oppositeCopy` in responses contain ABI byte-offsets (e.g., 416), not actual values. Both `isDelete` and `isChangeStatus` permanently delete the trade.
+> Configs written by SDK <= 4.12 (string-encoded ABI) hold `copyMode` 416/480 and `oppositeCopy: true`; repair them with `updateHlCopyTradeSettings` and explicit values. `isChangeStatus` toggles `isActive`; only `isDelete` deletes.
 
 ---
 
 ### Portfolio
 
 ```typescript
-// Full cross-chain portfolio
-const portfolio = await skill.getPortfolio({ walletAddress: '0x...' });
+// Portfolio on one chain (managed-account read: also pass the session, see gdex-portfolio)
+const portfolio = await skill.getPortfolio({ walletAddress: '0x...', chain: ChainId.BASE });
 // { totalValueUsd, balances, perpPositions?, realizedPnl, unrealizedPnl }
 
 // Chain-specific balances
@@ -953,7 +964,7 @@ const balances = await skill.getBalances({ walletAddress: '0x...', chain: ChainI
 
 // Paginated trade history
 const history = await skill.getTradeHistory({
-  walletAddress: '0x...', page: 1, limit: 20,
+  walletAddress: '0x...', chain: ChainId.BASE, page: 1, limit: 20,
   startTime: 1700000000, endTime: 1700086400,
 });
 ```
@@ -1010,25 +1021,27 @@ const traders = await skill.getTopTraders({
 
 ### Bridge
 
-```typescript
-// Get quote first
-const quote = await skill.getBridgeQuote({
-  fromChain: 'solana',
-  toChain: ChainId.ETHEREUM,
-  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-  amount: '100',
-});
-console.log('Output:', quote.outputAmount, '— fee (USD):', quote.feeUsd);
+Native-token bridging (amounts in raw units: wei / lamports). For USDC see the Unified USDC Wallet.
 
-// Execute bridge
-const result = await skill.bridge({
-  fromChain: 'solana',
-  toChain: ChainId.ETHEREUM,
-  tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-  amount: '100',
-  destinationAddress: '0xYourEthAddress',
-  slippage: 0.5,
+```typescript
+// Get quote first (no auth)
+const quote = await skill.estimateBridge({
+  fromChainId: ChainId.ETHEREUM,
+  toChainId: ChainId.BASE,
+  amount: '100000000000000000', // 0.1 ETH in wei
 });
+console.log('Output:', quote.estimateAmount, '— ETA (s):', quote.minEstimateTime, '-', quote.maxEstimateTime);
+
+// Execute bridge (managed custody; sign in with chainId 1)
+const result = await skill.requestBridge({
+  fromChainId: ChainId.ETHEREUM,
+  toChainId: ChainId.BASE,
+  amount: '100000000000000000',
+  userId: controlAddress,
+  sessionPrivateKey,
+  apiKey,
+});
+console.log(result.isSuccess, result.hash);
 ```
 
 ---
@@ -1036,7 +1049,8 @@ const result = await skill.bridge({
 ### Wallet Info
 
 ```typescript
-const info = await skill.getWalletInfo({ walletAddress: '...', chain: 'solana' });
+// Managed-account read: control walletAddress plus the session (sessionPrivateKey + apiKey, or data)
+const info = await skill.getWalletInfo({ walletAddress: controlWalletAddress, sessionPrivateKey, apiKey, chain: 'solana' });
 // { address, nativeBalance, nativeSymbol, totalValueUsd, tokenCount }
 ```
 
@@ -1354,7 +1368,7 @@ const signInPayload = buildGdexSignInComputedData({
 });
 await skill.signInWithComputedData({
   computedData: signInPayload.computedData, chainId: 42161,
-});
+}, { sessionPrivateKey });
 
 // 3. Deposit USDC (amount in smallest unit, uint64 chainId is handled by SDK)
 const computedData = buildHlComputedData({

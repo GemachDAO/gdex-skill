@@ -313,29 +313,43 @@ export function encodeHlActionData(
       );
       break;
     case 'hl_create':
-      // [string×8] = [traderWallet, copyTradeName, copyMode, fixedAmountCostPerOrder,
-      //               lossPercent, profitPercent, nonce, oppositeCopy]
+      // [string, string, uint64, string, string, string, string, bool] =
+      //   [traderWallet, copyTradeName, copyMode, fixedAmountCostPerOrder,
+      //    lossPercent, profitPercent, nonce, oppositeCopy]
+      // Typed exactly as the backend decodes it (gbotTradingDashboardBackend
+      // src/shared/parser/evm/decoder.ts `hl_create`) and as gdex.pro encodes it
+      // (UI src/utils/crypto.ts `hl_create`). An all-string encoding makes the
+      // backend read the uint64/bool head slots as ABI offsets: copyMode came
+      // back as 416 and oppositeCopy as true.
       encoded = abi.encode(
-        ['string', 'string', 'string', 'string', 'string', 'string', 'string', 'string'],
+        ['string', 'string', 'uint64', 'string', 'string', 'string', 'string', 'bool'],
         [
-          params.traderWallet, params.copyTradeName, params.copyMode,
-          params.fixedAmountCostPerOrder, params.lossPercent, params.profitPercent,
-          params.nonce, params.oppositeCopy,
+          String(params.traderWallet), String(params.copyTradeName),
+          toAbiUint(params.copyMode, 'copyMode'),
+          String(params.fixedAmountCostPerOrder), String(params.lossPercent),
+          String(params.profitPercent), String(params.nonce),
+          toAbiBool(params.oppositeCopy),
         ],
       );
       break;
     case 'hl_update':
-      // [string×11] = [traderWallet, copyTradeName, copyMode, fixedAmountCostPerOrder,
-      //                lossPercent, profitPercent, nonce, isDelete, isChangeStatus,
-      //                copyTradeId, oppositeCopy]
+      // [string, string, uint64, string, string, string, string, bool, bool, string, bool] =
+      //   [traderWallet, copyTradeName, copyMode, fixedAmountCostPerOrder,
+      //    lossPercent, profitPercent, nonce, isDelete, isChangeStatus,
+      //    copyTradeId, oppositeCopy]
+      // Backend decoder.ts `hl_update`. With the old all-string encoding every
+      // bool slot held a non-zero offset, so isDelete decoded as true and every
+      // update deleted the configuration.
       encoded = abi.encode(
-        ['string', 'string', 'string', 'string', 'string', 'string',
-         'string', 'string', 'string', 'string', 'string'],
+        ['string', 'string', 'uint64', 'string', 'string', 'string',
+         'string', 'bool', 'bool', 'string', 'bool'],
         [
-          params.traderWallet, params.copyTradeName, params.copyMode,
-          params.fixedAmountCostPerOrder, params.lossPercent, params.profitPercent,
-          params.nonce, params.isDelete, params.isChangeStatus,
-          params.copyTradeId, params.oppositeCopy,
+          String(params.traderWallet), String(params.copyTradeName),
+          toAbiUint(params.copyMode, 'copyMode'),
+          String(params.fixedAmountCostPerOrder), String(params.lossPercent),
+          String(params.profitPercent), String(params.nonce),
+          toAbiBool(params.isDelete), toAbiBool(params.isChangeStatus),
+          String(params.copyTradeId), toAbiBool(params.oppositeCopy),
         ],
       );
       break;
@@ -482,17 +496,19 @@ export function buildAssociateEmailComputedData(params: {
 // ── Transfer managed-custody helper ──────────────────────────────────────────
 
 /**
- * Build encrypted computedData for `POST /v1/transfer` and `POST /v1/transfer_token`.
+ * Build encrypted computedData for `POST /v1/transfer` (native) or, with
+ * `tokenAddress`, `POST /v1/transfer_token`.
  *
- * Backend (`ServiceMain.transfer`, v1.1.0) decodes the payload with:
- *   ABI:        ['transfer', [recipient, amount, nonce]]
- *   sig msg:    `transfer-${userId}-${data}`
+ * Typed exactly as the backend decodes it (gbotTradingDashboardBackend
+ * src/shared/parser/evm/decoder.ts:47-72; ServiceMain.ts:2796 and :2961):
+ *   transfer:       ['string','uint256','string']          = [recipient, amount, nonce],
+ *                   signed `transfer-${userId}-${data}`
+ *   transfer_token: ['string','string','uint256','string'] = [tokenAddress, recipient, amount, nonce],
+ *                   signed `transfer_token-${userId}-${data}`
  *
- * `amount` is a decimal string already scaled to token decimals (e.g. "1000000"
- * for 1 USDC at 6 decimals, or "1000000000000000000" for 1 ETH at 18 decimals).
- * The action label (`transfer`) is the sign-message prefix only — the ABI
- * values are just `[recipient, amount, nonce]` (matching the `hl_withdraw` /
- * `associate_email` style used elsewhere in this file).
+ * `amount` is raw base units, a non-negative integer string: native decimals
+ * for `transfer` (ServiceMain.ts:2822), the token's decimals for
+ * `transfer_token` (compared with the raw balance, ServiceMain.ts:2998).
  */
 export function buildTransferComputedData(params: {
   apiKey: string;
@@ -501,20 +517,23 @@ export function buildTransferComputedData(params: {
   userId: string;
   recipient: string;
   amount: string;
+  /** Token to send; omit for a native transfer. */
+  tokenAddress?: string;
   nonce?: string;
 }): string {
   const nonce = params.nonce ?? generateGdexNonce().toString();
+  const amount = toAbiUint(params.amount, 'amount');
   const abi = AbiCoder.defaultAbiCoder();
-  const encoded = abi.encode(
-    ['string', 'string', 'string'],
-    [params.recipient, params.amount, nonce],
-  );
+  const action = params.tokenAddress ? 'transfer_token' : 'transfer';
+  const encoded = params.tokenAddress
+    ? abi.encode(['string', 'string', 'uint256', 'string'], [params.tokenAddress, params.recipient, amount, nonce])
+    : abi.encode(['string', 'uint256', 'string'], [params.recipient, amount, nonce]);
   const data = encoded.startsWith('0x') ? encoded.slice(2) : encoded;
 
   const normalizedUserId = params.userId.startsWith('0x')
     ? params.userId.toLowerCase()
     : params.userId;
-  const msg = `transfer-${normalizedUserId}-${data}`;
+  const msg = `${action}-${normalizedUserId}-${data}`;
   const digest = keccak256(toUtf8Bytes(msg));
   const sig = new SigningKey(params.sessionPrivateKey).sign(digest);
   const r = sig.r.replace(/^0x/, '');
@@ -695,25 +714,29 @@ export type LimitOrderActionType = 'limit_buy' | 'limit_sell' | 'update_order';
 /**
  * ABI-encode data for a limit order action.
  *
- * Schemas (all fields are strings):
- *   limit_buy:    [tokenAddress, amount, triggerPrice, profitPercent, lossPercent, nonce]
+ * Typed exactly as the backend decodes it (gbotTradingDashboardBackend
+ * src/shared/parser/evm/decoder.ts:168-210) and as gdex.pro encodes it
+ * (UI src/utils/crypto.ts:400-438):
+ *   limit_buy:    [tokenAddress, amount, triggerPrice, profitPercent(uint64), lossPercent(uint64), nonce]
  *   limit_sell:   [tokenAddress, amount, triggerPrice, nonce]
- *   update_order: [orderId, amount, triggerPrice, profitPercent, lossPercent, nonce, isDelete]
+ *   update_order: [orderId, amount, triggerPrice, profitPercent(uint64), lossPercent(uint64), nonce, isDelete(bool)]
+ *
+ * `isDelete` must be a real ABI bool: encoded as a string, its offset word
+ * decodes as `true` and every update deletes the order.
  */
 export function encodeLimitOrderData(
   action: LimitOrderActionType,
-  params: Record<string, string>,
+  params: Record<string, string | boolean>,
 ): string {
   const abi = AbiCoder.defaultAbiCoder();
   let encoded: string;
 
   switch (action) {
     case 'limit_buy':
-      // Backend decodes profitPercent/lossPercent as uint256 (0-100 range)
       encoded = abi.encode(
-        ['string', 'string', 'string', 'uint256', 'uint256', 'string'],
+        ['string', 'string', 'string', 'uint64', 'uint64', 'string'],
         [params.tokenAddress, params.amount, params.triggerPrice,
-         params.profitPercent, params.lossPercent, params.nonce],
+         toAbiUint(params.profitPercent, 'profitPercent'), toAbiUint(params.lossPercent, 'lossPercent'), params.nonce],
       );
       break;
     case 'limit_sell':
@@ -723,11 +746,11 @@ export function encodeLimitOrderData(
       );
       break;
     case 'update_order':
-      // Backend decodes profitPercent/lossPercent as uint256
       encoded = abi.encode(
-        ['string', 'string', 'string', 'uint256', 'uint256', 'string', 'string'],
+        ['string', 'string', 'string', 'uint64', 'uint64', 'string', 'bool'],
         [params.orderId, params.amount, params.triggerPrice,
-         params.profitPercent, params.lossPercent, params.nonce, params.isDelete],
+         toAbiUint(params.profitPercent, 'profitPercent'), toAbiUint(params.lossPercent, 'lossPercent'),
+         params.nonce, toAbiBool(params.isDelete)],
       );
       break;
     default:
@@ -766,7 +789,7 @@ export function buildLimitOrderComputedData(params: {
   apiKey: string;
   userId: string;
   sessionPrivateKey: string;
-  actionParams: Record<string, string>;
+  actionParams: Record<string, string | boolean>;
 }): string {
   const nonce = generateGdexNonce().toString();
   const fullParams = { ...params.actionParams, nonce };
@@ -791,21 +814,70 @@ export function buildLimitOrderComputedData(params: {
 export type CopyTradeActionType = 'create_copy_trade' | 'update_copy_trade';
 
 /**
+ * Coerce a value to an ABI `bool`.
+ *
+ * Accepts real booleans plus the legacy SDK string forms ('1'/'true' = true,
+ * ''/'0'/'false' = false) so older callers keep working. Anything else throws
+ * rather than silently becoming `true`.
+ */
+export function toAbiBool(value: unknown): boolean {
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (value === 0 || value === 1) return value === 1;
+  }
+  if (typeof value === 'string') {
+    const v = value.trim().toLowerCase();
+    if (v === '' || v === '0' || v === 'false') return false;
+    if (v === '1' || v === 'true') return true;
+  }
+  throw new Error(`Invalid boolean value: ${JSON.stringify(value)}`);
+}
+
+/** Coerce a value to a non-negative integer for an ABI `uint64`/`uint256` slot. */
+export function toAbiUint(value: unknown, field: string): bigint {
+  const str = typeof value === 'bigint' ? value.toString() : String(value ?? '').trim();
+  if (!/^\d+$/.test(str)) {
+    throw new Error(`Invalid ${field}: expected a non-negative integer, got ${JSON.stringify(value)}`);
+  }
+  return BigInt(str);
+}
+
+/** Coerce number[] or a comma-separated string to a `uint64[]`. */
+export function toAbiUintArray(value: unknown, field: string): bigint[] {
+  if (value === undefined || value === null || value === '') return [];
+  const items = Array.isArray(value) ? value : String(value).split(',');
+  return items
+    .map((v) => (typeof v === 'string' ? v.trim() : v))
+    .filter((v) => v !== '')
+    .map((v) => toAbiUint(v, field));
+}
+
+/**
  * ABI-encode data for a copy trade action.
  *
- * Schemas:
- *   create_copy_trade (12 fields, chainId is uint256):
- *     [traderWallet, copyTradeName, chainId(uint256), gasPrice, buyMode, copyBuyAmount,
- *      isBuyExistingToken, lossPercent, profitPercent, nonce, copySell, excludedDexNumbers]
+ * Typed exactly as the backend decodes it (gbotTradingDashboardBackend
+ * src/shared/parser/evm/decoder.ts `create_copy_trade` / `update_copy_trade`)
+ * and as gdex.pro encodes it (UI src/utils/crypto.ts):
  *
- *   update_copy_trade (16 fields, chainId is uint256):
- *     [traderWallet, copyTradeName, chainId(uint256), gasPrice, buyMode, copyBuyAmount,
- *      isBuyExistingToken, lossPercent, profitPercent, nonce, copySell,
- *      excludedDexNumbers, copyTradeId, isDelete, isChangeStatus, excludedProgramIds]
+ *   create_copy_trade (12 fields):
+ *     [traderWallet, copyTradeName, chainId(uint64), gasPrice, buyMode(uint64),
+ *      copyBuyAmount, isBuyExistingToken(bool), lossPercent, profitPercent, nonce,
+ *      copySell(bool), excludedDexNumbers(uint64[])]
+ *
+ *   update_copy_trade (15 fields):
+ *     [traderWallet, copyTradeName, chainId(uint64), gasPrice, buyMode(uint64),
+ *      copyBuyAmount, isBuyExistingToken(bool), lossPercent, profitPercent, nonce,
+ *      isDelete(bool), isChangeStatus(bool), copyTradeId, copySell(bool),
+ *      excludedDexNumbers(uint64[])]
+ *
+ * The previous all-string, 16-field encoding decoded on the backend with
+ * buyMode = an ABI offset and isDelete = true, so every update deleted.
+ * Booleans accept real booleans or the legacy '1'/'' strings.
  */
 export function encodeCopyTradeData(
   action: CopyTradeActionType,
-  params: Record<string, string>,
+  params: Record<string, unknown>,
 ): string {
   const abi = AbiCoder.defaultAbiCoder();
   let encoded: string;
@@ -813,25 +885,32 @@ export function encodeCopyTradeData(
   switch (action) {
     case 'create_copy_trade':
       encoded = abi.encode(
-        ['string', 'string', 'uint256', 'string', 'string', 'string',
-         'string', 'string', 'string', 'string', 'string', 'string'],
-        [params.traderWallet, params.copyTradeName, params.chainId,
-         params.gasPrice, params.buyMode, params.copyBuyAmount,
-         params.isBuyExistingToken, params.lossPercent, params.profitPercent,
-         params.nonce, params.copySell, params.excludedDexNumbers],
+        ['string', 'string', 'uint64', 'string', 'uint64', 'string',
+         'bool', 'string', 'string', 'string', 'bool', 'uint64[]'],
+        [String(params.traderWallet), String(params.copyTradeName),
+         toAbiUint(params.chainId, 'chainId'),
+         String(params.gasPrice ?? '0'), toAbiUint(params.buyMode, 'buyMode'),
+         String(params.copyBuyAmount),
+         toAbiBool(params.isBuyExistingToken), String(params.lossPercent),
+         String(params.profitPercent), String(params.nonce),
+         toAbiBool(params.copySell),
+         toAbiUintArray(params.excludedDexNumbers, 'excludedDexNumbers')],
       );
       break;
     case 'update_copy_trade':
       encoded = abi.encode(
-        ['string', 'string', 'uint256', 'string', 'string', 'string',
-         'string', 'string', 'string', 'string', 'string', 'string',
-         'string', 'string', 'string', 'string'],
-        [params.traderWallet, params.copyTradeName, params.chainId,
-         params.gasPrice, params.buyMode, params.copyBuyAmount,
-         params.isBuyExistingToken, params.lossPercent, params.profitPercent,
-         params.nonce, params.copySell, params.excludedDexNumbers,
-         params.copyTradeId, params.isDelete, params.isChangeStatus,
-         params.excludedProgramIds],
+        ['string', 'string', 'uint64', 'string', 'uint64', 'string',
+         'bool', 'string', 'string', 'string', 'bool', 'bool',
+         'string', 'bool', 'uint64[]'],
+        [String(params.traderWallet), String(params.copyTradeName),
+         toAbiUint(params.chainId, 'chainId'),
+         String(params.gasPrice ?? '0'), toAbiUint(params.buyMode, 'buyMode'),
+         String(params.copyBuyAmount),
+         toAbiBool(params.isBuyExistingToken), String(params.lossPercent),
+         String(params.profitPercent), String(params.nonce),
+         toAbiBool(params.isDelete), toAbiBool(params.isChangeStatus),
+         String(params.copyTradeId), toAbiBool(params.copySell),
+         toAbiUintArray(params.excludedDexNumbers, 'excludedDexNumbers')],
       );
       break;
     default:
@@ -870,7 +949,7 @@ export function buildCopyTradeComputedData(params: {
   apiKey: string;
   userId: string;
   sessionPrivateKey: string;
-  actionParams: Record<string, string>;
+  actionParams: Record<string, unknown>;
 }): string {
   const nonce = generateGdexNonce().toString();
   const fullParams = { ...params.actionParams, nonce };

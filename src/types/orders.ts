@@ -97,7 +97,7 @@ export interface GetLimitOrdersResponse {
 /**
  * Parameters for creating a limit buy order.
  *
- * ABI schema: ['string', 'string', 'string', 'string', 'string', 'string']
+ * ABI schema: ['string', 'string', 'string', 'uint64', 'uint64', 'string']
  *   [tokenAddress, amount, triggerPrice, profitPercent, lossPercent, nonce]
  *
  * - amount is in native token raw units (wei / lamports)
@@ -120,9 +120,9 @@ export interface LimitBuyParams {
   amount: string;
   /** USD price at which to trigger the buy */
   triggerPrice: string;
-  /** Take-profit % above trigger price ("0" to skip) */
+  /** Take-profit % above trigger price, whole number ("0" or omitted = none) */
   profitPercent?: string;
-  /** Stop-loss % below trigger price ("0" to skip) */
+  /** Stop-loss % below trigger price, whole number below 100 ("0" or omitted = none) */
   lossPercent?: string;
 }
 
@@ -178,11 +178,12 @@ export interface LimitSellResponse {
 /**
  * Parameters for updating or deleting an existing limit order.
  *
- * ABI schema: ['string', 'string', 'string', 'string', 'string', 'string', 'string']
+ * ABI schema: ['string', 'string', 'string', 'uint64', 'uint64', 'string', 'bool']
  *   [orderId, amount, triggerPrice, profitPercent, lossPercent, nonce, isDelete]
  *
- * To delete: set isDelete to "1" (or any truthy string).
- * To update: set isDelete to "" or "0".
+ * To delete: set isDelete to true; no other order fields are needed.
+ * To update: pass amount, triggerPrice, profitPercent and lossPercent — the
+ * backend replaces all of them together, so none is defaulted.
  */
 export interface UpdateOrderParams {
   /** API key for encryption */
@@ -195,13 +196,13 @@ export interface UpdateOrderParams {
   chainId: number;
   /** Order ID to update or delete */
   orderId: string;
-  /** New amount in raw units */
+  /** New amount in raw units (native for buy orders, token for sell orders). Required unless isDelete. */
   amount?: string;
-  /** New trigger price (USD) */
+  /** New trigger price (USD decimal). Required unless isDelete. */
   triggerPrice?: string;
-  /** New take-profit % (buy orders only) */
+  /** New take-profit %, whole number, '0' = none (buy orders only; sell orders ignore it). Required unless isDelete. */
   profitPercent?: string;
-  /** New stop-loss % (buy orders only) */
+  /** New stop-loss %, whole number below 100, '0' = none (buy orders only). Required unless isDelete. */
   lossPercent?: string;
   /** Set to true to cancel/delete the order */
   isDelete?: boolean;

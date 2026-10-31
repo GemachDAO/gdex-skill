@@ -1,7 +1,7 @@
 const axios = require('axios');
 const { ethers } = require('ethers');
 
-const mnemonic = 'airport room shoe add offer price divide sell make army say celery';
+const mnemonic = (process.env.GDEX_TEST_MNEMONIC || (() => { throw new Error('Set GDEX_TEST_MNEMONIC to a throwaway test wallet phrase'); })());
 const wallet = ethers.Wallet.fromPhrase(mnemonic);
 const managedAddr = '0x9967179de55bd67e6b90fcc4f908556d93938c0f';
 const controlAddr = wallet.address;

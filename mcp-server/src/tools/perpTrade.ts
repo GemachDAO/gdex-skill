@@ -35,47 +35,56 @@ export function registerPerpTradeTools(server: McpServer): void {
 
   server.tool(
     'place_perp_order',
-    'Place a simple perp order on HyperLiquid without TP/SL.',
+    'Place a simple perp order on HyperLiquid without TP/SL. isMarket=true (default) is sent via ' +
+      '/hl/create_order as a market order; isMarket=false sends a limit order at `price` via ' +
+      '/hl/place_order, which the backend currently accepts only with reduceOnly=true.',
     {
       ...hlCredentials,
       coin: z.string().describe('Asset symbol'),
       isLong: z.boolean().describe('True for long, false for short'),
-      price: z.string().describe('Price in USD'),
+      price: z.string().describe("Price in USD ('0' with isMarket=true uses the mark price)"),
       size: z.string().describe('Position size in contracts'),
       reduceOnly: z.boolean().optional().default(false),
-      isMarket: z.boolean().optional().default(true),
+      isMarket: z.boolean().optional().default(true).describe('True for market (via create_order), false for limit'),
     },
     async (params) => handleToolCall(async () => {
       const sdk = getSdk();
-      return sdk.hlPlaceOrder(params as any);
+      const { isMarket, ...rest } = params as any;
+      // hl_place_order has no isMarket field — route market intent through
+      // hl_create_order (empty TP/SL) so it is never silently dropped.
+      if (isMarket !== false) {
+        return sdk.hlCreateOrder({ ...rest, isMarket: true, tpPrice: '', slPrice: '' });
+      }
+      return sdk.hlPlaceOrder(rest);
     }),
   );
 
   server.tool(
     'close_perp_position',
-    'Close a specific perp position using a reduce-only market order.',
+    'Close (fully or partially) one perp position with a reduce-only market order. The side is read ' +
+      'from the live HL position: a long is closed with a sell, a short with a buy. Rejects when the ' +
+      'position is flat/missing, when size exceeds it, or when a bare coin is open on several builder DEXes.',
     {
       ...hlCredentials,
-      coin: z.string().describe('Asset symbol to close'),
-      size: z.string().describe('Size to close (use full position size for 100% close)'),
-      price: z.string().describe('Price for the close order'),
+      coin: z.string().describe("Asset symbol to close; builder-DEX assets as 'dex:ASSET', e.g. 'xyz:TSLA'"),
+      dex: z.string().optional().describe("Builder DEX for a bare coin, e.g. 'xyz' (omit for the default dex)"),
+      size: z.string().optional().describe('Size to close as a decimal string; omit to close the whole position'),
+      price: z.string().optional().describe("Close price; omit or '0' to use the mark price"),
+      positionAddress: z.string().optional().describe(
+        'Address whose HL account holds the position — normally the MANAGED wallet from sign-in. Defaults to walletAddress.',
+      ),
+      szDecimals: z.number().optional().describe('Market size decimals (HL meta szDecimals); rejects a size with more decimals'),
     },
     async (params) => handleToolCall(async () => {
       const sdk = getSdk();
-      return sdk.hlCreateOrder({
-        ...params,
-        isLong: false, // direction is determined by reduceOnly
-        reduceOnly: true,
-        isMarket: true,
-        tpPrice: '',
-        slPrice: '',
-      } as any);
+      return sdk.closePerpPosition(params as any);
     }),
   );
 
   server.tool(
     'close_all_positions',
-    'Close all open perpetual positions on HyperLiquid. Note: may be unreliable — prefer closing per-coin.',
+    'Close all open perpetual positions on HyperLiquid. Known unreliable: the backend endpoint frequently ' +
+      'returns TIMEOUT or 400 / JSON parse errors. Prefer close_perp_position per coin.',
     {
       ...hlCredentials,
     },
@@ -113,7 +122,8 @@ export function registerPerpTradeTools(server: McpServer): void {
 
   server.tool(
     'set_leverage',
-    'Set leverage for a specific asset on HyperLiquid. Supports cross and isolated margin modes.',
+    'Set leverage for a specific asset on HyperLiquid. Known broken: /hl/update_leverage has returned 404 ' +
+      'in live tests. Pass `leverage` on open_perp_position instead (sent with the order).',
     {
       ...hlCredentials,
       coin: z.string().describe('Asset symbol'),

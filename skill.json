@@ -1,11 +1,24 @@
 {
   "name": "@gemachdao/gdex-skill",
-  "version": "1.0.0",
+  "version": "5.2.0",
   "description": "Cross-chain DeFi trading skill for AI agents — spot trading, perpetual futures, portfolio management, and token discovery on Solana, Sui, and 9 EVM chains.",
   "homepage": "https://github.com/GemachDAO/gdex-skill",
   "icon": "https://gdex.pro/favicon.ico",
-  "categories": ["finance", "trading", "defi", "crypto"],
-  "tags": ["solana", "ethereum", "defi", "trading", "hyperliquid", "cross-chain", "portfolio"],
+  "categories": [
+    "finance",
+    "trading",
+    "defi",
+    "crypto"
+  ],
+  "tags": [
+    "solana",
+    "ethereum",
+    "defi",
+    "trading",
+    "hyperliquid",
+    "cross-chain",
+    "portfolio"
+  ],
   "auth": {
     "type": "computed_data",
     "description": "All trading uses AES-256-CBC encrypted computedData payloads. API keys derive the AES key via SHA256 hash chain. Session keypairs (secp256k1) sign trade payloads with raw recoveryParam (v=00/01) after initial control-wallet sign-in. Nonces are client-generated.",
@@ -19,10 +32,17 @@
       "description": "Buy a token on any supported chain (Solana, Sui, Ethereum, Base, Arbitrum, BSC, and more) using the best available DEX route.",
       "parameters": {
         "type": "object",
-        "required": ["chain", "tokenAddress", "amount"],
+        "required": [
+          "chain",
+          "tokenAddress",
+          "amount"
+        ],
         "properties": {
           "chain": {
-            "type": ["string", "number"],
+            "type": [
+              "string",
+              "number"
+            ],
             "description": "Blockchain chain. Use 'solana', 'sui', or a ChainId number (e.g. 1=Ethereum, 8453=Base, 42161=Arbitrum, 56=BSC)."
           },
           "tokenAddress": {
@@ -41,7 +61,18 @@
           "dex": {
             "type": "string",
             "description": "Preferred DEX to use. If omitted, best route is selected automatically.",
-            "enum": ["raydium", "raydium-v2", "orca", "uniswap-v2", "uniswap-v3", "cetus", "bluefin", "odos", "arcadia", "pancakeswap"]
+            "enum": [
+              "raydium",
+              "raydium-v2",
+              "orca",
+              "uniswap-v2",
+              "uniswap-v3",
+              "cetus",
+              "bluefin",
+              "odos",
+              "arcadia",
+              "pancakeswap"
+            ]
           },
           "walletAddress": {
             "type": "string",
@@ -55,10 +86,17 @@
       "description": "Sell a token on any supported chain. Amount can be absolute (e.g. '100') or a percentage of holdings (e.g. '50%').",
       "parameters": {
         "type": "object",
-        "required": ["chain", "tokenAddress", "amount"],
+        "required": [
+          "chain",
+          "tokenAddress",
+          "amount"
+        ],
         "properties": {
           "chain": {
-            "type": ["string", "number"],
+            "type": [
+              "string",
+              "number"
+            ],
             "description": "Blockchain chain identifier."
           },
           "tokenAddress": {
@@ -86,7 +124,11 @@
       "description": "Open a perpetual futures position on HyperLiquid. Supports long and short with configurable leverage, take-profit, and stop-loss.",
       "parameters": {
         "type": "object",
-        "required": ["coin", "side", "sizeUsd"],
+        "required": [
+          "coin",
+          "side",
+          "sizeUsd"
+        ],
         "properties": {
           "coin": {
             "type": "string",
@@ -94,7 +136,10 @@
           },
           "side": {
             "type": "string",
-            "enum": ["long", "short"],
+            "enum": [
+              "long",
+              "short"
+            ],
             "description": "Position direction."
           },
           "sizeUsd": {
@@ -116,7 +161,10 @@
           },
           "marginMode": {
             "type": "string",
-            "enum": ["cross", "isolated"],
+            "enum": [
+              "cross",
+              "isolated"
+            ],
             "description": "Margin mode. Default: 'cross'.",
             "default": "cross"
           }
@@ -128,7 +176,9 @@
       "description": "Close an open perpetual position on HyperLiquid, fully or partially.",
       "parameters": {
         "type": "object",
-        "required": ["coin"],
+        "required": [
+          "coin"
+        ],
         "properties": {
           "coin": {
             "type": "string",
@@ -147,7 +197,9 @@
       "description": "Retrieve all open perpetual positions for a wallet on HyperLiquid.",
       "parameters": {
         "type": "object",
-        "required": ["walletAddress"],
+        "required": [
+          "walletAddress"
+        ],
         "properties": {
           "walletAddress": {
             "type": "string",
@@ -165,11 +217,27 @@
       "description": "Set the leverage for a perpetual asset on HyperLiquid.",
       "parameters": {
         "type": "object",
-        "required": ["coin", "leverage"],
+        "required": [
+          "coin",
+          "leverage"
+        ],
         "properties": {
-          "coin": { "type": "string", "description": "Asset symbol." },
-          "leverage": { "type": "number", "description": "Leverage (1–100)." },
-          "marginMode": { "type": "string", "enum": ["cross", "isolated"], "default": "cross" }
+          "coin": {
+            "type": "string",
+            "description": "Asset symbol."
+          },
+          "leverage": {
+            "type": "number",
+            "description": "Leverage (1–100)."
+          },
+          "marginMode": {
+            "type": "string",
+            "enum": [
+              "cross",
+              "isolated"
+            ],
+            "default": "cross"
+          }
         }
       }
     },
@@ -178,10 +246,17 @@
       "description": "Deposit USDC into the HyperLiquid perpetual account.",
       "parameters": {
         "type": "object",
-        "required": ["amount"],
+        "required": [
+          "amount"
+        ],
         "properties": {
-          "amount": { "type": "string", "description": "USDC amount to deposit, e.g. '100'." },
-          "walletAddress": { "type": "string" }
+          "amount": {
+            "type": "string",
+            "description": "USDC amount to deposit, e.g. '100'."
+          },
+          "walletAddress": {
+            "type": "string"
+          }
         }
       }
     },
@@ -190,10 +265,17 @@
       "description": "Withdraw USDC from the HyperLiquid perpetual account.",
       "parameters": {
         "type": "object",
-        "required": ["amount"],
+        "required": [
+          "amount"
+        ],
         "properties": {
-          "amount": { "type": "string", "description": "USDC amount to withdraw, e.g. '100'." },
-          "walletAddress": { "type": "string" }
+          "amount": {
+            "type": "string",
+            "description": "USDC amount to withdraw, e.g. '100'."
+          },
+          "walletAddress": {
+            "type": "string"
+          }
         }
       }
     },
@@ -202,11 +284,24 @@
       "description": "Update leverage for a specific asset on HyperLiquid via managed-custody signed payload.",
       "parameters": {
         "type": "object",
-        "required": ["coin", "leverage"],
+        "required": [
+          "coin",
+          "leverage"
+        ],
         "properties": {
-          "coin": { "type": "string", "description": "Asset symbol, e.g. 'BTC'." },
-          "leverage": { "type": "number", "description": "Leverage multiplier (1–100)." },
-          "isCross": { "type": "boolean", "description": "True for cross margin, false for isolated. Default: true.", "default": true }
+          "coin": {
+            "type": "string",
+            "description": "Asset symbol, e.g. 'BTC'."
+          },
+          "leverage": {
+            "type": "number",
+            "description": "Leverage multiplier (1–100)."
+          },
+          "isCross": {
+            "type": "boolean",
+            "description": "True for cross margin, false for isolated. Default: true.",
+            "default": true
+          }
         }
       }
     },
@@ -215,17 +310,52 @@
       "description": "Create a limit buy order — buy a token when its price drops to a target. Uses ABI-encoded + signed + AES-encrypted computedData.",
       "parameters": {
         "type": "object",
-        "required": ["apiKey", "userId", "sessionPrivateKey", "chainId", "tokenAddress", "amount", "triggerPrice"],
+        "required": [
+          "apiKey",
+          "userId",
+          "sessionPrivateKey",
+          "chainId",
+          "tokenAddress",
+          "amount",
+          "triggerPrice"
+        ],
         "properties": {
-          "apiKey": { "type": "string", "description": "API key for AES encryption." },
-          "userId": { "type": "string", "description": "Control wallet address (NOT managed wallet)." },
-          "sessionPrivateKey": { "type": "string", "description": "Session private key from sign-in." },
-          "chainId": { "type": "number", "description": "Numeric chain ID (e.g. 622112261 for Solana)." },
-          "tokenAddress": { "type": "string", "description": "Token address to buy." },
-          "amount": { "type": "string", "description": "Native token to spend in raw units (wei/lamports)." },
-          "triggerPrice": { "type": "string", "description": "USD price at which to trigger the buy." },
-          "profitPercent": { "type": "string", "description": "Take-profit % above trigger (e.g. '50'), '0' to skip." },
-          "lossPercent": { "type": "string", "description": "Stop-loss % below trigger (e.g. '25'), '0' to skip." }
+          "apiKey": {
+            "type": "string",
+            "description": "API key for AES encryption."
+          },
+          "userId": {
+            "type": "string",
+            "description": "Control wallet address (NOT managed wallet)."
+          },
+          "sessionPrivateKey": {
+            "type": "string",
+            "description": "Session private key from sign-in."
+          },
+          "chainId": {
+            "type": "number",
+            "description": "Numeric chain ID (e.g. 622112261 for Solana)."
+          },
+          "tokenAddress": {
+            "type": "string",
+            "description": "Token address to buy."
+          },
+          "amount": {
+            "type": "string",
+            "description": "Native token to spend in raw units (wei/lamports)."
+          },
+          "triggerPrice": {
+            "type": "string",
+            "description": "USD price at which to trigger the buy."
+          },
+          "profitPercent": {
+            "type": "string",
+            "description": "Take-profit % above trigger (e.g. '50'), '0' to skip."
+          },
+          "lossPercent": {
+            "type": "string",
+            "description": "Stop-loss % below trigger (e.g. '25'), '0' to skip."
+          }
         }
       }
     },
@@ -234,15 +364,44 @@
       "description": "Create a limit sell order — sell a token when price reaches a target. Auto-classifies as take-profit or stop-loss. Uses ABI-encoded + signed + AES-encrypted computedData.",
       "parameters": {
         "type": "object",
-        "required": ["apiKey", "userId", "sessionPrivateKey", "chainId", "tokenAddress", "amount", "triggerPrice"],
+        "required": [
+          "apiKey",
+          "userId",
+          "sessionPrivateKey",
+          "chainId",
+          "tokenAddress",
+          "amount",
+          "triggerPrice"
+        ],
         "properties": {
-          "apiKey": { "type": "string", "description": "API key for AES encryption." },
-          "userId": { "type": "string", "description": "Control wallet address (NOT managed wallet)." },
-          "sessionPrivateKey": { "type": "string", "description": "Session private key from sign-in." },
-          "chainId": { "type": "number", "description": "Numeric chain ID." },
-          "tokenAddress": { "type": "string", "description": "Token address to sell." },
-          "amount": { "type": "string", "description": "Token amount to sell in raw units." },
-          "triggerPrice": { "type": "string", "description": "USD price at which to trigger the sell." }
+          "apiKey": {
+            "type": "string",
+            "description": "API key for AES encryption."
+          },
+          "userId": {
+            "type": "string",
+            "description": "Control wallet address (NOT managed wallet)."
+          },
+          "sessionPrivateKey": {
+            "type": "string",
+            "description": "Session private key from sign-in."
+          },
+          "chainId": {
+            "type": "number",
+            "description": "Numeric chain ID."
+          },
+          "tokenAddress": {
+            "type": "string",
+            "description": "Token address to sell."
+          },
+          "amount": {
+            "type": "string",
+            "description": "Token amount to sell in raw units."
+          },
+          "triggerPrice": {
+            "type": "string",
+            "description": "USD price at which to trigger the sell."
+          }
         }
       }
     },
@@ -251,18 +410,55 @@
       "description": "Update or delete an existing limit order. Set isDelete=true to cancel. Uses ABI-encoded + signed + AES-encrypted computedData.",
       "parameters": {
         "type": "object",
-        "required": ["apiKey", "userId", "sessionPrivateKey", "chainId", "orderId"],
+        "required": [
+          "apiKey",
+          "userId",
+          "sessionPrivateKey",
+          "chainId",
+          "orderId"
+        ],
         "properties": {
-          "apiKey": { "type": "string", "description": "API key for AES encryption." },
-          "userId": { "type": "string", "description": "Control wallet address (NOT managed wallet)." },
-          "sessionPrivateKey": { "type": "string", "description": "Session private key from sign-in." },
-          "chainId": { "type": "number", "description": "Numeric chain ID." },
-          "orderId": { "type": "string", "description": "64-char hex order ID from getLimitOrders()." },
-          "amount": { "type": "string", "description": "New amount in raw units (optional for update)." },
-          "triggerPrice": { "type": "string", "description": "New trigger price in USD (optional for update)." },
-          "profitPercent": { "type": "string", "description": "New TP % (buy orders only)." },
-          "lossPercent": { "type": "string", "description": "New SL % (buy orders only)." },
-          "isDelete": { "type": "boolean", "description": "Set true to cancel/delete the order.", "default": false }
+          "apiKey": {
+            "type": "string",
+            "description": "API key for AES encryption."
+          },
+          "userId": {
+            "type": "string",
+            "description": "Control wallet address (NOT managed wallet)."
+          },
+          "sessionPrivateKey": {
+            "type": "string",
+            "description": "Session private key from sign-in."
+          },
+          "chainId": {
+            "type": "number",
+            "description": "Numeric chain ID."
+          },
+          "orderId": {
+            "type": "string",
+            "description": "64-char hex order ID from getLimitOrders()."
+          },
+          "amount": {
+            "type": "string",
+            "description": "New amount in raw units (optional for update)."
+          },
+          "triggerPrice": {
+            "type": "string",
+            "description": "New trigger price in USD (optional for update)."
+          },
+          "profitPercent": {
+            "type": "string",
+            "description": "New TP % (buy orders only)."
+          },
+          "lossPercent": {
+            "type": "string",
+            "description": "New SL % (buy orders only)."
+          },
+          "isDelete": {
+            "type": "boolean",
+            "description": "Set true to cancel/delete the order.",
+            "default": false
+          }
         }
       }
     },
@@ -271,11 +467,24 @@
       "description": "List active limit orders for a user on a specific chain. Uses session-key auth (encrypted data query param).",
       "parameters": {
         "type": "object",
-        "required": ["userId", "data", "chainId"],
+        "required": [
+          "userId",
+          "data",
+          "chainId"
+        ],
         "properties": {
-          "userId": { "type": "string", "description": "Control wallet address." },
-          "data": { "type": "string", "description": "Encrypted session key from buildGdexUserSessionData()." },
-          "chainId": { "type": "number", "description": "Numeric chain ID." }
+          "userId": {
+            "type": "string",
+            "description": "Control wallet address."
+          },
+          "data": {
+            "type": "string",
+            "description": "Encrypted session key from buildGdexUserSessionData()."
+          },
+          "chainId": {
+            "type": "number",
+            "description": "Numeric chain ID."
+          }
         }
       }
     },
@@ -284,10 +493,20 @@
       "description": "Fetch the full cross-chain portfolio for a wallet — all token balances with USD values.",
       "parameters": {
         "type": "object",
-        "required": ["walletAddress"],
+        "required": [
+          "walletAddress"
+        ],
         "properties": {
-          "walletAddress": { "type": "string" },
-          "chain": { "type": ["string", "number"], "description": "Optional chain filter." }
+          "walletAddress": {
+            "type": "string"
+          },
+          "chain": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Optional chain filter."
+          }
         }
       }
     },
@@ -296,11 +515,24 @@
       "description": "Get token balances for a wallet on a specific chain.",
       "parameters": {
         "type": "object",
-        "required": ["walletAddress", "chain"],
+        "required": [
+          "walletAddress",
+          "chain"
+        ],
         "properties": {
-          "walletAddress": { "type": "string" },
-          "chain": { "type": ["string", "number"] },
-          "tokenAddress": { "type": "string", "description": "Optional token filter." }
+          "walletAddress": {
+            "type": "string"
+          },
+          "chain": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "tokenAddress": {
+            "type": "string",
+            "description": "Optional token filter."
+          }
         }
       }
     },
@@ -309,14 +541,35 @@
       "description": "Get historical trades for a wallet.",
       "parameters": {
         "type": "object",
-        "required": ["walletAddress"],
+        "required": [
+          "walletAddress"
+        ],
         "properties": {
-          "walletAddress": { "type": "string" },
-          "chain": { "type": ["string", "number"] },
-          "page": { "type": "number", "default": 1 },
-          "limit": { "type": "number", "default": 20 },
-          "startTime": { "type": "number", "description": "Unix timestamp." },
-          "endTime": { "type": "number", "description": "Unix timestamp." }
+          "walletAddress": {
+            "type": "string"
+          },
+          "chain": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "page": {
+            "type": "number",
+            "default": 1
+          },
+          "limit": {
+            "type": "number",
+            "default": 20
+          },
+          "startTime": {
+            "type": "number",
+            "description": "Unix timestamp."
+          },
+          "endTime": {
+            "type": "number",
+            "description": "Unix timestamp."
+          }
         }
       }
     },
@@ -325,10 +578,20 @@
       "description": "Get detailed information about a token: price, market cap, liquidity, DEX pools, social links. No authentication required.",
       "parameters": {
         "type": "object",
-        "required": ["tokenAddress", "chain"],
+        "required": [
+          "tokenAddress",
+          "chain"
+        ],
         "properties": {
-          "tokenAddress": { "type": "string" },
-          "chain": { "type": ["string", "number"] }
+          "tokenAddress": {
+            "type": "string"
+          },
+          "chain": {
+            "type": [
+              "string",
+              "number"
+            ]
+          }
         }
       }
     },
@@ -338,11 +601,32 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "chain": { "type": ["string", "number"] },
-          "period": { "type": "string", "enum": ["1h", "6h", "24h", "7d"], "default": "24h" },
-          "limit": { "type": "number", "default": 20 },
-          "minLiquidity": { "type": "number" },
-          "minVolume": { "type": "number" }
+          "chain": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "1h",
+              "6h",
+              "24h",
+              "7d"
+            ],
+            "default": "24h"
+          },
+          "limit": {
+            "type": "number",
+            "default": 20
+          },
+          "minLiquidity": {
+            "type": "number"
+          },
+          "minVolume": {
+            "type": "number"
+          }
         }
       }
     },
@@ -351,14 +635,45 @@
       "description": "Get OHLCV candlestick data for a token. No authentication required.",
       "parameters": {
         "type": "object",
-        "required": ["tokenAddress", "chain", "resolution"],
+        "required": [
+          "tokenAddress",
+          "chain",
+          "resolution"
+        ],
         "properties": {
-          "tokenAddress": { "type": "string" },
-          "chain": { "type": ["string", "number"] },
-          "resolution": { "type": "string", "enum": ["1", "5", "15", "30", "60", "240", "D", "W"] },
-          "from": { "type": "number", "description": "Start Unix timestamp." },
-          "to": { "type": "number", "description": "End Unix timestamp." },
-          "limit": { "type": "number" }
+          "tokenAddress": {
+            "type": "string"
+          },
+          "chain": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "1",
+              "5",
+              "15",
+              "30",
+              "60",
+              "240",
+              "D",
+              "W"
+            ]
+          },
+          "from": {
+            "type": "number",
+            "description": "Start Unix timestamp."
+          },
+          "to": {
+            "type": "number",
+            "description": "End Unix timestamp."
+          },
+          "limit": {
+            "type": "number"
+          }
         }
       }
     },
@@ -368,10 +683,36 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "chain": { "type": ["string", "number"] },
-          "period": { "type": "string", "enum": ["1d", "7d", "30d", "all"], "default": "7d" },
-          "limit": { "type": "number", "default": 10 },
-          "sortBy": { "type": "string", "enum": ["pnl", "winRate", "volume", "tradeCount"], "default": "pnl" }
+          "chain": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "1d",
+              "7d",
+              "30d",
+              "all"
+            ],
+            "default": "7d"
+          },
+          "limit": {
+            "type": "number",
+            "default": 10
+          },
+          "sortBy": {
+            "type": "string",
+            "enum": [
+              "pnl",
+              "winRate",
+              "volume",
+              "tradeCount"
+            ],
+            "default": "pnl"
+          }
         }
       }
     },
@@ -380,14 +721,38 @@
       "description": "Bridge tokens from one blockchain to another.",
       "parameters": {
         "type": "object",
-        "required": ["fromChain", "toChain", "tokenAddress", "amount"],
+        "required": [
+          "fromChain",
+          "toChain",
+          "tokenAddress",
+          "amount"
+        ],
         "properties": {
-          "fromChain": { "type": ["string", "number"] },
-          "toChain": { "type": ["string", "number"] },
-          "tokenAddress": { "type": "string" },
-          "amount": { "type": "string" },
-          "destinationAddress": { "type": "string" },
-          "slippage": { "type": "number", "default": 0.5 }
+          "fromChain": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "toChain": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "tokenAddress": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "destinationAddress": {
+            "type": "string"
+          },
+          "slippage": {
+            "type": "number",
+            "default": 0.5
+          }
         }
       }
     },
@@ -396,12 +761,31 @@
       "description": "Get a cross-chain bridge quote without executing a transaction.",
       "parameters": {
         "type": "object",
-        "required": ["fromChain", "toChain", "tokenAddress", "amount"],
+        "required": [
+          "fromChain",
+          "toChain",
+          "tokenAddress",
+          "amount"
+        ],
         "properties": {
-          "fromChain": { "type": ["string", "number"] },
-          "toChain": { "type": ["string", "number"] },
-          "tokenAddress": { "type": "string" },
-          "amount": { "type": "string" }
+          "fromChain": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "toChain": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "tokenAddress": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          }
         }
       }
     },
@@ -410,10 +794,20 @@
       "description": "Get wallet information including native token balance.",
       "parameters": {
         "type": "object",
-        "required": ["walletAddress", "chain"],
+        "required": [
+          "walletAddress",
+          "chain"
+        ],
         "properties": {
-          "walletAddress": { "type": "string" },
-          "chain": { "type": ["string", "number"] }
+          "walletAddress": {
+            "type": "string"
+          },
+          "chain": {
+            "type": [
+              "string",
+              "number"
+            ]
+          }
         }
       }
     },
@@ -446,9 +840,14 @@
       "description": "List supported DEXes for a chain (e.g. Raydium, Pumpfun on Solana).",
       "parameters": {
         "type": "object",
-        "required": ["chainId"],
+        "required": [
+          "chainId"
+        ],
         "properties": {
-          "chainId": { "type": "number", "description": "Chain ID (622112261 for Solana)." }
+          "chainId": {
+            "type": "number",
+            "description": "Chain ID (622112261 for Solana)."
+          }
         }
       }
     },
@@ -457,10 +856,19 @@
       "description": "List all copy trade configurations for a user. Requires session-key auth.",
       "parameters": {
         "type": "object",
-        "required": ["userId", "data"],
+        "required": [
+          "userId",
+          "data"
+        ],
         "properties": {
-          "userId": { "type": "string", "description": "Control wallet address." },
-          "data": { "type": "string", "description": "AES-encrypted session key." }
+          "userId": {
+            "type": "string",
+            "description": "Control wallet address."
+          },
+          "data": {
+            "type": "string",
+            "description": "AES-encrypted session key."
+          }
         }
       }
     },
@@ -469,10 +877,17 @@
       "description": "List copy trade transaction history with PnL. Requires session-key auth.",
       "parameters": {
         "type": "object",
-        "required": ["userId", "data"],
+        "required": [
+          "userId",
+          "data"
+        ],
         "properties": {
-          "userId": { "type": "string" },
-          "data": { "type": "string" }
+          "userId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string"
+          }
         }
       }
     },
@@ -481,39 +896,118 @@
       "description": "Create a new copy trade to auto-mirror a Solana trader's buys and sells. Requires computedData auth.",
       "parameters": {
         "type": "object",
-        "required": ["traderWallet", "copyTradeName", "chainId", "buyMode", "copyBuyAmount", "lossPercent", "profitPercent"],
+        "required": [
+          "traderWallet",
+          "copyTradeName",
+          "chainId",
+          "buyMode",
+          "copyBuyAmount",
+          "lossPercent",
+          "profitPercent"
+        ],
         "properties": {
-          "traderWallet": { "type": "string", "description": "Solana wallet address of the trader to copy." },
-          "copyTradeName": { "type": "string", "description": "Human-readable label." },
-          "chainId": { "type": "number", "description": "Must be Solana chain ID (622112261)." },
-          "buyMode": { "type": "number", "description": "1 = fixed SOL amount, 2 = percentage of trader's amount." },
-          "copyBuyAmount": { "type": "string", "description": "SOL amount (mode 1) or percentage 0-100 (mode 2)." },
-          "lossPercent": { "type": "string", "description": "Stop-loss percentage (> 0, < 100)." },
-          "profitPercent": { "type": "string", "description": "Take-profit percentage (> 0)." },
-          "copySell": { "type": "boolean", "description": "Also copy sell trades." },
-          "isBuyExistingToken": { "type": "boolean", "description": "Also buy tokens already held by trader." },
-          "excludedDexNumbers": { "type": "array", "items": { "type": "number" }, "description": "DEX numbers to exclude." }
+          "traderWallet": {
+            "type": "string",
+            "description": "Solana wallet address of the trader to copy."
+          },
+          "copyTradeName": {
+            "type": "string",
+            "description": "Human-readable label."
+          },
+          "chainId": {
+            "type": "number",
+            "description": "Must be Solana chain ID (622112261)."
+          },
+          "buyMode": {
+            "type": "number",
+            "description": "1 = fixed SOL amount, 2 = percentage of trader's amount."
+          },
+          "copyBuyAmount": {
+            "type": "string",
+            "description": "SOL amount (mode 1) or percentage 0-100 (mode 2)."
+          },
+          "lossPercent": {
+            "type": "string",
+            "description": "Stop-loss percentage (> 0, < 100)."
+          },
+          "profitPercent": {
+            "type": "string",
+            "description": "Take-profit percentage (> 0)."
+          },
+          "copySell": {
+            "type": "boolean",
+            "description": "Also copy sell trades."
+          },
+          "isBuyExistingToken": {
+            "type": "boolean",
+            "description": "Also buy tokens already held by trader."
+          },
+          "excludedDexNumbers": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "DEX numbers to exclude."
+          }
         }
       }
     },
     {
       "name": "update_copy_trade",
-      "description": "Delete an existing copy trade. Uses 16-field ABI with chainId as uint256. Both isDelete and isChangeStatus trigger permanent deletion. Requires computedData auth.",
+      "description": "Low-level Solana copy trade update (15-field typed ABI). isDelete permanently deletes the configuration (positions are NOT sold, TP/SL orders NOT cancelled); isChangeStatus toggles isActive (pause/resume); both together is rejected. Prefer update_copy_trade_settings, pause_copy_trade, resume_copy_trade, delete_copy_trade. Requires computedData auth.",
       "parameters": {
         "type": "object",
-        "required": ["copyTradeId", "traderWallet", "chainId", "buyMode", "copyBuyAmount", "lossPercent", "profitPercent"],
+        "required": [
+          "copyTradeId",
+          "traderWallet",
+          "chainId",
+          "buyMode",
+          "copyBuyAmount",
+          "lossPercent",
+          "profitPercent"
+        ],
         "properties": {
-          "copyTradeId": { "type": "string", "description": "The copy trade ID to delete." },
-          "traderWallet": { "type": "string" },
-          "copyTradeName": { "type": "string" },
-          "chainId": { "type": "number", "description": "Must be Solana chain ID (622112261)." },
-          "buyMode": { "type": "number" },
-          "copyBuyAmount": { "type": "string" },
-          "lossPercent": { "type": "string" },
-          "profitPercent": { "type": "string" },
-          "isDelete": { "type": "boolean", "description": "Set true to permanently delete. Both isDelete and isChangeStatus cause deletion." },
-          "isChangeStatus": { "type": "boolean", "description": "Set true to permanently delete (same effect as isDelete on current backend)." },
-          "excludedProgramIds": { "type": "array", "items": { "type": "string" }, "description": "Program IDs to exclude from copy trading." }
+          "copyTradeId": {
+            "type": "string",
+            "description": "The copy trade ID to delete."
+          },
+          "traderWallet": {
+            "type": "string"
+          },
+          "copyTradeName": {
+            "type": "string"
+          },
+          "chainId": {
+            "type": "number",
+            "description": "Must be Solana chain ID (622112261)."
+          },
+          "buyMode": {
+            "type": "number"
+          },
+          "copyBuyAmount": {
+            "type": "string"
+          },
+          "lossPercent": {
+            "type": "string"
+          },
+          "profitPercent": {
+            "type": "string"
+          },
+          "isDelete": {
+            "type": "boolean",
+            "description": "Set true to permanently delete the configuration (positions stay open)."
+          },
+          "isChangeStatus": {
+            "type": "boolean",
+            "description": "Set true to toggle isActive relative to the stored state (not delete)."
+          },
+          "excludedProgramIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Program IDs to exclude from copy trading."
+          }
         }
       }
     },
@@ -523,7 +1017,15 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "sort": { "type": "string", "enum": ["volume", "tradeCount", "deposit"], "default": "volume" }
+          "sort": {
+            "type": "string",
+            "enum": [
+              "volume",
+              "tradeCount",
+              "deposit"
+            ],
+            "default": "volume"
+          }
         }
       }
     },
@@ -540,9 +1042,14 @@
       "description": "Get detailed trading stats for an HL user: daily PnL, volumes, trade counts, win rates. No auth. Cached 1 hr. NOTE: Requires MANAGED wallet address, not control wallet.",
       "parameters": {
         "type": "object",
-        "required": ["userAddress"],
+        "required": [
+          "userAddress"
+        ],
         "properties": {
-          "userAddress": { "type": "string", "description": "EVM wallet address." }
+          "userAddress": {
+            "type": "string",
+            "description": "EVM wallet address."
+          }
         }
       }
     },
@@ -567,9 +1074,14 @@
       "description": "Get account state (positions, margin) on a HyperLiquid DEX. No auth.",
       "parameters": {
         "type": "object",
-        "required": ["userAddress"],
+        "required": [
+          "userAddress"
+        ],
         "properties": {
-          "userAddress": { "type": "string", "description": "EVM wallet address." }
+          "userAddress": {
+            "type": "string",
+            "description": "EVM wallet address."
+          }
         }
       }
     },
@@ -586,10 +1098,19 @@
       "description": "List all HL perp copy trade configurations for a user. Requires session-key auth.",
       "parameters": {
         "type": "object",
-        "required": ["userId", "data"],
+        "required": [
+          "userId",
+          "data"
+        ],
         "properties": {
-          "userId": { "type": "string", "description": "Control wallet address." },
-          "data": { "type": "string", "description": "AES-encrypted session key." }
+          "userId": {
+            "type": "string",
+            "description": "Control wallet address."
+          },
+          "data": {
+            "type": "string",
+            "description": "AES-encrypted session key."
+          }
         }
       }
     },
@@ -598,12 +1119,26 @@
       "description": "Get HL copy trade fill history with enrichment (copyTradeName, traderTxHash, etc.). Session-key auth. Cached 15s.",
       "parameters": {
         "type": "object",
-        "required": ["userId", "data"],
+        "required": [
+          "userId",
+          "data"
+        ],
         "properties": {
-          "userId": { "type": "string" },
-          "data": { "type": "string" },
-          "page": { "type": "string", "default": "1" },
-          "limit": { "type": "string", "default": "10", "description": "Max 100." }
+          "userId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string"
+          },
+          "page": {
+            "type": "string",
+            "default": "1"
+          },
+          "limit": {
+            "type": "string",
+            "default": "10",
+            "description": "Max 100."
+          }
         }
       }
     },
@@ -612,41 +1147,131 @@
       "description": "Create a new HL perpetual futures copy trade. Copies a trader's long/short perp positions. Uses hl_create ABI (8 fields, all strings). Requires computedData auth.",
       "parameters": {
         "type": "object",
-        "required": ["apiKey", "userId", "sessionPrivateKey", "traderWallet", "copyTradeName", "copyMode", "fixedAmountCostPerOrder", "lossPercent", "profitPercent"],
+        "required": [
+          "apiKey",
+          "userId",
+          "sessionPrivateKey",
+          "traderWallet",
+          "copyTradeName",
+          "copyMode",
+          "fixedAmountCostPerOrder",
+          "lossPercent",
+          "profitPercent"
+        ],
         "properties": {
-          "apiKey": { "type": "string", "description": "API key for AES encryption." },
-          "userId": { "type": "string", "description": "Control wallet address." },
-          "sessionPrivateKey": { "type": "string", "description": "Session private key from sign-in." },
-          "traderWallet": { "type": "string", "description": "EVM address of the trader to copy." },
-          "copyTradeName": { "type": "string", "description": "Human-readable label." },
-          "copyMode": { "type": "number", "enum": [1, 2], "description": "1 = Fixed USD amount per order, 2 = Proportion of trader's size." },
-          "fixedAmountCostPerOrder": { "type": "string", "description": "USD amount (mode 1) or ratio (mode 2)." },
-          "lossPercent": { "type": "string", "description": "Stop-loss percentage (must be > 0 and < 100)." },
-          "profitPercent": { "type": "string", "description": "Take-profit percentage (must be > 0)." },
-          "oppositeCopy": { "type": "boolean", "description": "Copy in opposite direction (short when trader goes long).", "default": false }
+          "apiKey": {
+            "type": "string",
+            "description": "API key for AES encryption."
+          },
+          "userId": {
+            "type": "string",
+            "description": "Control wallet address."
+          },
+          "sessionPrivateKey": {
+            "type": "string",
+            "description": "Session private key from sign-in."
+          },
+          "traderWallet": {
+            "type": "string",
+            "description": "EVM address of the trader to copy."
+          },
+          "copyTradeName": {
+            "type": "string",
+            "description": "Human-readable label."
+          },
+          "copyMode": {
+            "type": "number",
+            "enum": [
+              1,
+              2
+            ],
+            "description": "1 = Fixed USD amount per order, 2 = Proportion of trader's size."
+          },
+          "fixedAmountCostPerOrder": {
+            "type": "string",
+            "description": "USD amount (mode 1) or ratio (mode 2)."
+          },
+          "lossPercent": {
+            "type": "string",
+            "description": "Stop-loss percentage (must be > 0 and < 100)."
+          },
+          "profitPercent": {
+            "type": "string",
+            "description": "Take-profit percentage (must be > 0)."
+          },
+          "oppositeCopy": {
+            "type": "boolean",
+            "description": "Copy in opposite direction (short when trader goes long).",
+            "default": false
+          }
         }
       }
     },
     {
       "name": "update_hl_copy_trade",
-      "description": "Update or delete an HL perp copy trade. Uses hl_update ABI (11 fields, all strings). WARNING: Both isDelete and isChangeStatus permanently DELETE the trade. Requires computedData auth.",
+      "description": "Low-level HL perp copy trade update (hl_update, 11 typed fields). isDelete permanently deletes the configuration (positions NOT closed, TP/SL NOT cancelled); isChangeStatus toggles isActive; both together is rejected. Prefer update_hl_copy_trade_settings, pause_hl_copy_trade, resume_hl_copy_trade, delete_hl_copy_trade. Requires computedData auth.",
       "parameters": {
         "type": "object",
-        "required": ["apiKey", "userId", "sessionPrivateKey", "copyTradeId", "traderWallet", "copyTradeName", "copyMode", "fixedAmountCostPerOrder", "lossPercent", "profitPercent"],
+        "required": [
+          "apiKey",
+          "userId",
+          "sessionPrivateKey",
+          "copyTradeId",
+          "traderWallet",
+          "copyTradeName",
+          "copyMode",
+          "fixedAmountCostPerOrder",
+          "lossPercent",
+          "profitPercent"
+        ],
         "properties": {
-          "apiKey": { "type": "string" },
-          "userId": { "type": "string" },
-          "sessionPrivateKey": { "type": "string" },
-          "copyTradeId": { "type": "string", "description": "The copy trade ID to modify." },
-          "traderWallet": { "type": "string" },
-          "copyTradeName": { "type": "string" },
-          "copyMode": { "type": "number", "enum": [1, 2] },
-          "fixedAmountCostPerOrder": { "type": "string" },
-          "lossPercent": { "type": "string" },
-          "profitPercent": { "type": "string" },
-          "oppositeCopy": { "type": "boolean", "default": false },
-          "isDelete": { "type": "boolean", "description": "Set true to permanently delete." },
-          "isChangeStatus": { "type": "boolean", "description": "WARNING: Permanently DELETES the trade (same as isDelete). Does NOT toggle isActive." }
+          "apiKey": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "sessionPrivateKey": {
+            "type": "string"
+          },
+          "copyTradeId": {
+            "type": "string",
+            "description": "The copy trade ID to modify."
+          },
+          "traderWallet": {
+            "type": "string"
+          },
+          "copyTradeName": {
+            "type": "string"
+          },
+          "copyMode": {
+            "type": "number",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "fixedAmountCostPerOrder": {
+            "type": "string"
+          },
+          "lossPercent": {
+            "type": "string"
+          },
+          "profitPercent": {
+            "type": "string"
+          },
+          "oppositeCopy": {
+            "type": "boolean",
+            "default": false
+          },
+          "isDelete": {
+            "type": "boolean",
+            "description": "Set true to permanently delete the configuration (positions stay open)."
+          },
+          "isChangeStatus": {
+            "type": "boolean",
+            "description": "Set true to toggle isActive relative to the stored state (not delete)."
+          }
         }
       }
     },
@@ -655,10 +1280,22 @@
       "description": "Sign in to GDEX managed-custody system using encrypted computedData. Requires a control wallet signature.",
       "parameters": {
         "type": "object",
-        "required": ["computedData", "chainId"],
+        "required": [
+          "computedData",
+          "chainId"
+        ],
         "properties": {
-          "computedData": { "type": "string", "description": "AES-256-CBC encrypted sign-in payload." },
-          "chainId": { "type": ["number", "string"], "description": "Chain ID (622112261=Solana for copy trades, 42161=Arbitrum for HL perps, or numeric EVM)." }
+          "computedData": {
+            "type": "string",
+            "description": "AES-256-CBC encrypted sign-in payload."
+          },
+          "chainId": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "description": "Chain ID (622112261=Solana for copy trades, 42161=Arbitrum for HL perps, or numeric EVM)."
+          }
         }
       }
     },
@@ -667,12 +1304,31 @@
       "description": "Submit an encrypted managed-custody buy trade via /v1/purchase_v2.",
       "parameters": {
         "type": "object",
-        "required": ["computedData", "chainId"],
+        "required": [
+          "computedData",
+          "chainId"
+        ],
         "properties": {
-          "computedData": { "type": "string", "description": "AES-encrypted trade payload with signed data." },
-          "chainId": { "type": ["number", "string"], "description": "Chain ID for the trade." },
-          "slippage": { "type": "number", "description": "Max slippage %. Default: 1.", "default": 1 },
-          "tip": { "type": "string", "description": "Optional priority fee." }
+          "computedData": {
+            "type": "string",
+            "description": "AES-encrypted trade payload with signed data."
+          },
+          "chainId": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "description": "Chain ID for the trade."
+          },
+          "slippage": {
+            "type": "number",
+            "description": "Max slippage %. Default: 1.",
+            "default": 1
+          },
+          "tip": {
+            "type": "string",
+            "description": "Optional priority fee."
+          }
         }
       }
     },
@@ -681,12 +1337,31 @@
       "description": "Submit an encrypted managed-custody sell trade via /v1/sell_v2.",
       "parameters": {
         "type": "object",
-        "required": ["computedData", "chainId"],
+        "required": [
+          "computedData",
+          "chainId"
+        ],
         "properties": {
-          "computedData": { "type": "string", "description": "AES-encrypted trade payload with signed data." },
-          "chainId": { "type": ["number", "string"], "description": "Chain ID for the trade." },
-          "slippage": { "type": "number", "description": "Max slippage %. Default: 1.", "default": 1 },
-          "tip": { "type": "string", "description": "Optional priority fee." }
+          "computedData": {
+            "type": "string",
+            "description": "AES-encrypted trade payload with signed data."
+          },
+          "chainId": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "description": "Chain ID for the trade."
+          },
+          "slippage": {
+            "type": "number",
+            "description": "Max slippage %. Default: 1.",
+            "default": 1
+          },
+          "tip": {
+            "type": "string",
+            "description": "Optional priority fee."
+          }
         }
       }
     },
@@ -695,9 +1370,14 @@
       "description": "Poll the status of a managed-custody trade by requestId.",
       "parameters": {
         "type": "object",
-        "required": ["requestId"],
+        "required": [
+          "requestId"
+        ],
         "properties": {
-          "requestId": { "type": "string", "description": "The request ID returned from purchase/sell submission." }
+          "requestId": {
+            "type": "string",
+            "description": "The request ID returned from purchase/sell submission."
+          }
         }
       }
     },

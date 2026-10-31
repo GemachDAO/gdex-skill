@@ -1,5 +1,6 @@
 import { build } from 'esbuild';
 import { chmod } from 'node:fs/promises';
+import { buildSkillRegistry } from './skill-registry.mjs';
 
 // Bundle the MCP server into a single self-contained file so it ships prebuilt
 // (committed to git) and runs straight from a GitHub install via the
@@ -9,16 +10,24 @@ import { chmod } from 'node:fs/promises';
 // so a createRequire shim is injected for the bundled CommonJS dependencies
 // (axios -> form-data -> combined-stream) that call require() at runtime.
 
+//
+// The skills/ docs are embedded too (as the __GDEX_SKILL_REGISTRY__ constant read by
+// mcp-server/src/knowledge.ts): the npm tarball and the Docker image ship only
+// dist/index.js, so the documentation tools have no skills/ directory to read there.
+// Editing any skills/*/SKILL.md therefore requires rebuilding this bundle.
+
 const OUT = 'mcp-server/dist/index.js';
+const registry = buildSkillRegistry('skills', 'SKILL.md');
 
 await build({
   entryPoints: ['mcp-server/src/index.ts'],
   bundle: true,
   platform: 'node',
   format: 'esm',
-  target: 'node18',
+  target: 'node22',
   outfile: OUT,
   alias: { '@gemachdao/gdex-skill': './dist/index.js' },
+  define: { __GDEX_SKILL_REGISTRY__: JSON.stringify(registry) },
   banner: {
     js: [
       '#!/usr/bin/env node',
@@ -30,3 +39,4 @@ await build({
 });
 
 await chmod(OUT, 0o755);
+console.log(`embedded ${registry.skills.length} skills (${registry.skills.reduce((n, s) => n + s.files.length, 0)} companion files)`);

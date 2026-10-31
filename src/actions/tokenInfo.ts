@@ -14,6 +14,7 @@ import {
 } from '../types/token';
 import { validateChain, validateRequired } from '../utils/validation';
 import { buildChainAliases, buildTokenAliases } from '../utils/apiAliases';
+import { normalizeChain } from '../config/chains';
 
 /**
  * Get detailed information about a specific token.
@@ -79,7 +80,7 @@ export async function getTrendingTokens(
  */
 export async function getOHLCV(client: GdexApiClient, params: OHLCVParams): Promise<OHLCVData> {
   validateRequired(params.tokenAddress, 'tokenAddress');
-  validateChain(params.chain);
+  const chain = normalizeChain(params.chain);
   validateRequired(params.resolution, 'resolution');
 
   const queryParams: Record<string, unknown> = {
@@ -96,7 +97,8 @@ export async function getOHLCV(client: GdexApiClient, params: OHLCVParams): Prom
   const resp = await client.get<{ data?: OHLCVCandle[] }>(Endpoints.OHLCV, queryParams);
   return {
     tokenAddress: params.tokenAddress,
-    chain: params.chain,
+    // Normalized numeric id, not the caller's spelling ('Base', '8453', 8453 all → 8453).
+    chain: chain.id,
     resolution: params.resolution,
     candles: resp?.data ?? [],
   };

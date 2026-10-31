@@ -117,6 +117,13 @@ export interface GdexSkillConfig {
    * @default "GdexSkill/1.0.0"
    */
   userAgent?: string;
+
+  /**
+   * Origin sent with every request. The backend refuses logins, writes and
+   * private reads (403 SESSION_ORIGIN_DENIED) unless it is allow-listed.
+   * @default "https://gdex.pro"
+   */
+  origin?: string;
 }
 
 /**
@@ -173,4 +180,14 @@ export enum GdexErrorCode {
   API_ERROR = 'API_ERROR',
   INVALID_ADDRESS = 'INVALID_ADDRESS',
   SLIPPAGE_EXCEEDED = 'SLIPPAGE_EXCEEDED',
+  /** A write may or may not have been accepted; reconcile before acting again. */
+  SUBMISSION_UNKNOWN = 'SUBMISSION_UNKNOWN',
+  /** No copy-trade configuration with that copyTradeId belongs to the caller. */
+  COPY_TRADE_NOT_FOUND = 'COPY_TRADE_NOT_FOUND',
+  /** The copy trade's current active state could not be confirmed, so no toggle was sent. */
+  PAUSE_STATE_UNVERIFIED = 'PAUSE_STATE_UNVERIFIED',
+  /** Pause/resume cannot be done safely for this configuration; see the message for the alternative. */
+  PAUSE_UNSUPPORTED = 'PAUSE_UNSUPPORTED',
+  /** A stored copy-trade setting is invalid and must be replaced with explicit values. */
+  COPY_TRADE_CONFIG_INVALID = 'COPY_TRADE_CONFIG_INVALID',
 }

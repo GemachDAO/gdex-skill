@@ -13,7 +13,7 @@
  */
 import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';
-import { validateRequired } from '../utils/validation';
+import { validateAmount, validateRequired } from '../utils/validation';
 import { buildHlComputedData } from '../utils/gdexManagedCrypto';
 
 /** Managed-custody credentials (control wallet address from sign-in). */
@@ -43,7 +43,7 @@ export interface HlSwapCollateralStructured extends HlManagedCreds {
   fromToken: string;
   /** Destination token/dex identifier. */
   toToken: string;
-  /** Amount to move (string units the backend expects). */
+  /** Amount of the base token to swap, a positive decimal in whole units (e.g. "25.5"). */
   amount: string;
   fromDex?: string;
   toDex?: string;
@@ -112,6 +112,9 @@ export async function hlSwapCollateral(
     return client.post(Endpoints.HL_SWAP_COLLATERAL, req);
   }
   validateRequired(req.walletAddress, 'walletAddress');
+  // Signed as a string and read with Number() as whole base-token units
+  // (hyperLiquidActions.ts:913-916), so it must be a plain positive decimal.
+  validateAmount(req.amount, 'amount');
   const computedData = buildHlComputedData({
     action: 'hl_swap_token',
     apiKey: req.apiKey,

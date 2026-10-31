@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18, 20, 22]
+        node-version: [22, 24]
 
     steps:
       - name: Checkout
@@ -64,10 +64,25 @@ jobs:
       - name: Ensure committed bundle is up to date
         run: |
           if ! git diff --quiet -- mcp-server/dist/index.js; then
-            echo "::error::mcp-server/dist/index.js is stale. Run 'npm run build:mcp' and commit the result."
+            echo "::error::mcp-server/dist/index.js is stale. Run 'npm run build:mcp' and commit the result (the bundle embeds skills/, so skill edits need a rebuild too)."
             git diff --stat -- mcp-server/dist/index.js
             exit 1
           fi
+
+      # After the stale-bundle check: installing mcp-server deps changes how the bundle resolves.
+      - name: Install MCP server dependencies
+        run: npm ci --ignore-scripts
+        working-directory: mcp-server
+
+      - name: Type-check MCP server
+        run: npx tsc --noEmit
+        working-directory: mcp-server
+
+      # Includes tests/packedArtifact.test.ts: npm-packs the server, runs it from a temp dir
+      # with no skills/ directory and checks the doc tools return bundled content.
+      - name: Test MCP server
+        run: npm test
+        working-directory: mcp-server
 
   validate-skills:
     name: Validate Skills
@@ -100,6 +115,63 @@ jobs:
             git status --short -- plugins/gdex/skills
             exit 1
           fi
+
+      # Marketplace/plugin/Gemini/.mcp.json/Glama/MCP Registry manifests: shape, version pins,
+      # plugin skills sync and skill counts. Offline.
+      - name: Validate release manifests
+        run: npm run test:manifests
+
+  # Release artifacts as users get them, on the advertised minimum Node (engines >=18) and 22:
+  # npm-pack the root SDK, install the tarball into a fresh project, require/import/type-check it,
+  # run its gdex-mcp-server bin over MCP stdio, and secret-scan the tarball. Needs the npm
+  # registry, never the GDEX backend.
+  artifacts:
+    name: Release artifacts (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build SDK and MCP bundle
+        run: npm run build:mcp
+
+      - name: Test packed root package
+        run: npm run test:artifacts
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Only the test runner runs on the host; the image builds the server from source.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build image and test it over stdio
+        run: npm run test:artifacts:docker
 
   lint:
     name: Lint

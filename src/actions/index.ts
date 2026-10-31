@@ -17,6 +17,7 @@ export * from './social';
 export * from './analytics';
 export * from './tokenDiscovery';
 export * from './hlOutcomes';
+export * from './hlOutcomeMarkets';
 export * from './hlReferral';
 export * from './trending';
 export * from './retailer';

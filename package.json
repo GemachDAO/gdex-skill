@@ -1,6 +1,6 @@
 {
   "name": "@gemachdao/gdex-skill",
-  "version": "4.11.4",
+  "version": "5.2.0",
   "description": "AI Agent Skill SDK for Gbot Trading Dashboard — cross-chain spot/perp trading, portfolio management, and token discovery",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -17,7 +17,6 @@
   "files": [
     "dist",
     "src",
-    "scripts",
     "skills",
     "mcp-server/dist",
     "mcp-server/src",
@@ -36,6 +35,9 @@
     "verify:live": "npm run build --silent && node scripts/live-smoke.js",
     "verify:first-shot": "npm run build --silent && node scripts/first-shot-e2e.js",
     "verify:managed": "npm run build --silent && node scripts/managed-e2e.js",
+    "test:manifests": "node --test tests/artifacts/manifests.test.mjs",
+    "test:artifacts": "node --test tests/artifacts/manifests.test.mjs tests/artifacts/root-package.test.mjs",
+    "test:artifacts:docker": "node --test tests/artifacts/docker.test.mjs",
     "validate": "npx tsx scripts/validate-skills.ts",
     "lint": "eslint src tests --ext .ts",
     "lint:fix": "eslint src tests --ext .ts --fix",
@@ -43,7 +45,8 @@
     "build:mcp": "npm run build && node scripts/build-mcp.mjs",
     "prepare": "npm run build",
     "prepublishOnly": "npm run clean && npm run build",
-    "sync:plugin-skills": "node scripts/sync-plugin-skills.mjs"
+    "sync:plugin-skills": "node scripts/sync-plugin-skills.mjs",
+    "sync:plugin-skills:check": "node scripts/sync-plugin-skills.mjs --check"
   },
   "keywords": [
     "ai-agent",
@@ -102,6 +105,6 @@
     }
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   }
 }

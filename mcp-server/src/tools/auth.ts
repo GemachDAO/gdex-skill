@@ -16,11 +16,14 @@ export function registerAuthTools(server: McpServer): void {
 
   server.tool(
     'generate_session_keypair',
-    'Generate a secp256k1 session keypair for managed-custody trade signing. Returns sessionPrivateKey and sessionKey (compressed public key).',
-    {},
-    async () => handleToolCall(async () => {
+    'Advanced/manual signing only: generate a secp256k1 session keypair. Prefer gdex_connect, which signs in and keeps keys on this machine. Returns only the public sessionKey unless revealPrivateKey is true.',
+    { revealPrivateKey: z.boolean().optional().describe('Return sessionPrivateKey too (it then appears in the conversation)') },
+    async ({ revealPrivateKey }) => handleToolCall(async () => {
       const sdk = getSdk();
-      return sdk.generateManagedSessionKeyPair();
+      const kp = sdk.generateManagedSessionKeyPair();
+      return revealPrivateKey
+        ? kp
+        : { sessionKey: kp.sessionKey, note: 'Private key withheld. Use gdex_connect for a stored session, or call again with revealPrivateKey: true for manual signing.' };
     }),
   );
 

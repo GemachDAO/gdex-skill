@@ -1,7 +1,7 @@
 const { createSDK } = require('gdex.pro-sdk');
 const { ethers } = require('ethers');
 
-const mnemonic = 'airport room shoe add offer price divide sell make army say celery';
+const mnemonic = (process.env.GDEX_TEST_MNEMONIC || (() => { throw new Error('Set GDEX_TEST_MNEMONIC to a throwaway test wallet phrase'); })());
 const apiKey = '9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54';
 const wallet = ethers.Wallet.fromPhrase(mnemonic);
 

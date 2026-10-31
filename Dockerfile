@@ -9,4 +9,6 @@ WORKDIR /app
 # The server reads its version from ../package.json relative to dist/index.js.
 COPY --from=build /app/mcp-server/package.json ./package.json
 COPY --from=build /app/mcp-server/dist/index.js ./dist/index.js
+# Hyperliquid client libraries are loaded at runtime (not bundled): install them.
+RUN npm install --omit=dev --ignore-scripts --no-audit --no-fund
 ENTRYPOINT ["node", "/app/dist/index.js"]

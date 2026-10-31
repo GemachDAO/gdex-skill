@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (backend browser-session hardening)
+
+- **Every sign-in and trade failed with 403 `SESSION_ORIGIN_DENIED`** after backend PR #382 (deployed 2026-10-28). The client now sends `X-Gdex-Client: web` and an allow-listed `Origin` (default `https://gdex.pro`, configurable with `origin`), captures the `gdex_session` cookie set by sign-in and sends it on every later call, and signs `GET /v1/user` and private `/v1/agents/*` requests with the session key (`X-Gdex-Nonce` / `X-Gdex-Signature`). Verified live: sign-in, signed `/v1/user`, and a write passing the session gate.
+- New: `signInWithComputedData(params, { sessionPrivateKey })`, `getBrowserSession()` / `setBrowserSession()` to carry a session across processes, and `setSessionSigningKey()`. The cookie idles out after 30 minutes and expires after 8 hours; a session key saved before 2026-10-28 needs a new sign-in.
+- MCP server: `gdex_connect` stores the cookie with the account; tools using `accountRef` restore it and sign in again when it is stale.
+
+### Fixed (agent-trading work order, phase 3)
+
+- **Standalone MCP perp tools were broken in 5.0.0.** `get_mark_price`, `get_account_state`, `get_perp_positions` and the other Hyperliquid reads failed in every `npx` install and the Docker image (`ERR_MODULE_NOT_FOUND`). The Hyperliquid libraries are now real dependencies of `@gemachdao/gdex-mcp-server` and are installed in the image. Verified from a clean `npm install` of the packed package on Node 22.
+- **Node 22 is now required** (`engines` was `>=18`). On Node 20 the Hyperliquid client has no WebSocket.
+- **`update_order` deleted the limit order** instead of updating it: `isDelete` was ABI-encoded as a string. It is now encoded as `bool`, with TP/SL as `uint64`. An update now requires amount, price and TP/SL together.
+- **Token transfers sent the wrong amount:** the amount was encoded as a string, which the backend decoded as a fixed small number. Structured `transferToken` used the native layout. Both are fixed, and `chainId` is now required.
+- **Stricter validation:**
+  - bridge and limit-order amounts are raw integers;
+  - perp price, size and TP/SL are strict decimals, and TP and SL must be set together;
+  - market orders refuse a zero mark price;
+  - copy-trade and collateral-swap amounts are checked.
+- **`getWalletInfo`** is an authenticated managed read; `get_wallet_info` accepts `accountRef`.
+- **Agent flow:**
+  - session rejections refresh once and retry (reads and pre-execution submits); ambiguous failures are never retried;
+  - operations are restart-safe;
+  - `hl_outcomes` returns compact pages (`limit`, `offset`, `sortBy`, `detail`).
+- **Release checks:** CI packs and installs the root SDK into a clean project, starts its bin over stdio, and runs a release secret scan. It also builds and runs the Docker image, validates every plugin manifest and version pin, and `skill.json` now follows the release version.
+- `docs/AGENT-READINESS.md`: capability matrix with live / live-read / offline evidence, and Claude Code playthrough results.
+
+### Added / Fixed (agent-trading work order, pass 2)
+
+- **Agent flow tools:** `gdex_status`, `gdex_preview_trade`, `gdex_execute_trade`, `gdex_operation`, `gdex_positions`, `gdex_manage_position`.
+  - Previews are exact and hash-bound, with a 60 s expiry.
+  - Execution needs user approval of that preview, or a user-edited delegated policy (`~/.gdex/policies/<accountRef>.json`). The policy's daily cap counts pending operations.
+  - A moved or expired quote returns a revised preview instead of trading.
+  - Operations are journaled before submit; `submission_unknown` is reconciled, never resent.
+  - Perp operations resolve from the live position change (pre-trade size is recorded). They report the effective margin mode and leverage; the backend uses cross margin on core perps and isolated on builder-DEX or isolated-only markets.
+  - New skill `gdex-agent-trading`.
+  - **Verified live (21/21):**
+    - $1 AERO buy and sell on Base: filled, AERO back to zero.
+    - $20 BTC long at 2x: opened (cross) and closed to flat.
+    - HIP-4 outcome limit order: resting, then cancelled.
+- **Tool annotations:** all 154 tools are annotated (read-only, non-financial write, destructive write).
+- **GDX-05:** the MCP bundle embeds all skills and their companion files, so the published `npx` server and Docker image serve real guides. New `get_skill_file`. A packed-artifact test runs in CI.
+- **GDX-06:** about 45 wrong doc examples are fixed (nonexistent methods, wrong params, missing credentials). Guides moved to `workflowGuides.ts`. New doc test type-checks 141 snippets against the built SDK and checks MCP tool names.
+- **GDX-09:** spot `buyToken`/`sellToken` always sign `purchase`/`sell`.
+  - Percentage sells use the real holding with exact integer math.
+  - Options the backend ignores or clamps are rejected before signing.
+  - New `waitForTrade` / `wait_for_trade`.
+  - **Breaking:** both return `ManagedSpotTradeResult`.
+- **GDX-10:** portfolio, balances, trading funds and history are authenticated managed reads with a required `chain`. A malformed or refused response throws instead of returning zero. **Breaking:** `getTradeHistory` returns a page.
+- **GDX-13/14:** HIP-4 outcome markets come normalized from `outcomeMeta`: real side labels, coins, quote token, state, tick/size, and settlement facts.
+  - Orders are validated against the discovered market, and mixing structured fields with `computedData` is rejected.
+  - Volume reports coverage (`complete`/`partial`/`unavailable`), keeps a true zero, and can't block discovery.
+- **GDX-15 (bug):** every copy-trade settings update deleted the config. The SDK sent typed ABI slots as strings, so `isDelete` decoded true. Encoders are now typed, with explicit update/delete/pause/resume. Pause never deletes, and delete leaves positions open.
+- **OpenCode:** `init --client opencode` writes `opencode.json`/`.jsonc` (`mcp` key), which OpenCode actually reads.
+
+### Fixed (agent-trading work order, pass 1)
+
+- **GDX-01** `close_perp_position` read no position and always sent a sell, so "closing" a short added to it. It now resolves the live position (signed `szi`, builder-dex aware), sends the opposite reduce-only side, supports exact partial closes, and rejects flat, ambiguous or oversized closes. SDK: `closePerpPosition` / `resolvePerpClose`.
+- **GDX-02** The client retried 429/503 for POSTs, so one signed order could be sent twice. Only GET/HEAD/OPTIONS are retried now. An ambiguous write raises `GdexSubmissionUnknownError` (`SUBMISSION_UNKNOWN`).
+- **GDX-03** `init --client` overwrote the whole client config. It now merges only the GDEX entry (JSON, JSONC, TOML), keeps a `.bak`, writes atomically, is idempotent, refuses invalid files, and needs `--force` to replace a different GDEX entry.
+- **GDX-04** Secrets out of the conversation: `gdex_connect`, `gdex_accounts` and `gdex_disconnect` keep keys under `~/.gdex/accounts`, and every credential-taking tool accepts `accountRef`. `generate_session_keypair` and `generate_evm_wallet` no longer return private keys unless asked. The published dev-wallet mnemonic was removed from the scripts (read from `GDEX_TEST_MNEMONIC`), and `scripts/` is no longer in the npm package. **That wallet must be treated as compromised.**
+- **GDX-07** One chain normalizer (`normalizeChain`): numeric and string Solana/Sui validate the same, wSOL under `622112261` is accepted, and Solana addresses must base58-decode to 32 bytes.
+- **GDX-08** Strict amounts: no `1abc`, `Infinity`, `1e3` or `50oops%`. `parseAmountUnits` rejects excess precision instead of rounding. `perpDeposit` uses exact integer conversion. The priority-fee unit is documented as lamports.
+- **GDX-11** MCP failures return `isError: true` with a JSON envelope (`code`, `submission`, `retryable`, `next`), with no stacks (unless `GDEX_DEBUG=1`) and key-like hex redacted.
+- **GDX-12** `place_perp_order` no longer drops `isMarket`; market orders go through `hlCreateOrder`. The `close_all_positions` and `set_leverage` descriptions now state their backend limits.
+- CI runs the MCP server type-check and test suite.
+
 ### Added
 
 - **Unified USDC wallet** (backend `feat-unified-usdc`). A user's USDC on Ethereum, Optimism, BSC, Sonic,

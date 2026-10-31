@@ -62,12 +62,19 @@ describe('Auth Tools', () => {
   });
 
   describe('generate_session_keypair', () => {
-    it('should return keypair from SDK', async () => {
-      const keypair = { sessionPrivateKey: '0xabc', sessionKey: '0x02def' };
-      mockSdk.generateManagedSessionKeyPair.mockResolvedValue(keypair);
+    it('withholds the private key by default', async () => {
+      mockSdk.generateManagedSessionKeyPair.mockReturnValue({ sessionPrivateKey: '0xabc', sessionKey: '0x02def' });
       const tool = getTools().get('generate_session_keypair')!;
       const result = await expectMcpSuccess(tool.handler, {});
-      expect(result).toEqual(keypair);
+      expect(result.sessionKey).toBe('0x02def');
+      expect(result).not.toHaveProperty('sessionPrivateKey');
+    });
+
+    it('returns the full keypair only with revealPrivateKey', async () => {
+      const keypair = { sessionPrivateKey: '0xabc', sessionKey: '0x02def' };
+      mockSdk.generateManagedSessionKeyPair.mockReturnValue(keypair);
+      const tool = getTools().get('generate_session_keypair')!;
+      expect(await expectMcpSuccess(tool.handler, { revealPrivateKey: true })).toEqual(keypair);
     });
   });
 

@@ -177,15 +177,37 @@ describe('gdexManagedCrypto', () => {
     // 65-byte signature serialized as 130-char hex without 0x prefix
     expect(parsed.signature).toMatch(/^[0-9a-f]{130}$/i);
 
-    // ABI: ['transfer', [recipient, amount, nonce]] — values are 3 strings
+    // Backend decoder.ts:47-58: ['string', 'uint256', 'string']
     const abi = AbiCoder.defaultAbiCoder();
     const [recipient, amount, nonce] = abi.decode(
-      ['string', 'string', 'string'],
+      ['string', 'uint256', 'string'],
       '0x' + parsed.data,
     );
     expect(recipient).toBe('0xRecipient');
-    expect(amount).toBe('1000000');
+    expect(amount).toBe(1000000n);
     expect(nonce).toBe('n-7');
+  });
+
+  it('should build transfer_token computedData as [tokenAddress, recipient, amount(uint256), nonce] signed transfer_token-', () => {
+    const { AbiCoder, keccak256, toUtf8Bytes, SigningKey } = require('ethers') as typeof import('ethers');
+    const pair = generateGdexSessionKeyPair();
+    const computedData = buildTransferComputedData({
+      apiKey,
+      walletAddress: '0xAbCd',
+      sessionPrivateKey: pair.sessionPrivateKey,
+      userId: '0xAbCd',
+      recipient: '0xRecipient',
+      amount: '123456789',
+      tokenAddress: '0xToken',
+      nonce: 'n-8',
+    });
+    const parsed = JSON.parse(decryptGdexComputedData(computedData, apiKey)) as { data: string; signature: string };
+    const decoded = AbiCoder.defaultAbiCoder().decode(['string', 'string', 'uint256', 'string'], '0x' + parsed.data);
+    expect(decoded.toArray()).toEqual(['0xToken', '0xRecipient', 123456789n, 'n-8']);
+    const digest = keccak256(toUtf8Bytes(`transfer_token-0xabcd-${parsed.data}`));
+    const sig = '0x' + parsed.signature.slice(0, 128);
+    const v = parseInt(parsed.signature.slice(128), 16);
+    expect(SigningKey.recoverPublicKey(digest, { r: sig.slice(0, 66), s: '0x' + sig.slice(66), v: 27 + v })).toBe(new SigningKey(pair.sessionPrivateKey).publicKey);
   });
 
   it('should auto-generate a nonce for transfer computedData when not provided', () => {
@@ -202,7 +224,7 @@ describe('gdexManagedCrypto', () => {
     const decrypted = decryptGdexComputedData(computedData, apiKey);
     const parsed = JSON.parse(decrypted) as { data: string };
     const abi = AbiCoder.defaultAbiCoder();
-    const [, , nonce] = abi.decode(['string', 'string', 'string'], '0x' + parsed.data);
+    const [, , nonce] = abi.decode(['string', 'uint256', 'string'], '0x' + parsed.data);
     expect(typeof nonce).toBe('string');
     expect((nonce as string).length).toBeGreaterThan(0);
   });
@@ -329,7 +351,7 @@ describe('gdexManagedCrypto', () => {
     const decrypted = decryptGdexComputedData(computedData, apiKey);
     const parsed = JSON.parse(decrypted) as { data: string };
     const abi = AbiCoder.defaultAbiCoder();
-    const [, , nonce] = abi.decode(['string', 'string', 'string'], '0x' + parsed.data);
+    const [, , nonce] = abi.decode(['string', 'uint256', 'string'], '0x' + parsed.data);
     expect(typeof nonce).toBe('string');
     expect((nonce as string).length).toBeGreaterThan(0);
   });
