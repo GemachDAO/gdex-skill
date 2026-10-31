@@ -145225,7 +145225,7 @@ const { sessionPrivateKey, sessionKey } = generateGdexSessionKeyPair();
 const nonce = String(Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000));
 const signature = await control.signMessage(buildGdexSignInMessage(control.address, nonce, sessionKey));
 const signIn = buildGdexSignInComputedData({ apiKey, userId: control.address, sessionKey, nonce, signature });
-await skill.signInWithComputedData({ computedData: signIn.computedData, chainId: 1 }); // 1 = EVM/HL, 622112261 = Solana
+await skill.signInWithComputedData({ computedData: signIn.computedData, chainId: 1 }, { sessionPrivateKey }); // 1 = EVM/HL, 622112261 = Solana; the key keeps the gdex_session cookie and signs /v1/user
 
 // walletAddress is ALWAYS the control wallet, never the managed wallet (code 103 otherwise)
 const creds = { apiKey, walletAddress: control.address, sessionPrivateKey };
@@ -146140,11 +146140,12 @@ function registerAuthTools(server2) {
     "Sign in to GDEX managed-custody system using encrypted computedData payload.",
     {
       computedData: external_exports.string().describe("AES-256-CBC encrypted sign-in payload"),
-      chainId: external_exports.union([external_exports.number(), external_exports.string()]).describe("Chain ID (622112261=Solana, 42161=Arbitrum for HL perps)")
+      chainId: external_exports.union([external_exports.number(), external_exports.string()]).describe("Chain ID (622112261=Solana, 42161=Arbitrum for HL perps)"),
+      sessionPrivateKey: external_exports.string().optional().describe("Session private key from generate_session_keypair; needed to sign /v1/user and private agent calls after sign-in")
     },
-    async ({ computedData, chainId }) => handleToolCall(async () => {
+    async ({ computedData, chainId, sessionPrivateKey }) => handleToolCall(async () => {
       const sdk = getSdk();
-      return sdk.signInWithComputedData({ computedData, chainId: Number(chainId) });
+      return sdk.signInWithComputedData({ computedData, chainId: Number(chainId) }, { sessionPrivateKey });
     })
   );
   server2.tool(

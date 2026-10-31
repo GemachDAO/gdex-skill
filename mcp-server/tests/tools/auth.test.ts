@@ -90,7 +90,21 @@ describe('Auth Tools', () => {
       expect(mockSdk.signInWithComputedData).toHaveBeenCalledWith({
         computedData: 'encrypted-payload',
         chainId: 622112261,
+      }, { sessionPrivateKey: undefined });
+    });
+
+    it('passes the session private key through so the SDK keeps the session', async () => {
+      mockSdk.signInWithComputedData.mockResolvedValue({ token: 'session-tok' });
+      const tool = getTools().get('managed_sign_in')!;
+      await expectMcpSuccess(tool.handler, {
+        computedData: 'encrypted-payload',
+        chainId: 1,
+        sessionPrivateKey: '0xabc',
       });
+      expect(mockSdk.signInWithComputedData).toHaveBeenCalledWith(
+        { computedData: 'encrypted-payload', chainId: 1 },
+        { sessionPrivateKey: '0xabc' },
+      );
     });
   });
 
