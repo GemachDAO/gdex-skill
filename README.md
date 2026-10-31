@@ -303,12 +303,13 @@ skill.loginWithApiKey(GDEX_API_KEY_PRIMARY);
 //    the control wallet signs once, the session key signs each trade.
 const creds = { apiKey: GDEX_API_KEY_PRIMARY, walletAddress: controlAddress, sessionPrivateKey };
 
-// 4. Spot buy on Base (0.01 ETH)
+// 4. Spot buy on Base (0.01 ETH). EVM buys use the account's stored slippage: the SDK rejects
+//    `slippage` on EVM chains. For a bounded EVM buy use buyWithUsdc (minTokenOutRaw) or the
+//    MCP gdex_preview_trade (slippagePct). `slippage` applies to Solana buys.
 const trade = await skill.buyToken({
   chain: 8453,
-  tokenAddress: '0xTokenAddress',
+  tokenAddress: '0x940181a94A35A4569E4529A3CDfB74e38FD98631', // AERO on Base; gitleaks:allow
   amount: '0.01',
-  slippage: 1,     // 1% max slippage
   ...creds,
 });
 console.log('Trade submitted:', trade.jobId, '— status:', trade.status);
@@ -1099,16 +1100,17 @@ const message = buildGdexSignInMessage(wallet.address, String(Date.now()), sessi
 |---|---|---|---|
 | **Ethereum** | `1` | ETH | Uniswap V2/V3, Odos |
 | **Optimism** | `10` | ETH | Uniswap V3, Odos |
-| **BNB Smart Chain** | `56` | BNB | PancakeSwap, Odos |
+| **BNB Smart Chain** | `56` | BNB | Uniswap V2, PancakeSwap, Odos |
 | **Sonic** | `146` | S | — |
 | **Fraxtal** | `252` | frxETH | Uniswap V3 |
-| **Nibiru** | `6900` | NIBI | — |
+| **Robinhood Chain** | `4663` | ETH | Uniswap V2, KyberSwap |
+| **Nibiru** | `6900` | NIBI | — (retired from buying: sell and withdraw only) |
 | **Base** | `8453` | ETH | Uniswap V3, Odos, Arcadia |
 | **Arbitrum One** | `42161` | ETH | Uniswap V3, Odos |
-| **Berachain** | `80094` | BERA | — |
+| **Berachain** | `80094` | BERA | — (retired from buying: sell and withdraw only) |
 | **Solana** | `622112261` | SOL | Raydium, Raydium V2, Orca |
-| **Sui** | `1313131213` | SUI | Cetus, Bluefin |
-| **HyperLiquid** | perps only | USDC | Native perp engine |
+| **Sui** | `1313131213` | SUI | Cetus, Bluefin (retired from buying: sell and withdraw only) |
+| **HyperLiquid** | — (funded from Arbitrum) | USDC | Perps (core and builder-DEX markets) and HIP-4 outcomes |
 
 > **The `ChainId` enum is wider than this table.** It also defines Avalanche (43114), Polygon
 > (137), zkSync Era (324), Linea (59144), Blast (81457) and Scroll (534352). The backend's
