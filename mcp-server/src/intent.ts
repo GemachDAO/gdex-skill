@@ -184,6 +184,11 @@ async function readJson<T>(sub: string, id: string): Promise<T | undefined> {
   return fs.readFile(path.join(dir(sub), `${id}.json`), 'utf8').then((t) => JSON.parse(t) as T, () => undefined);
 }
 
+/** A stored preview (terms the agent saw), if still on disk. */
+export async function loadPreview(previewId: string): Promise<Preview | undefined> {
+  return /^[A-Za-z0-9_-]+$/.test(previewId) ? readJson<Preview>('previews', previewId) : undefined;
+}
+
 export async function listOperations(accountRef?: string): Promise<Operation[]> {
   const names = await fs.readdir(dir('operations')).catch(() => [] as string[]);
   const ops: Operation[] = [];
@@ -227,7 +232,7 @@ async function refresh(deps: IntentDeps, a: StoredAccount): Promise<StoredAccoun
 }
 
 /** Run `fn` with the stored account; on a session rejection, re-sign-in once and run it again. */
-async function withSession<T>(deps: IntentDeps, accountRef: string, fn: (a: StoredAccount) => Promise<T>): Promise<T> {
+export async function withSession<T>(deps: IntentDeps, accountRef: string, fn: (a: StoredAccount) => Promise<T>): Promise<T> {
   const account = await loadAccount(accountRef);
   try {
     return await fn(account);

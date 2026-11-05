@@ -25,6 +25,7 @@ import { registerIntentTools } from './tools/intent.js';
 import { enableAccountRefs } from './credentials.js';
 import { enableAnnotations } from './annotations.js';
 import { registerForensicsTools } from './tools/forensics.js';
+import { registerPracticeTools } from './tools/practice.js';
 
 // Handle init command before starting server.
 // `npx -y github:GemachDAO/gdex-skill gdex-mcp-server init --client <c>` auto-selects
@@ -329,6 +330,7 @@ registerUsdcTools(server);
 registerAccountTools(server);
 registerIntentTools(server);
 registerForensicsTools(server);
+registerPracticeTools(server);
 
 // --- Start server ---
 const transport = new StdioServerTransport();

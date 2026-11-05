@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (trade replay and agent challenges)
+
+- **`gdex_replay_trade`:** a private, read-only replay of a Hyperliquid perp trade, built from the account's fills, order history and funding, plus fresh position and open-order reads and the local operation journal.
+  - States: `full_close`, `full_close_unconfirmed`, `partial_close`, `open`, `incomplete_history`, `unsupported`.
+  - Exact decimals; `net = closedPnl − fees + funding`, and the builder fee is never counted twice.
+  - It says "flat" or "stop canceled" only from a fresh read. Unknowns stay unknown.
+  - It asks which account or trade when the choice is ambiguous.
+- **`gdex_make_challenge`:** preview, then confirm, then copy. Turns a verified full close (or a standalone scenario) into a capsule that names a packaged synthetic practice scenario.
+  - The capsule carries no wallet or account ids, balances, size, fills, order ids, exact times or P&L.
+  - The exported message is byte-identical to the preview.
+  - The sender's plan and the invite are opt-in.
+- **`gdex_run_challenge`:** practice mode with no account. Strict capsule validation (allow-listed fields, ≤600 chars, version gate with upgrade guidance).
+  - The outcome tape is hidden until a decision is submitted.
+  - Scoring is deterministic: gaps, same-bar ambiguity resolved stop-first, time exit, drawdown, risk breaches.
+  - Each plan's debrief shows exit, costs, drawdown, net and breaches. Plans are compared side by side, never ranked on P&L alone.
+- **`gdex_invite`:** the user's existing GDEX invite link and program status (accrued, claimed, awaiting payout). Read-only.
+- **`gdex_connect { create: true, inviteCode }`:** opt-in. The invite is sent only at a new account's first sign-in, and the result reports GDEX's own attribution (`attributed`, `already_attributed`, `not_attributed`).
+- **New skill:** `gdex-trade-replay`, with `SCORING.md` (scenario and capsule schema, scoring rules, golden cases).
+- **Demo:** `scripts/practice-demo.mjs` runs a two-host demo over MCP stdio.
+- **Flags:** `GDEX_PRACTICE=off` and `GDEX_INVITES=off` turn these features off; core trading is unaffected.
+
 ### Added (just-works flow of funds)
 
 - **Honest readiness:** `gdex_status` reads live balances per account and reports `funded`, `unfunded`, `funding_pending` or `unreachable` with one next step. Unknown balances are never shown as zero or ready.
