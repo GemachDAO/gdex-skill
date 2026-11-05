@@ -10,7 +10,7 @@
     {
       "title": "Trading",
       "description": "Spot swaps, the unified USDC wallet, HyperLiquid perpetual futures, funding, and limit orders.",
-      "skills": ["gdex-spot-trading", "gdex-usdc-wallet", "gdex-perp-trading", "gdex-perp-funding", "gdex-limit-orders"]
+      "skills": ["gdex-spot-trading", "gdex-usdc-wallet", "gdex-perp-trading", "gdex-perp-funding", "gdex-limit-orders", "gdex-trade-replay"]
     },
     {
       "title": "Data & Discovery",

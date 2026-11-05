@@ -94,6 +94,7 @@ GDEX uses a **multi-skill architecture** — agents load only the skills they ne
 | `gdex-spot-trading` | Buy/sell tokens on any chain with DEX routing |
 | `gdex-perp-trading` | HyperLiquid perpetual futures — positions, orders, leverage |
 | `gdex-perp-funding` | Deposit/withdraw USDC to/from HyperLiquid |
+| `gdex-trade-replay` | Verified private replay of a closed HL perp trade, shareable practice challenges for other agents, invite link/status |
 | `gdex-limit-orders` | Create, cancel, and list limit orders |
 | `gdex-portfolio` | Cross-chain portfolio, balances, trade history |
 | `gdex-token-discovery` | Token details, trending tokens, OHLCV charts (no auth) |
@@ -147,7 +148,7 @@ cite figures that skill scripts printed. Every script run is logged with a sha25
 
 ## 🔌 MCP Server
 
-The GDEX MCP server exposes **157 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
+The GDEX MCP server exposes **162 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
 
 **Source code:** the server is implemented in this repository, in [`mcp-server/`](mcp-server). The entry point is [`mcp-server/src/index.ts`](mcp-server/src/index.ts) and the tool handlers are in [`mcp-server/src/tools/`](mcp-server/src/tools). The npm package `@gemachdao/gdex-mcp-server` is built from that directory by the release workflow. See [`mcp-server/README.md`](mcp-server/README.md) to run it from source or with the repo's `Dockerfile`.
 
@@ -232,6 +233,7 @@ Add to your client's MCP config:
 | Category | Tools | Description |
 |----------|-------|-------------|
 | **Agent flow** | `gdex_status`, `gdex_add_funds`, `gdex_preview_trade`, `gdex_execute_trade`, `gdex_operation`, `gdex_positions`, `gdex_manage_position`, `gdex_preview_withdraw` | Funded/unfunded readiness, add money (Apple Pay, card or crypto) with credit confirmed from the wallet, exact previews (incl. total budgets), execution within user approval or a delegated policy, operation tracking and recovery, positions, exits and withdrawals |
+| **Replay & challenges** | `gdex_replay_trade`, `gdex_make_challenge`, `gdex_run_challenge`, `gdex_invite`, `gdex_feature_metrics` | Read-only replay of a Hyperliquid perp trade from fills, order history, funding and fresh reads; preview-then-copy practice challenges (synthetic fixtures, no private data); deterministic practice scoring with no account; the user's existing GDEX invite. None can trade or apply a referral. Local aggregate usage counts (no trade data). Flags: `GDEX_PRACTICE=off`, `GDEX_INVITES=off`, `GDEX_METRICS=off` |
 | **Auth** | `gdex_connect`, `gdex_accounts`, `gdex_disconnect`, `auth_login`, `generate_session_keypair`, `managed_sign_in`, `build_sign_in_payload` | API key login, session keys, managed custody sign-in |
 | **Spot Trading** | `buy_token`, `sell_token` | Buy/sell on Solana, Sui and 10 EVM chains (Ethereum, Base, Arbitrum, BSC and more) |
 | **Perp Trading** | `open_perp_position`, `place_perp_order`, `close_perp_position`, `close_all_positions`, `cancel_perp_order`, `cancel_all_perp_orders`, `set_leverage`, `perp_deposit`, `perp_withdraw` | Full HyperLiquid perpetual futures — long/short, TP/SL; leverage up to each market's cap (40x on core BTC) |

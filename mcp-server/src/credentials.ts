@@ -152,7 +152,12 @@ export async function connectAccount(input: {
   controlPrivateKey: string;
   source: StoredAccount['source'];
   apiKey?: string;
-}): Promise<StoredAccount> {
+  /**
+   * An existing GDEX invite code, sent only at the user's explicit request. GDEX applies it
+   * only at a wallet's very first sign-in; for an existing account it is ignored.
+   */
+  refSourceCode?: string;
+}): Promise<StoredAccount & { signIn?: { referralSource: string | null } }> {
   const wallet = new Wallet(input.controlPrivateKey);
   const apiKey = input.apiKey ?? readEnv('GDEX_API_KEY') ?? GDEX_API_KEY_PRIMARY;
   const sdk = getSdk();
@@ -165,8 +170,9 @@ export async function connectAccount(input: {
     sessionKey: kp.sessionKey,
     nonce,
     signature: signature.replace(/^0x/, ''),
+    ...(input.refSourceCode ? { refSourceCode: input.refSourceCode } : {}),
   });
-  await sdk.signInWithComputedData(
+  const signInRes = await sdk.signInWithComputedData(
     { computedData: payload.computedData, chainId: SOLANA_CHAIN_ID },
     { sessionPrivateKey: kp.sessionPrivateKey }
   );
@@ -197,12 +203,13 @@ export async function connectAccount(input: {
     sessionUsedAt: Date.now(),
   };
   await save(account);
-  return account;
+  const rs = (signInRes as Record<string, unknown> | undefined)?.referralSource;
+  return { ...account, signIn: { referralSource: typeof rs === 'string' && rs ? rs : null } };
 }
 
 /** Create a new control wallet locally and connect it. */
-export async function connectGeneratedWallet(apiKey?: string): Promise<StoredAccount> {
-  return connectAccount({ controlPrivateKey: Wallet.createRandom().privateKey, source: 'generated', apiKey });
+export async function connectGeneratedWallet(apiKey?: string, refSourceCode?: string): Promise<StoredAccount & { signIn?: { referralSource: string | null } }> {
+  return connectAccount({ controlPrivateKey: Wallet.createRandom().privateKey, source: 'generated', apiKey, refSourceCode });
 }
 
 /** Credential fields `accountRef` can supply. */
