@@ -8,6 +8,7 @@ import { replayTrade, makeChallenge, getInvite, inviteNotice } from '../practice
 import { decodeCapsule } from '../practice/capsule.js';
 import { scenarioById, SCENARIOS } from '../practice/scenarios.js';
 import { preDecisionView, runChallenge } from '../practice/runner.js';
+import { track, report } from '../practice/metrics.js';
 
 const READ = { readOnlyHint: true, openWorldHint: true } as const;
 const LOCAL = { readOnlyHint: true, openWorldHint: false } as const;
@@ -30,7 +31,15 @@ export function registerPracticeTools(server: McpServer, deps: IntentDeps = defa
         lookbackDays: z.number().int().min(1).max(90).optional().describe('How far back to read fills (default 30)'),
       },
       READ,
-      async (p) => handleToolCall(async () => replayTrade(deps, p)),
+      async (p) => handleToolCall(async () => {
+        void track('replay_requested');
+        try {
+          const out = await replayTrade(deps, p);
+          const state = (out.replay as { state?: string } | undefined)?.state;
+          void track(out.needsChoice ? 'replay_needs_choice' : state ? 'replay_completed' : 'replay_failed', state ?? (out.needsChoice ? undefined : 'no_trades'));
+          return out;
+        } catch (e) { void track('replay_failed'); throw e; }
+      }),
     );
 
     server.tool(
@@ -46,7 +55,13 @@ export function registerPracticeTools(server: McpServer, deps: IntentDeps = defa
         exportToken: z.string().optional().describe('From the preview'),
       },
       READ,
-      async (p) => handleToolCall(async () => makeChallenge(deps, p, { invitesEnabled: flags.invites })),
+      async (p) => handleToolCall(async () => {
+        const out = await makeChallenge(deps, p, { invitesEnabled: flags.invites });
+        const exported = out.stage === 'export';
+        void track(exported ? 'challenge_exported' : 'challenge_previewed', p.closeId ? 'from_trade' : 'standalone');
+        if (exported && (p as { includeInvite?: boolean }).includeInvite) void track('invite_included');
+        return out;
+      }),
     );
 
     server.tool(
@@ -61,7 +76,8 @@ export function registerPracticeTools(server: McpServer, deps: IntentDeps = defa
       LOCAL,
       async (p) => handleToolCall(async () => {
         if (!!p.capsule === !!p.scenarioId) throw new Error('Pass exactly one of capsule or scenarioId');
-        const cap = p.capsule ? decodeCapsule(p.capsule) : undefined;
+        let cap;
+        try { cap = p.capsule ? decodeCapsule(p.capsule) : undefined; } catch (e) { void track('challenge_rejected', (e as { code?: string }).code?.toLowerCase()); throw e; }
         const scenario = scenarioById(cap?.scenario ?? p.scenarioId!);
         if (!scenario) throw new Error(`Unknown scenario. Available: ${SCENARIOS.map((s) => s.id).join(', ')}`);
         const notices = [
@@ -69,12 +85,25 @@ export function registerPracticeTools(server: McpServer, deps: IntentDeps = defa
           ...(cap?.invite && flags.invites ? [inviteNotice(cap.invite)] : []),
         ];
         if (p.stage === 'start') {
+          void track('challenge_started');
           return { ...preDecisionView(scenario), ...(cap?.senderPlan ? { senderPlan: cap.senderPlan } : {}), notices, next: 'Decide, then call stage "submit" with decision { targetPct, stopPct }.' };
         }
         if (!p.decision) throw new Error('submit needs decision { targetPct, stopPct }');
         const extra = cap?.senderPlan ? [{ who: 'Sender\'s plan', plan: cap.senderPlan }] : [];
-        return { ...runChallenge(scenario, p.decision, extra), notices };
+        const debrief = runChallenge(scenario, p.decision, extra);
+        void track('challenge_completed', debrief.plans[0].exit.reason);
+        return { ...debrief, notices };
       }),
+    );
+  }
+
+  if (flags.practice || flags.invites) {
+    server.tool(
+      'gdex_feature_metrics',
+      'Aggregate usage counts for trade replay, practice challenges and invites on this machine: replay completion and referral conversion reported separately. Contains no accounts, trades, coins, amounts or codes; nothing is sent anywhere. GDEX_METRICS=off disables counting.',
+      { sinceDays: z.number().int().min(1).max(365).optional() },
+      LOCAL,
+      async ({ sinceDays }) => handleToolCall(async () => report(sinceDays ?? 30)),
     );
   }
 
@@ -86,6 +115,7 @@ export function registerPracticeTools(server: McpServer, deps: IntentDeps = defa
       READ,
       async ({ accountRef }) => handleToolCall(async () => {
         const info = await getInvite(deps, accountRef);
+        void track('invite_shown');
         return { ...info, text: `Your GDEX invite: ${info.link}\nAnyone who signs up with a wallet through it (or creates a new account in a GDEX agent with this code) is attributed to you. ${info.states}` };
       }),
     );

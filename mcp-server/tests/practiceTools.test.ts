@@ -13,6 +13,7 @@ process.env.GDEX_HOME = home;
 
 const { registerPracticeTools } = await import('../src/tools/practice.js');
 const { createMockServer } = await import('./helpers.js');
+const { flush } = await import('../src/practice/metrics.js');
 
 const REF = 'acct_aaaaaaaaaaaa';
 const REF2 = 'acct_bbbbbbbbbbbb';
@@ -75,6 +76,7 @@ const call = async (t: Map<string, any>, name: string, p: Record<string, unknown
 };
 
 beforeEach(async () => {
+  await flush();
   jest.clearAllMocks();
   await fs.rm(path.join(home, 'accounts'), { recursive: true, force: true });
   await seed(REF);
@@ -121,6 +123,7 @@ describe('gdex_make_challenge', () => {
       expect(m).not.toContain(secret);
     }
     expect(m).toMatch(/Practice only/);
+    expect(m).toMatch(/pick a stop and target for a short on ETH-PERP/);
     expect(m).toMatch(/inspired by a real GDEX trade/);
     expect(m).toMatch(/Run this challenge/);
     expect(m).toMatch(/npx @gemachdao\/gdex-mcp-server init/);
@@ -194,9 +197,42 @@ describe('gdex_invite', () => {
   });
 });
 
+describe('feature metrics', () => {
+  it('counts the funnels separately and stores nothing identifying', async () => {
+    await flush();
+    await fs.rm(path.join(home, 'metrics'), { recursive: true, force: true });
+    const t = tools();
+    await call(t, 'gdex_replay_trade', { coin: 'ETH' });
+    const pv = await call(t, 'gdex_make_challenge', { closeId: 'ETH-501', includeInvite: true });
+    await call(t, 'gdex_make_challenge', { closeId: 'ETH-501', includeInvite: true, confirmExport: true, exportToken: pv.body.exportToken });
+    await call(t, 'gdex_run_challenge', { stage: 'start', scenarioId: 'eth-short-target-vs-stop-01' });
+    await call(t, 'gdex_run_challenge', { stage: 'submit', scenarioId: 'eth-short-target-vs-stop-01', decision: { targetPct: '3', stopPct: '2' } });
+    await call(t, 'gdex_run_challenge', { stage: 'start', capsule: 'GDEX-CHALLENGE:%%%' });
+    await call(t, 'gdex_invite', {});
+    const { body } = await call(t, 'gdex_feature_metrics', {});
+    expect(body.replay.counts).toMatchObject({ replay_requested: 1, replay_completed: 1, 'replay_completed:full_close': 1 });
+    expect(body.replay.completionRate).toBe('100.0%');
+    expect(body.practice.counts).toMatchObject({ challenge_previewed: 1, challenge_exported: 1, challenge_started: 1, challenge_completed: 1, 'challenge_completed:target': 1, challenge_rejected: 1 });
+    expect(body.referral.counts).toMatchObject({ invite_included: 1, invite_shown: 1 });
+    expect(body.referral.backendConfirmedAttributionRate).toBe('n/a');
+    const raw = await fs.readFile(path.join(home, 'metrics', 'feature-metrics.json'), 'utf8');
+    for (const secret of [CODE, CONTROL, MANAGED, 'ETH', '2422', 'acct_', 'GDEX-CHALLENGE']) expect(raw).not.toContain(secret);
+  });
+
+  it('GDEX_METRICS=off stores nothing', async () => {
+    await flush();
+    await fs.rm(path.join(home, 'metrics'), { recursive: true, force: true });
+    process.env.GDEX_METRICS = 'off';
+    try {
+      await call(tools(), 'gdex_run_challenge', { stage: 'start', scenarioId: 'eth-short-target-vs-stop-01' });
+      await expect(fs.access(path.join(home, 'metrics', 'feature-metrics.json'))).rejects.toThrow();
+    } finally { delete process.env.GDEX_METRICS; }
+  });
+});
+
 describe('feature flags', () => {
   it('practice off removes practice tools; invites off removes the invite surface', () => {
-    expect([...tools({ practice: false, invites: true }).keys()]).toEqual(['gdex_invite']);
+    expect([...tools({ practice: false, invites: true }).keys()].sort()).toEqual(['gdex_feature_metrics', 'gdex_invite']);
     const noInv = tools({ practice: true, invites: false });
     expect(noInv.has('gdex_invite')).toBe(false);
     expect(noInv.get('gdex_make_challenge')!.schema).not.toHaveProperty('includeInvite');

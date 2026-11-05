@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { handleToolCall } from '../sdk.js';
 import { features } from '../features.js';
 import { INVITE_CODE_RE } from '../practice/capsule.js';
+import { track } from '../practice/metrics.js';
 import {
   connectAccount,
   connectGeneratedWallet,
@@ -43,9 +44,11 @@ export function registerAccountTools(server: McpServer): void {
             const a = await loadAccount(accountRef as string);
             return connectAccount({ controlPrivateKey: a.controlPrivateKey, source: a.source, apiKey: a.apiKey });
           })();
+      const invite = inviteCode ? inviteOutcome(inviteCode, (account as { signIn?: { referralSource: string | null } }).signIn?.referralSource) : undefined;
+      if (invite) { void track('connect_with_invite'); void track(`invite_${invite.state}` as 'invite_attributed'); }
       return {
         ...summarize(account),
-        ...(inviteCode ? { invite: inviteOutcome(inviteCode, (account as { signIn?: { referralSource: string | null } }).signIn?.referralSource) } : {}),
+        ...(invite ? { invite } : {}),
         next: 'Pass this accountRef to trading tools. Fund the managed wallets (not the control wallet) to trade.',
       };
     }),

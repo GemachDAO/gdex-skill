@@ -93,6 +93,12 @@ of people referred, the amount accrued, the amount claimed, and claims awaiting 
 **Accrued is not paid.** GDEX reports no separate "eligible" state. Rates come from the
 program; never quote a percentage.
 
+## Usage metrics
+
+`gdex_feature_metrics` reports aggregate counts kept on this machine, for example how many replays completed and how many challenges were exported. Replay/practice and referral are separate funnels. Referral conversion counts only attributions that GDEX's sign-in response confirmed.
+
+No accounts, coins, amounts, codes or capsules are stored, and nothing is sent anywhere. `GDEX_METRICS=off` turns counting off.
+
 ## Install fallback (for a friend without the skill)
 
 The challenge message already ends with:

@@ -163,7 +163,7 @@ export interface ChallengeOptions { invitesEnabled: boolean }
 export function composeMessage(s: Scenario, capsule: string, opts: { inspired: boolean; senderPlan?: { targetPct: string; stopPct: string }; inviteLink?: string }): string {
   const lines = [
     'GDEX Agent Challenge · Practice only',
-    `Your task: pick a stop and target for an ${s.instrument.label.replace(/ \(practice\)$/, '')} ${s.side} while staying inside the scenario's ${s.rules.riskLimitPct}% risk limit.`,
+    `Your task: pick a stop and target for a ${s.side} on ${s.instrument.label.replace(/ \(practice\)$/, '')} while staying inside the scenario's ${s.rules.riskLimitPct}% risk limit.`,
     opts.inspired
       ? 'Source: practice fixture inspired by a real GDEX trade. The tape is synthetic; no trade details are included.'
       : 'Source: practice fixture (synthetic tape).',
