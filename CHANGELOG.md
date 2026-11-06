@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Challenge messages put setup first.** A shared challenge now lists how to install before the capsule: the Claude Code plugin commands (`/plugin marketplace add GemachDAO/gdex-skill`, `/plugin install gdex@gemachdao`), then `npx @gemachdao/gdex-mcp-server init` for other agents. Before, the install line came last, after a capsule a new user could not run yet.
+
+## [5.4.0] - 2026-11-05
+
 ### Added (trade replay and agent challenges)
 
 - **`gdex_replay_trade`:** a private, read-only replay of a Hyperliquid perp trade, built from the account's fills, order history and funding, plus fresh position and open-order reads and the local operation journal.
