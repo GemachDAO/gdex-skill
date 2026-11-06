@@ -127,6 +127,10 @@ describe('gdex_make_challenge', () => {
     expect(m).toMatch(/inspired by a real GDEX trade/);
     expect(m).toMatch(/Run this challenge/);
     expect(m).toMatch(/npx @gemachdao\/gdex-mcp-server init/);
+    // A new user reads setup before the capsule: plugin commands first, each on its own line.
+    expect(m).toMatch(/^\/plugin marketplace add GemachDAO\/gdex-skill$/m);
+    expect(m).toMatch(/^\/plugin install gdex@gemachdao$/m);
+    expect(m.indexOf('/plugin install')).toBeLessThan(m.indexOf('<capsule>'));
     expect(m).not.toMatch(/ref=/);
     expect(Object.keys(body.capsuleContents).sort()).toEqual(['kind', 'rules', 'scenario', 'source', 'v']);
   });
@@ -137,6 +141,7 @@ describe('gdex_make_challenge', () => {
     expect(body.message).toContain(`https://gdex.pro/?ref=${CODE}`);
     expect(body.message).toMatch(/I may earn a share of eligible fees/);
     expect(body.message).not.toMatch(/npx[^\n]*ref/); // no referral code in the install command
+    expect(body.message).not.toMatch(/plugin[^\n]*ref/);
   });
 
   it('refuses to export a partial close', async () => {

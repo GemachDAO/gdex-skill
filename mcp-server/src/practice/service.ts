@@ -16,7 +16,13 @@ import { scenarioById, scenarioForFamily, SCENARIOS, RULES_VERSION, type Scenari
 import { encodeCapsule, INVITE_CODE_RE, type Capsule } from './capsule.js';
 
 export const INVITE_ORIGIN = 'https://gdex.pro';
-export const INSTALL_FALLBACK = 'No GDEX skill yet? Install the GDEX MCP server: `npx @gemachdao/gdex-mcp-server init --client claude` (or cursor, codex, vscode). Details: https://github.com/GemachDAO/gdex-skill. Practice needs no account, wallet or funds.';
+/** Setup for someone without the skill. Shown before the capsule so a new user can act on it in order. */
+export const INSTALL_STEPS = [
+  'New to GDEX? Practice needs no account, wallet or funds. In Claude Code (Node.js 22+), run:',
+  '/plugin marketplace add GemachDAO/gdex-skill',
+  '/plugin install gdex@gemachdao',
+  'Other agents: `npx @gemachdao/gdex-mcp-server init --client cursor` (or codex, vscode). Details: https://github.com/GemachDAO/gdex-skill',
+];
 
 // ── Account selection ──────────────────────────────────────────────────────
 
@@ -169,9 +175,8 @@ export function composeMessage(s: Scenario, capsule: string, opts: { inspired: b
       : 'Source: practice fixture (synthetic tape).',
   ];
   if (opts.senderPlan) lines.push(`Plan to compare against: target ${opts.senderPlan.targetPct}% / stop ${opts.senderPlan.stopPct}%.`);
-  lines.push('Paste this capsule into your GDEX trading skill and say "Run this challenge":', capsule);
-  if (opts.inviteLink) lines.push(`Optional: my GDEX invite ${opts.inviteLink}. I may earn a share of eligible fees if you sign up with it. Running the challenge does not use it.`);
-  lines.push(INSTALL_FALLBACK);
+  lines.push('', ...INSTALL_STEPS, '', 'Then paste this capsule to your agent and say "Run this challenge":', capsule);
+  if (opts.inviteLink) lines.push('', `Optional: my GDEX invite ${opts.inviteLink}. I may earn a share of eligible fees if you sign up with it. Running the challenge does not use it.`);
   return lines.join('\n');
 }
 
