@@ -105,7 +105,7 @@ const mark = await skill.getHlMarkPrice('BTC');
 await skill.hlCreateOrder({
   coin: 'BTC',
   isLong: true,
-  price: String(mark),   // market orders: mark price (the slippage bound); '0' also resolves to mark
+  price: String(mark),   // market orders: the mark price (back-end adds its 5% bound); '0' also resolves to mark
   size: '0.001',         // size in contracts (coin units), not USD; min order value $11
   isMarket: true,
   tpPrice: '110000',     // '' to skip
@@ -124,8 +124,13 @@ await skill.closePerpPosition({ coin: 'BTC', positionAddress: managedEvmAddress,
 \`\`\`
 
 **Key notes:**
-- Leverage is set per order via \`leverage\` on \`hlCreateOrder\` / \`open_perp_position\`; omitted, HL uses its 20x default.
-  The standalone \`hlUpdateLeverage\` / \`set_leverage\` endpoint has returned 404 in live tests.
+- Leverage is set per order via \`leverage\` on \`hlCreateOrder\` / \`open_perp_position\` — always pass it: omitted, the
+  back-end applies the market's MAXIMUM. There is no standalone leverage route (\`hlUpdateLeverage\` / \`set_leverage\` always error).
+- Margin mode is chosen by the back-end: \`dex:ASSET\` and isolated-only markets are isolated, the rest cross.
+- Edit a TP/SL or a resting limit with \`hlModifyOrder\` / \`modify_perp_order\`; add a missing TP or SL to an open position
+  with \`hlAddPositionTpsl\` / \`add_position_tpsl\`; remove one with \`hlCancelOrder\` / \`cancel_perp_order\`.
+- \`closePerpPosition\` / \`close_perp_position\` closes at market (a partial close must leave ≥ $11). A limit close is
+  \`hlCreateOrder\` with \`reduceOnly: true, isMarket: false\`. \`hlPlaceOrder\` is not a limit order: it closes at market.
 - \`hlCloseAll\` / \`close_all_positions\` is unreliable — close per coin with \`closePerpPosition\` / \`close_perp_position\`
 - Writes take \`walletAddress\` = control wallet; position reads take the managed wallet
 - Builder markets (stocks, commodities) use \`dex:ASSET\`, e.g. \`xyz:NVDA\`

@@ -148,7 +148,7 @@
           },
           "leverage": {
             "type": "number",
-            "description": "Leverage multiplier (1–50). Default: 5.",
+            "description": "Leverage multiplier, from 1 up to the market's own maximum. Default: 5.",
             "default": 5
           },
           "takeProfitPrice": {

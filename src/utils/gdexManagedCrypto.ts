@@ -12,6 +12,8 @@ export type HlActionType =
   | 'hl_close_all'
   | 'hl_cancel_order'
   | 'hl_cancel_all_orders'
+  | 'hl_modify_order'
+  | 'hl_add_position_tpsl'
   | 'hl_update_leverage'
   | 'hl_create'
   | 'hl_update'
@@ -305,7 +307,37 @@ export function encodeHlActionData(
       // [string] = [nonce]
       encoded = abi.encode(['string'], [params.nonce]);
       break;
+    case 'hl_modify_order':
+      // [string x6] = [nonce, coin, orderId, price, size, triggerPrice]
+      // ('' keeps the order's current value). Backend decoder.ts `hl_modify_order`.
+      encoded = abi.encode(
+        ['string', 'string', 'string', 'string', 'string', 'string'],
+        [
+          String(params.nonce), String(params.coin), String(params.orderId),
+          String(params.price ?? ''), String(params.size ?? ''), String(params.triggerPrice ?? ''),
+        ],
+      );
+      break;
+    case 'hl_add_position_tpsl':
+      // [string, string, string, string, string, bool, string, string, bool] =
+      //   [nonce, coin, size, tpTriggerPrice, tpPrice, tpIsMarket,
+      //    slTriggerPrice, slPrice, slIsMarket]
+      // Backend decoder.ts `hl_add_position_tpsl`. The bools must be real
+      // booleans: the backend rejects anything else as "Invalid TP/SL order mode".
+      if (typeof params.tpIsMarket !== 'boolean' || typeof params.slIsMarket !== 'boolean') {
+        throw new Error('hl_add_position_tpsl: tpIsMarket and slIsMarket must be booleans');
+      }
+      encoded = abi.encode(
+        ['string', 'string', 'string', 'string', 'string', 'bool', 'string', 'string', 'bool'],
+        [
+          String(params.nonce), String(params.coin), String(params.size ?? ''),
+          String(params.tpTriggerPrice ?? ''), String(params.tpPrice ?? ''), params.tpIsMarket,
+          String(params.slTriggerPrice ?? ''), String(params.slPrice ?? ''), params.slIsMarket,
+        ],
+      );
+      break;
     case 'hl_update_leverage':
+      // No backend route consumes this (there is no /v1/hl/update_leverage); kept for payload compatibility.
       // [string, uint32, bool, string] = [coin, leverage, isCross, nonce]
       encoded = abi.encode(
         ['string', 'uint32', 'bool', 'string'],

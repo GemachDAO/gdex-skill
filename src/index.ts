@@ -47,6 +47,9 @@ import {
   perpWithdraw,
   hlCreateOrder,
   hlPlaceOrder,
+  hlClosePosition,
+  hlModifyOrder,
+  hlAddPositionTpsl,
   resolvePerpClose,
   closePerpPosition,
   hlCloseAll,
@@ -310,6 +313,13 @@ export type {
   PerpWithdrawParams,
   HlCreateOrderParams,
   HlPlaceOrderParams,
+  HlClosePositionParams,
+  HlModifyOrderParams,
+  HlModifyOrderResult,
+  HlOrderState,
+  HlAddPositionTpslParams,
+  HlAddPositionTpslResult,
+  HlCreatedPositionTpsl,
   ClosePerpPositionParams,
   PerpClosePlan,
   ClosePerpPositionResult,
@@ -520,7 +530,9 @@ export {
 } from './utils/errors';
 
 // Perp close helpers (side/size resolved from the live HL position)
-export { resolvePerpClose, closePerpPosition } from './actions/perpTrade';
+export { resolvePerpClose, closePerpPosition, hlClosePosition } from './actions/perpTrade';
+// Edit an open order / add TP/SL to an open position
+export { hlModifyOrder, hlAddPositionTpsl } from './actions/perpTrade';
 
 // Client and auth utilities
 export { GdexApiClient } from './client';
@@ -606,6 +618,11 @@ import type {
   PerpWithdrawParams,
   HlCreateOrderParams,
   HlPlaceOrderParams,
+  HlClosePositionParams,
+  HlModifyOrderParams,
+  HlModifyOrderResult,
+  HlAddPositionTpslParams,
+  HlAddPositionTpslResult,
   ClosePerpPositionParams,
   PerpClosePlan,
   ClosePerpPositionResult,
@@ -941,7 +958,7 @@ export class GdexSkill {
 
   /**
    * Get full HyperLiquid account state (positions, margin, balance).
-   * Reads directly from HyperLiquid L1 — no auth required.
+   * Reads the public HyperLiquid info API — no auth required.
    */
   async getHlAccountState(walletAddress: string): Promise<HlAccountState> {
     return getHlAccountState(walletAddress);
@@ -956,7 +973,9 @@ export class GdexSkill {
   }
 
   /**
-   * Get the mark price for an asset from the HyperLiquid L2 book.
+   * Get the MARK price of a perp market (HyperLiquid `markPx`, read from the
+   * market's own dex for `dex:ASSET` symbols) — not the order-book mid.
+   * Returns 0 when the market is not listed.
    */
   async getHlMarkPrice(coin: string): Promise<number> {
     return getHlMarkPrice(coin);
@@ -998,17 +1017,48 @@ export class GdexSkill {
   }
 
   /**
-   * Place a market or limit order with optional TP/SL on HyperLiquid.
+   * Place a market or limit order with optional TP/SL on HyperLiquid — the way
+   * to open positions and to rest limit orders (a reduce-only limit is a
+   * "limit close"). Always pass `leverage`: it is the only way to set it, and
+   * when omitted the back-end applies the market's maximum.
    */
   async hlCreateOrder(params: HlCreateOrderParams): Promise<HlOrderResult> {
     return hlCreateOrder(this.client, params);
   }
 
   /**
-   * Place a simple order (no TP/SL) on HyperLiquid.
+   * Close (part of) an open position at market, the way gdex.pro's Close
+   * button does (`/v1/hl/place_order`). The back-end reads the live position;
+   * `price` and `isLong` are ignored. Prefer `closePerpPosition`, which
+   * resolves side and size and rejects a missing position first.
+   */
+  async hlClosePosition(params: HlClosePositionParams): Promise<HlResponse> {
+    return hlClosePosition(this.client, params);
+  }
+
+  /**
+   * @deprecated `/v1/hl/place_order` only closes positions at market. Requires
+   * `reduceOnly: true` and throws otherwise. Use `hlClosePosition` to close and
+   * `hlCreateOrder` for limit orders.
    */
   async hlPlaceOrder(params: HlPlaceOrderParams): Promise<HlOrderResult> {
     return hlPlaceOrder(this.client, params);
+  }
+
+  /**
+   * Change an open order: move a TP/SL trigger (`triggerPrice`), re-price a
+   * resting limit (`price`) or change its size. Omitted fields keep their value.
+   */
+  async hlModifyOrder(params: HlModifyOrderParams): Promise<HlModifyOrderResult> {
+    return hlModifyOrder(this.client, params);
+  }
+
+  /**
+   * Add a missing take-profit and/or stop-loss to an open position. Refused
+   * for a side that already has a trigger — move that one with `hlModifyOrder`.
+   */
+  async hlAddPositionTpsl(params: HlAddPositionTpslParams): Promise<HlAddPositionTpslResult> {
+    return hlAddPositionTpsl(this.client, params);
   }
 
   /**
@@ -1020,8 +1070,9 @@ export class GdexSkill {
   }
 
   /**
-   * Close (fully or partially) one perp position. A long is closed with a
-   * sell, a short with a buy — the direction comes from the live position.
+   * Close (fully or partially) one perp position at market. A long is closed
+   * with a sell, a short with a buy — the direction comes from the live
+   * position. A partial close must leave at least $11 of position.
    */
   async closePerpPosition(params: ClosePerpPositionParams): Promise<ClosePerpPositionResult> {
     return closePerpPosition(this.client, params);
@@ -1050,7 +1101,8 @@ export class GdexSkill {
   }
 
   /**
-   * Update leverage for a specific asset on HyperLiquid.
+   * @deprecated Always throws: the back-end has no leverage route. Set leverage
+   * with the `leverage` field of `hlCreateOrder`.
    */
   async hlUpdateLeverage(params: HlUpdateLeverageParams): Promise<HlResponse> {
     return hlUpdateLeverage(this.client, params);
