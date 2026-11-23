@@ -2,7 +2,7 @@
  * HyperLiquid End-to-End Integration Tests
  *
  * Comprehensive coverage of all HL paths through the GdexSkill facade:
- *   1. Read operations  — L1 queries via @gdexsdk/hyper-liquid-trader
+ *   1. Read operations  — HyperLiquid info API over HTTP (src/utils/hlInfo)
  *   2. Write operations — managed-custody computedData flow (encode → sign → encrypt → POST)
  *   3. Direct execution — private-key trading via HyperLiquidTrading SDK
  *   4. HL copy trading  — discovery, session-key reads, computedData writes
@@ -23,6 +23,9 @@ import {
   perpWithdraw,
   hlCreateOrder,
   hlPlaceOrder,
+  hlClosePosition,
+  hlModifyOrder,
+  hlAddPositionTpsl,
   hlCloseAll,
   hlCancelOrder,
   hlCancelAllOrders,
@@ -58,10 +61,12 @@ import {
 import { GdexValidationError } from '../../src/utils/errors';
 import * as crypto from '../../src/utils/gdexManagedCrypto';
 import * as Endpoints from '../../src/client/endpoints';
+import { HlInfoMock, installHlInfoMock } from '../helpers/hlInfoMock';
 
 // ── Mock setup ──────────────────────────────────────────────────────────────
 
 jest.mock('../../src/client');
+jest.mock('../../src/utils/hlInfo');
 jest.mock('../../src/utils/gdexManagedCrypto', () => {
   const actual = jest.requireActual('../../src/utils/gdexManagedCrypto');
   return {
@@ -71,6 +76,11 @@ jest.mock('../../src/utils/gdexManagedCrypto', () => {
 });
 
 const MockedClient = GdexApiClient as jest.MockedClass<typeof GdexApiClient>;
+
+let hlInfo: HlInfoMock;
+beforeEach(() => {
+  hlInfo = installHlInfoMock();
+});
 
 function getMockTrader() {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -85,7 +95,7 @@ const CREDS = {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
-// 1. READ OPERATIONS — HyperLiquid L1 via trader SDK
+// 1. READ OPERATIONS — HyperLiquid info API
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('HyperLiquid E2E — Read Operations', () => {
@@ -98,16 +108,16 @@ describe('HyperLiquid E2E — Read Operations', () => {
     const hl = require('@gdexsdk/hyper-liquid-trader');
     hl.HyperLiquidTrading.mockImplementation(() => hl.__mockTrader);
     const mock = hl.__mockTrader;
-    mock.getAccountState.mockResolvedValue({
+    hlInfo.setState({
       marginSummary: { accountValue: '5000', totalNtlPos: '2000', totalRawUsd: '5000', totalMarginUsed: '200' },
       assetPositions: [],
     });
     mock.getMidPrice.mockResolvedValue(0);
-    mock.getAllMids.mockResolvedValue({});
+    hlInfo.setAllMids({});
     mock.getBalance.mockResolvedValue(0);
-    mock.getOpenOrders.mockResolvedValue([]);
-    mock.getTradeHistory.mockResolvedValue([]);
-    mock.getSpotState.mockResolvedValue(undefined);
+    hlInfo.setOpenOrders([]);
+    hlInfo.setFills([]);
+    
     mock.getTraderLeverageContext.mockResolvedValue(undefined);
     mock.executeCrossPerp.mockResolvedValue({ status: 'ok' });
     mock.executeIsolatedPerp.mockResolvedValue({ status: 'ok' });
@@ -117,7 +127,7 @@ describe('HyperLiquid E2E — Read Operations', () => {
 
   describe('getHlAccountState — Multi-position portfolio', () => {
     it('should parse complex multi-asset portfolio with mixed long/short positions', async () => {
-      getMockTrader().getAccountState.mockResolvedValue({
+      hlInfo.setState({
         marginSummary: {
           accountValue: '25000.75',
           totalNtlPos: '15000',
@@ -196,7 +206,7 @@ describe('HyperLiquid E2E — Read Operations', () => {
     });
 
     it('should handle edge case: zero balance, no positions', async () => {
-      getMockTrader().getAccountState.mockResolvedValue({
+      hlInfo.setState({
         marginSummary: { accountValue: '0', totalNtlPos: '0', totalRawUsd: '0', totalMarginUsed: '0' },
         assetPositions: [],
       });
@@ -208,7 +218,7 @@ describe('HyperLiquid E2E — Read Operations', () => {
     });
 
     it('should handle edge case: null/undefined response from SDK', async () => {
-      getMockTrader().getAccountState.mockResolvedValue(null);
+      hlInfo.setState(null);
 
       const state = await getHlAccountState('0xBroken');
       expect(state.accountValue).toBe('0');
@@ -216,7 +226,7 @@ describe('HyperLiquid E2E — Read Operations', () => {
     });
 
     it('should handle position with zero szi (liquidated)', async () => {
-      getMockTrader().getAccountState.mockResolvedValue({
+      hlInfo.setState({
         marginSummary: { accountValue: '100', totalNtlPos: '0', totalRawUsd: '100', totalMarginUsed: '0' },
         assetPositions: [
           {
@@ -242,7 +252,7 @@ describe('HyperLiquid E2E — Read Operations', () => {
 
   describe('getPerpPositions — Coin filtering', () => {
     beforeEach(() => {
-      getMockTrader().getAccountState.mockResolvedValue({
+      hlInfo.setState({
         marginSummary: { accountValue: '1000', totalNtlPos: '0', totalRawUsd: '1000', totalMarginUsed: '0' },
         assetPositions: [
           { position: { coin: 'BTC', szi: '0.01', entryPx: '100000', leverage: { value: 10 }, liquidationPx: null, unrealizedPnl: '0', marginUsed: '100', positionValue: '1000' } },
@@ -276,39 +286,34 @@ describe('HyperLiquid E2E — Read Operations', () => {
   });
 
   describe('getHlMarkPrice', () => {
-    it('should return numeric price for valid coin', async () => {
-      getMockTrader().getMidPrice.mockResolvedValue(105234.56);
+    it('should return the numeric mark price for a valid coin', async () => {
+      hlInfo.setMark('BTC', '105234.56', '105300');
 
       const price = await getHlMarkPrice('BTC');
       expect(price).toBe(105234.56);
-      expect(getMockTrader().getMidPrice).toHaveBeenCalledWith('BTC');
+      expect(hlInfo.calls).toEqual([{ type: 'metaAndAssetCtxs' }]);
     });
 
-    it('should uppercase the coin before API call', async () => {
-      getMockTrader().getMidPrice.mockResolvedValue(3200);
-
-      await getHlMarkPrice('eth');
-      expect(getMockTrader().getMidPrice).toHaveBeenCalledWith('ETH');
+    it('should match the coin case-insensitively', async () => {
+      hlInfo.setMark('ETH', '3200');
+      expect(await getHlMarkPrice('eth')).toBe(3200);
     });
 
-    it('should return 0 for undefined/null response', async () => {
-      getMockTrader().getMidPrice.mockResolvedValue(undefined);
+    it('should return 0 for an unlisted coin', async () => {
       expect(await getHlMarkPrice('UNKNOWN')).toBe(0);
-
-      getMockTrader().getMidPrice.mockResolvedValue(null);
-      expect(await getHlMarkPrice('NONE')).toBe(0);
     });
   });
 
   describe('getHlUsdcBalance', () => {
-    it('should return balance from trader', async () => {
-      getMockTrader().getBalance.mockResolvedValue(1234.56);
+    it('should return perp account value plus spot USDC', async () => {
+      hlInfo.setState({ marginSummary: { accountValue: '1000' }, assetPositions: [] });
+      hlInfo.setSpot({ balances: [{ coin: 'USDC', total: '234.56' }] });
       const bal = await getHlUsdcBalance('0xWallet');
-      expect(bal).toBe(1234.56);
+      expect(bal).toBeCloseTo(1234.56, 6);
     });
 
-    it('should return 0 for undefined', async () => {
-      getMockTrader().getBalance.mockResolvedValue(undefined);
+    it('should return 0 for an empty account', async () => {
+      hlInfo.setState(null);
       expect(await getHlUsdcBalance('0xEmpty')).toBe(0);
     });
   });
@@ -319,7 +324,7 @@ describe('HyperLiquid E2E — Read Operations', () => {
         { oid: 1, coin: 'BTC', side: 'B', sz: '0.01', limitPx: '99000' },
         { oid: 2, coin: 'ETH', side: 'A', sz: '5', limitPx: '3100' },
       ];
-      getMockTrader().getOpenOrders.mockResolvedValue(orders);
+      hlInfo.setOpenOrders(orders);
 
       const result = await getHlOpenOrders('0xTrader');
       expect(result).toEqual(orders);
@@ -334,15 +339,15 @@ describe('HyperLiquid E2E — Read Operations', () => {
   describe('getHlAllMids', () => {
     it('should return mid prices map', async () => {
       const mids = { BTC: '105000', ETH: '3200', SOL: '155', DOGE: '0.35' };
-      getMockTrader().getAllMids.mockResolvedValue(mids);
+      hlInfo.setAllMids(mids);
 
       const result = await getHlAllMids();
       expect(result).toEqual(mids);
       expect(Object.keys(result!)).toHaveLength(4);
     });
 
-    it('should return undefined when SDK returns undefined', async () => {
-      getMockTrader().getAllMids.mockResolvedValue(undefined);
+    it('should return undefined when HyperLiquid returns nothing', async () => {
+      hlInfo.setAllMids(null);
       expect(await getHlAllMids()).toBeUndefined();
     });
   });
@@ -353,7 +358,7 @@ describe('HyperLiquid E2E — Read Operations', () => {
         { coin: 'BTC', px: '100000', sz: '0.01', side: 'B', time: 1700000000000 },
         { coin: 'BTC', px: '101000', sz: '0.01', side: 'A', time: 1700001000000 },
       ];
-      getMockTrader().getTradeHistory.mockResolvedValue(fills);
+      hlInfo.setFills(fills);
 
       const result = await getHlTradeHistory('0xUser');
       expect(result).toEqual(fills);
@@ -366,15 +371,17 @@ describe('HyperLiquid E2E — Read Operations', () => {
 
   describe('getHlTraderLeverageContext', () => {
     it('should return leverage value', async () => {
-      getMockTrader().getTraderLeverageContext.mockResolvedValue(20);
+      hlInfo.setState({
+        marginSummary: { accountValue: '1' },
+        assetPositions: [{ position: { coin: 'BTC', szi: '1', leverage: { type: 'cross', value: 20 } } }],
+      });
 
       const lev = await getHlTraderLeverageContext('0xTrader', 'btc');
       expect(lev).toBe(20);
-      expect(getMockTrader().getTraderLeverageContext).toHaveBeenCalledWith('0xTrader', 'BTC');
+      expect(hlInfo.calls).toEqual([{ type: 'clearinghouseState', user: '0xTrader' }]);
     });
 
     it('should return undefined for unknown trader/coin', async () => {
-      getMockTrader().getTraderLeverageContext.mockResolvedValue(undefined);
       expect(await getHlTraderLeverageContext('0xUnknown', 'XYZ')).toBeUndefined();
     });
 
@@ -390,7 +397,7 @@ describe('HyperLiquid E2E — Read Operations', () => {
   describe('getHlSpotState', () => {
     it('should return spot state', async () => {
       const state = { balances: [{ coin: 'USDC', hold: '0', total: '1000' }] };
-      getMockTrader().getSpotState.mockResolvedValue(state);
+      hlInfo.setSpot(state);
 
       const result = await getHlSpotState('0xWallet');
       expect(result).toEqual(state);
@@ -662,39 +669,62 @@ describe('HyperLiquid E2E — Managed-Custody Write Operations', () => {
     });
   });
 
-  describe('hlPlaceOrder — Simple order (no TP/SL)', () => {
-    it('should POST to place_order endpoint', async () => {
-      client.post = jest.fn().mockResolvedValue({ isSuccess: true, message: 'ok' });
+  describe('hlPlaceOrder — close at market only (deprecated alias of hlClosePosition)', () => {
+    it('should POST a reduce-only close to the place_order endpoint', async () => {
+      client.post = jest.fn().mockResolvedValue({ isSuccess: true });
 
       await hlPlaceOrder(client, {
-        ...CREDS, coin: 'ARB', isLong: true, price: '1.5', size: '100',
+        ...CREDS, coin: 'ARB', isLong: false, price: '1.5', size: '100', reduceOnly: true,
       });
 
       expect(crypto.buildHlComputedData).toHaveBeenCalledWith(expect.objectContaining({
         action: 'hl_place_order',
-        actionParams: expect.objectContaining({
-          coin: 'ARB',
-          isLong: true,
-          price: '1.5',
-          size: '100',
-          reduceOnly: false,
-        }),
+        actionParams: { coin: 'ARB', isLong: false, price: '1.5', size: '100', reduceOnly: true },
       }));
       expect(client.post).toHaveBeenCalledWith(Endpoints.HL_PLACE_ORDER, {
         computedData: 'mock-encrypted-computed-data',
       });
     });
 
+    it('should refuse a non-reduce-only order (the back-end only closes positions)', async () => {
+      client.post = jest.fn();
+      await expect(hlPlaceOrder(client, {
+        ...CREDS, coin: 'ARB', isLong: true, price: '1.5', size: '100',
+      })).rejects.toThrow(/only closes positions/);
+      expect(client.post).not.toHaveBeenCalled();
+    });
+
     it('should reject missing price', async () => {
       await expect(hlPlaceOrder(client, {
-        ...CREDS, coin: 'BTC', isLong: true, price: '', size: '1',
+        ...CREDS, coin: 'BTC', isLong: true, price: '', size: '1', reduceOnly: true,
       })).rejects.toThrow(GdexValidationError);
     });
 
     it('should reject missing walletAddress', async () => {
       await expect(hlPlaceOrder(client, {
-        ...CREDS, walletAddress: '', coin: 'BTC', isLong: true, price: '100', size: '1',
+        ...CREDS, walletAddress: '', coin: 'BTC', isLong: true, price: '100', size: '1', reduceOnly: true,
       })).rejects.toThrow(GdexValidationError);
+    });
+  });
+
+  describe('hlClosePosition / hlModifyOrder / hlAddPositionTpsl — endpoints', () => {
+    it('should POST each action to its own route with only computedData', async () => {
+      client.post = jest.fn().mockResolvedValue({ isSuccess: true });
+      hlInfo.setMark('BTC', '100000');
+
+      await hlClosePosition(client, { ...CREDS, coin: 'BTC', size: '0.01' });
+      await hlModifyOrder(client, { ...CREDS, coin: 'BTC', orderId: '42', triggerPrice: '95000' });
+      await hlAddPositionTpsl(client, { ...CREDS, coin: 'BTC', tpTriggerPrice: '110000' });
+
+      const body = { computedData: 'mock-encrypted-computed-data' };
+      expect((client.post as jest.Mock).mock.calls).toEqual([
+        [Endpoints.HL_PLACE_ORDER, body],
+        [Endpoints.HL_MODIFY_ORDER, body],
+        [Endpoints.HL_ADD_POSITION_TPSL, body],
+      ]);
+      expect((crypto.buildHlComputedData as jest.Mock).mock.calls.map((c) => c[0].action)).toEqual([
+        'hl_place_order', 'hl_modify_order', 'hl_add_position_tpsl',
+      ]);
     });
   });
 
@@ -765,50 +795,14 @@ describe('HyperLiquid E2E — Managed-Custody Write Operations', () => {
   });
 
   describe('hlUpdateLeverage', () => {
-    it('should set leverage with cross margin', async () => {
-      await hlUpdateLeverage(client, { ...CREDS, coin: 'BTC', leverage: 50, isCross: true });
-
-      expect(crypto.buildHlComputedData).toHaveBeenCalledWith(expect.objectContaining({
-        action: 'hl_update_leverage',
-        actionParams: { coin: 'BTC', leverage: 50, isCross: true },
-      }));
-      expect(client.post).toHaveBeenCalledWith(Endpoints.HL_UPDATE_LEVERAGE, {
-        computedData: 'mock-encrypted-computed-data',
-      });
-    });
-
-    it('should set leverage with isolated margin', async () => {
-      await hlUpdateLeverage(client, { ...CREDS, coin: 'ETH', leverage: 10, isCross: false });
-
-      expect(crypto.buildHlComputedData).toHaveBeenCalledWith(expect.objectContaining({
-        actionParams: expect.objectContaining({ isCross: false }),
-      }));
-    });
-
-    it('should default isCross to true when omitted', async () => {
-      await hlUpdateLeverage(client, { ...CREDS, coin: 'SOL', leverage: 5 });
-
-      expect(crypto.buildHlComputedData).toHaveBeenCalledWith(expect.objectContaining({
-        actionParams: expect.objectContaining({ isCross: true }),
-      }));
-    });
-
-    it('should uppercase coin', async () => {
-      await hlUpdateLeverage(client, { ...CREDS, coin: 'doge', leverage: 3 });
-
-      expect(crypto.buildHlComputedData).toHaveBeenCalledWith(expect.objectContaining({
-        actionParams: expect.objectContaining({ coin: 'DOGE' }),
-      }));
-    });
-
-    it('should reject empty coin', async () => {
-      await expect(hlUpdateLeverage(client, { ...CREDS, coin: '', leverage: 10 }))
+    it('should always throw without signing or posting (no back-end route)', async () => {
+      client.post = jest.fn();
+      await expect(hlUpdateLeverage(client, { ...CREDS, coin: 'BTC', leverage: 50, isCross: true }))
         .rejects.toThrow(GdexValidationError);
-    });
-
-    it('should reject empty walletAddress', async () => {
-      await expect(hlUpdateLeverage(client, { ...CREDS, walletAddress: '', coin: 'BTC', leverage: 10 }))
-        .rejects.toThrow(GdexValidationError);
+      await expect(hlUpdateLeverage(client, { ...CREDS, coin: 'ETH', leverage: 10, isCross: false }))
+        .rejects.toThrow(/hlCreateOrder/);
+      expect(crypto.buildHlComputedData).not.toHaveBeenCalled();
+      expect(client.post).not.toHaveBeenCalled();
     });
   });
 });
@@ -1727,17 +1721,16 @@ describe('HyperLiquid E2E — GdexSkill Facade Integration', () => {
 
     const hl = require('@gdexsdk/hyper-liquid-trader');
     hl.HyperLiquidTrading.mockImplementation(() => hl.__mockTrader);
-    const mock = hl.__mockTrader;
-    mock.getAccountState.mockResolvedValue({
+    hlInfo.setState({
       marginSummary: { accountValue: '10000', totalNtlPos: '5000', totalRawUsd: '10000', totalMarginUsed: '500' },
       assetPositions: [
         { position: { coin: 'BTC', szi: '0.05', entryPx: '100000', leverage: { value: 10 }, liquidationPx: '95000', unrealizedPnl: '100', marginUsed: '500', positionValue: '5000' } },
       ],
     });
-    mock.getMidPrice.mockResolvedValue(105000);
-    mock.getBalance.mockResolvedValue(9500);
-    mock.getOpenOrders.mockResolvedValue([{ oid: 1 }]);
-    mock.getAllMids.mockResolvedValue({ BTC: '105000', ETH: '3200' });
+    hlInfo.setMark('BTC', '105000');
+    hlInfo.setSpot({ balances: [{ coin: 'USDC', total: '500' }] });
+    hlInfo.setOpenOrders([{ oid: 1 }]);
+    hlInfo.setAllMids({ BTC: '105000', ETH: '3200' });
   });
 
   it('skill.getHlAccountState() should return parsed account state', async () => {
@@ -1760,7 +1753,7 @@ describe('HyperLiquid E2E — GdexSkill Facade Integration', () => {
 
   it('skill.getHlUsdcBalance() should return balance', async () => {
     const bal = await skill.getHlUsdcBalance('0xWallet');
-    expect(bal).toBe(9500);
+    expect(bal).toBe(10500);
   });
 
   it('skill.getHlOpenOrders() should return orders', async () => {
@@ -1802,7 +1795,8 @@ describe('HyperLiquid E2E — Endpoint Constants', () => {
     expect(Endpoints.HL_PLACE_ORDER).toBe('/v1/hl/place_order');
     expect(Endpoints.HL_CLOSE_ALL).toBe('/v1/hl/close_all_positions');
     expect(Endpoints.HL_CANCEL_ORDER).toBe('/v1/hl/cancel_order');
-    expect(Endpoints.HL_UPDATE_LEVERAGE).toBe('/v1/hl/update_leverage');
+    expect(Endpoints.HL_MODIFY_ORDER).toBe('/v1/hl/modify_order');
+    expect(Endpoints.HL_ADD_POSITION_TPSL).toBe('/v1/hl/add_position_tpsl');
     expect(Endpoints.HL_GBOT_USDC_BALANCE).toBe('/v1/hl/gbot_usdc_balance');
     expect(Endpoints.HL_USER_STATS).toBe('/v1/hl/user_stats');
   });

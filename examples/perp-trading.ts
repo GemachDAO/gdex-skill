@@ -58,20 +58,6 @@ async function main() {
   const btcPrice = await skill.getHlMarkPrice('BTC');
   console.log(`\n📈 BTC Mark Price: $${btcPrice.toLocaleString()}`);
 
-  // ── Set leverage for BTC ──────────────────────────────────────────────────
-  console.log('\n⚙️  Setting BTC leverage to 40x cross...');
-  try {
-    const leverageResult = await skill.hlUpdateLeverage({
-      ...creds,
-      coin: 'BTC',
-      leverage: 40,
-      isCross: true,
-    });
-    console.log('✅ Leverage:', leverageResult.message);
-  } catch (err) {
-    console.warn('⚠️  Leverage:', (err as Error).message);
-  }
-
   // ── Open BTC long with TP/SL ──────────────────────────────────────────────
   const tpPrice = (btcPrice * 1.05).toFixed(0);  // +5%
   const slPrice = (btcPrice * 0.97).toFixed(0);  // -3%
@@ -86,6 +72,7 @@ async function main() {
       isMarket: true,
       tpPrice,
       slPrice,
+      leverage: 5, // set with the order — there is no separate leverage call; omitted = the market's maximum
     });
     console.log('✅ Order:', order.message, order.orderId ? `(ID: ${order.orderId})` : '');
   } catch (err) {

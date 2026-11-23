@@ -1,7 +1,8 @@
 /**
  * E2E tests for perp trade tools (perpTrade.ts)
  * Tools: open_perp_position, place_perp_order, close_perp_position, close_all_positions,
- *        cancel_perp_order, cancel_all_perp_orders, set_leverage, perp_deposit, perp_withdraw
+ *        cancel_perp_order, cancel_all_perp_orders, modify_perp_order, add_position_tpsl,
+ *        set_leverage, perp_deposit, perp_withdraw
  */
 import { jest, describe, it, expect, beforeAll, beforeEach } from '@jest/globals';
 import { createMockSdk, createMockServer, expectMcpSuccess, expectMcpError } from '../helpers.js';
@@ -39,7 +40,7 @@ const closeCreds = {
   sessionPrivateKey: '0x' + 'a'.repeat(64),
 };
 
-/** Stub GdexApiClient: clearinghouse reads per dex, captured create_order posts. */
+/** Stub GdexApiClient: clearinghouse reads per dex, captured place_order posts. */
 function makeHlClient(byDex: Record<string, Array<{ coin: string; szi: string }>>) {
   const toAssetPositions = (list: Array<{ coin: string; szi: string }>) =>
     list.map((position) => ({ type: 'oneWay', position }));
@@ -62,17 +63,18 @@ function makeHlClient(byDex: Record<string, Array<{ coin: string; szi: string }>
   };
 }
 
-/** Decrypt + ABI-decode the hl_create_order payload the client posted. */
-function decodeCreateOrder(client: ReturnType<typeof makeHlClient>) {
+/** Decrypt + ABI-decode the hl_place_order (close) payload the client posted. */
+function decodeCloseOrder(client: ReturnType<typeof makeHlClient>) {
   expect(client.post).toHaveBeenCalledTimes(1);
   const [path, body] = client.post.mock.calls[0] as [string, any];
-  expect(path).toBe('/v1/hl/create_order');
+  expect(path).toBe('/v1/hl/place_order');
+  expect(Object.keys(body)).toEqual(['computedData']);
   const { data } = JSON.parse(decryptGdexComputedData(body.computedData, closeCreds.apiKey));
-  const [coin, isLong, price, size, reduceOnly, , tpPrice, slPrice, isMarket] = AbiCoder.defaultAbiCoder().decode(
-    ['string', 'bool', 'string', 'string', 'bool', 'string', 'string', 'string', 'bool'],
+  const [coin, isLong, price, size, reduceOnly] = AbiCoder.defaultAbiCoder().decode(
+    ['string', 'bool', 'string', 'string', 'bool', 'string'],
     '0x' + data,
   );
-  return { coin, isLong, price, size, reduceOnly, tpPrice, slPrice, isMarket };
+  return { coin, isLong, price, size, reduceOnly };
 }
 
 describe('Perp Trade Tools', () => {
@@ -87,7 +89,7 @@ describe('Perp Trade Tools', () => {
   });
 
   describe('registration', () => {
-    it('should register all 9 perp trade tools', () => {
+    it('should register all 11 perp trade tools', () => {
       const tools = getTools();
       expect(tools.has('open_perp_position')).toBe(true);
       expect(tools.has('place_perp_order')).toBe(true);
@@ -98,12 +100,16 @@ describe('Perp Trade Tools', () => {
       expect(tools.has('set_leverage')).toBe(true);
       expect(tools.has('perp_deposit')).toBe(true);
       expect(tools.has('perp_withdraw')).toBe(true);
-      expect(tools.size).toBe(9);
+      expect(tools.has('modify_perp_order')).toBe(true);
+      expect(tools.has('add_position_tpsl')).toBe(true);
+      expect(tools.size).toBe(11);
     });
 
     it('should flag the known-broken backend endpoints in descriptions', () => {
       expect(getTools().get('close_all_positions')!.description).toMatch(/unreliable/i);
-      expect(getTools().get('set_leverage')!.description).toMatch(/404/);
+      expect(getTools().get('set_leverage')!.description).toMatch(/always returns an error/);
+      expect(getTools().get('open_perp_position')!.description).toMatch(/omitted, the back-end applies the market's MAXIMUM/);
+      expect(getTools().get('open_perp_position')!.description).not.toMatch(/20x/);
     });
   });
 
@@ -155,15 +161,14 @@ describe('Perp Trade Tools', () => {
   });
 
   describe('place_perp_order', () => {
-    it('should send limit orders (isMarket=false) via hlPlaceOrder without isMarket', async () => {
-      mockSdk.hlPlaceOrder.mockResolvedValue({ orderId: '777' });
+    it('should send limit orders (isMarket=false) via hlCreateOrder, never place_order', async () => {
+      mockSdk.hlCreateOrder.mockResolvedValue({ isSuccess: true });
       const tool = getTools().get('place_perp_order')!;
-      const params = { ...hlCreds, coin: 'SOL', isLong: true, price: '100', size: '5', reduceOnly: true, isMarket: false };
+      const params = { ...hlCreds, coin: 'SOL', isLong: true, price: '100', size: '5', reduceOnly: false, isMarket: false, leverage: 4 };
       const result = await expectMcpSuccess(tool.handler, params);
-      expect(result).toEqual({ orderId: '777' });
-      const { isMarket: _drop, ...expected } = params;
-      expect(mockSdk.hlPlaceOrder).toHaveBeenCalledWith(expected);
-      expect(mockSdk.hlCreateOrder).not.toHaveBeenCalled();
+      expect(result).toEqual({ isSuccess: true });
+      expect(mockSdk.hlCreateOrder).toHaveBeenCalledWith({ ...params, isMarket: false, tpPrice: '', slPrice: '' });
+      expect(mockSdk.hlPlaceOrder).not.toHaveBeenCalled();
     });
 
     it('should route market orders (isMarket=true) via hlCreateOrder so intent is kept', async () => {
@@ -197,9 +202,8 @@ describe('Perp Trade Tools', () => {
         coin: 'BTC', positionSide: 'long', closeSide: 'sell', isLong: false,
         size: '0.0123', positionSize: '0.0123', remainingSize: '0', isFullClose: true,
       }));
-      expect(decodeCreateOrder(client)).toEqual({
-        coin: 'BTC', isLong: false, price: '100000', size: '0.0123',
-        reduceOnly: true, tpPrice: '', slPrice: '', isMarket: true,
+      expect(decodeCloseOrder(client)).toEqual({
+        coin: 'BTC', isLong: false, price: '100000', size: '0.0123', reduceOnly: true,
       });
     });
 
@@ -208,8 +212,8 @@ describe('Perp Trade Tools', () => {
       const tool = getTools().get('close_perp_position')!;
       const result = await expectMcpSuccess(tool.handler, { ...closeCreds, coin: 'eth', price: '3000' });
       expect(result).toEqual(expect.objectContaining({ positionSide: 'short', closeSide: 'buy', size: '2.5' }));
-      expect(decodeCreateOrder(client)).toEqual(expect.objectContaining({
-        coin: 'ETH', isLong: true, size: '2.5', reduceOnly: true, isMarket: true,
+      expect(decodeCloseOrder(client)).toEqual(expect.objectContaining({
+        coin: 'ETH', isLong: true, size: '2.5', reduceOnly: true,
       }));
     });
 
@@ -220,7 +224,7 @@ describe('Perp Trade Tools', () => {
       expect(result).toEqual(expect.objectContaining({
         closeSide: 'buy', size: '0.1', remainingSize: '0.2', isFullClose: false,
       }));
-      expect(decodeCreateOrder(client)).toEqual(expect.objectContaining({ isLong: true, size: '0.1' }));
+      expect(decodeCloseOrder(client)).toEqual(expect.objectContaining({ isLong: true, size: '0.1' }));
     });
 
     it('should reject a flat position and place no order', async () => {
@@ -243,7 +247,7 @@ describe('Perp Trade Tools', () => {
         address: closeCreds.walletAddress, dex: 'xyz',
       });
       expect(result).toEqual(expect.objectContaining({ coin: 'xyz:TSLA', dex: 'xyz', closeSide: 'buy', size: '4' }));
-      expect(decodeCreateOrder(client)).toEqual(expect.objectContaining({ coin: 'xyz:TSLA', isLong: true, size: '4' }));
+      expect(decodeCloseOrder(client)).toEqual(expect.objectContaining({ coin: 'xyz:TSLA', isLong: true, size: '4' }));
     });
 
     it('should reject a bare coin open on several builder DEXes', async () => {
@@ -290,14 +294,32 @@ describe('Perp Trade Tools', () => {
     });
   });
 
-  describe('set_leverage', () => {
-    it('should call hlUpdateLeverage', async () => {
-      mockSdk.hlUpdateLeverage.mockResolvedValue({ leverage: 10 });
-      const tool = getTools().get('set_leverage')!;
-      const params = { ...hlCreds, coin: 'BTC', leverage: 10, isCross: true };
+  describe('modify_perp_order', () => {
+    it('should call hlModifyOrder with the params as given', async () => {
+      mockSdk.hlModifyOrder.mockResolvedValue({ isSuccess: true, retData: { previousOrderId: 1, orderId: 2 } });
+      const tool = getTools().get('modify_perp_order')!;
+      const params = { ...hlCreds, coin: 'BTC', orderId: '1', triggerPrice: '95000' };
       const result = await expectMcpSuccess(tool.handler, params);
-      expect(result).toEqual({ leverage: 10 });
-      expect(mockSdk.hlUpdateLeverage).toHaveBeenCalledWith(params);
+      expect(result).toEqual({ isSuccess: true, retData: { previousOrderId: 1, orderId: 2 } });
+      expect(mockSdk.hlModifyOrder).toHaveBeenCalledWith(params);
+    });
+  });
+
+  describe('add_position_tpsl', () => {
+    it('should call hlAddPositionTpsl with the params as given', async () => {
+      mockSdk.hlAddPositionTpsl.mockResolvedValue({ isSuccess: true, retData: { createdOrders: [] } });
+      const tool = getTools().get('add_position_tpsl')!;
+      const params = { ...hlCreds, coin: 'xyz:TSLA', slTriggerPrice: '240' };
+      await expectMcpSuccess(tool.handler, params);
+      expect(mockSdk.hlAddPositionTpsl).toHaveBeenCalledWith(params);
+    });
+  });
+
+  describe('set_leverage', () => {
+    it('should surface the SDK error (there is no leverage route)', async () => {
+      mockSdk.hlUpdateLeverage.mockRejectedValue(new Error('hlUpdateLeverage is not available'));
+      const tool = getTools().get('set_leverage')!;
+      await expectMcpError(tool.handler, { ...hlCreds, coin: 'BTC', leverage: 10, isCross: true }, 'hlUpdateLeverage is not available');
     });
   });
 

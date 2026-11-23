@@ -18,8 +18,10 @@ import { hlSwapCollateral } from '../../src/actions/hlExtras';
 import { GdexValidationError } from '../../src/utils/errors';
 import { decryptGdexComputedData, generateGdexSessionKeyPair } from '../../src/utils/gdexManagedCrypto';
 import { validateHlPrice, validateHlSize, parseRawAmount, parseIntegerPercent } from '../../src/utils/validation';
+import { HlInfoMock, installHlInfoMock } from '../helpers/hlInfoMock';
 
 jest.mock('../../src/client');
+jest.mock('../../src/utils/hlInfo');
 const MockedClient = GdexApiClient as jest.MockedClass<typeof GdexApiClient>;
 
 const apiKey = '9b4e1c73-6a2f-4d88-b5c9-3e7a2f1d6c54';
@@ -43,14 +45,15 @@ function getMockTrader() {
 
 describe('strict numeric inputs', () => {
   let client: jest.Mocked<GdexApiClient>;
+  let hlInfo: HlInfoMock;
 
   beforeEach(() => {
     client = new MockedClient() as jest.Mocked<GdexApiClient>;
     client.post = jest.fn().mockResolvedValue({ isSuccess: true });
     client.get = jest.fn().mockResolvedValue({});
+    hlInfo = installHlInfoMock();
     const hl = require('@gdexsdk/hyper-liquid-trader');
     hl.HyperLiquidTrading.mockImplementation(() => hl.__mockTrader);
-    hl.__mockTrader.getMidPrice.mockResolvedValue(0);
     hl.__mockTrader.executeCrossPerp.mockResolvedValue({ status: 'ok' });
   });
 
@@ -194,13 +197,13 @@ describe('strict numeric inputs', () => {
 
     it.each(BAD_DECIMAL.filter((v) => v !== '0'))('hlCreateOrder rejects price %j before any fetch or signing', async (price) => {
       await expect(hlCreateOrder(client, { ...creds, coin: 'BTC', isLong: true, price, size: '0.01', isMarket: false })).rejects.toBeInstanceOf(GdexValidationError);
-      expect(getMockTrader().getMidPrice).not.toHaveBeenCalled();
+      expect(hlInfo.calls).toEqual([]);
       expect(client.post).not.toHaveBeenCalled();
     });
 
     it('rejects a zero limit price but accepts the market-order 0 placeholder', async () => {
       await expect(hlCreateOrder(client, { ...creds, coin: 'BTC', isLong: true, price: '0', size: '0.01', isMarket: false })).rejects.toBeInstanceOf(GdexValidationError);
-      getMockTrader().getMidPrice.mockResolvedValue(100000);
+      hlInfo.setMark('BTC', '100000');
       await hlCreateOrder(client, { ...creds, coin: 'BTC', isLong: true, price: '0', size: '0.01', isMarket: true });
       expect(decodePosted(client, ['string', 'bool', 'string', 'string', 'bool', 'string', 'string', 'string', 'bool'])[2]).toBe('100000');
     });

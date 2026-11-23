@@ -30,9 +30,10 @@ export function registerPerpReadTools(server: McpServer): void {
 
   server.tool(
     'get_mark_price',
-    'Get the current mark price for a HyperLiquid asset. No auth required.',
+    "Get the current MARK price (HyperLiquid markPx, not the order-book mid) for a perp market. Builder-DEX " +
+      "markets as 'dex:ASSET', e.g. 'xyz:NVDA'. Returns 0 for an unlisted market. No auth required.",
     {
-      coin: z.string().describe("Asset symbol, e.g. 'BTC', 'ETH'"),
+      coin: z.string().describe("Asset symbol, e.g. 'BTC', 'ETH', 'xyz:NVDA'"),
     },
     async ({ coin }) => handleToolCall(async () => {
       const sdk = getSdk();

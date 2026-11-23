@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Hyperliquid perp order surface, matched to the back-end and gdex.pro)
+
+- **`hlModifyOrder`** (`POST /v1/hl/modify_order`, MCP `modify_perp_order`): change an open order. Send `triggerPrice` to move a TP/SL, `price` to re-price a resting limit, `size` to change the remaining size; fields left out keep their value. HyperLiquid replaces the order, so the result carries the new `orderId` and the `previousOrderId`.
+- **`hlAddPositionTpsl`** (`POST /v1/hl/add_position_tpsl`, MCP `add_position_tpsl`): add a missing take-profit and/or stop-loss to an open position. It only adds: a side that already has a trigger is refused (move it with `hlModifyOrder`, remove it with `hlCancelOrder`).
+- **`hlClosePosition`**: the gdex.pro Close button (`POST /v1/hl/place_order`) under an honest name. Closes `size` of the live position at market.
+- Both new actions are validated before anything is signed (positive plain decimals, numeric order id, at least one field, an execution price needs its trigger), and their ABI encodings are pinned byte-for-byte to the back-end decoder in tests.
+
+### Changed
+
+- **`hlPlaceOrder` now refuses anything that is not `reduceOnly: true`**, before signing. It was documented as a simple limit order, but `/v1/hl/place_order` only closes positions: the back-end rejects non-reduce-only orders, ignores the `price` and `isLong` sent, and closes at market. The method is kept as a deprecated alias of `hlClosePosition`. For a limit order (including a reduce-only limit close) use `hlCreateOrder` with `isMarket: false`.
+- **`hlUpdateLeverage` now throws a clear error instead of posting.** The back-end has no `/v1/hl/update_leverage` route. Leverage is set with the `leverage` field of `hlCreateOrder`.
+- **`closePerpPosition` closes through `/v1/hl/place_order`**, as gdex.pro does, instead of a reduce-only `create_order`. The back-end sets leverage on every `create_order` (the market's maximum when none is sent), so the old path changed the leverage of the position it was closing. Side and size are still resolved from the live position first. `ClosePerpPositionParams.price` is ignored by the back-end.
+- **`getHlMarkPrice` returns the mark price** (HyperLiquid `markPx` from `metaAndAssetCtxs`, read from the market's own dex for `dex:ASSET` symbols). It used to return the order-book mid, and could not price builder-DEX markets. `hlCreateOrder` with `price: '0'` therefore now sends the mark.
+- **HyperLiquid reads no longer load `@gdexsdk/hyper-liquid-trader`.** `getHlMarkPrice`, `getHlAccountState`, `getPerpPositions`, `getHlUsdcBalance`, `getHlOpenOrders`, `getHlAllMids`, `getHlTradeHistory`, `getHlSpotState` and `getHlTraderLeverageContext` are plain HTTP requests to the HyperLiquid info API. A failed read now throws `GdexNetworkError`; before, it was logged and returned as an empty account, a zero price or an empty list.
+- MCP `place_perp_order` sends limit orders through `create_order` (they used to go to `place_order`, which cannot rest a limit) and accepts `leverage`. `set_leverage` is marked deprecated and always errors.
+
+### Fixed
+
+- **`closePerpPosition`, market `hlCreateOrder` and every HyperLiquid read failed on Node 20** with `require() of ES Module …/@noble/hashes/sha3.js … not supported`: reads went through a CommonJS package that `require()`s an ESM-only dependency. They no longer touch it. Direct private-key execution (`hlExecuteCrossPerp`, `hlExecuteIsolatedPerp`, `hlExecuteSpot`, `hlDirectCancelOrder`, `createHlTrader`) still needs it and now fails with an error that names the Node requirement (22.12 or newer).
+- **Docs said an omitted `leverage` means "HL's 20x default".** The back-end applies the market's maximum leverage when the field is omitted, on reduce-only orders too. The docs, types and tool descriptions now say so and tell callers to always pass it. Also corrected: the leverage range (1 up to each market's maximum, not 1–50), "xyz stock perps open at 3× isolated" (builder markets are always isolated, at the leverage sent), the "Simple Order" example that used `hlPlaceOrder` as a limit order, and "3% below mid" on a market close.
+- `gdex-perp-trading` skill: new sections on limit entries and the mark rule, limit close, cross vs isolated, editing / adding / removing TP/SL on an open position, how gdex.pro's percent TP/SL maps to price, and reusing the session (sign-in is limited to 10 per 15 minutes per account).
+
 ### Changed
 
 - **Challenge messages put setup first.** A shared challenge now lists how to install before the capsule: the Claude Code plugin commands (`/plugin marketplace add GemachDAO/gdex-skill`, `/plugin install gdex@gemachdao`), then `npx @gemachdao/gdex-mcp-server init` for other agents. Before, the install line came last, after a capsule a new user could not run yet.

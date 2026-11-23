@@ -103,9 +103,8 @@ async function outcomeMid() {
 async function perpOpen() {
   const px = state.prices.BTC;
   const size = (13 / px).toFixed(5); // ~$13 notional, clears the $11 min on close
-  try { await skill.hlUpdateLeverage({ ...creds, coin: 'BTC', leverage: 10, isCross: true }); } catch (_) {}
   logEvent('perp', `Open LONG BTC ~$13 · ${size} @ $${px.toLocaleString()}`, { live: true });
-  const r = await skill.hlCreateOrder({ ...creds, coin: 'BTC', isLong: true, price: String(px), size, isMarket: true });
+  const r = await skill.hlCreateOrder({ ...creds, coin: 'BTC', isLong: true, price: String(px), size, isMarket: true, leverage: 10 });
   await sleep(4000); await refreshState();
   const p = state.perp.positions.find((x) => x.coin === 'BTC');
   logEvent('perp', p ? `Position open · ${p.coin} ${p.side.toUpperCase()} $${p.notional.toFixed(2)} @ $${p.entry.toLocaleString()}` : 'Open sent', { live: true, ok: !!r?.isSuccess });
@@ -119,7 +118,7 @@ async function perpClose() {
   const pos = (ch.assetPositions || []).find((a) => a.position.coin === 'BTC');
   const szi = Number(pos.position.szi); const size = String(Math.abs(szi));
   logEvent('perp', `Close ${p.coin} ${p.side.toUpperCase()} · PnL ${p.pnl >= 0 ? '+' : ''}$${p.pnl.toFixed(2)}`, { live: true });
-  const r = await skill.hlCreateOrder({ ...creds, coin: 'BTC', isLong: szi < 0, price: String(state.prices.BTC), size, isMarket: true, reduceOnly: true });
+  const r = await skill.hlCreateOrder({ ...creds, coin: 'BTC', isLong: szi < 0, price: String(state.prices.BTC), size, isMarket: true, reduceOnly: true, leverage: 10 });
   await sleep(4000); await refreshState();
   logEvent('perp', 'Position closed', { live: true, ok: !!r?.isSuccess });
   return getState();
@@ -129,7 +128,7 @@ async function perpLimit() {
   const lpx = Math.round(px * 0.95);
   const size = (12 / lpx).toFixed(5); // size*price >= $11 min
   logEvent('perp', `Place LONG limit BTC · ${size} @ $${lpx.toLocaleString()}`, { live: true });
-  const r = await skill.hlCreateOrder({ ...creds, coin: 'BTC', isLong: true, price: String(lpx), size, isMarket: false });
+  const r = await skill.hlCreateOrder({ ...creds, coin: 'BTC', isLong: true, price: String(lpx), size, isMarket: false, leverage: 10 });
   await sleep(3000); await refreshState();
   state.perp.limitOid = state.perp.openOrders[0]?.oid ?? (JSON.stringify(r || {}).match(/"oid":(\d+)/) || [])[1] ?? null;
   logEvent('perp', `Limit order resting · oid ${state.perp.limitOid ?? '—'}`, { live: true, ok: !!r?.isSuccess });

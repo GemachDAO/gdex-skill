@@ -148,7 +148,7 @@ cite figures that skill scripts printed. Every script run is logged with a sha25
 
 ## 🔌 MCP Server
 
-The GDEX MCP server exposes **162 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
+The GDEX MCP server exposes **164 tools** — full trading execution + SDK documentation — as [Model Context Protocol](https://modelcontextprotocol.io) tools. Any MCP-compatible AI agent can trade autonomously.
 
 **Source code:** the server is implemented in this repository, in [`mcp-server/`](mcp-server). The entry point is [`mcp-server/src/index.ts`](mcp-server/src/index.ts) and the tool handlers are in [`mcp-server/src/tools/`](mcp-server/src/tools). The npm package `@gemachdao/gdex-mcp-server` is built from that directory by the release workflow. See [`mcp-server/README.md`](mcp-server/README.md) to run it from source or with the repo's `Dockerfile`.
 
@@ -228,7 +228,7 @@ Add to your client's MCP config:
 | `GDEX_API_KEY` | GDEX API key — auto-authenticates on startup | Optional |
 | `GDEX_API_URL` | Override API base URL (default: `https://trade-api.gemach.io/v1`) | Optional |
 
-### MCP Execution Tools (148 tools)
+### MCP Execution Tools (155 tools)
 
 | Category | Tools | Description |
 |----------|-------|-------------|
@@ -236,7 +236,7 @@ Add to your client's MCP config:
 | **Replay & challenges** | `gdex_replay_trade`, `gdex_make_challenge`, `gdex_run_challenge`, `gdex_invite`, `gdex_feature_metrics` | Read-only replay of a Hyperliquid perp trade from fills, order history, funding and fresh reads; preview-then-copy practice challenges (synthetic fixtures, no private data); deterministic practice scoring with no account; the user's existing GDEX invite. None can trade or apply a referral. Local aggregate usage counts (no trade data). Flags: `GDEX_PRACTICE=off`, `GDEX_INVITES=off`, `GDEX_METRICS=off` |
 | **Auth** | `gdex_connect`, `gdex_accounts`, `gdex_disconnect`, `auth_login`, `generate_session_keypair`, `managed_sign_in`, `build_sign_in_payload` | API key login, session keys, managed custody sign-in |
 | **Spot Trading** | `buy_token`, `sell_token` | Buy/sell on Solana, Sui and 10 EVM chains (Ethereum, Base, Arbitrum, BSC and more) |
-| **Perp Trading** | `open_perp_position`, `place_perp_order`, `close_perp_position`, `close_all_positions`, `cancel_perp_order`, `cancel_all_perp_orders`, `set_leverage`, `perp_deposit`, `perp_withdraw` | Full HyperLiquid perpetual futures — long/short, TP/SL; leverage up to each market's cap (40x on core BTC) |
+| **Perp Trading** | `open_perp_position`, `place_perp_order`, `close_perp_position`, `close_all_positions`, `cancel_perp_order`, `cancel_all_perp_orders`, `modify_perp_order`, `add_position_tpsl`, `set_leverage` (deprecated, always errors), `perp_deposit`, `perp_withdraw` | Full HyperLiquid perpetual futures — long/short, market and limit, TP/SL on entry and edited or added later; leverage up to each market's cap (40x on core BTC) |
 | **Perp Data** | `get_account_state`, `get_perp_positions`, `get_mark_price`, `get_all_mid_prices`, `get_usdc_balance`, `get_hl_open_orders`, `get_hl_trade_history`, `get_hl_spot_state`, `get_trader_leverage` | Real-time HyperLiquid account, positions, prices |
 | **Direct Execution** | `execute_cross_perp`, `execute_isolated_perp`, `execute_spot`, `direct_cancel_order` | Private-key execution — cross/isolated margin, spot, cancel |
 | **Limit Orders** | `limit_buy`, `limit_sell`, `update_order`, `get_limit_orders` | Limit buy/sell with TP/SL, order management |
@@ -628,18 +628,18 @@ await skill.sellToken({ chain: 'solana', tokenAddress: '...', amount: '50%' });
 Every perp write takes the managed-custody credentials `{ apiKey, walletAddress, sessionPrivateKey }`,
 where `walletAddress` is the **control** wallet that signed in (MCP: pass `accountRef` from `gdex_connect`).
 
-#### `hlCreateOrder(params)` — open (or add to) a position
+#### `hlCreateOrder(params)` — open a position, or rest a limit order
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `coin` | `string` | | Asset symbol (e.g., `'BTC'`, `'ETH'`, builder markets as `'xyz:NVDA'`) |
 | `isLong` | `boolean` | | `true` long, `false` short |
-| `price` | `string` | | Limit price; for market orders the mark price (`'0'` resolves to mark) |
+| `price` | `string` | | Limit price; for market orders the mark price (`'0'` resolves to mark). A non-reduce-only limit at or through the mark is refused |
 | `size` | `string` | | Size in contracts (coin units), not USD. Min order value $11 |
 | `isMarket` | `boolean` | `true` | Market or limit |
-| `leverage` | `number` | HL default (20×) | 1–50×, sent as a top-level field with the order |
-| `tpPrice` / `slPrice` | `string` | `''` | Optional TP / SL price (`''` to skip) |
-| `reduceOnly` | `boolean` | `false` | Only reduce an existing position |
+| `leverage` | `number` | the market's **maximum** | 1 up to the market's own maximum (higher is clamped). Sent as a top-level field with the order — the only way to set leverage. Always pass it |
+| `tpPrice` / `slPrice` | `string` | `''` | Optional TP / SL price (`''` to skip). Set both or neither; they become market triggers |
+| `reduceOnly` | `boolean` | `false` | Only reduce an existing position. With `isMarket: false` it rests as a limit close |
 
 ```typescript
 const pos = await skill.hlCreateOrder({
@@ -649,15 +649,39 @@ const pos = await skill.hlCreateOrder({
 });
 ```
 
+Margin mode is chosen by the back-end: builder markets (`dex:ASSET`) and isolated-only assets are isolated, the rest cross.
+The response is `{ isSuccess: true }` with no order id.
+
 #### `closePerpPosition(params)`
 
-Reads the live position and closes it with a reduce-only market order on the opposite side.
+Reads the live position and closes it at market, the way the gdex.pro Close button does (`/v1/hl/place_order`).
+Leverage and margin mode are left unchanged. A partial close must leave at least $11 of position.
+`hlClosePosition({ coin, size })` is the same call without the position check. For a resting limit close use
+`hlCreateOrder` with `reduceOnly: true, isMarket: false`. `hlPlaceOrder` is a deprecated alias of the market
+close (it requires `reduceOnly: true`); it is not a limit order.
 
 ```typescript
 const creds = { apiKey, walletAddress, sessionPrivateKey };
 await skill.closePerpPosition({ coin: 'BTC', positionAddress: managedEvmAddress, ...creds });                // close 100%
 await skill.closePerpPosition({ coin: 'ETH', size: '0.05', positionAddress: managedEvmAddress, ...creds }); // partial close
 ```
+
+#### `hlModifyOrder(params)` / `hlAddPositionTpsl(params)` — edit orders, add TP/SL to an open position
+
+```typescript
+// Move a stop or target (HyperLiquid replaces the order: keep retData.orderId)
+await skill.hlModifyOrder({ coin: 'BTC', orderId: slOrderId, triggerPrice: '96000', ...creds });
+// Re-price a resting limit
+await skill.hlModifyOrder({ coin: 'BTC', orderId: limitOrderId, price: '99500', ...creds });
+// Add a missing TP and/or SL to an open position (market triggers, whole position)
+await skill.hlAddPositionTpsl({ coin: 'BTC', tpTriggerPrice: '110000', slTriggerPrice: '95000', ...creds });
+// Remove one
+await skill.hlCancelOrder({ coin: 'BTC', orderId: tpOrderId, ...creds });
+```
+
+`hlModifyOrder` keeps every field you leave out and needs at least one of `price`, `size`, `triggerPrice`.
+`hlAddPositionTpsl` only adds: a side that already has a trigger is refused (use `hlModifyOrder`), as is a coin
+with no open position. `hlUpdateLeverage` always throws — there is no leverage route; use `leverage` on `hlCreateOrder`.
 
 #### Other perp methods
 
@@ -681,6 +705,9 @@ const positions = await skill.getPerpPositions({ walletAddress: managedEvmAddres
 #### Direct HyperLiquid Execution (via `@gdexsdk/hyper-liquid-trader`)
 
 For direct trading on HyperLiquid L1 without managed custody — use your own private key:
+
+> Only these direct-execution methods load `@gdexsdk/hyper-liquid-trader`, which needs Node 22.12 or newer.
+> Reads and managed-custody orders are plain HTTP and do not.
 
 ```typescript
 // Cross-margin perpetual trade
@@ -1275,11 +1302,12 @@ Agent SDK                              Backend
 | `hl_deposit` | `['uint64', 'address', 'uint256', 'string']` | `[chainId, tokenAddress, amount, nonce]` |
 | `hl_withdraw` | `['string', 'string']` | `[amount, nonce]` |
 | `hl_create_order` | `['string', 'bool', 'string', 'string', 'bool', 'string', 'string', 'string', 'bool']` | `[coin, isLong, price, size, reduceOnly, nonce, tpPrice, slPrice, isMarket]` |
-| `hl_place_order` | `['string', 'bool', 'string', 'string', 'bool', 'string']` | `[coin, isLong, price, size, reduceOnly, nonce]` |
+| `hl_place_order` (close at market) | `['string', 'bool', 'string', 'string', 'bool', 'string']` | `[coin, isLong, price, size, reduceOnly, nonce]` |
+| `hl_modify_order` | `['string', 'string', 'string', 'string', 'string', 'string']` | `[nonce, coin, orderId, price, size, triggerPrice]` |
+| `hl_add_position_tpsl` | `['string', 'string', 'string', 'string', 'string', 'bool', 'string', 'string', 'bool']` | `[nonce, coin, size, tpTriggerPrice, tpPrice, tpIsMarket, slTriggerPrice, slPrice, slIsMarket]` |
 | `hl_close_all` | `['string']` | `[nonce]` |
 | `hl_cancel_order` | `['string', 'string', 'string']` | `[nonce, coin, orderId]` |
 | `hl_cancel_all_orders` | `['string']` | `[nonce]` |
-| `hl_update_leverage` | `['string', 'uint32', 'bool', 'string']` | `[coin, leverage, isCross, nonce]` |
 
 > **WARNING:** The `hl_deposit` chainId uses `uint64`, NOT `uint256`. This is the single most common cause of "Unauthorized" errors. The backend re-encodes with `uint64` for signature verification — if you encode with `uint256`, the hex differs, signature recovery fails, and you get code 103.
 

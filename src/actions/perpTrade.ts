@@ -2,10 +2,11 @@
  * Perpetual futures trading actions on HyperLiquid via GDEX managed custody.
  *
  * Write operations: ABI-encode → sign with session key → encrypt → POST computedData.
- * Read operations: Query the HyperLiquid L1 via @gdexsdk/hyper-liquid-trader SDK.
+ * Read operations: plain HTTP requests to the public HyperLiquid info API.
  *
- * Direct execution (private key trading): Uses HyperLiquidTrading class for
- * cross perp, isolated perp, and spot execution without managed custody.
+ * Direct execution (private key trading): Uses the HyperLiquidTrading class
+ * (@gdexsdk/hyper-liquid-trader) for cross perp, isolated perp, and spot
+ * execution without managed custody. Only that path loads the trader package.
  */
 import { GdexApiClient } from '../client';
 import * as Endpoints from '../client/endpoints';
@@ -15,9 +16,14 @@ import {
   GetPositionsParams,
   HlAccountState,
   HlCancelAllOrdersParams,
+  HlAddPositionTpslParams,
+  HlAddPositionTpslResult,
   HlCancelOrderParams,
   HlCloseAllParams,
+  HlClosePositionParams,
   HlCreateOrderParams,
+  HlModifyOrderParams,
+  HlModifyOrderResult,
   HlPlaceOrderParams,
   HlResponse,
   HlOrderResult,
@@ -36,7 +42,8 @@ import {
   validateHlSize,
   validateLeverage,
 } from '../utils/validation';
-import { GdexValidationError } from '../utils/errors';
+import { GdexError, GdexValidationError } from '../utils/errors';
+import { hlInfoRequest } from '../utils/hlInfo';
 import { buildHlComputedData } from '../utils/gdexManagedCrypto';
 import { getHlClearinghouseState, getHlClearinghouseStateAll } from './hlCopyTrade';
 
@@ -55,24 +62,36 @@ export function normalizeCoin(coin: string): string {
   return coin.slice(0, i).toLowerCase() + ':' + coin.slice(i + 1).toUpperCase();
 }
 
-// Lazy-load @gdexsdk/hyper-liquid-trader to avoid CJS/ESM incompatibility
-// with @noble/hashes v2 (ESM-only) on Node < 22.
-// In production: dynamic import() preserves ESM semantics in CJS output.
+// Lazy-load @gdexsdk/hyper-liquid-trader — used for DIRECT execution only.
+// The package is CommonJS and require()s an ESM-only dependency
+// (@nktkas/hyperliquid → @noble/hashes v2), so it loads only on a Node that
+// supports require(esm) (22.12+). Reads and managed-custody writes never touch it.
+// In production: dynamic import() so nothing is loaded until direct execution is used.
 // In Jest: require() so moduleNameMapper can intercept it.
 let _hlTraderModule: { HyperLiquidTrading: any } | null = null;
 async function getHlTraderModule(): Promise<{ HyperLiquidTrading: any }> {
   if (!_hlTraderModule) {
-    if (process.env.JEST_WORKER_ID) {
-      _hlTraderModule = require('@gdexsdk/hyper-liquid-trader');
-    } else {
-      const dynamicImport = new Function('modulePath', 'return import(modulePath)');
-      _hlTraderModule = await dynamicImport('@gdexsdk/hyper-liquid-trader');
+    try {
+      if (process.env.JEST_WORKER_ID) {
+        _hlTraderModule = require('@gdexsdk/hyper-liquid-trader');
+      } else {
+        const dynamicImport = new Function('modulePath', 'return import(modulePath)');
+        _hlTraderModule = await dynamicImport('@gdexsdk/hyper-liquid-trader');
+      }
+    } catch (err) {
+      const reason = err instanceof Error ? err.message.split('\n')[0] : String(err);
+      throw new GdexError(
+        'Direct HyperLiquid execution could not load @gdexsdk/hyper-liquid-trader ' +
+          `on Node ${process.version}. It needs Node 22.12 or newer (require of ES modules). ` +
+          'Reads and managed-custody orders (hlCreateOrder, closePerpPosition, ...) do not need it. ' +
+          `Cause: ${reason}`,
+      );
     }
   }
   return _hlTraderModule!;
 }
 
-// Singleton HyperLiquidTrading instance for read operations
+// Singleton HyperLiquidTrading instance for direct execution
 let _hlTrader: any = null;
 async function getHlTrader() {
   if (!_hlTrader) {
@@ -91,16 +110,28 @@ export async function createHlTrader(wsUrls?: string[]) {
   return new HyperLiquidTrading(wsUrls);
 }
 
-// ── Read operations (HyperLiquid L1 queries via @gdexsdk/hyper-liquid-trader) ─
+// ── Read operations (public HyperLiquid info API over HTTP) ──────────────────
+
+/** Builder-DEX prefix of a coin symbol, lowercased (`xyz:NVDA` → `xyz`; `BTC` → ``). */
+function dexOf(coin: string): string {
+  const i = coin.indexOf(':');
+  return i === -1 ? '' : coin.slice(0, i).toLowerCase();
+}
+
+interface HlClearinghouseState {
+  marginSummary: { accountValue: string; totalNtlPos: string; totalRawUsd: string; totalMarginUsed: string };
+  assetPositions: Array<{ position: any }>;
+}
 
 /**
- * Get the full HyperLiquid clearinghouse state for a wallet.
+ * Get the full HyperLiquid clearinghouse state for a wallet (default dex).
  * Includes margin summary, positions, and withdrawable balance.
+ *
+ * @throws {GdexNetworkError} when HyperLiquid cannot be reached (a failed read is never reported as an empty account)
  */
 export async function getHlAccountState(walletAddress: string): Promise<HlAccountState> {
   validateRequired(walletAddress, 'walletAddress');
-  const trader = await getHlTrader();
-  const state = await trader.getAccountState(walletAddress);
+  const state = await hlInfoRequest<HlClearinghouseState | null>({ type: 'clearinghouseState', user: walletAddress });
 
   if (!state) {
     return {
@@ -126,6 +157,7 @@ export async function getHlAccountState(walletAddress: string): Promise<HlAccoun
       liquidationPrice: p.liquidationPx ?? undefined,
       unrealizedPnl: p.unrealizedPnl,
       margin: p.marginUsed,
+      marginMode: p.leverage.type === 'isolated' ? 'isolated' as const : 'cross' as const,
       positionValue: p.positionValue,
     };
   });
@@ -158,59 +190,97 @@ export async function getPerpPositions(params: GetPositionsParams): Promise<Perp
 }
 
 /**
- * Get the mark price for an asset from HyperLiquid mid prices.
+ * Get the MARK price for a perp market — HyperLiquid `markPx` from
+ * `metaAndAssetCtxs`, the price gdex.pro shows and the back-end checks limit
+ * orders against. It is not the order-book mid (see `getHlAllMids`).
+ *
+ * Builder-DEX markets (`dex:ASSET`, e.g. `xyz:NVDA`) are read from their own dex.
+ *
+ * @returns the mark price, or 0 when the market is not listed or has no mark
+ * @throws {GdexNetworkError} when HyperLiquid cannot be reached
  */
 export async function getHlMarkPrice(coin: string): Promise<number> {
   validateCoin(coin);
-  const trader = await getHlTrader();
-  const price = await trader.getMidPrice(normalizeCoin(coin));
-  return price ?? 0;
+  const name = normalizeCoin(coin.trim());
+  const dex = dexOf(name);
+  const res = await hlInfoRequest<unknown>({ type: 'metaAndAssetCtxs', ...(dex ? { dex } : {}) });
+  const [meta, ctxs] = (Array.isArray(res) ? res : []) as [
+    { universe?: Array<{ name?: string }> } | undefined,
+    Array<{ markPx?: string }> | undefined,
+  ];
+  const universe = Array.isArray(meta?.universe) ? meta!.universe! : [];
+  // Builder-DEX universes name assets `dex:ASSET`; accept a bare asset name too.
+  const index = universe.findIndex((asset) => {
+    const assetName = String(asset?.name ?? '');
+    return normalizeCoin(dex && !assetName.includes(':') ? `${dex}:${assetName}` : assetName) === name;
+  });
+  if (index === -1) return 0;
+  const mark = Number(ctxs?.[index]?.markPx);
+  return Number.isFinite(mark) && mark > 0 ? mark : 0;
 }
 
 /**
- * Get the USDC balance available on HyperLiquid for a wallet.
+ * Get the USDC balance on HyperLiquid for a wallet: perp account value plus
+ * spot USDC.
  */
 export async function getHlUsdcBalance(walletAddress: string): Promise<number> {
-  const trader = await getHlTrader();
-  const balance = await trader.getBalance(walletAddress);
-  return balance ?? 0;
+  validateRequired(walletAddress, 'walletAddress');
+  const [perp, spot] = await Promise.all([
+    hlInfoRequest<HlClearinghouseState | null>({ type: 'clearinghouseState', user: walletAddress }),
+    hlInfoRequest<{ balances?: Array<{ coin: string; total: string }> } | null>({
+      type: 'spotClearinghouseState',
+      user: walletAddress,
+    }),
+  ]);
+  let total = 0;
+  if (perp?.marginSummary?.accountValue) total += parseFloat(perp.marginSummary.accountValue);
+  const usdc = spot?.balances?.find((b) => b.coin === 'USDC');
+  if (usdc?.total) total += parseFloat(usdc.total);
+  return total;
 }
 
 /**
- * Get open orders on HyperLiquid.
+ * Get open orders on HyperLiquid (default dex, HL `openOrders`). For builder
+ * DEXes and TP/SL trigger details use `getHlOpenOrdersForCopy` /
+ * `getHlOpenOrdersAllForCopy`.
  */
 export async function getHlOpenOrders(walletAddress: string) {
   validateRequired(walletAddress, 'walletAddress');
-  const trader = await getHlTrader();
-  return trader.getOpenOrders(walletAddress) ?? [];
+  return (await hlInfoRequest<any[] | null>({ type: 'openOrders', user: walletAddress })) ?? [];
 }
 
 /**
- * Get all mid prices for all assets on HyperLiquid.
+ * Get all mid prices for all assets on HyperLiquid (default dex).
  */
 export async function getHlAllMids(): Promise<Record<string, string> | undefined> {
-  const trader = await getHlTrader();
-  return trader.getAllMids();
+  return (await hlInfoRequest<Record<string, string> | null>({ type: 'allMids' })) ?? undefined;
 }
 
 /**
- * Get trade history for a wallet on HyperLiquid.
+ * Get trade history (fills) for a wallet on HyperLiquid.
  */
 export async function getHlTradeHistory(walletAddress: string) {
   validateRequired(walletAddress, 'walletAddress');
-  const trader = await getHlTrader();
-  return trader.getTradeHistory(walletAddress);
+  return hlInfoRequest<any[]>({ type: 'userFills', user: walletAddress });
 }
 
 /**
- * Get the leverage context for a trader on a specific coin.
+ * Get the leverage a trader currently uses on a specific coin (from their open
+ * position; undefined when they hold none).
  * Useful for copy trading to match the trader's leverage settings.
  */
 export async function getHlTraderLeverageContext(traderWallet: string, coin: string): Promise<number | undefined> {
   validateRequired(traderWallet, 'traderWallet');
   validateCoin(coin);
-  const trader = await getHlTrader();
-  return trader.getTraderLeverageContext(traderWallet, normalizeCoin(coin));
+  const name = normalizeCoin(coin);
+  const dex = dexOf(name);
+  const state = await hlInfoRequest<HlClearinghouseState | null>({
+    type: 'clearinghouseState',
+    user: traderWallet,
+    ...(dex ? { dex } : {}),
+  });
+  const position = state?.assetPositions?.find((p) => p.position.coin === name);
+  return position?.position.leverage ? position.position.leverage.value : undefined;
 }
 
 /**
@@ -218,8 +288,7 @@ export async function getHlTraderLeverageContext(traderWallet: string, coin: str
  */
 export async function getHlSpotState(walletAddress: string) {
   validateRequired(walletAddress, 'walletAddress');
-  const trader = await getHlTrader();
-  return trader.getSpotState(walletAddress);
+  return hlInfoRequest<any>({ type: 'spotClearinghouseState', user: walletAddress });
 }
 
 // ── Direct execution (private key trading via @gdexsdk/hyper-liquid-trader) ──
@@ -480,8 +549,30 @@ function checkOrderNumbers(p: {
 }
 
 /**
- * Place a market or limit order with optional TP/SL on HyperLiquid.
- * This is the primary way to open/close positions.
+ * Place a market or limit order with optional TP/SL on HyperLiquid
+ * (`POST /v1/hl/create_order`). This is how positions are opened, and how a
+ * resting reduce-only limit ("limit close") is placed.
+ *
+ * - **Market** (`isMarket: true`, default): `price` is the mark-price reference
+ *   ('0' fetches the mark); the back-end applies its own 5% slippage bound.
+ * - **Limit** (`isMarket: false`): rests at `price`. A non-reduce-only limit at
+ *   or through the mark (>= mark for a long, <= mark for a short) is refused by
+ *   the back-end — use a market order instead.
+ * - **Limit close**: `reduceOnly: true, isMarket: false` rests as a normal GTC
+ *   reduce-only order. Pass the position's current `leverage` with it (below).
+ * - **Leverage** travels as a top-level `leverage` field and is the only way to
+ *   set it. The back-end updates the account's leverage for the market before
+ *   placing the order and clamps a value above the market's maximum. When it
+ *   is OMITTED the back-end applies the market's MAXIMUM leverage, on
+ *   reduce-only orders too, so always pass it.
+ * - **Margin mode** is chosen by the back-end: builder-DEX (`dex:ASSET`) and
+ *   isolated-only markets are isolated, everything else is cross.
+ * - **TP/SL** attach only as a pair and become market triggers. Edit them
+ *   later with `hlModifyOrder`, add a missing one with `hlAddPositionTpsl`.
+ * - Minimum order value is $11 unless reduce-only.
+ *
+ * The response is `{ isSuccess: true }` with no order id; read open orders to
+ * get one.
  *
  * @throws {GdexValidationError} on a malformed or over-precise price, size or
  *   TP/SL (before any mark-price fetch or signing)
@@ -521,22 +612,41 @@ export async function hlCreateOrder(client: GdexApiClient, params: HlCreateOrder
 }
 
 /**
- * Place a simple limit order (no TP/SL) on HyperLiquid.
+ * Close (part of) an open position at market — the gdex.pro "Close" button
+ * (`POST /v1/hl/place_order`, action `hl_place_order`).
  *
- * @throws {GdexValidationError} on a malformed or over-precise price or size (nothing is signed)
+ * The back-end reads the live position itself: it closes up to `size` of
+ * `coin` with a reduce-only IOC order at its own mark price ±5%, on the side
+ * opposite to the position, and keeps the position's leverage and margin mode
+ * unchanged. The `price` and `isLong` fields of the signed payload are
+ * IGNORED; they are sent as gdex.pro sends them (price = current mark).
+ *
+ * - `size` larger than the position closes the whole position.
+ * - A partial close must leave at least $11 of position, or the back-end
+ *   refuses it ("Close the full position instead").
+ * - With no open position the back-end still answers `{ isSuccess: true }`.
+ *
+ * Use `closePerpPosition` to have the size and side resolved (and a missing
+ * position rejected) from the live position first.
+ *
+ * @throws {GdexValidationError} on a malformed size or price (nothing is signed)
  */
-export async function hlPlaceOrder(client: GdexApiClient, params: HlPlaceOrderParams): Promise<HlOrderResult> {
-  // hl_place_order's ABI has no isMarket field, so a market flag would be
-  // silently dropped and the order sent as a limit at `price`. Refuse it.
-  if ((params as { isMarket?: unknown }).isMarket === true) {
-    throw new GdexValidationError(
-      'hlPlaceOrder cannot place market orders (hl_place_order has no isMarket field); use hlCreateOrder with isMarket: true',
-      'isMarket',
-    );
-  }
+export async function hlClosePosition(client: GdexApiClient, params: HlClosePositionParams): Promise<HlResponse> {
   validateCoin(params.coin);
   validateRequired(params.walletAddress, 'walletAddress');
-  checkOrderNumbers({ price: params.price, size: params.size, isMarket: false, szDecimals: params.szDecimals });
+  validateHlSize(params.size, 'size', params.szDecimals);
+  const explicitPrice = params.price !== undefined && params.price !== '' && !isZeroPrice(params.price);
+  if (explicitPrice) validateHlPrice(params.price!, 'price');
+  const coin = normalizeCoin(params.coin.trim());
+
+  let price = explicitPrice ? params.price! : '0';
+  if (!explicitPrice) {
+    // The back-end never reads this field (it resolves its own mark and fails
+    // closed without one), so an unavailable mark must not block a close:
+    // send the '0' placeholder instead of the reference price.
+    const mark = await getHlMarkPrice(coin).catch(() => 0);
+    if (Number.isFinite(mark) && mark > 0) price = String(mark);
+  }
 
   const computedData = buildHlComputedData({
     action: 'hl_place_order',
@@ -544,15 +654,53 @@ export async function hlPlaceOrder(client: GdexApiClient, params: HlPlaceOrderPa
     walletAddress: params.walletAddress,
     sessionPrivateKey: params.sessionPrivateKey,
     actionParams: {
-      coin: normalizeCoin(params.coin),
-      isLong: params.isLong,
-      price: params.price,
+      coin,
+      isLong: params.isLong ?? false,
+      price,
       size: params.size,
-      reduceOnly: params.reduceOnly ?? false,
+      reduceOnly: true,
     },
   });
 
-  return client.post<HlOrderResult>(Endpoints.HL_PLACE_ORDER, { computedData });
+  return client.post<HlResponse>(Endpoints.HL_PLACE_ORDER, { computedData });
+}
+
+/**
+ * @deprecated Use `hlClosePosition` (close at market) or `hlCreateOrder`
+ * (market and limit orders, including a reduce-only limit close).
+ *
+ * `/v1/hl/place_order` is NOT a general limit-order call: the back-end refuses
+ * anything that is not reduce-only ("Now only support close position"),
+ * ignores the `price` and `isLong` sent, and closes `size` of the live
+ * position at market. This alias therefore requires `reduceOnly: true` and
+ * rejects everything else before signing.
+ *
+ * @throws {GdexValidationError} when `reduceOnly` is not `true`, or on a malformed price or size (nothing is signed)
+ */
+export async function hlPlaceOrder(client: GdexApiClient, params: HlPlaceOrderParams): Promise<HlOrderResult> {
+  if (params.reduceOnly !== true) {
+    throw new GdexValidationError(
+      'hlPlaceOrder only closes positions: /v1/hl/place_order rejects non-reduce-only orders, ignores price and ' +
+        'isLong, and closes `size` of the open position at MARKET. To open a position or rest a limit order use ' +
+        'hlCreateOrder (isMarket: false for a limit; add reduceOnly: true for a limit close). To close at market ' +
+        'use hlClosePosition or closePerpPosition.',
+      'reduceOnly',
+    );
+  }
+  validateCoin(params.coin);
+  validateRequired(params.walletAddress, 'walletAddress');
+  checkOrderNumbers({ price: params.price, size: params.size, isMarket: false, szDecimals: params.szDecimals });
+
+  return hlClosePosition(client, {
+    apiKey: params.apiKey,
+    walletAddress: params.walletAddress,
+    sessionPrivateKey: params.sessionPrivateKey,
+    coin: params.coin,
+    isLong: params.isLong,
+    price: params.price,
+    size: params.size,
+    szDecimals: params.szDecimals,
+  });
 }
 
 // ── Close one position (side + size resolved from live HL state) ────────────
@@ -734,11 +882,15 @@ export async function resolvePerpClose(
 }
 
 /**
- * Close (fully or partially) one perp position with a reduce-only market order.
+ * Close (fully or partially) one perp position at market.
  *
  * Direction and size come from the live position (see `resolvePerpClose`) —
- * a long is closed with a sell, a short with a buy. Omit `size` for a full
- * close. HL's $11 minimum order value still applies.
+ * a long is closed with a sell, a short with a buy — and a flat or missing
+ * position is rejected before anything is signed. The close itself is sent
+ * the way gdex.pro's Close button sends it (`hlClosePosition`,
+ * `/v1/hl/place_order`): the back-end closes at its own mark ±5% and leaves
+ * the position's leverage and margin mode untouched. Omit `size` for a full
+ * close; a partial close must leave at least $11 of position.
  */
 export async function closePerpPosition(
   client: GdexApiClient,
@@ -747,18 +899,14 @@ export async function closePerpPosition(
   // Check the caller's price before reading the position.
   if (params.price && !isZeroPrice(params.price)) validateHlPrice(params.price, 'price');
   const plan = await resolvePerpClose(client, params);
-  const order = await hlCreateOrder(client, {
+  const order = await hlClosePosition(client, {
     apiKey: params.apiKey,
     walletAddress: params.walletAddress,
     sessionPrivateKey: params.sessionPrivateKey,
     coin: plan.coin,
     isLong: plan.isLong,
-    price: params.price || '0',
+    price: params.price,
     size: plan.size,
-    reduceOnly: true,
-    isMarket: true,
-    tpPrice: '',
-    slPrice: '',
     szDecimals: params.szDecimals,
   });
   return { ...plan, order };
@@ -820,26 +968,162 @@ export async function hlCancelAllOrders(client: GdexApiClient, params: HlCancelA
   return client.post<HlResponse>(Endpoints.HL_CANCEL_ORDER, { computedData, isCancelAll: true });
 }
 
+// ── Edit open orders / add TP/SL to an open position ────────────────────────
+
+const PLAIN_DECIMAL = /^\d+(\.\d+)?$/;
+
+/** '' / undefined → '' (keep / none); anything else must be a plain positive decimal. */
+function optionalDecimal(
+  value: string | undefined,
+  field: string,
+  opts: { allowZero?: boolean; szDecimals?: number; kind: 'price' | 'size' },
+): string {
+  if (value === undefined || value === '') return '';
+  if (typeof value !== 'string' || !PLAIN_DECIMAL.test(value) || !Number.isFinite(Number(value))) {
+    throw new GdexValidationError(`${field} must be a plain decimal string, got "${String(value)}"`, field);
+  }
+  if (Number(value) === 0) {
+    if (opts.allowZero) return value;
+    throw new GdexValidationError(`${field} must be greater than 0`, field);
+  }
+  if (opts.kind === 'price') validateHlPrice(value, field, opts.szDecimals);
+  else validateHlSize(value, field, opts.szDecimals);
+  return value;
+}
+
 /**
- * Update leverage for a specific asset on HyperLiquid.
- * The backend normally calls setMaxLeverage() before each trade,
- * but this allows explicit leverage configuration.
+ * Change an open order (`POST /v1/hl/modify_order`, action `hl_modify_order`):
+ * move a TP/SL trigger, re-price a resting limit, or change the remaining size.
+ *
+ * Fields left out (or '') keep the order's current value; at least one of
+ * `price`, `size`, `triggerPrice` is required.
+ *
+ * - **TP/SL trigger**: send `triggerPrice`. Leave `price` out and a market
+ *   trigger keeps its execution-price buffer.
+ * - **Resting limit**: send `price` (`triggerPrice` is refused on a non-trigger
+ *   order). A non-reduce-only limit moved to or through the mark is refused.
+ * - `size` is the remaining base quantity; `'0'` is accepted only for a
+ *   position-level TP/SL (it means "the whole position").
+ *
+ * HyperLiquid replaces the order, so `retData.orderId` is the NEW id and
+ * `retData.previousOrderId` the old one. A refusal arrives as a
+ * `GdexApiError` (HTTP 400; `responseBody.code` 102 = no such open order).
+ * To remove a TP/SL use `hlCancelOrder` with its order id.
+ *
+ * @throws {GdexValidationError} on a bad order id or numbers (nothing is signed)
  */
-export async function hlUpdateLeverage(client: GdexApiClient, params: HlUpdateLeverageParams): Promise<HlResponse> {
+export async function hlModifyOrder(client: GdexApiClient, params: HlModifyOrderParams): Promise<HlModifyOrderResult> {
   validateCoin(params.coin);
   validateRequired(params.walletAddress, 'walletAddress');
+  const orderId = String(params.orderId ?? '');
+  if (!/^\d+$/.test(orderId) || !Number.isSafeInteger(Number(orderId)) || Number(orderId) <= 0) {
+    throw new GdexValidationError(`orderId must be a positive integer, got "${orderId}"`, 'orderId');
+  }
+  const price = optionalDecimal(params.price, 'price', { kind: 'price', szDecimals: params.szDecimals });
+  const size = optionalDecimal(params.size, 'size', { kind: 'size', szDecimals: params.szDecimals, allowZero: true });
+  const triggerPrice = optionalDecimal(params.triggerPrice, 'triggerPrice', {
+    kind: 'price',
+    szDecimals: params.szDecimals,
+  });
+  if (!price && !size && !triggerPrice) {
+    throw new GdexValidationError('At least one of price, size or triggerPrice is required', 'price');
+  }
 
   const computedData = buildHlComputedData({
-    action: 'hl_update_leverage',
+    action: 'hl_modify_order',
+    apiKey: params.apiKey,
+    walletAddress: params.walletAddress,
+    sessionPrivateKey: params.sessionPrivateKey,
+    actionParams: { coin: normalizeCoin(params.coin.trim()), orderId, price, size, triggerPrice },
+  });
+
+  return client.post<HlModifyOrderResult>(Endpoints.HL_MODIFY_ORDER, { computedData });
+}
+
+/**
+ * Add a missing take-profit and/or stop-loss to an OPEN position
+ * (`POST /v1/hl/add_position_tpsl`, action `hl_add_position_tpsl`; HyperLiquid
+ * grouping `positionTpsl`). One side or both in one call.
+ *
+ * - Omit `size` to cover the whole position (what gdex.pro sends).
+ * - Triggers are market triggers by default (`tpIsMarket` / `slIsMarket`
+ *   true); leave `tpPrice` / `slPrice` out and the back-end sets the execution
+ *   price. An execution price needs its trigger price.
+ * - The TP trigger must be on the profit side of the current mark and the SL
+ *   trigger on the loss side, or the back-end refuses.
+ * - It only ADDS: a side that already has a trigger is refused (HTTP 400,
+ *   `responseBody.code` 409, "use modify_order") — move it with
+ *   `hlModifyOrder`, remove it with `hlCancelOrder`. No open position is
+ *   `responseBody.code` 102.
+ *
+ * `retData.createdOrders` lists what was placed. When one side is accepted and
+ * the other rejected the back-end answers HTTP 400 with `partialSuccess: true`,
+ * which surfaces as a `GdexApiError` whose `responseBody.retData` still lists
+ * the created order — read open orders before retrying.
+ *
+ * @throws {GdexValidationError} on missing or malformed prices (nothing is signed)
+ */
+export async function hlAddPositionTpsl(
+  client: GdexApiClient,
+  params: HlAddPositionTpslParams,
+): Promise<HlAddPositionTpslResult> {
+  validateCoin(params.coin);
+  validateRequired(params.walletAddress, 'walletAddress');
+  const num = (value: string | undefined, field: string, kind: 'price' | 'size') =>
+    optionalDecimal(value, field, { kind, szDecimals: params.szDecimals });
+  const size = num(params.size, 'size', 'size');
+  const tpTriggerPrice = num(params.tpTriggerPrice, 'tpTriggerPrice', 'price');
+  const tpPrice = num(params.tpPrice, 'tpPrice', 'price');
+  const slTriggerPrice = num(params.slTriggerPrice, 'slTriggerPrice', 'price');
+  const slPrice = num(params.slPrice, 'slPrice', 'price');
+  if (!tpTriggerPrice && !slTriggerPrice) {
+    throw new GdexValidationError('At least one of tpTriggerPrice or slTriggerPrice is required', 'tpTriggerPrice');
+  }
+  if (tpPrice && !tpTriggerPrice) {
+    throw new GdexValidationError('tpPrice (execution price) requires tpTriggerPrice', 'tpPrice');
+  }
+  if (slPrice && !slTriggerPrice) {
+    throw new GdexValidationError('slPrice (execution price) requires slTriggerPrice', 'slPrice');
+  }
+  for (const field of ['tpIsMarket', 'slIsMarket'] as const) {
+    if (params[field] !== undefined && typeof params[field] !== 'boolean') {
+      throw new GdexValidationError(`${field} must be a boolean`, field);
+    }
+  }
+
+  const computedData = buildHlComputedData({
+    action: 'hl_add_position_tpsl',
     apiKey: params.apiKey,
     walletAddress: params.walletAddress,
     sessionPrivateKey: params.sessionPrivateKey,
     actionParams: {
-      coin: normalizeCoin(params.coin),
-      leverage: params.leverage,
-      isCross: params.isCross ?? true,
+      coin: normalizeCoin(params.coin.trim()),
+      size,
+      tpTriggerPrice,
+      tpPrice,
+      tpIsMarket: params.tpIsMarket ?? true,
+      slTriggerPrice,
+      slPrice,
+      slIsMarket: params.slIsMarket ?? true,
     },
   });
 
-  return client.post<HlResponse>(Endpoints.HL_UPDATE_LEVERAGE, { computedData });
+  return client.post<HlAddPositionTpslResult>(Endpoints.HL_ADD_POSITION_TPSL, { computedData });
+}
+
+/**
+ * @deprecated There is no leverage route on the GDEX back-end
+ * (`/v1/hl/update_leverage` does not exist), so this always throws without
+ * signing or sending anything. Leverage is set per order with the `leverage`
+ * field of `hlCreateOrder`.
+ *
+ * @throws {GdexValidationError} always
+ */
+export async function hlUpdateLeverage(_client: GdexApiClient, _params: HlUpdateLeverageParams): Promise<HlResponse> {
+  throw new GdexValidationError(
+    'hlUpdateLeverage is not available: the GDEX back-end has no /v1/hl/update_leverage route. ' +
+      'Set leverage with the `leverage` field of hlCreateOrder — the back-end applies it to the market ' +
+      "just before placing that order (clamped to the market's maximum).",
+    'leverage',
+  );
 }
